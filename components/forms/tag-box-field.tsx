@@ -76,6 +76,7 @@ export default function TagBoxField<T extends FieldValues>({
                 valueExpr={valueExpr}
                 value={field.value}
                 displayExpr={displayExpr}
+                valueChangeEvent='input'
                 onValueChanged={(e) => {
                   const value = e.value
                   if (isEqual(value, field.value)) return

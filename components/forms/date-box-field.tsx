@@ -58,6 +58,7 @@ export default function DateBoxField<T extends FieldValues>({
               type={type}
               isValid={isValid}
               value={field.value}
+              valueChangeEvent='input'
               onValueChanged={(e) => {
                 const value = e.value
                 field.onChange(value)

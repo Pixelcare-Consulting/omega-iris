@@ -55,6 +55,7 @@ export default function DateRangeBoxField<T extends FieldValues>({
               labelMode='hidden'
               isValid={isValid}
               value={field.value}
+              valueChangeEvent='input'
               onValueChanged={(e) => {
                 const [startDate, endDate] = e.value
 

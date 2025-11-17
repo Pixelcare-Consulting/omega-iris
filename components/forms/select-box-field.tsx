@@ -76,6 +76,7 @@ export default function SelectBoxField<T extends FieldValues>({
                 searchExpr={searchExpr}
                 valueExpr={valueExpr}
                 displayExpr={displayExpr}
+                valueChangeEvent='input'
                 onValueChanged={(e) => {
                   const item = data.find((d: any) => d[valueExpr] === e.value)
                   const value = e.value
