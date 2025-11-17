@@ -1,7 +1,8 @@
+import { notFound } from 'next/navigation'
+
 import { getUserByCode } from '@/actions/users'
 import ContentContainer from '../../_components/content-container'
 import UserForm from '../_components/user-form'
-import { notFound } from 'next/navigation'
 
 export default async function UserPage({ params }: { params: { code: string } }) {
   const { code } = params

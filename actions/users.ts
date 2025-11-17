@@ -8,6 +8,7 @@ import { basicInfoFormSchema, changePasswordFormSchema, userFormSchema } from '@
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { db } from '@/utils/db'
 import { DuplicateFields } from '@/types/common'
+import z from 'zod'
 
 export async function getUsers() {
   try {
@@ -50,6 +51,14 @@ export async function getUserById(id: string) {
     return null
   }
 }
+
+export const getUserByIdClient = action
+  .schema(z.object({ id: z.string().nullish() }))
+  .use(authenticationMiddleware)
+  .action(async ({ parsedInput: data }) => {
+    if (!data.id) return null
+    return getUserById(data.id)
+  })
 
 export async function getUserByCode(code: number) {
   if (!code) return null
