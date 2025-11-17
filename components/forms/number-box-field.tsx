@@ -58,6 +58,7 @@ export default function NumberBoxField<T extends FieldValues>({
               placeholder={placeholder}
               isValid={isValid}
               value={field.value}
+              valueChangeEvent='input'
               onValueChanged={(e) => {
                 const value = e.value
                 field.onChange(value)

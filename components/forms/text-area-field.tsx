@@ -57,7 +57,7 @@ export default function TextAreaField<T extends FieldValues>({
               placeholder={placeholder}
               isValid={isValid}
               value={field.value}
-              valueChangeEvent='change'
+              valueChangeEvent='input'
               autoResizeEnabled={isAutoResize}
               onValueChanged={(e) => {
                 const value = e.value

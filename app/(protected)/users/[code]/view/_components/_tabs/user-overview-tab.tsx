@@ -2,13 +2,13 @@
 
 import { format, isValid } from 'date-fns'
 import ScrollView from 'devextreme-react/scroll-view'
-import Button from 'devextreme-react/button'
 
 import { getUserByCode } from '@/actions/users'
 import ReadOnlyField from '@/components/read-only-field'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Separator from '@/components/separator'
 import Copy from '@/components/copy'
+import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
 
 type UserOverviewTabProps = {
   user: NonNullable<Awaited<ReturnType<typeof getUserByCode>>>
@@ -46,6 +46,17 @@ export default function UserOverviewTab({ user }: UserOverviewTabProps) {
           className='col-span-12 md:col-span-6 lg:col-span-3'
           title='Last Signin'
           value={user?.lastSignin && isValid(user?.lastSignin) ? format(user.lastSignin, 'MM-dd-yyyy hh:mm a') : ''}
+        />
+
+        <ReadOnlyFieldHeader className='col-span-12' title='Record Meta data' description='Role record meta data' />
+
+        <RecordMetaData
+          createdAt={user.createdAt}
+          updatedAt={user.updatedAt}
+          deletedAt={user.deletedAt}
+          createdBy={user.createdBy}
+          updatedBy={user.updatedBy}
+          deletedBy={user.deletedBy}
         />
       </div>
     </ScrollView>

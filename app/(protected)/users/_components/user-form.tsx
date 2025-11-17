@@ -23,9 +23,9 @@ import useRolesClient from '@/hooks/safe-actions/use-roles-client'
 import SelectBoxField from '@/components/forms/select-box-field'
 import { PageMetadata } from '@/types/common'
 
-type UserPageContentProps = { pageMetaData: PageMetadata; user: Awaited<ReturnType<typeof getUserByCode>> }
+type UserFormProps = { pageMetaData: PageMetadata; user: Awaited<ReturnType<typeof getUserByCode>> }
 
-export default function UserForm({ pageMetaData, user }: UserPageContentProps) {
+export default function UserForm({ pageMetaData, user }: UserFormProps) {
   const router = useRouter()
   const { code } = useParams()
 

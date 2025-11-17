@@ -146,14 +146,7 @@ export default function CommonPageHeaderToolbarItems({ dataGridUniqueKey, dataGr
           hideEvent='mouseleave'
           position='top'
         />
-        <Button
-          id='add-button'
-          className={dataGridStore.showFilterRow ? '[&>.dx-button-content>.dx-icon]:text-primary' : ''}
-          icon='add'
-          type='default'
-          stylingMode='contained'
-          onClick={addButton.onClick}
-        />
+        <Button id='add-button' icon='add' type='default' stylingMode='contained' onClick={addButton.onClick} />
       </Item>
 
       <Item location='after' widget='dxButton'>

@@ -21,13 +21,13 @@ export default function ReadOnlyField({ className, title, value, isLoading, desc
             {!isLoading && value}
 
             {isLoading && (
-              <div className='flex items-center justify-between'>
-                <span className='text-muted-foreground'>Loading value...</span>
+              <div className='flex w-full items-center justify-between text-slate-400'>
+                <span>Loading value...</span>
                 <Icons.spinner className='size-4 animate-spin' />
               </div>
             )}
 
-            {children}
+            {children ?? null}
           </div>
         </div>
       </div>

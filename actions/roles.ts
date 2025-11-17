@@ -1,5 +1,7 @@
 'use server'
 
+import { paramsSchema } from '@/schema/common'
+import { roleFormSchema } from '@/schema/role'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 
@@ -13,6 +15,86 @@ export async function getRoles() {
   }
 }
 
+export async function getRolesByCode(code: number) {
+  if (!code) return null
+
+  try {
+    return await db.role.findUnique({ where: { code } })
+  } catch (err) {
+    return null
+  }
+}
+
 export const getRolesClient = action.use(authenticationMiddleware).action(async () => {
   return getRoles()
 })
+
+export const upsertRole = action
+  .use(authenticationMiddleware)
+  .schema(roleFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { code, ...data } = parsedInput
+    const { userId } = ctx
+
+    try {
+      const existingRole = await db.role.findFirst({ where: { key: data.key, ...(code && code !== -1 && { code: { not: code } }) } })
+
+      //* check if existing
+      if (existingRole) return { error: true, status: 401, message: 'Role key already exists!', action: 'UPSERT_ROLE' }
+
+      //*  update role
+      if (code && code !== -1) {
+        const [updatedRole] = await db.$transaction([
+          //* update role
+          db.role.update({ where: { code }, data: { ...data, updatedBy: userId } }),
+
+          //TODO: role permissions
+        ])
+
+        return {
+          status: 200,
+          message: 'Role updated successfully!',
+          action: 'UPSERT_ROLE',
+          data: { role: updatedRole },
+        }
+      }
+
+      //* create role
+      const newRole = await db.role.create({ data: { ...data, createdBy: userId, updatedBy: userId } })
+
+      return { status: 200, message: 'Role created successfully!', action: 'UPSERT_ROLE', data: { role: newRole } }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'UPSERT_ROLE',
+      }
+    }
+  })
+
+export const deleleteRole = action
+  .use(authenticationMiddleware)
+  .schema(paramsSchema)
+  .action(async ({ ctx, parsedInput: data }) => {
+    try {
+      const role = await db.role.findUnique({ where: { code: data.code } })
+
+      if (!role) return { error: true, code: 404, message: 'Role not found', action: 'DELETE_ROLE' }
+
+      await db.role.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
+
+      return { status: 200, message: 'Role deleted successfully', action: 'DELETE_ROLE' }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'An unexpected error occurred',
+        action: 'DELETE_ROLE',
+      }
+    }
+  })
