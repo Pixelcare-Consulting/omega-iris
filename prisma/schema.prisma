@@ -1,0 +1,93 @@
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+model User {
+    id            String    @id @default(cuid())
+    code          Int       @unique @default(autoincrement())
+    username      String    @unique
+    fname         String
+    lname         String
+    email         String    @unique
+    emailVerified DateTime?
+    password      String    @default("")
+    roleCode      Int
+    isOnline      Boolean   @default(false)
+    isActive      Boolean   @default(true)
+    location      String?
+    lastIpAddress String?
+    lastSignin    DateTime?
+    customerCode  String?
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    accounts Account[]
+    profile  Profile?
+    role     Role      @relation(fields: [roleCode], references: [code])
+}
+
+model Role {
+    id          String  @id @default(cuid())
+    code        Int     @unique @default(autoincrement())
+    name        String
+    key         String  @unique
+    description String? @default("")
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    users User[]
+}
+
+model Profile {
+    id       String @id @default(uuid())
+    code     Int    @unique @default(autoincrement())
+    userCode Int    @unique
+
+    details Json?
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    user User @relation(fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+}
+
+model Account {
+    userId            String
+    type              String
+    provider          String
+    providerAccountId String
+    refresh_token     String?
+    access_token      String?
+    expires_at        Int?
+    token_type        String?
+    scope             String?
+    id_token          String?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    user User @relation(fields: [userId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+    @@id([provider, providerAccountId])
+}
+
+//* add model system logs

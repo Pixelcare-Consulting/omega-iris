@@ -1,0 +1,20 @@
+@import url('./devextreme/dx.fluent.custom-scheme.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary: 237, 28, 36;
+  }
+
+  .dark {
+    --primary: 237, 28, 36;
+  }
+}
+
+/* custom devextreme styles/overrdes */
+.sidebar-treeview .dx-treeview-item {
+  @apply flex-row-reverse text-sm font-medium;
+}

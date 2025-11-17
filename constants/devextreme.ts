@@ -1,0 +1,2 @@
+export const DATAGRID_PAGE_SIZES = [10, 25, 50, 75, 100]
+export const DATAGRID_DEFAULT_PAGE_SIZE = 10

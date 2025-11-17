@@ -1,0 +1,110 @@
+{
+    "items": [
+        {
+            "key": "$base-accent",
+            "value": "rgba(237, 28, 36, 1)"
+        },
+        {
+            "key": "$base-text-color",
+            "value": "rgba(2, 6, 23, 1)"
+        },
+        {
+            "key": "$base-border-color",
+            "value": "rgba(226, 232, 240, 1)"
+        },
+        {
+            "key": "$base-border-radius",
+            "value": "6px"
+        },
+        {
+            "key": "$base-typography-bg",
+            "value": "rgba(255, 255, 255, 1)"
+        },
+        {
+            "key": "$base-success",
+            "value": "rgba(74, 222, 128, 1)"
+        },
+        {
+            "key": "$base-warning",
+            "value": "rgba(250, 204, 21, 1)"
+        },
+        {
+            "key": "$base-danger",
+            "value": "rgba(239, 68, 68, 1)"
+        },
+        {
+            "key": "$base-hover-color",
+            "value": "rgba(23, 2, 2, 1)"
+        },
+        {
+            "key": "$base-label-color",
+            "value": "rgba(2, 6, 23, 1)"
+        },
+        {
+            "key": "$base-link-color",
+            "value": "rgba(2, 6, 23, 1)"
+        },
+        {
+            "key": "$base-icon-color",
+            "value": "rgba(2, 6, 23, 1)"
+        },
+        {
+            "key": "$base-spin-icon-color",
+            "value": "rgba(2, 6, 23, 1)"
+        },
+        {
+            "key": "$datagrid-border-radius",
+            "value": "6px"
+        },
+        {
+            "key": "$cardview-fluent-card__cover--noimage__icon-color",
+            "value": "rgba(2, 6, 23, 1)"
+        },
+        {
+            "key": "$scheduler-appointment-base-color",
+            "value": "rgba(250, 205, 206, 1)"
+        },
+        {
+            "key": "$base-border-color-accessible",
+            "value": "rgba(148, 163, 184, 1)"
+        },
+        {
+            "key": "$texteditor-color",
+            "value": "rgba(2, 6, 23, 1)"
+        },
+        {
+            "key": "$calendar-cell-other-color",
+            "value": "rgba(237, 28, 36, 1)"
+        },
+        {
+            "key": "$chat-messagelist-empty-icon-color",
+            "value": "rgba(2, 6, 23, 1)"
+        },
+        {
+            "key": "$accordion-title-color",
+            "value": "rgba(2, 6, 23, 1)"
+        },
+        {
+            "key": "$stepper-step-disabled-text-color",
+            "value": "rgba(148, 163, 184, 1)"
+        },
+        {
+            "key": "$tabs-tab-disabled-color",
+            "value": "rgba(148, 163, 184, 1)"
+        },
+        {
+            "key": "$tabs-tab-border-color-disabled",
+            "value": "rgba(148, 163, 184, 1)"
+        },
+        {
+            "key": "$tabs-tab-icon-disabled-color",
+            "value": "rgba(148, 163, 184, 1)"
+        }
+    ],
+    "baseTheme": "fluent.saas.light",
+    "outputColorScheme": "custom-scheme",
+    "makeSwatch": false,
+    "version": "25.1.6",
+    "widgets": [],
+    "removeExternalResources": false
+}
