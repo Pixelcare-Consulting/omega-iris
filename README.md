@@ -2,6 +2,23 @@
 
 Omga GTI Inventory Management System
 
+### Folder Structure
+
+- app/ - next.js app directory
+- components/ - global reusable custom components
+- components/form - global reusable custom form components
+- components/acl - global reusable custom acl components
+- components/providers - global reusable custom providers
+- constants/ - global constants
+- hooks/ - global react custom hooks
+- prisma/ - prisma schema and migration files
+- public/ - public static files
+- schema - reusable zod schema/types
+- styles/ - global custom styles
+- styles/devextreme/ - devextreme custom theme styles
+- types/ - global custom types
+- utils/ - global custom reusable utility functions
+
 ### DevExtreme Themes
 
 #### Basic Settings
@@ -69,20 +86,3 @@ Omga GTI Inventory Management System
 - Used `--font-inter` variable to change font family
 - Commented / not include `dx-theme-fluent-typography` for headings
 - changed - `color: #5a77f1;` to `color: #94A3B8;` (`slate-400`)
-
-### Folder Structure
-
-- app/ - next.js app directory
-- components/ - global reusable custom components
-- components/form - global reusable custom form components
-- components/acl - global reusable custom acl components
-- components/providers - global reusable custom providers
-- constants/ - global constants
-- hooks/ - global react custom hooks
-- prisma/ - prisma schema and migration files
-- public/ - public static files
-- schema - reusable zod schema/types
-- styles/ - global custom styles
-- styles/devextreme/ - devextreme custom theme styles
-- types/ - global custom types
-- utils/ - global custom reusable utility functions
