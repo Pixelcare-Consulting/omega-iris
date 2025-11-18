@@ -10,7 +10,7 @@ import TabPanel, { Item as TabPanelITem } from 'devextreme-react/tab-panel'
 import { getRolesByCode } from '@/actions/roles'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
-import RolesOverviewTab from '../_tabs/role-overview-tab'
+import RolesOverviewTab from './_tabs/role-overview-tab'
 import UnderDevelopment from '@/app/under-development'
 
 type ViewRolesProps = {

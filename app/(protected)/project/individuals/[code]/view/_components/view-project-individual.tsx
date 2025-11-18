@@ -9,7 +9,7 @@ import TabPanel, { Item as TabPanelITem } from 'devextreme-react/tab-panel'
 import { getProjectIndividualByCode } from '@/actions/project-individual'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
-import ProjectIndividualOverviewTab from '../_tabs/project-individual-overview-tab'
+import ProjectIndividualOverviewTab from './_tabs/project-individual-overview-tab'
 import UnderDevelopment from '@/app/under-development'
 import { useNonCustomerUsersClient, useUsersByRoleKeyClient } from '@/hooks/safe-actions/user'
 
