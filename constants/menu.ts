@@ -63,15 +63,15 @@ export const navigation: NavItem[] = [
     items: [
       {
         id: '4_2',
-        text: 'Group',
-        path: '/projects/group',
+        text: 'Groups',
+        path: '/project/groups',
         selected: false,
         expanded: false,
       },
       {
         id: '4_1',
-        text: 'Individual',
-        path: '/projects/individual',
+        text: 'Individuals',
+        path: '/project/individuals',
         selected: false,
         expanded: false,
       },

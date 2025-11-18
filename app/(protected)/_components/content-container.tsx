@@ -6,5 +6,5 @@ type ContentContainerProps = {
 }
 
 export default function ContentContainer({ className, children }: ContentContainerProps) {
-  return <div className={cn('flex h-full w-full flex-col gap-5', className)}>{children}</div>
+  return <div className={cn('h-full w-full space-y-5', className)}>{children}</div>
 }

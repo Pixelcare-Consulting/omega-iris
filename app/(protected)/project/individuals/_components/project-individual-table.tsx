@@ -1,6 +1,6 @@
 'use client'
 
-import { deleteUser, getUsers } from '@/actions/users'
+import { deleleteProjectIndividual, getProjectIndividuals } from '@/actions/project-individual'
 import DataGrid, {
   Column,
   FilterRow,
@@ -25,33 +25,28 @@ import { toast } from 'sonner'
 import { useCallback, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
-import { format, isValid } from 'date-fns'
 
-import PageHeader from '../../_components/page-header'
-import PageContentWrapper from '../../_components/page-content-wrapper'
-import { cn } from '@/utils'
-import { createRandomUser } from '@/utils/faker'
+import PageHeader from '@/app/(protected)/_components/page-header'
+import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES } from '@/constants/devextreme'
-import CommonPageHeaderToolbarItems from '../../_components/common-page-header-toolbar-item'
+import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import AlertDialog from '@/components/alert-dialog'
 
-type UserTableProps = { users: Awaited<ReturnType<typeof getUsers>> }
-type DataSource = Awaited<ReturnType<typeof getUsers>>
+type ProjectIndividualTableProps = { projectIndividuals: Awaited<ReturnType<typeof getProjectIndividuals>> }
+type DataSource = Awaited<ReturnType<typeof getProjectIndividuals>>
 
-const RANDOM_USERS = Array.from({ length: 100 }).map(() => createRandomUser())
-
-export default function UserTable({ users }: UserTableProps) {
+export default function ProjectIndividualsTable({ projectIndividuals }: ProjectIndividualTableProps) {
   const router = useRouter()
 
-  const DATAGRID_STORAGE_KEY = 'dx-datagrid-user'
-  const DATAGRID_UNIQUE_KEY = 'users'
+  const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual'
+  const DATAGRID_UNIQUE_KEY = 'project-individuals'
 
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
   const dataGridRef = useRef<DataGridRef | null>(null)
 
-  const { executeAsync } = useAction(deleteUser)
+  const { executeAsync } = useAction(deleleteProjectIndividual)
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',
@@ -69,38 +64,19 @@ export default function UserTable({ users }: UserTableProps) {
     'setShowColumnChooser',
   ])
 
-  const statusCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
-    const data = e.data as DataSource[number]
-    const isActive = data.isActive
-
-    return (
-      <div className={cn('flex items-center gap-1.5', isActive ? 'text-green-500' : 'text-red-500')}>
-        <div className={cn('size-2 rounded-full', isActive ? 'bg-green-500' : 'bg-red-500')} />
-        <span>{isActive ? 'Active' : 'Inactive'}</span>
-      </div>
-    )
-  }, [])
-
-  const lastSigninCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
-    const data = e.data as DataSource[number]
-    const lastSignin = data?.lastSignin
-    if (!lastSignin || !isValid(lastSignin)) return ''
-    return format(lastSignin, 'MM-dd-yyyy hh:mm a')
-  }, [])
-
   const handleView = useCallback((e: DataGridTypes.RowClickEvent) => {
     const rowType = e.rowType
     if (rowType !== 'data') return
 
     const code = e.data?.code
     if (!code) return
-    router.push(`/users/${code}/view`)
+    router.push(`/project/individuals/${code}/view`)
   }, [])
 
   const handleEdit = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const code = e.row?.data?.code
     if (!code) return
-    router.push(`/users/${code}`)
+    router.push(`/project/individuals/${code}`)
   }, [])
 
   const handleDelete = useCallback(
@@ -119,11 +95,11 @@ export default function UserTable({ users }: UserTableProps) {
     setShowConfirmation(false)
 
     toast.promise(executeAsync({ code }), {
-      loading: 'Deleting user...',
+      loading: 'Deleting project individual...',
       success: (response) => {
         const result = response?.data
 
-        if (!response || !result) throw { message: 'Failed to delete user!', unExpectedError: true }
+        if (!response || !result) throw { message: 'Failed to delete project individual!', unExpectedError: true }
 
         if (!result.error) {
           setTimeout(() => {
@@ -143,18 +119,18 @@ export default function UserTable({ users }: UserTableProps) {
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Users' description='Manage and track your users effectively'>
+      <PageHeader title='Project Individuals' description='Manage and track your project individuals effectively'>
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
-          addButton={{ text: 'Add User', onClick: () => router.push('/users/add') }}
+          addButton={{ text: 'Add Project Individual', onClick: () => router.push('/project/individuals/add') }}
         />
       </PageHeader>
 
       <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
         <DataGrid
           ref={dataGridRef}
-          dataSource={users}
+          dataSource={projectIndividuals}
           keyExpr='id'
           showBorders
           columnHidingEnabled={dataGridStore.columnHidingEnabled}
@@ -162,29 +138,16 @@ export default function UserTable({ users }: UserTableProps) {
           allowColumnReordering
           allowColumnResizing
           height='100%'
+          width='100%'
           onRowClick={handleView}
           onRowPrepared={(e) => e.rowElement.classList.add('cursor-pointer')}
         >
-          <Column dataField='code' width={100} dataType='string' caption='ID' fixed sortOrder='asc' />
-          <Column dataField='username' dataType='string' />
-          <Column
-            dataField='fullName'
-            dataType='string'
-            caption='Full Name'
-            calculateCellValue={(rowData) => `${rowData.fname} ${rowData.lname}`}
-          />
-          <Column dataField='email' dataType='string' caption='Email Address' />
-          <Column dataField='role.name' dataType='string' caption='Role' />
-          <Column
-            dataField='isActive'
-            dataType='string'
-            caption='Status'
-            cellRender={statusCellRender}
-            calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
-          />
-          <Column dataField='location' dataType='string' />
-          <Column dataField='lastIpAddress' dataType='string' caption='Last IP Address' />
-          <Column dataField='lastSignin' dataType='string' caption='Last Signin' cellRender={lastSigninCellRender} />
+          <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
+          <Column dataField='name' dataType='string' />
+          <Column dataField='description' dataType='string' />
+          <Column dataField='projectGroup.name' dataType='string' caption='Group' />
+          <Column dataField='createdAt' dataType='datetime' caption='Created At' />
+          <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
           <Column type='buttons' fixed fixedPosition='right' caption='Actions'>
             <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' />
@@ -220,7 +183,7 @@ export default function UserTable({ users }: UserTableProps) {
       <AlertDialog
         isOpen={showConfirmation}
         title='Are you sure?'
-        description={`Are you sure you want to delete this user named "${rowData?.fname} ${rowData?.lname}"?`}
+        description={`Are you sure you want to delete this project individual named "${rowData?.name}"?`}
         onConfirm={() => handleConfirm(rowData?.code)}
         onCancel={() => setShowConfirmation(false)}
       />

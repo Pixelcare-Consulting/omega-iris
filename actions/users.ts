@@ -2,19 +2,25 @@
 
 import bcrypt from 'bcryptjs'
 import { capitalize } from 'radash'
+import { Prisma } from '@prisma/client'
+import z from 'zod'
 
 import { paramsSchema } from '@/schema/common'
 import { basicInfoFormSchema, changePasswordFormSchema, userFormSchema } from '@/schema/user'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { db } from '@/utils/db'
 import { DuplicateFields } from '@/types/common'
-import z from 'zod'
+
+const COMMON_USER_INCLUDE = {
+  role: true,
+  profile: true,
+} satisfies Prisma.UserInclude
 
 export async function getUsers() {
   try {
     return await db.user.findMany({
       where: { deletedAt: null, deletedBy: null },
-      include: { role: true, profile: true },
+      include: COMMON_USER_INCLUDE,
     })
   } catch (error) {
     console.error(error)
@@ -22,11 +28,31 @@ export async function getUsers() {
   }
 }
 
+export const getUsersClient = action.use(authenticationMiddleware).action(async () => {
+  return getUsers()
+})
+
+export async function getNonCustomerUsers() {
+  try {
+    return await db.user.findMany({
+      where: { role: { key: { not: 'customer' } }, deletedAt: null, deletedBy: null },
+      include: COMMON_USER_INCLUDE,
+    })
+  } catch (error) {
+    console.error(error)
+    return []
+  }
+}
+
+export const getNonCustomerUsersClient = action.use(authenticationMiddleware).action(async () => {
+  return getNonCustomerUsers()
+})
+
 export async function getUserByEmail(email: string) {
   if (!email) return null
 
   try {
-    return await db.user.findUnique({ where: { email }, include: { profile: true } })
+    return await db.user.findUnique({ where: { email }, include: COMMON_USER_INCLUDE })
   } catch (err) {
     return null
   }
@@ -36,7 +62,7 @@ export async function getUserByUsername(username: string) {
   if (!username) return null
 
   try {
-    return await db.user.findUnique({ where: { username }, include: { profile: true } })
+    return await db.user.findUnique({ where: { username }, include: COMMON_USER_INCLUDE })
   } catch (err) {
     return null
   }
@@ -46,7 +72,7 @@ export async function getUserById(id: string) {
   if (!id) return null
 
   try {
-    return await db.user.findUnique({ where: { id }, include: { profile: true, role: true } })
+    return await db.user.findUnique({ where: { id }, include: COMMON_USER_INCLUDE })
   } catch (err) {
     return null
   }
@@ -64,11 +90,28 @@ export async function getUserByCode(code: number) {
   if (!code) return null
 
   try {
-    return await db.user.findUnique({ where: { code }, include: { profile: true, role: true } })
+    return await db.user.findUnique({ where: { code }, include: COMMON_USER_INCLUDE })
   } catch (err) {
     return null
   }
 }
+
+export async function getUsersByRoleKey(key: string) {
+  if (!key) return []
+
+  try {
+    return await db.user.findMany({ where: { role: { key } }, include: COMMON_USER_INCLUDE })
+  } catch (err) {
+    return []
+  }
+}
+
+export const getUsersByRoleKeyClient = action
+  .use(authenticationMiddleware)
+  .schema(z.object({ key: z.string() }))
+  .action(async ({ parsedInput: data }) => {
+    return getUsersByRoleKey(data.key)
+  })
 
 export async function getAccountByUserId(id: string) {
   if (!id) return null
@@ -155,7 +198,7 @@ export const upsertUser = action
         },
       })
 
-      return { status: 200, message: 'User created successfully', data: { user: newUser }, action: 'UPSERT_USER' }
+      return { status: 200, message: 'User created successfully!', data: { user: newUser }, action: 'UPSERT_USER' }
     } catch (error) {
       console.error(error)
 
