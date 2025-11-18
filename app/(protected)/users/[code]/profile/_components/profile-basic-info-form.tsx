@@ -39,7 +39,7 @@ export default function ProfileBasicInfoForm({ user }: ProfileBasicInfoFormProps
       roleCode: user.role.code,
       roleKey: user.role.key,
       isActive: user.isActive,
-      customerCode: user.customerCode,
+      customerCode: user?.customerCode,
     },
     resolver: zodResolver(basicInfoFormSchema),
   })
