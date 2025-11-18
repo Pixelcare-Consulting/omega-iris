@@ -215,10 +215,10 @@ export const updateBasicInfo = action
   .use(authenticationMiddleware)
   .schema(basicInfoFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    try {
-      const { code, roleKey, ...data } = parsedInput
-      const { userId } = ctx
+    const { code, roleKey, ...data } = parsedInput
+    const { userId } = ctx
 
+    try {
       const [existingUsername, existingEmail] = await Promise.all([
         db.user.findFirst({
           where: {

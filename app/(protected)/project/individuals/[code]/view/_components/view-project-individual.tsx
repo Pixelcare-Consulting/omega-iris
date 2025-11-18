@@ -12,6 +12,8 @@ import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapp
 import ProjectIndividualOverviewTab from './_tabs/project-individual-overview-tab'
 import UnderDevelopment from '@/app/under-development'
 import { useNonCustomerUsersClient, useUsersByRoleKeyClient } from '@/hooks/safe-actions/user'
+import ProjectIndividualCustomerTab from './_tabs/project-individual-customer-tab'
+import ProjectIndividualPicTab from './_tabs/project-individual-pic-tab'
 
 type ViewProjectIndividualProps = {
   projectIndividual: NonNullable<Awaited<ReturnType<typeof getProjectIndividualByCode>>>
@@ -60,10 +62,18 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
           </TabPanelITem>
 
           <TabPanelITem title='Customers'>
-            <UnderDevelopment className='h-[60vh]' />
+            <ProjectIndividualCustomerTab
+              projectCode={projectIndividual.code}
+              customers={projectIndividual.customers}
+              users={customerUsers}
+            />
           </TabPanelITem>
 
           <TabPanelITem title='P.I.Cs'>
+            <ProjectIndividualPicTab projectCode={projectIndividual.code} pics={projectIndividual.pics} users={nonCustomerUsers} />
+          </TabPanelITem>
+
+          <TabPanelITem title='Inventory'>
             <UnderDevelopment className='h-[60vh]' />
           </TabPanelITem>
         </TabPanel>

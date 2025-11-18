@@ -4,7 +4,11 @@ import { Prisma } from '@prisma/client'
 
 import { paramsSchema } from '@/schema/common'
 import { db } from '@/utils/db'
-import { projectIndividualFormSchema } from '@/schema/project-individual'
+import {
+  projectIndividualCustomerFormSchema,
+  projectIndividualFormSchema,
+  projectIndividualPicFormSchema,
+} from '@/schema/project-individual'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 
 const COMMON_PROJECT_INDIVIDUAL_INCLUDE = {
@@ -112,6 +116,104 @@ export const upsertProjectIndividual = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'UPSERT_PROJECT_INDIVIDUAL',
+      }
+    }
+  })
+
+export const updateProjectIndividualCustomers = action
+  .use(authenticationMiddleware)
+  .schema(projectIndividualCustomerFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { code, customers } = parsedInput
+    const { userId } = ctx
+
+    try {
+      const projectIndividual = await db.projectIndividual.findUnique({ where: { code } })
+
+      if (!projectIndividual) {
+        return { error: true, code: 404, message: 'Project individual not found', action: 'UPDATE_PROJECT_INDIVIDUAL_CUSTOMERS' }
+      }
+
+      //* update project individual
+      const [updatedProjectIndividual] = await db.$transaction([
+        //* update project individual
+        db.projectIndividual.update({
+          where: { code },
+          data: { updatedBy: userId },
+        }),
+
+        //* delete existing project individual customers
+        db.projectIndividualCustomer.deleteMany({ where: { projectIndividualCode: code } }),
+
+        //* create new project individual customers
+        db.projectIndividualCustomer.createManyAndReturn({
+          data: customers.map((c) => ({ projectIndividualCode: code, userCode: c })),
+        }),
+      ])
+
+      return {
+        status: 200,
+        message: `Project individual's customers updated successfully!`,
+        action: 'UPDATE_PROJECT_INDIVIDUAL_CUSTOMERS',
+        data: { projectIndividual: updatedProjectIndividual },
+      }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'UPDATE_PROJECT_INDIVIDUAL_CUSTOMERS',
+      }
+    }
+  })
+
+export const updateProjectIndividualPics = action
+  .use(authenticationMiddleware)
+  .schema(projectIndividualPicFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { code, pics } = parsedInput
+    const { userId } = ctx
+
+    try {
+      const projectIndividual = await db.projectIndividual.findUnique({ where: { code } })
+
+      if (!projectIndividual) {
+        return { error: true, code: 404, message: 'Project individual not found', action: 'UPDATE_PROJECT_INDIVIDUAL_PICS' }
+      }
+
+      //* update project individual
+      const [updatedProjectIndividual] = await db.$transaction([
+        //* update project individual
+        db.projectIndividual.update({
+          where: { code },
+          data: { updatedBy: userId },
+        }),
+
+        //* delete existing project individual pics
+        db.projectIndividualPic.deleteMany({ where: { projectIndividualCode: code } }),
+
+        //* create new project individual pics
+        db.projectIndividualPic.createManyAndReturn({
+          data: pics.map((p) => ({ projectIndividualCode: code, userCode: p })),
+        }),
+      ])
+
+      return {
+        status: 200,
+        message: `Project individual's P.I.Cs updated successfully!`,
+        action: 'UPDATE_PROJECT_INDIVIDUAL_PICS',
+        data: { projectIndividual: updatedProjectIndividual },
+      }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'UPDATE_PROJECT_INDIVIDUAL_PICS',
       }
     }
   })
