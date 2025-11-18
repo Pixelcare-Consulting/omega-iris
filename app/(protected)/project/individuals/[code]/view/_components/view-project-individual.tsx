@@ -11,6 +11,7 @@ import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import ProjectIndividualOverviewTab from '../_tabs/project-individual-overview-tab'
 import UnderDevelopment from '@/app/under-development'
+import { useNonCustomerUsersClient, useUsersByRoleKeyClient } from '@/hooks/safe-actions/user'
 
 type ViewProjectIndividualProps = {
   projectIndividual: NonNullable<Awaited<ReturnType<typeof getProjectIndividualByCode>>>
@@ -18,6 +19,9 @@ type ViewProjectIndividualProps = {
 
 export default function ViewProjectIndividual({ projectIndividual }: ViewProjectIndividualProps) {
   const router = useRouter()
+
+  const customerUsers = useUsersByRoleKeyClient('customer')
+  const nonCustomerUsers = useNonCustomerUsersClient()
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
