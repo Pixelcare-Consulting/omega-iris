@@ -9,7 +9,7 @@ import TabPanel, { Item as TabPanelITem } from 'devextreme-react/tab-panel'
 import { getProjectGroupByCode } from '@/actions/project-group'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
-import ProjectGroupOverviewTab from '../_tabs/project-group-overview-tab'
+import ProjectGroupOverviewTab from './_tabs/project-group-overview-tab'
 import UnderDevelopment from '@/app/under-development'
 
 type ViewProjectGroupProps = {

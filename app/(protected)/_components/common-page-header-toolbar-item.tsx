@@ -18,7 +18,7 @@ import { exportToExcel } from '@/utils/devextreme'
 type CommonPageHeaderToolbarItemsProps = {
   dataGridUniqueKey: string
   dataGridRef: MutableRefObject<DataGridRef<any, any> | null>
-  addButton: { text: string; onClick: () => void }
+  addButton?: { text: string; onClick: () => void }
 }
 
 export default function CommonPageHeaderToolbarItems({ dataGridUniqueKey, dataGridRef, addButton }: CommonPageHeaderToolbarItemsProps) {
@@ -138,16 +138,18 @@ export default function CommonPageHeaderToolbarItems({ dataGridUniqueKey, dataGr
 
   return (
     <>
-      <Item location='after' widget='dxButton'>
-        <Tooltip
-          target='#add-button'
-          contentRender={() => `${addButton.text}`}
-          showEvent='mouseenter'
-          hideEvent='mouseleave'
-          position='top'
-        />
-        <Button id='add-button' icon='add' type='default' stylingMode='contained' onClick={addButton.onClick} />
-      </Item>
+      {addButton && (
+        <Item location='after' widget='dxButton'>
+          <Tooltip
+            target='#add-button'
+            contentRender={() => `${addButton.text}`}
+            showEvent='mouseenter'
+            hideEvent='mouseleave'
+            position='top'
+          />
+          <Button id='add-button' icon='add' type='default' stylingMode='contained' onClick={addButton.onClick} />
+        </Item>
+      )}
 
       <Item location='after' widget='dxButton'>
         <Tooltip

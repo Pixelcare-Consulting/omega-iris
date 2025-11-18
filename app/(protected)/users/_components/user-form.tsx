@@ -66,7 +66,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
   const roleKey = useWatch({ control: form.control, name: 'roleKey' })
 
   const { executeAsync, isExecuting } = useAction(upsertUser)
-  const rolesClient = useRolesClient()
+  const roles = useRolesClient()
 
   const handleOnSubmit = async (formData: UserForm) => {
     try {
@@ -165,8 +165,8 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                 <SelectBoxField
-                  data={rolesClient.data}
-                  isLoading={rolesClient.isLoading}
+                  data={roles.data}
+                  isLoading={roles.isLoading}
                   control={form.control}
                   name='roleCode'
                   label='Role'

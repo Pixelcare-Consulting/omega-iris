@@ -59,9 +59,9 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
 
   const { executeAsync, isExecuting } = useAction(upsertProjectIndividual)
 
-  const projectGroupsClient = useProjectGroupsClient()
-  const userByRoleKeyClient = useUsersByRoleKeyClient('customer')
-  const nonCustomerUsersClient = useNonCustomerUsersClient()
+  const projectGroups = useProjectGroupsClient()
+  const customerUsers = useUsersByRoleKeyClient('customer')
+  const nonCustomerUsers = useNonCustomerUsersClient()
 
   const handleOnSubmit = async (formData: ProjectIndividualForm) => {
     try {
@@ -89,8 +89,8 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
   }
 
   useEffect(() => {
-    console.log({ projectGroupsClient })
-  }, [JSON.stringify(projectGroupsClient)])
+    console.log({ projectGroupsClient: projectGroups })
+  }, [JSON.stringify(projectGroups)])
 
   return (
     <FormProvider {...form}>
@@ -138,8 +138,8 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
 
               <div className='col-span-12 md:col-span-6'>
                 <SelectBoxField
-                  data={projectGroupsClient.data}
-                  isLoading={projectGroupsClient.isLoading}
+                  data={projectGroups.data}
+                  isLoading={projectGroups.isLoading}
                   control={form.control}
                   name='groupCode'
                   label='Group'
@@ -168,8 +168,8 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
 
               <div className='col-span-12 md:col-span-6'>
                 <TagBoxField
-                  data={userByRoleKeyClient.data}
-                  isLoading={userByRoleKeyClient.isLoading}
+                  data={customerUsers.data}
+                  isLoading={customerUsers.isLoading}
                   control={form.control}
                   name='customers'
                   label='Customers'
@@ -183,8 +183,8 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
 
               <div className='col-span-12 md:col-span-6'>
                 <TagBoxField
-                  data={nonCustomerUsersClient.data}
-                  isLoading={nonCustomerUsersClient.isLoading}
+                  data={nonCustomerUsers.data}
+                  isLoading={nonCustomerUsers.isLoading}
                   control={form.control}
                   name='pics'
                   label='P.I.Cs'
