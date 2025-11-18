@@ -142,7 +142,7 @@ export default function UserTable({ users }: UserTableProps) {
   }, [])
 
   return (
-    <div className='flex h-full w-full flex-col gap-5'>
+    <div className='h-full w-full space-y-5'>
       <PageHeader title='Users' description='Manage and track your users effectively'>
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}

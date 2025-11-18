@@ -11,6 +11,7 @@ Omga GTI Inventory Management System
 - components/providers - global reusable custom providers
 - constants/ - global constants
 - hooks/ - global react custom hooks
+- hooks/safe-actions/ - global react custom hooks for next-safe-actions
 - prisma/ - prisma schema and migration files
 - public/ - public static files
 - schema - reusable zod schema/types

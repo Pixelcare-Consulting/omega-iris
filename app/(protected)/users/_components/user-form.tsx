@@ -19,7 +19,7 @@ import { FormDebug } from '@/components/forms/form-debug'
 import SwitchField from '@/components/forms/switch-field'
 import LoadingButton from '@/components/loading-button'
 import { getUserByCode, upsertUser } from '@/actions/users'
-import useRolesClient from '@/hooks/safe-actions/use-roles-client'
+import { useRolesClient } from '@/hooks/safe-actions/roles'
 import SelectBoxField from '@/components/forms/select-box-field'
 import { PageMetadata } from '@/types/common'
 

@@ -4,74 +4,69 @@ import ScrollView from 'devextreme-react/scroll-view'
 import { Button } from 'devextreme-react/button'
 import { Item } from 'devextreme-react/toolbar'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { FormProvider, useForm, useWatch } from 'react-hook-form'
+import { FormProvider, useForm } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
 import { useParams } from 'next/navigation'
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
-import { type RoleForm, roleFormSchema } from '@/schema/role'
+import { type ProjectGroupForm, projectGroupFormSchema } from '@/schema/project-group'
 import TextBoxField from '@/components/forms/text-box-field'
 import { FormDebug } from '@/components/forms/form-debug'
 import LoadingButton from '@/components/loading-button'
-import { getRolesByCode, upsertRole } from '@/actions/roles'
+import { getProjectGroupByCode, upsertProjectGroup } from '@/actions/project-group'
 import { PageMetadata } from '@/types/common'
-import TextAreaField from '@/components/forms/text-area-field'
 
-type RoleFormProps = { pageMetaData: PageMetadata; role: Awaited<ReturnType<typeof getRolesByCode>> }
+type ProjectGroupFormProps = { pageMetaData: PageMetadata; projectGroup: Awaited<ReturnType<typeof getProjectGroupByCode>> }
 
-export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
+export default function ProjectGroupForm({ pageMetaData, projectGroup }: ProjectGroupFormProps) {
   const router = useRouter()
   const { code } = useParams()
 
-  const isCreate = code === 'add' || !role
+  const isCreate = code === 'add' || !projectGroup
 
   const values = useMemo(() => {
-    if (role) return role
+    if (projectGroup) return projectGroup
 
     if (isCreate) {
       return {
         code: -1,
-        key: '',
         name: '',
         description: '',
       }
     }
 
     return undefined
-  }, [isCreate, JSON.stringify(role)])
+  }, [])
 
   const form = useForm({
     mode: 'onChange',
     values,
-    resolver: zodResolver(roleFormSchema),
+    resolver: zodResolver(projectGroupFormSchema),
   })
 
-  const name = useWatch({ control: form.control, name: 'name' }) || ''
+  const { executeAsync, isExecuting } = useAction(upsertProjectGroup)
 
-  const { executeAsync, isExecuting } = useAction(upsertRole)
-
-  const handleOnSubmit = async (formData: RoleForm) => {
+  const handleOnSubmit = async (formData: ProjectGroupForm) => {
     try {
       const response = await executeAsync(formData)
       const result = response?.data
 
       if (result?.error) {
-        if (result.status === 401) form.setError('key', { type: 'custom', message: result.message })
         toast.error(result.message)
         return
       }
 
       toast.success(result?.message)
 
-      if (result?.data && result?.data?.role && 'id' in result?.data?.role) {
+      if (result?.data && result?.data?.projectGroup && 'id' in result?.data?.projectGroup) {
         router.refresh()
 
         setTimeout(() => {
-          router.push(`/security/roles/${result.data.role.code}`)
+          router.push(`/project/groups/${result.data.projectGroup.code}`)
         }, 1500)
       }
     } catch (error) {
@@ -80,39 +75,32 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
     }
   }
 
-  //* update role key based on name
-  useEffect(() => {
-    const result = name ? name.toLowerCase().replaceAll(' ', '-') : ''
-    form.setValue('key', result)
-    //eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name])
-
   return (
     <FormProvider {...form}>
       <form className='flex h-full w-full flex-col gap-5' onSubmit={form.handleSubmit(handleOnSubmit)}>
         <PageHeader title={pageMetaData.title} description={pageMetaData.description}>
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <Button text='Back' stylingMode='outlined' type='default' onClick={() => router.push('/security/roles')} />
+            <Button text='Back' stylingMode='outlined' type='default' onClick={() => router.push('/project/groups')} />
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>
             <LoadingButton text='Save' type='default' stylingMode='contained' useSubmitBehavior icon='save' isLoading={isExecuting} />
           </Item>
 
-          {role && (
+          {projectGroup && (
             <>
               <Item
                 location='after'
                 locateInMenu='always'
                 widget='dxButton'
-                options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/security/roles/add`) }}
+                options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/project/groups/add`) }}
               />
 
               <Item
                 location='after'
                 locateInMenu='always'
                 widget='dxButton'
-                options={{ text: 'View', icon: 'eyeopen', onClick: () => router.push(`/security/roles/${role.code}/view`) }}
+                options={{ text: 'View', icon: 'eyeopen', onClick: () => router.push(`/project/groups/${projectGroup.code}/view`) }}
               />
             </>
           )}
@@ -128,18 +116,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
               </div>
 
               <div className='col-span-12 md:col-span-6'>
-                <TextBoxField
-                  control={form.control}
-                  name='key'
-                  label='Key'
-                  isRequired
-                  description='Key must be unique'
-                  extendedProps={{ textBoxOptions: { disabled: true } }}
-                />
-              </div>
-
-              <div className='col-span-12'>
-                <TextAreaField control={form.control} name='description' label='Description' />
+                <TextBoxField control={form.control} name='description' label='Description' />
               </div>
             </div>
           </ScrollView>

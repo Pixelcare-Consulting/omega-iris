@@ -1,6 +1,6 @@
 'use client'
 
-import { deleleteRole, getRoles } from '@/actions/roles'
+import { deleleteProjectIndividual, getProjectIndividuals } from '@/actions/project-individual'
 import DataGrid, {
   Column,
   FilterRow,
@@ -33,20 +33,20 @@ import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES } from '@/constants/dev
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import AlertDialog from '@/components/alert-dialog'
 
-type RoleTableProps = { roles: Awaited<ReturnType<typeof getRoles>> }
-type DataSource = Awaited<ReturnType<typeof getRoles>>
+type ProjectIndividualTableProps = { projectIndividuals: Awaited<ReturnType<typeof getProjectIndividuals>> }
+type DataSource = Awaited<ReturnType<typeof getProjectIndividuals>>
 
-export default function RoleTable({ roles }: RoleTableProps) {
+export default function ProjectIndividualsTable({ projectIndividuals }: ProjectIndividualTableProps) {
   const router = useRouter()
 
-  const DATAGRID_STORAGE_KEY = 'dx-datagrid-role'
-  const DATAGRID_UNIQUE_KEY = 'roles'
+  const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual'
+  const DATAGRID_UNIQUE_KEY = 'project-individuals'
 
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
   const dataGridRef = useRef<DataGridRef | null>(null)
 
-  const { executeAsync } = useAction(deleleteRole)
+  const { executeAsync } = useAction(deleleteProjectIndividual)
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',
@@ -70,13 +70,13 @@ export default function RoleTable({ roles }: RoleTableProps) {
 
     const code = e.data?.code
     if (!code) return
-    router.push(`/security/roles/${code}/view`)
+    router.push(`/project/individuals/${code}/view`)
   }, [])
 
   const handleEdit = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const code = e.row?.data?.code
     if (!code) return
-    router.push(`/security/roles/${code}`)
+    router.push(`/project/individuals/${code}`)
   }, [])
 
   const handleDelete = useCallback(
@@ -95,11 +95,11 @@ export default function RoleTable({ roles }: RoleTableProps) {
     setShowConfirmation(false)
 
     toast.promise(executeAsync({ code }), {
-      loading: 'Deleting role...',
+      loading: 'Deleting project individual...',
       success: (response) => {
         const result = response?.data
 
-        if (!response || !result) throw { message: 'Failed to delete role!', unExpectedError: true }
+        if (!response || !result) throw { message: 'Failed to delete project individual!', unExpectedError: true }
 
         if (!result.error) {
           setTimeout(() => {
@@ -119,18 +119,18 @@ export default function RoleTable({ roles }: RoleTableProps) {
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Roles' description='Manage and track your roles effectively'>
+      <PageHeader title='Project Individuals' description='Manage and track your project individuals effectively'>
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
-          addButton={{ text: 'Add Role', onClick: () => router.push('/security/roles/add') }}
+          addButton={{ text: 'Add Project Individual', onClick: () => router.push('/project/individuals/add') }}
         />
       </PageHeader>
 
       <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
         <DataGrid
           ref={dataGridRef}
-          dataSource={roles}
+          dataSource={projectIndividuals}
           keyExpr='id'
           showBorders
           columnHidingEnabled={dataGridStore.columnHidingEnabled}
@@ -145,6 +145,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
           <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
           <Column dataField='name' dataType='string' />
           <Column dataField='description' dataType='string' />
+          <Column dataField='projectGroup.name' dataType='string' caption='Group' />
           <Column dataField='createdAt' dataType='datetime' caption='Created At' />
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
@@ -182,7 +183,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
       <AlertDialog
         isOpen={showConfirmation}
         title='Are you sure?'
-        description={`Are you sure you want to delete this role named "${rowData?.name}"?`}
+        description={`Are you sure you want to delete this project individual named "${rowData?.name}"?`}
         onConfirm={() => handleConfirm(rowData?.code)}
         onCancel={() => setShowConfirmation(false)}
       />

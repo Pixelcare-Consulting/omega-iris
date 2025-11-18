@@ -1,7 +1,7 @@
 'use client'
 
 import ReadOnlyField from '@/components/read-only-field'
-import useUserByIdClient from '@/hooks/safe-actions/use-user-byId-client'
+import { useUserByIdClient } from '@/hooks/safe-actions/user'
 import { format, isValid } from 'date-fns'
 
 type RecordMetaDataProps = {

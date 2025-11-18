@@ -1,9 +1,9 @@
-import { getRolesClient } from '@/actions/roles'
+import { getProjectGroupsClient } from '@/actions/project-group'
 import { useAction } from 'next-safe-action/hooks'
 import { useEffect } from 'react'
 
-export default function useRolesClient(dependencies?: any[]) {
-  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getRolesClient)
+export function useProjectGroupsClient(dependencies?: any[]) {
+  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getProjectGroupsClient)
 
   useEffect(() => {
     execute()
