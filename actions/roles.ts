@@ -86,14 +86,14 @@ export const deleleteRole = action
 
       await db.role.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 
-      return { status: 200, message: 'Role deleted successfully', action: 'DELETE_ROLE' }
+      return { status: 200, message: 'Role deleted successfully!', action: 'DELETE_ROLE' }
     } catch (error) {
       console.error(error)
 
       return {
         error: true,
         status: 500,
-        message: error instanceof Error ? error.message : 'An unexpected error occurred',
+        message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'DELETE_ROLE',
       }
     }

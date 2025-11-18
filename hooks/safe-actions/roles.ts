@@ -1,8 +1,9 @@
-import { getRolesClient } from '@/actions/roles'
-import { useAction } from 'next-safe-action/hooks'
 import { useEffect } from 'react'
+import { useAction } from 'next-safe-action/hooks'
 
-export default function useRolesClient(dependencies?: any[]) {
+import { getRolesClient } from '@/actions/roles'
+
+export function useRolesClient(dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getRolesClient)
 
   useEffect(() => {

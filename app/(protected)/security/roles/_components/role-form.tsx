@@ -139,7 +139,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
               </div>
 
               <div className='col-span-12'>
-                <TextAreaField control={form.control} name='description' label='Description' isRequired />
+                <TextAreaField control={form.control} name='description' label='Description' />
               </div>
             </div>
           </ScrollView>

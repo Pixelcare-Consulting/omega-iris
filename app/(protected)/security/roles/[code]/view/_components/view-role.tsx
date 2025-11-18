@@ -22,7 +22,7 @@ export default function ViewRole({ role }: ViewRolesProps) {
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
-      <PageHeader title='User Details' description='View the comprehensive details of this user.'>
+      <PageHeader title='Role Details' description='View the comprehensive details of this role.'>
         <Item location='after' locateInMenu='auto' widget='dxButton'>
           <Tooltip target='#back-button' contentRender={() => 'Back'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />
           <Button

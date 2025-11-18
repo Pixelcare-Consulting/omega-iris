@@ -25,12 +25,9 @@ import { toast } from 'sonner'
 import { useCallback, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
-import { format, isValid } from 'date-fns'
 
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
-import { cn } from '@/utils'
-import { createRandomUser } from '@/utils/faker'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES } from '@/constants/devextreme'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
@@ -121,7 +118,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
   }, [])
 
   return (
-    <div className='flex h-full w-full flex-col gap-5'>
+    <div className='h-full w-full space-y-5'>
       <PageHeader title='Roles' description='Manage and track your roles effectively'>
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
