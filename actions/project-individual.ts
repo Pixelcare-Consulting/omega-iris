@@ -10,6 +10,7 @@ import {
   projectIndividualPicFormSchema,
 } from '@/schema/project-individual'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
+import z from 'zod'
 
 const COMMON_PROJECT_INDIVIDUAL_INCLUDE = {
   projectGroup: { select: { name: true } },
@@ -25,6 +26,26 @@ export async function getProjectIndividuals() {
     return []
   }
 }
+
+export async function getProjectIndividualsByGroupCode(groupCode: number) {
+  if (!groupCode) return []
+
+  try {
+    return await db.projectIndividual.findMany({
+      where: { deletedAt: null, deletedBy: null, projectGroup: { code: groupCode } },
+      include: COMMON_PROJECT_INDIVIDUAL_INCLUDE,
+    })
+  } catch (error) {
+    return []
+  }
+}
+
+export const getProjectIndividualsByGroupCodeClient = action
+  .use(authenticationMiddleware)
+  .schema(z.object({ groupCode: z.coerce.number() }))
+  .action(async ({ parsedInput }) => {
+    return getProjectIndividualsByGroupCode(parsedInput.groupCode)
+  })
 
 export async function getProjectIndividualByCode(code: number) {
   if (!code) return null

@@ -18,13 +18,19 @@ export default function ProjectIndividualOverviewTab({ projectIndividual }: Proj
       <div className='grid grid-cols-12 gap-5 p-3 py-5'>
         <ReadOnlyFieldHeader className='col-span-12' title='Overview' description='Project group overview information' />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='ID' value={projectIndividual.code}>
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='ID' value={projectIndividual.code}>
           <Copy value={projectIndividual.code} />
         </ReadOnlyField>
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Name' value={projectIndividual.name} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Name' value={projectIndividual.name} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Group' value={projectIndividual.projectGroup.name} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Group' value={projectIndividual.projectGroup.name} />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Status'
+          value={projectIndividual.isActive ? 'Active' : 'Inactive'}
+        />
 
         <ReadOnlyField className='col-span-12' title='Description' value={projectIndividual?.description || ''} />
 

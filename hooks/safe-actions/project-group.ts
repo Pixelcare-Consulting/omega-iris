@@ -1,6 +1,7 @@
-import { getProjectGroupsClient } from '@/actions/project-group'
 import { useAction } from 'next-safe-action/hooks'
 import { useEffect } from 'react'
+
+import { getProjectGroupsClient } from '@/actions/project-group'
 
 export function useProjectGroupsClient(dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getProjectGroupsClient)

@@ -19,6 +19,8 @@ import { FormDebug } from '@/components/forms/form-debug'
 import LoadingButton from '@/components/loading-button'
 import { getProjectGroupByCode, upsertProjectGroup } from '@/actions/project-group'
 import { PageMetadata } from '@/types/common'
+import SwitchField from '@/components/forms/switch-field'
+import TextAreaField from '@/components/forms/text-area-field'
 
 type ProjectGroupFormProps = { pageMetaData: PageMetadata; projectGroup: Awaited<ReturnType<typeof getProjectGroupByCode>> }
 
@@ -36,6 +38,7 @@ export default function ProjectGroupForm({ pageMetaData, projectGroup }: Project
         code: -1,
         name: '',
         description: '',
+        isActive: true,
       }
     }
 
@@ -115,8 +118,18 @@ export default function ProjectGroupForm({ pageMetaData, projectGroup }: Project
                 <TextBoxField control={form.control} name='name' label='Name' isRequired />
               </div>
 
-              <div className='col-span-12 md:col-span-6'>
-                <TextBoxField control={form.control} name='description' label='Description' />
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <SwitchField
+                  control={form.control}
+                  name='isActive'
+                  label='Active'
+                  description='Is this project group active?'
+                  extendedProps={{ switchOptions: { disabled: isCreate } }}
+                />
+              </div>
+
+              <div className='col-span-12'>
+                <TextAreaField control={form.control} name='description' label='Description' />
               </div>
             </div>
           </ScrollView>
