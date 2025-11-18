@@ -45,7 +45,7 @@ export default function ProfileBasicInfoForm({ user }: ProfileBasicInfoFormProps
   })
 
   const { executeAsync, isExecuting } = useAction(updateBasicInfo)
-  const rolesClient = useRolesClient()
+  const roles = useRolesClient()
 
   const roleKey = useWatch({ control: form.control, name: 'roleKey' })
   const formState = useFormState({ control: form.control })
@@ -161,8 +161,8 @@ export default function ProfileBasicInfoForm({ user }: ProfileBasicInfoFormProps
 
           <div className='col-span-12 md:col-span-6 lg:col-span-3'>
             <SelectBoxField
-              data={rolesClient.data}
-              isLoading={rolesClient.isLoading}
+              data={roles.data}
+              isLoading={roles.isLoading}
               control={form.control}
               name='roleCode'
               label='Role'

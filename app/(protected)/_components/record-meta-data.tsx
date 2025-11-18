@@ -14,9 +14,9 @@ type RecordMetaDataProps = {
 }
 
 export default function RecordMetaData({ createdAt, updatedAt, deletedAt, createdBy, updatedBy, deletedBy }: RecordMetaDataProps) {
-  const createdByClient = useUserByIdClient(createdBy)
-  const updatedByClient = useUserByIdClient(updatedBy)
-  const deletedByClient = useUserByIdClient(deletedBy)
+  const createdByValue = useUserByIdClient(createdBy)
+  const updatedByValue = useUserByIdClient(updatedBy)
+  const deletedByValue = useUserByIdClient(deletedBy)
 
   return (
     <>
@@ -41,22 +41,22 @@ export default function RecordMetaData({ createdAt, updatedAt, deletedAt, create
       <ReadOnlyField
         className='col-span-12 md:col-span-6 lg:col-span-4'
         title='Created By'
-        value={createdByClient.data ? `${createdByClient.data.fname} ${createdByClient.data.lname}` : ''}
-        isLoading={createdByClient.isLoading}
+        value={createdByValue.data ? `${createdByValue.data.fname} ${createdByValue.data.lname}` : ''}
+        isLoading={createdByValue.isLoading}
       />
 
       <ReadOnlyField
         className='col-span-12 md:col-span-6 lg:col-span-4'
         title='Updated By'
-        value={updatedByClient.data ? `${updatedByClient.data.fname} ${updatedByClient.data.lname}` : ''}
-        isLoading={updatedByClient.isLoading}
+        value={updatedByValue.data ? `${updatedByValue.data.fname} ${updatedByValue.data.lname}` : ''}
+        isLoading={updatedByValue.isLoading}
       />
 
       <ReadOnlyField
         className='col-span-12 md:col-span-6 lg:col-span-4'
         title='Deleted By'
-        value={deletedByClient.data ? `${deletedByClient.data.fname} ${deletedByClient.data.lname}` : ''}
-        isLoading={deletedByClient.isLoading}
+        value={deletedByValue.data ? `${deletedByValue.data.fname} ${deletedByValue.data.lname}` : ''}
+        isLoading={deletedByValue.isLoading}
       />
     </>
   )
