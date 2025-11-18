@@ -32,6 +32,7 @@ import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES } from '@/constants/devextreme'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import AlertDialog from '@/components/alert-dialog'
+import { cn } from '@/utils'
 
 type ProjectGroupTableProps = { projectGroups: Awaited<ReturnType<typeof getProjectGroups>> }
 type DataSource = Awaited<ReturnType<typeof getProjectGroups>>
@@ -63,6 +64,18 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
     'showColumnChooser',
     'setShowColumnChooser',
   ])
+
+  const statusCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
+    const data = e.data as DataSource[number]
+    const isActive = data.isActive
+
+    return (
+      <div className={cn('flex items-center gap-1.5', isActive ? 'text-green-500' : 'text-red-500')}>
+        <div className={cn('size-2 rounded-full', isActive ? 'bg-green-500' : 'bg-red-500')} />
+        <span>{isActive ? 'Active' : 'Inactive'}</span>
+      </div>
+    )
+  }, [])
 
   const handleView = useCallback((e: DataGridTypes.RowClickEvent) => {
     const rowType = e.rowType
@@ -145,6 +158,13 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
           <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
           <Column dataField='name' dataType='string' />
           <Column dataField='description' dataType='string' />
+          <Column
+            dataField='isActive'
+            dataType='string'
+            caption='Status'
+            cellRender={statusCellRender}
+            calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
+          />
           <Column dataField='createdAt' dataType='datetime' caption='Created At' />
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 

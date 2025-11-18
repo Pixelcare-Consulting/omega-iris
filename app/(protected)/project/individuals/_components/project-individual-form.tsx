@@ -25,6 +25,7 @@ import { useNonCustomerUsersClient, useUsersByRoleKeyClient } from '@/hooks/safe
 import TagBoxField from '@/components/forms/tag-box-field'
 import TextAreaField from '@/components/forms/text-area-field'
 import { commonItemRender, userItemRender } from '@/utils/devextreme'
+import SwitchField from '@/components/forms/switch-field'
 
 type ProjectIndividualFormProps = { pageMetaData: PageMetadata; projectIndividual: Awaited<ReturnType<typeof getProjectIndividualByCode>> }
 
@@ -42,6 +43,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
         code: -1,
         name: '',
         description: '',
+        isActive: true,
         groupCode: 0,
         customers: [],
         pics: [],
@@ -132,11 +134,11 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
             {/* <FormDebug form={form} /> */}
 
             <div className='grid h-full grid-cols-12 gap-5 px-6 py-8'>
-              <div className='col-span-12 md:col-span-6'>
+              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
                 <TextBoxField control={form.control} name='name' label='Name' isRequired />
               </div>
 
-              <div className='col-span-12 md:col-span-6'>
+              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
                 <SelectBoxField
                   data={projectGroups.data}
                   isLoading={projectGroups.isLoading}
@@ -159,6 +161,16 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                       },
                     },
                   }}
+                />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                <SwitchField
+                  control={form.control}
+                  name='isActive'
+                  label='Active'
+                  description='Is this project individual active?'
+                  extendedProps={{ switchOptions: { disabled: isCreate } }}
                 />
               </div>
 

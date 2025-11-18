@@ -24,7 +24,13 @@ export default function ProjectGroupOverviewTab({ projectGroup }: ProjectGroupOv
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Name' value={projectGroup.name} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Description' value={projectGroup.description} />
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-4'
+          title='Status'
+          value={projectGroup.isActive ? 'Active' : 'Inactive'}
+        />
+
+        <ReadOnlyField className='col-span-12' title='Description' value={projectGroup.description} />
 
         <ReadOnlyFieldHeader className='col-span-12' title='Record Meta data' description='Project group record meta data' />
 
