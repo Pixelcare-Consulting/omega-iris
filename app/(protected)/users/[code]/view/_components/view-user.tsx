@@ -11,6 +11,7 @@ import { getUserByCode } from '@/actions/users'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import UserOverviewTab from './_tabs/user-overview-tab'
+import UnderDevelopment from '@/app/under-development'
 
 type ViewUserProps = {
   user: NonNullable<Awaited<ReturnType<typeof getUserByCode>>>
@@ -55,9 +56,23 @@ export default function ViewUser({ user }: ViewUserProps) {
             <UserOverviewTab user={user} />
           </TabPanelITem>
 
-          <TabPanelITem title='Customer Details' badge='SAP' visible={user.role.key === 'customer'}>
+          <TabPanelITem
+            title='Customer Details'
+            badge='SAP'
+            visible={user.role.key === 'business-partner' && user?.customerCode ? true : false}
+          >
             <ScrollView useNative={false} scrollByContent scrollByThumb>
-              {/* content here */}
+              <UnderDevelopment className='h-[60vh]' />
+            </ScrollView>
+          </TabPanelITem>
+
+          <TabPanelITem
+            title='Supplier Details'
+            badge='SAP'
+            visible={user.role.key === 'business-partner' && user?.supplierCode ? true : false}
+          >
+            <ScrollView useNative={false} scrollByContent scrollByThumb>
+              <UnderDevelopment className='h-[60vh]' />
             </ScrollView>
           </TabPanelITem>
         </TabPanel>

@@ -22,6 +22,8 @@ import { getUserByCode, upsertUser } from '@/actions/users'
 import { useRolesClient } from '@/hooks/safe-actions/roles'
 import SelectBoxField from '@/components/forms/select-box-field'
 import { PageMetadata } from '@/types/common'
+import Separator from '@/components/separator'
+import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 
 type UserFormProps = { pageMetaData: PageMetadata; user: Awaited<ReturnType<typeof getUserByCode>> }
 
@@ -50,6 +52,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
         newPassword: '',
         newConfirmPassword: '',
         customerCode: '',
+        supplierCode: '',
       }
     }
 
@@ -156,11 +159,11 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
               </div>
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField control={form.control} name='username' label='Username' isRequired description='Username must be unique' />
+                <TextBoxField control={form.control} name='username' label='Username' description='Username must be unique' isRequired />
               </div>
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField control={form.control} name='email' label='Email' isRequired />
+                <TextBoxField control={form.control} name='email' label='Email' description='Email must be unique' isRequired />
               </div>
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
@@ -231,24 +234,33 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                       extendedProps={{ textBoxOptions: { mode: 'password' } }}
                     />
                   </div>
+
+                  <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                    <SwitchField control={form.control} name='isActive' label='Active' description='Is this user active?' />
+                  </div>
                 </>
               )}
 
-              {roleKey && roleKey === 'customer' && (
-                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                  <TextBoxField
-                    control={form.control}
-                    name='customerCode'
-                    label='Customer Code'
-                    description='SAP customer code'
-                    isRequired
-                  />
-                </div>
-              )}
+              {roleKey && roleKey === 'business-partner' && (
+                <>
+                  <Separator className='col-span-12' />
+                  <ReadOnlyFieldHeader className='col-span-12 mb-2' title='SAP Details' description='User SAP information' />
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <SwitchField control={form.control} name='isActive' label='Active' description='Is this user active?' />
-              </div>
+                  <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                    <TextBoxField
+                      control={form.control}
+                      name='customerCode'
+                      label='Customer Code'
+                      description='SAP customer code'
+                      isRequired
+                    />
+                  </div>
+
+                  <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                    <TextBoxField control={form.control} name='supplierCode' label='Supplier Code' description='SAP supplier code' />
+                  </div>
+                </>
+              )}
             </div>
           </ScrollView>
         </PageContentWrapper>

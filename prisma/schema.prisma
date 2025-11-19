@@ -23,6 +23,7 @@ model User {
     lastIpAddress String?
     lastSignin    DateTime?
     customerCode  String?
+    supplierCode  String?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
