@@ -1,13 +1,15 @@
 'use server'
 
+import { redirect } from 'next/navigation'
+import { AuthError } from 'next-auth'
+
 import { auth, signIn } from '@/auth'
 import { signinFormSchema } from '@/schema/auth'
 import { action } from '@/utils/safe-action'
-import { AuthError } from 'next-auth'
-import { getUserByUsername } from './users'
+import { getUserByEmail } from './users'
 import { DEFAULT_SIGNIN_REDIRECT } from '@/constants/route'
 import { db } from '@/utils/db'
-import { redirect } from 'next/navigation'
+import { getClientInfo, getLocationFromIp } from './common'
 
 export async function getCurrentUser() {
   const session = await auth()
@@ -15,10 +17,10 @@ export async function getCurrentUser() {
 }
 
 export const signInUser = action.schema(signinFormSchema).action(async ({ parsedInput: data }) => {
-  const { username, password, callbackUrl } = data
+  const { email, password, callbackUrl } = data
 
   try {
-    const user = await getUserByUsername(username)
+    const user = await getUserByEmail(email)
 
     if (!user || !user.email || !user.password) {
       return { error: true, code: 401, message: 'User does not exist!', action: 'SIGNIN_USER' }
@@ -26,16 +28,20 @@ export const signInUser = action.schema(signinFormSchema).action(async ({ parsed
 
     //? IMPORTANT: DO NOT use redirectTo here, let the client handle redirects when implementing SAP Authentication
     await signIn('credentials', {
-      username,
+      email,
       password,
       redirect: false,
       // redirectTo: callbackUrl || DEFAULT_SIGNIN_REDIRECT, // TODO: make  redirect = false when implementing SAP Authehtication
     })
 
+    //* get client ip & location
+    const ip = await getClientInfo()
+    const location = await getLocationFromIp(ip)
+
     //* update user
     await db.user.update({
       where: { code: user.code },
-      data: { lastSignin: new Date() },
+      data: { lastIpAddress: ip, location: location, lastSignin: new Date() },
     })
 
     redirect(callbackUrl || DEFAULT_SIGNIN_REDIRECT)
