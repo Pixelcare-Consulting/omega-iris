@@ -1,0 +1,53 @@
+.file-uploader-block {
+  /* width: 320px; */
+  /* height: 320px; */
+  background-color: #f1f5f9;
+  border-radius: 16px;
+  position: relative;
+}
+
+#file-uploader {
+  height: 100%;
+}
+
+.dx-fileuploader-content {
+  display: grid;
+  height: 100%;
+  position: relative;
+}
+
+.dx-fileuploader-input-wrapper {
+  place-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.dx-fileuploader-wrapper {
+  overflow: visible;
+}
+
+.dx-fileuploader-show-file-list .dx-fileuploader-files-container {
+  padding-top: 4px;
+}
+
+.dx-fileuploader-files-container {
+  position: absolute;
+  top: calc(100% + 16px);
+  left: 0;
+  right: 0;
+  width: auto;
+  max-height: 180px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+/* hide upload button in mutli */
+.dx-fileuploader-files-container .dx-fileuploader-file-container .dx-fileuploader-button-container:nth-child(2) {
+  display: none;
+}
+
+.dx-fileuploader-content > .dx-fileuploader-upload-button {
+  display: none;
+}
