@@ -67,3 +67,17 @@ export function toKebabCase(text: string, toLowerCase = false) {
     .replace(/[^a-zA-Z0-9-]+/g, '-') //* Replace any character that is not a-z, A-Z, 0-9, or dash with dash
     .replace(/-+/g, '-') //* Collapse multiple dashes
 }
+
+export function safeParseFloat(value: any) {
+  const num = parseFloat(value)
+  return isNaN(num) || !isFinite(num) ? 0 : num
+}
+
+export function toBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = (error) => reject('Failed to process file')
+  })
+}

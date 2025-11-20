@@ -27,6 +27,10 @@ export async function getProjectIndividuals() {
   }
 }
 
+export const getProjectIndividualsClient = action.use(authenticationMiddleware).action(async () => {
+  return getProjectIndividuals()
+})
+
 export async function getProjectIndividualsByGroupCode(groupCode: number) {
   if (!groupCode) return []
 
@@ -65,6 +69,30 @@ export async function getProjectIndividualByCode(code: number) {
     return null
   }
 }
+
+export async function getProjectIndividualsByBpUserCode(userCode: number) {
+  try {
+    if (!userCode) return []
+
+    const projectIndividualCustomers = await db.projectIndividualCustomer.findMany({
+      where: { userCode },
+      select: { projectIndividual: true },
+    })
+
+    const result = projectIndividualCustomers.map((p) => p.projectIndividual)
+
+    return result
+  } catch (error) {
+    return []
+  }
+}
+
+export const getProjectIndividualsByBpUserCodeClient = action
+  .use(authenticationMiddleware)
+  .schema(z.object({ userCode: z.coerce.number() }))
+  .action(async ({ parsedInput: data }) => {
+    return getProjectIndividualsByBpUserCode(data.userCode)
+  })
 
 export const upsertProjectIndividual = action
   .use(authenticationMiddleware)

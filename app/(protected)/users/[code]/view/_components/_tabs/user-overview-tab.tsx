@@ -16,7 +16,7 @@ type UserOverviewTabProps = {
 
 export default function UserOverviewTab({ user }: UserOverviewTabProps) {
   return (
-    <ScrollView useNative={false} scrollByContent scrollByThumb>
+    <ScrollView>
       <div className='grid grid-cols-12 gap-5 p-3 py-5'>
         <ReadOnlyFieldHeader className='col-span-12' title='Overview' description='User overview information' />
 

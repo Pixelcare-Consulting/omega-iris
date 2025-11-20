@@ -29,7 +29,7 @@ const dataGridStore = createWithEqualityFn<DataGridStore>((set) => ({
   setShowGroupPanel: (value) => set({ showGroupPanel: value }),
   enableStateStoring: false,
   setEnableStateStoring: (value) => set({ enableStateStoring: value }),
-  columnHidingEnabled: false,
+  columnHidingEnabled: true,
   setColumnHidingEnabled: (value) => set({ columnHidingEnabled: value }),
   showColumnChooser: false,
   setShowColumnChooser: (value) => set({ showColumnChooser: value }),

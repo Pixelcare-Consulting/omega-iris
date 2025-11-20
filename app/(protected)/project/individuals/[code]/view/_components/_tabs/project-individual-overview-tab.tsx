@@ -14,7 +14,7 @@ type ProjectIndividualOverviewTabProps = {
 
 export default function ProjectIndividualOverviewTab({ projectIndividual }: ProjectIndividualOverviewTabProps) {
   return (
-    <ScrollView useNative={false} scrollByContent scrollByThumb>
+    <ScrollView>
       <div className='grid grid-cols-12 gap-5 p-3 py-5'>
         <ReadOnlyFieldHeader className='col-span-12' title='Overview' description='Project group overview information' />
 

@@ -33,6 +33,7 @@ import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES } from '@/constants/dev
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import AlertDialog from '@/components/alert-dialog'
 import { cn } from '@/utils'
+import { handleOnAdaptiveDetailRowPreparing, handleOnRowPrepared } from '@/utils/devextreme'
 
 type ProjectIndividualTableProps = { projectIndividuals: Awaited<ReturnType<typeof getProjectIndividuals>> }
 type DataSource = Awaited<ReturnType<typeof getProjectIndividuals>>
@@ -140,7 +141,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
         />
       </PageHeader>
 
-      <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
+      <PageContentWrapper className='h-[calc(100%_-_92px)]'>
         <DataGrid
           ref={dataGridRef}
           dataSource={projectIndividuals}
@@ -152,8 +153,9 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
           allowColumnResizing
           height='100%'
           width='100%'
+          onAdaptiveDetailRowPreparing={handleOnAdaptiveDetailRowPreparing}
+          onRowPrepared={handleOnRowPrepared}
           onRowClick={handleView}
-          onRowPrepared={(e) => e.rowElement.classList.add('cursor-pointer')}
         >
           <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
           <Column dataField='name' dataType='string' />
@@ -163,7 +165,6 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
             dataField='isActive'
             dataType='string'
             caption='Status'
-            cellRender={statusCellRender}
             calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
           />
           <Column dataField='createdAt' dataType='datetime' caption='Created At' />
@@ -181,7 +182,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
           <GroupPanel visible={dataGridStore.showGroupPanel} />
           <ColumnFixing enabled />
           <Sorting mode='multiple' />
-          <Scrolling mode='standard' />
+          <Scrolling mode='infinite' rowRenderingMode='virtual' />
           <ColumnChooser mode='select' allowSearch width={300} />
           <Export formats={['pdf', 'xlsx']} />
           <Selection mode='multiple' />

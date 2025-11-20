@@ -30,6 +30,10 @@ export function handleOnRowPrepared(e: DataGridTypes.RowPreparedEvent) {
   if (rowType === 'data') e.rowElement.classList.add('cursor-pointer')
 }
 
+export function handleOnAdaptiveDetailRowPreparing(e: DataGridTypes.AdaptiveDetailRowPreparingEvent) {
+  e.formOptions.colCount = 4
+}
+
 //* common devextreme render functions
 export function userItemRender(params: any) {
   const fullName = `${params?.fname} ${params?.lname}`

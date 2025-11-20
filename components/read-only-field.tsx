@@ -3,8 +3,8 @@ import { Icons } from './icons'
 
 type ReadOnlyFieldProps = {
   className?: string
-  title: string
-  value: React.ReactNode
+  title?: string
+  value?: React.ReactNode
   isLoading?: boolean
   description?: string
   children?: React.ReactNode
@@ -13,7 +13,7 @@ type ReadOnlyFieldProps = {
 export default function ReadOnlyField({ className, title, value, isLoading, description, children }: ReadOnlyFieldProps) {
   return (
     <div className={cn('relative space-y-1.5', className)}>
-      <div className='text-sm font-medium leading-none peer-disabled:cursor-not-allowed'>{title}:</div>
+      {title && <div className='text-sm font-medium leading-none peer-disabled:cursor-not-allowed'>{title}:</div>}
 
       <div className='dx-textbox dx-texteditor dx-editor-filled dx-widget min-h-8'>
         <div className='dx-texteditor-container'>

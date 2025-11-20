@@ -35,7 +35,7 @@ export const getUsersClient = action.use(authenticationMiddleware).action(async 
 export async function getNonCustomerUsers() {
   try {
     return await db.user.findMany({
-      where: { role: { key: { not: 'customer' } }, deletedAt: null, deletedBy: null },
+      where: { role: { key: { not: 'business-partner' } }, deletedAt: null, deletedBy: null },
       include: COMMON_USER_INCLUDE,
     })
   } catch (error) {

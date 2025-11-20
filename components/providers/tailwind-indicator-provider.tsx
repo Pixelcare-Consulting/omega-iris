@@ -2,7 +2,7 @@ export default function TailwindIndicatorProvider() {
   if (process.env.NODE_ENV === 'production') return null
 
   return (
-    <div className='font-mono fixed bottom-2 left-1 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-gray-800 p-3 text-xs text-white'>
+    <div className='fixed bottom-2 left-1 !z-[99999] flex h-12 w-12 items-center justify-center rounded-full bg-gray-800 p-3 font-mono text-xs text-white'>
       <div id='breakpoint-xs' className='xs:block sm:hidden'>
         xs
       </div>

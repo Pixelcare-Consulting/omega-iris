@@ -61,7 +61,7 @@ export default function ViewUser({ user }: ViewUserProps) {
             badge='SAP'
             visible={user.role.key === 'business-partner' && user?.customerCode ? true : false}
           >
-            <ScrollView useNative={false} scrollByContent scrollByThumb>
+            <ScrollView>
               <UnderDevelopment className='h-[60vh]' />
             </ScrollView>
           </TabPanelITem>
@@ -71,7 +71,7 @@ export default function ViewUser({ user }: ViewUserProps) {
             badge='SAP'
             visible={user.role.key === 'business-partner' && user?.supplierCode ? true : false}
           >
-            <ScrollView useNative={false} scrollByContent scrollByThumb>
+            <ScrollView>
               <UnderDevelopment className='h-[60vh]' />
             </ScrollView>
           </TabPanelITem>

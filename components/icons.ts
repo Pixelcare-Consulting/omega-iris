@@ -1,4 +1,4 @@
-import { Check, Construction, LoaderCircle, LogIn, LogOut, TriangleAlert } from 'lucide-react'
+import { Check, Construction, LoaderCircle, LogIn, LogOut, TriangleAlert, X } from 'lucide-react'
 
 export const Icons = {
   spinner: LoaderCircle,
@@ -7,4 +7,5 @@ export const Icons = {
   check: Check,
   construction: Construction,
   triangleAlert: TriangleAlert,
+  x: X,
 }

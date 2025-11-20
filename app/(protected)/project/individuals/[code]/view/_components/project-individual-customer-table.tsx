@@ -40,6 +40,7 @@ import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-p
 import { ProjectIndividualCustomerForm, projectIndividualCustomerFormSchema } from '@/schema/project-individual'
 import { updateProjectIndividualCustomers } from '@/actions/project-individual'
 import LoadingButton from '@/components/loading-button'
+import { handleOnAdaptiveDetailRowPreparing, handleOnRowPrepared } from '@/utils/devextreme'
 
 type UserTableProps = {
   projectCode: number
@@ -186,9 +187,10 @@ export default function ProjectIndividualCustomerTable({ projectCode, customers,
           allowColumnResizing
           height='100%'
           onRowClick={handleView}
-          onRowPrepared={(e) => e.rowElement.classList.add('cursor-pointer')}
           selectedRowKeys={selectedRowKeys}
           onSelectionChanged={handleOnSelectionChange}
+          onAdaptiveDetailRowPreparing={handleOnAdaptiveDetailRowPreparing}
+          onRowPrepared={handleOnRowPrepared}
         >
           <Column dataField='code' width={100} dataType='string' caption='ID' fixed sortOrder='asc' />
           <Column dataField='username' dataType='string' />

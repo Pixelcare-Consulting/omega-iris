@@ -18,3 +18,7 @@
 .sidebar-treeview .dx-treeview-item {
   @apply flex-row-reverse text-sm font-medium;
 }
+
+/* tr.dx-row > td {
+  font-size: 11px !important;
+} */

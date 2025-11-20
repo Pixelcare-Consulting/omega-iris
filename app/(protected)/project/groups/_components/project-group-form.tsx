@@ -43,7 +43,7 @@ export default function ProjectGroupForm({ pageMetaData, projectGroup }: Project
     }
 
     return undefined
-  }, [])
+  }, [isCreate, JSON.stringify(projectGroup)])
 
   const form = useForm({
     mode: 'onChange',
@@ -110,7 +110,7 @@ export default function ProjectGroupForm({ pageMetaData, projectGroup }: Project
         </PageHeader>
 
         <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
-          <ScrollView useNative={false} scrollByContent scrollByThumb>
+          <ScrollView>
             {/* <FormDebug form={form} /> */}
 
             <div className='grid h-full grid-cols-12 gap-5 px-6 py-8'>

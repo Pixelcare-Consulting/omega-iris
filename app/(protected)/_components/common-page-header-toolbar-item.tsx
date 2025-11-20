@@ -7,8 +7,7 @@ import { Button } from 'devextreme-react/button'
 import { Tooltip } from 'devextreme-react/tooltip'
 import { ValueChangedEvent } from 'devextreme/ui/text_box'
 import Menu, { MenuTypes } from 'devextreme-react/menu'
-import { MutableRefObject, useCallback, useMemo, useRef, useState } from 'react'
-import DropDownButton, { Item as DropDownButtonItem } from 'devextreme-react/drop-down-button'
+import { MutableRefObject, useCallback, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -19,9 +18,17 @@ type CommonPageHeaderToolbarItemsProps = {
   dataGridUniqueKey: string
   dataGridRef: MutableRefObject<DataGridRef<any, any> | null>
   addButton?: { text: string; onClick: () => void }
+  customs?: {
+    exportToExcel?: (...args: any[]) => void
+  }
 }
 
-export default function CommonPageHeaderToolbarItems({ dataGridUniqueKey, dataGridRef, addButton }: CommonPageHeaderToolbarItemsProps) {
+export default function CommonPageHeaderToolbarItems({
+  dataGridUniqueKey,
+  dataGridRef,
+  addButton,
+  customs,
+}: CommonPageHeaderToolbarItemsProps) {
   const searchTextBoxRef = useRef<TextBoxRef | null>(null)
 
   const dataGridStore = useDataGridStore([
@@ -81,9 +88,17 @@ export default function CommonPageHeaderToolbarItems({ dataGridUniqueKey, dataGr
 
       switch (id) {
         case 'export-all-data-to-excel':
-          exportToExcel(dataGridUniqueKey, instance)
+          if (customs?.exportToExcel) {
+            customs.exportToExcel(dataGridUniqueKey, instance, false)
+            return
+          }
+          exportToExcel(dataGridUniqueKey, instance, false)
           break
         case 'export-selected-rows-to-excel':
+          if (customs?.exportToExcel) {
+            customs.exportToExcel(dataGridUniqueKey, instance, true)
+            return
+          }
           exportToExcel(dataGridUniqueKey, instance, true)
           break
         case 'clear-filter-row':
