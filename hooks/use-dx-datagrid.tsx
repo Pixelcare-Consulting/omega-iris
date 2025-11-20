@@ -1,7 +1,7 @@
 import { createStoreWithSelectors } from '@/utils/zustand'
 import { createWithEqualityFn } from 'zustand/traditional'
 
-type DataGridStore = {
+export type DataGridStore = {
   showFilterRow: boolean
   setShowFilterRow: (value: boolean) => void
   showHeaderFilter: boolean

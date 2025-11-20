@@ -1,26 +1,7 @@
 'use client'
 
 import { deleteUser, getUsers } from '@/actions/users'
-import DataGrid, {
-  Column,
-  FilterRow,
-  DataGridTypes,
-  Pager,
-  Paging,
-  HeaderFilter,
-  Sorting,
-  Scrolling,
-  ColumnChooser,
-  FilterPanel,
-  Grouping,
-  GroupPanel,
-  Export,
-  StateStoring,
-  DataGridRef,
-  Selection,
-  Button as DataGridButton,
-  ColumnFixing,
-} from 'devextreme-react/data-grid'
+import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
 import { useCallback, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
@@ -29,13 +10,11 @@ import { format, isValid } from 'date-fns'
 
 import PageHeader from '../../_components/page-header'
 import PageContentWrapper from '../../_components/page-content-wrapper'
-import { cn } from '@/utils'
 import { createRandomUser } from '@/utils/faker'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
-import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES } from '@/constants/devextreme'
 import CommonPageHeaderToolbarItems from '../../_components/common-page-header-toolbar-item'
 import AlertDialog from '@/components/alert-dialog'
-import { handleOnAdaptiveDetailRowPreparing, handleOnRowPrepared } from '@/utils/devextreme'
+import CommonDataGrid from '@/components/common-datagrid'
 
 type UserTableProps = { users: Awaited<ReturnType<typeof getUsers>> }
 type DataSource = Awaited<ReturnType<typeof getUsers>>
@@ -141,19 +120,12 @@ export default function UserTable({ users }: UserTableProps) {
       </PageHeader>
 
       <PageContentWrapper className='h-[calc(100%_-_92px)]'>
-        <DataGrid
-          ref={dataGridRef}
-          dataSource={users}
-          keyExpr='id'
-          showBorders
-          columnHidingEnabled={dataGridStore.columnHidingEnabled}
-          hoverStateEnabled
-          allowColumnReordering
-          allowColumnResizing
-          height='100%'
-          onAdaptiveDetailRowPreparing={handleOnAdaptiveDetailRowPreparing}
-          onRowPrepared={handleOnRowPrepared}
-          onRowClick={handleView}
+        <CommonDataGrid
+          dataGridRef={dataGridRef}
+          data={users}
+          storageKey={DATAGRID_STORAGE_KEY}
+          callbacks={{ onRowClick: handleView }}
+          dataGridStore={dataGridStore}
         >
           <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
           <Column dataField='username' dataType='string' />
@@ -179,31 +151,7 @@ export default function UserTable({ users }: UserTableProps) {
             <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' />
             <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' />
           </Column>
-
-          <FilterRow visible={dataGridStore.showFilterRow} />
-          <HeaderFilter visible={dataGridStore.showHeaderFilter} allowSearch />
-          <FilterPanel visible={dataGridStore.showFilterBuilderPanel} />
-          <Grouping contextMenuEnabled={dataGridStore.showGroupPanel} />
-          <GroupPanel visible={dataGridStore.showGroupPanel} />
-          <ColumnFixing enabled />
-          <Sorting mode='multiple' />
-          <Scrolling mode='infinite' rowRenderingMode='virtual' />
-          <ColumnChooser mode='select' allowSearch width={300} />
-          <Export formats={['pdf', 'xlsx']} />
-          <Selection mode='multiple' />
-
-          <StateStoring enabled={dataGridStore.enableStateStoring} type='localStorage' storageKey={DATAGRID_STORAGE_KEY} />
-
-          <Pager
-            visible={true}
-            allowedPageSizes={DATAGRID_PAGE_SIZES}
-            showInfo
-            displayMode='full'
-            showPageSizeSelector
-            showNavigationButtons
-          />
-          <Paging defaultPageSize={DATAGRID_DEFAULT_PAGE_SIZE} />
-        </DataGrid>
+        </CommonDataGrid>
       </PageContentWrapper>
 
       <AlertDialog

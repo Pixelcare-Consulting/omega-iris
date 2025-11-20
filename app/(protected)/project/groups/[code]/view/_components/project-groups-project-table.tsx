@@ -1,36 +1,15 @@
 'use client'
 
 import { getProjectIndividualsByGroupCode } from '@/actions/project-individual'
-import DataGrid, {
-  Column,
-  FilterRow,
-  DataGridTypes,
-  Pager,
-  Paging,
-  HeaderFilter,
-  Sorting,
-  Scrolling,
-  ColumnChooser,
-  FilterPanel,
-  Grouping,
-  GroupPanel,
-  Export,
-  StateStoring,
-  DataGridRef,
-  Selection,
-  ColumnFixing,
-  LoadPanel,
-} from 'devextreme-react/data-grid'
+import { Column, DataGridTypes, DataGridRef } from 'devextreme-react/data-grid'
 import { useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import Toolbar from 'devextreme-react/toolbar'
 
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
-import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES } from '@/constants/devextreme'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
-import { cn } from '@/utils'
-import { handleOnAdaptiveDetailRowPreparing, handleOnRowPrepared } from '@/utils/devextreme'
+import CommonDataGrid from '@/components/common-datagrid'
 
 type ProjectGroupProjectTableProps = {
   groupCode: number
@@ -85,21 +64,14 @@ export default function ProjectGroupProjectTable({ projects }: ProjectGroupProje
         <CommonPageHeaderToolbarItems dataGridUniqueKey={DATAGRID_UNIQUE_KEY} dataGridRef={dataGridRef} />
       </Toolbar>
 
-      <PageContentWrapper className='max-h-[calc(100%_-_68px)]'>
-        <DataGrid
-          ref={dataGridRef}
-          dataSource={projects.data}
-          keyExpr='id'
-          showBorders
-          columnHidingEnabled={dataGridStore.columnHidingEnabled}
-          hoverStateEnabled
-          allowColumnReordering
-          allowColumnResizing
-          height='100%'
-          width='100%'
-          onAdaptiveDetailRowPreparing={handleOnAdaptiveDetailRowPreparing}
-          onRowPrepared={handleOnRowPrepared}
-          onRowClick={handleView}
+      <PageContentWrapper className='h-[calc(100%_-_68px)]'>
+        <CommonDataGrid
+          dataGridRef={dataGridRef}
+          data={projects.data}
+          isLoading={projects.isLoading}
+          storageKey={DATAGRID_STORAGE_KEY}
+          callbacks={{ onRowClick: handleView }}
+          dataGridStore={dataGridStore}
         >
           <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
           <Column dataField='name' dataType='string' />
@@ -112,31 +84,7 @@ export default function ProjectGroupProjectTable({ projects }: ProjectGroupProje
           />
           <Column dataField='createdAt' dataType='datetime' caption='Created At' />
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
-
-          <FilterRow visible={dataGridStore.showFilterRow} />
-          <HeaderFilter visible={dataGridStore.showHeaderFilter} allowSearch />
-          <FilterPanel visible={dataGridStore.showFilterBuilderPanel} />
-          <Grouping contextMenuEnabled={dataGridStore.showGroupPanel} />
-          <GroupPanel visible={dataGridStore.showGroupPanel} />
-          <ColumnFixing enabled />
-          <Sorting mode='multiple' />
-          <Scrolling mode='standard' />
-          <ColumnChooser mode='select' allowSearch width={300} />
-          <Export formats={['pdf', 'xlsx']} />
-          <LoadPanel enabled={projects.isLoading} shadingColor='rgb(241, 245, 249)' showIndicator showPane shading />
-
-          <StateStoring enabled={dataGridStore.enableStateStoring} type='localStorage' storageKey={DATAGRID_STORAGE_KEY} />
-
-          <Pager
-            visible={true}
-            allowedPageSizes={DATAGRID_PAGE_SIZES}
-            showInfo
-            displayMode='full'
-            showPageSizeSelector
-            showNavigationButtons
-          />
-          <Paging defaultPageSize={DATAGRID_DEFAULT_PAGE_SIZE} />
-        </DataGrid>
+        </CommonDataGrid>
       </PageContentWrapper>
     </>
   )
