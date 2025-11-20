@@ -4,7 +4,7 @@ import DataGrid, { Column, FilterRow, Pager, Paging } from 'devextreme-react/dat
 import ArrayStore from 'devextreme/data/array_store'
 import { Button } from 'devextreme-react/button'
 import { useEffect, useState } from 'react'
-import { FormProvider, useForm } from 'react-hook-form'
+import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import TextBoxField from '@/components/forms/text-box-field'
@@ -15,6 +15,7 @@ import TextAreaField from '@/components/forms/text-area-field'
 import SelectBoxField from '@/components/forms/select-box-field'
 import TagBoxField from '@/components/forms/tag-box-field'
 import SwitchField from '@/components/forms/switch-field'
+import ImageUploaderField from '@/components/forms/image-uploader-field'
 
 const SAMPLE_DATA1 = [
   {
@@ -180,6 +181,8 @@ const exampleFormSchema = z.object({
   item2: z.string().min(1, { message: 'Please select an item 2' }),
   fameworks: z.array(z.string()).min(1, { message: 'Please select at least one framework' }),
   isActive: z.boolean().default(true),
+  thumbnail: z.string().min(1, { message: 'Please enter a thumbnail' }),
+  thumbnails: z.array(z.string()).min(1, { message: 'Please select at least one thumbnail' }),
 })
 
 export default function DevExtremeExamplePage() {
@@ -200,6 +203,8 @@ export default function DevExtremeExamplePage() {
       item2: '',
       fameworks: [],
       isActive: true,
+      thumbnail: '',
+      thumbnails: [],
     },
     resolver: zodResolver(exampleFormSchema),
   })
@@ -388,6 +393,18 @@ export default function DevExtremeExamplePage() {
                 isRequired
                 description='Is this user active?'
               />
+            </div>
+
+            <h1 className='col-span-12 text-lg font-bold'>File Uploader / Single</h1>
+
+            <div className='col-span-12'>
+              <ImageUploaderField control={form.control} name='thumbnail' label='Thumbnail' isRequired />
+            </div>
+
+            <h1 className='col-span-12 text-lg font-bold'>File Uploader / Single</h1>
+
+            <div className='col-span-12'>
+              <ImageUploaderField control={form.control} name='thumbnails' label='Thumbnail' isRequired isMulti />
             </div>
 
             <div className='col-span-12 flex justify-end'>

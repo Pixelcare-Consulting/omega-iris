@@ -32,6 +32,7 @@ import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES } from '@/constants/devextreme'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import AlertDialog from '@/components/alert-dialog'
+import { handleOnAdaptiveDetailRowPreparing, handleOnRowPrepared } from '@/utils/devextreme'
 
 type RoleTableProps = { roles: Awaited<ReturnType<typeof getRoles>> }
 type DataSource = Awaited<ReturnType<typeof getRoles>>
@@ -127,7 +128,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
         />
       </PageHeader>
 
-      <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
+      <PageContentWrapper className='h-[calc(100%_-_92px)]'>
         <DataGrid
           ref={dataGridRef}
           dataSource={roles}
@@ -139,8 +140,9 @@ export default function RoleTable({ roles }: RoleTableProps) {
           allowColumnResizing
           height='100%'
           width='100%'
+          onAdaptiveDetailRowPreparing={handleOnAdaptiveDetailRowPreparing}
+          onRowPrepared={handleOnRowPrepared}
           onRowClick={handleView}
-          onRowPrepared={(e) => e.rowElement.classList.add('cursor-pointer')}
         >
           <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
           <Column dataField='name' dataType='string' />

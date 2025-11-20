@@ -35,6 +35,7 @@ import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES } from '@/constants/devextreme'
 import CommonPageHeaderToolbarItems from '../../_components/common-page-header-toolbar-item'
 import AlertDialog from '@/components/alert-dialog'
+import { handleOnAdaptiveDetailRowPreparing, handleOnRowPrepared } from '@/utils/devextreme'
 
 type UserTableProps = { users: Awaited<ReturnType<typeof getUsers>> }
 type DataSource = Awaited<ReturnType<typeof getUsers>>
@@ -68,18 +69,6 @@ export default function UserTable({ users }: UserTableProps) {
     'showColumnChooser',
     'setShowColumnChooser',
   ])
-
-  const statusCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
-    const data = e.data as DataSource[number]
-    const isActive = data.isActive
-
-    return (
-      <div className={cn('flex items-center gap-1.5', isActive ? 'text-green-500' : 'text-red-500')}>
-        <div className={cn('size-2 rounded-full', isActive ? 'bg-green-500' : 'bg-red-500')} />
-        <span>{isActive ? 'Active' : 'Inactive'}</span>
-      </div>
-    )
-  }, [])
 
   const lastSigninCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
     const data = e.data as DataSource[number]
@@ -151,7 +140,7 @@ export default function UserTable({ users }: UserTableProps) {
         />
       </PageHeader>
 
-      <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
+      <PageContentWrapper className='h-[calc(100%_-_92px)]'>
         <DataGrid
           ref={dataGridRef}
           dataSource={users}
@@ -162,10 +151,11 @@ export default function UserTable({ users }: UserTableProps) {
           allowColumnReordering
           allowColumnResizing
           height='100%'
+          onAdaptiveDetailRowPreparing={handleOnAdaptiveDetailRowPreparing}
+          onRowPrepared={handleOnRowPrepared}
           onRowClick={handleView}
-          onRowPrepared={(e) => e.rowElement.classList.add('cursor-pointer')}
         >
-          <Column dataField='code' width={100} dataType='string' caption='ID' fixed sortOrder='asc' />
+          <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
           <Column dataField='username' dataType='string' />
           <Column
             dataField='fullName'
@@ -179,7 +169,6 @@ export default function UserTable({ users }: UserTableProps) {
             dataField='isActive'
             dataType='string'
             caption='Status'
-            cellRender={statusCellRender}
             calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
           />
           <Column dataField='location' dataType='string' />
@@ -198,7 +187,7 @@ export default function UserTable({ users }: UserTableProps) {
           <GroupPanel visible={dataGridStore.showGroupPanel} />
           <ColumnFixing enabled />
           <Sorting mode='multiple' />
-          <Scrolling mode='standard' />
+          <Scrolling mode='infinite' rowRenderingMode='virtual' />
           <ColumnChooser mode='select' allowSearch width={300} />
           <Export formats={['pdf', 'xlsx']} />
           <Selection mode='multiple' />

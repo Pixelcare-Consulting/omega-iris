@@ -17,11 +17,12 @@ export const userFormSchema = z
     newPassword: z.string().nullish(),
     newConfirmPassword: z.string().nullish(),
     customerCode: z.string().nullish(),
+    supplierCode: z.string().nullish(),
   })
   //TODO: Customer is not required for now, uncomment this when customer is required
   // .refine(
   //   (formObj) => {
-  //     if (formObj.roleKey === 'customer') return formObj.customerCode && formObj.customerCode.length >= 1
+  //     if (formObj.roleKey === 'business-partner') return formObj.customerCode && formObj.customerCode.length >= 1
   //     else return true
   //   },
   //   { message: 'Customer code is required', path: ['customerCode'] }

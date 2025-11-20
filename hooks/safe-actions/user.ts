@@ -35,7 +35,7 @@ export function useUserByIdClient(id?: string | null, dependencies?: any[]) {
   }
 }
 
-export function useNonCustomerUsersClient(dependencies?: any[]) {
+export function useNonBpUsersClient(dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getNonCustomerUsersClient)
 
   useEffect(() => {

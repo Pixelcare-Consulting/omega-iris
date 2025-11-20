@@ -23,6 +23,7 @@ model User {
     lastIpAddress String?
     lastSignin    DateTime?
     customerCode  String?
+    supplierCode  String?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -37,6 +38,7 @@ model User {
 
     projectIndividualPics      ProjectIndividualPic[]      @relation(name: "User-ProjectIndividualPic")
     projectIndividualCustomers ProjectIndividualCustomer[] @relation(name: "User-ProjectIndividualCustomer")
+    inventories                Inventory[]
 }
 
 model Role {
@@ -128,6 +130,7 @@ model ProjectIndividual {
     projectIndividualPics      ProjectIndividualPic[]      @relation(name: "ProjectIndividual-ProjectIndividualPic")
     projectIndividualCustomers ProjectIndividualCustomer[] @relation(name: "ProjectIndividual-ProjectIndividualCustomer")
     projectGroup               ProjectGroup                @relation(fields: [groupCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    inventories                Inventory[]
 }
 
 model ProjectIndividualCustomer {
@@ -170,6 +173,86 @@ model ProjectIndividualPic {
     @@unique([projectIndividualCode, userCode])
     @@index([projectIndividualCode])
     @@index([userCode])
+}
+
+model Inventory {
+    id                     String    @id @default(cuid())
+    code                   Int       @unique @default(autoincrement())
+    userCode               Int       @unique //* user code of a user with customer role
+    projectIndividualCode  Int
+    thumbnail              String?
+    partNumber             String    @unique
+    manufacturer           String
+    manufacturerPartNumber String
+    description            String
+    dateCode               String?
+    lotCode                String?
+    siteLocation           String?
+    subLocation1           String?
+    subLocation2           String?
+    subLocation3           String?
+    subLocation4           String?
+    packagingType          String?
+    spq                    Int?
+    cost                   Decimal
+    countryOfOrigin        String?
+    note                   String?
+    palletSize             String? //* STANDARD, OVERSIZE, CRATES 
+    palletNo               String?
+    isActive               Boolean   @default(true)
+    dateReceived           DateTime?
+    inProcess              Int?
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    projectIndividual    ProjectIndividual    @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    user                 User                 @relation(fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    warehouseInventories WarehouseInventory[]
+}
+
+model Warehouse {
+    id          String  @id @default(cuid())
+    code        Int     @unique @default(autoincrement())
+    name        String
+    description String?
+    isActive    Boolean @default(true)
+    isDefault   Boolean @default(false)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    inventories WarehouseInventory[]
+}
+
+model WarehouseInventory {
+    id            String  @id @default(cuid())
+    code          Int     @unique @default(autoincrement())
+    warehouseCode Int
+    inventoryCode Int
+    isLocked      Boolean @default(false)
+    inStock       Int     @default(0)
+    committed     Int     @default(0)
+    ordered       Int     @default(0)
+    available     Int     @default(0)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    warehouse Warehouse @relation(fields: [warehouseCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    inventory Inventory @relation(fields: [inventoryCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
 }
 
 //* add model system logs

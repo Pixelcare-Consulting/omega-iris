@@ -11,7 +11,7 @@ import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import ProjectIndividualOverviewTab from './_tabs/project-individual-overview-tab'
 import UnderDevelopment from '@/app/under-development'
-import { useNonCustomerUsersClient, useUsersByRoleKeyClient } from '@/hooks/safe-actions/user'
+import { useNonBpUsersClient, useUsersByRoleKeyClient } from '@/hooks/safe-actions/user'
 import ProjectIndividualCustomerTab from './_tabs/project-individual-customer-tab'
 import ProjectIndividualPicTab from './_tabs/project-individual-pic-tab'
 
@@ -22,8 +22,8 @@ type ViewProjectIndividualProps = {
 export default function ViewProjectIndividual({ projectIndividual }: ViewProjectIndividualProps) {
   const router = useRouter()
 
-  const customerUsers = useUsersByRoleKeyClient('customer')
-  const nonCustomerUsers = useNonCustomerUsersClient()
+  const customerUsers = useUsersByRoleKeyClient('business-partner')
+  const nonCustomerUsers = useNonBpUsersClient()
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>

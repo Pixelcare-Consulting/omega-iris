@@ -13,9 +13,9 @@ export default {
           const validatedFields = signinFormSchema.safeParse(credentials)
 
           if (validatedFields.success) {
-            const { username, password } = validatedFields.data
+            const { email, password } = validatedFields.data
 
-            const user = await db.user.findUnique({ where: { username }, include: { role: true } })
+            const user = await db.user.findUnique({ where: { email }, include: { role: true } })
 
             if (!user || !user.password) return null
 

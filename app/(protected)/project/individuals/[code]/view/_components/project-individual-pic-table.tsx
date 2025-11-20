@@ -40,6 +40,7 @@ import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-p
 import { ProjectIndividualPicForm, projectIndividualPicFormSchema } from '@/schema/project-individual'
 import { updateProjectIndividualPics } from '@/actions/project-individual'
 import LoadingButton from '@/components/loading-button'
+import { handleOnAdaptiveDetailRowPreparing, handleOnRowPrepared } from '@/utils/devextreme'
 
 type UserTableProps = {
   projectCode: number
@@ -183,8 +184,9 @@ export default function ProjectIndividualPicTable({ projectCode, pics, users }: 
           allowColumnReordering
           allowColumnResizing
           height='100%'
+          onAdaptiveDetailRowPreparing={handleOnAdaptiveDetailRowPreparing}
+          onRowPrepared={handleOnRowPrepared}
           onRowClick={handleView}
-          onRowPrepared={(e) => e.rowElement.classList.add('cursor-pointer')}
           selectedRowKeys={selectedRowKeys}
           onSelectionChanged={handleOnSelectionChange}
         >

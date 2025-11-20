@@ -21,7 +21,7 @@ import { getProjectIndividualByCode, upsertProjectIndividual } from '@/actions/p
 import { PageMetadata } from '@/types/common'
 import { useProjectGroupsClient } from '@/hooks/safe-actions/project-group'
 import SelectBoxField from '@/components/forms/select-box-field'
-import { useNonCustomerUsersClient, useUsersByRoleKeyClient } from '@/hooks/safe-actions/user'
+import { useNonBpUsersClient, useUsersByRoleKeyClient } from '@/hooks/safe-actions/user'
 import TagBoxField from '@/components/forms/tag-box-field'
 import TextAreaField from '@/components/forms/text-area-field'
 import { commonItemRender, userItemRender } from '@/utils/devextreme'
@@ -51,7 +51,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
     }
 
     return undefined
-  }, [])
+  }, [isCreate, JSON.stringify(projectIndividual)])
 
   const form = useForm({
     mode: 'onChange',
@@ -62,8 +62,8 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
   const { executeAsync, isExecuting } = useAction(upsertProjectIndividual)
 
   const projectGroups = useProjectGroupsClient()
-  const customerUsers = useUsersByRoleKeyClient('customer')
-  const nonCustomerUsers = useNonCustomerUsersClient()
+  const customerUsers = useUsersByRoleKeyClient('business-partner')
+  const nonCustomerUsers = useNonBpUsersClient()
 
   const handleOnSubmit = async (formData: ProjectIndividualForm) => {
     try {
@@ -89,10 +89,6 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
       toast.error('Something went wrong! Please try again later.')
     }
   }
-
-  useEffect(() => {
-    console.log({ projectGroupsClient: projectGroups })
-  }, [JSON.stringify(projectGroups)])
 
   return (
     <FormProvider {...form}>
@@ -130,7 +126,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
         </PageHeader>
 
         <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
-          <ScrollView useNative={false} scrollByContent scrollByThumb>
+          <ScrollView>
             {/* <FormDebug form={form} /> */}
 
             <div className='grid h-full grid-cols-12 gap-5 px-6 py-8'>

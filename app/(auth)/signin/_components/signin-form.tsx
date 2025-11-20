@@ -21,7 +21,7 @@ export default function SigninForm() {
 
   const form = useForm<SigninForm>({
     mode: 'onChange',
-    defaultValues: { username: '', password: '', callbackUrl },
+    defaultValues: { email: '', password: '', callbackUrl },
     resolver: zodResolver(signinFormSchema),
   })
 
@@ -62,7 +62,7 @@ export default function SigninForm() {
 
       <FormProvider {...form}>
         <form id='login-form' className='space-y-5' onSubmit={form.handleSubmit(handleSubmit)}>
-          <TextBoxField control={form.control} name='username' label='Username' />
+          <TextBoxField control={form.control} name='email' label='Email' />
           <TextBoxField control={form.control} name='password' label='Password' extendedProps={{ textBoxOptions: { mode: 'password' } }} />
 
           <LoadingButton

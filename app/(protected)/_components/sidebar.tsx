@@ -43,7 +43,7 @@ export default function Sidebar({ isOpen, setIsOpen, children }: SidebarProps) {
 
   const handleCloseOnOutsideClick = useCallback(
     (e: DxEvent<PointerInteractionEvent>) => {
-      if (e.target.className.includes('dx-drawer-shader')) {
+      if (e?.target?.className?.includes('dx-drawer-shader')) {
         setIsOpen(false)
         return true
       }
@@ -52,6 +52,7 @@ export default function Sidebar({ isOpen, setIsOpen, children }: SidebarProps) {
     [setIsOpen]
   )
 
+  //* collapse all items when drawer is closed
   useEffect(() => {
     if (!isOpen && treeViewRef.current) {
       const instance = treeViewRef.current.instance()
@@ -75,7 +76,7 @@ export default function Sidebar({ isOpen, setIsOpen, children }: SidebarProps) {
       minSize={xSmallMedia ? 0 : 40}
       maxSize={250}
       template='menu'
-      closeOnOutsideClick={handleCloseOnOutsideClick}
+      // closeOnOutsideClick={handleCloseOnOutsideClick}
     >
       <main className={cn('mt-[2px] h-[calc(100vh_-_54px)] w-full border-0 bg-slate-50 p-4', largeMedia && !isOpen && 'border-l')}>
         {children}

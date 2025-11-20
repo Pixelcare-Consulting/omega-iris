@@ -21,7 +21,6 @@ import DataGrid, {
   Export,
   StateStoring,
 } from 'devextreme-react/data-grid'
-import ScrollView from 'devextreme-react/scroll-view'
 
 import { createRandomUser } from '@/utils/faker'
 import { useState } from 'react'
