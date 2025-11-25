@@ -42,6 +42,7 @@ type CommonDataGridProps<T extends Record<string, any>> = {
   dataGridStore: Partial<DataGridStore>
 }
 
+//? In Devextreme you can implemenet remote pagination only and the rest like pagination, sorting, filtering, grouping, etc. is in client side.
 export default function CommonDataGrid<T extends Record<string, any>>({
   dataGridRef,
   data,
@@ -70,6 +71,9 @@ export default function CommonDataGrid<T extends Record<string, any>>({
       onSelectionChanged={callbacks?.onSelectionChanged}
       onRowPrepared={handleOnRowPrepared}
       onAdaptiveDetailRowPreparing={handleOnAdaptiveDetailRowPreparing}
+      // columnAutoWidth={false}
+      // columnMinWidth={100}
+      // columnWidth={200}
     >
       {children}
 
@@ -80,7 +84,7 @@ export default function CommonDataGrid<T extends Record<string, any>>({
       <GroupPanel visible={dataGridStore.showGroupPanel} />
       <ColumnFixing enabled />
       <Sorting mode='multiple' />
-      <Scrolling mode='infinite' rowRenderingMode='virtual' />
+      <Scrolling mode='infinite' rowRenderingMode='virtual' columnRenderingMode='virtual' />
       <ColumnChooser mode='select' allowSearch width={300} />
       <Export formats={['xlsx']} />
       <Selection mode='multiple' />

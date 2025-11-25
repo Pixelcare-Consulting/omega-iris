@@ -26,7 +26,7 @@ export default function RolesOverviewTab({ role }: RoleOverviewTabProps) {
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Key' value={role.key} />
 
-        <ReadOnlyField className='col-span-12' title='Description' value={role.description} />
+        <ReadOnlyField className='col-span-12' title='Description' value={role?.description || ''} />
 
         <ReadOnlyFieldHeader className='col-span-12' title='Record Meta data' description='Role record meta data' />
 

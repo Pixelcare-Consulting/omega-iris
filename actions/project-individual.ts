@@ -13,7 +13,7 @@ import { action, authenticationMiddleware } from '@/utils/safe-action'
 import z from 'zod'
 
 const COMMON_PROJECT_INDIVIDUAL_INCLUDE = {
-  projectGroup: { select: { name: true } },
+  projectGroup: { select: { code: true, name: true } },
 } satisfies Prisma.ProjectIndividualInclude
 
 export async function getProjectIndividuals() {
@@ -180,7 +180,7 @@ export const updateProjectIndividualCustomers = action
       const projectIndividual = await db.projectIndividual.findUnique({ where: { code } })
 
       if (!projectIndividual) {
-        return { error: true, code: 404, message: 'Project individual not found', action: 'UPDATE_PROJECT_INDIVIDUAL_CUSTOMERS' }
+        return { error: true, status: 404, message: 'Project individual not found', action: 'UPDATE_PROJECT_INDIVIDUAL_CUSTOMERS' }
       }
 
       //* update project individual
@@ -229,7 +229,7 @@ export const updateProjectIndividualPics = action
       const projectIndividual = await db.projectIndividual.findUnique({ where: { code } })
 
       if (!projectIndividual) {
-        return { error: true, code: 404, message: 'Project individual not found', action: 'UPDATE_PROJECT_INDIVIDUAL_PICS' }
+        return { error: true, status: 404, message: 'Project individual not found', action: 'UPDATE_PROJECT_INDIVIDUAL_PICS' }
       }
 
       //* update project individual
@@ -275,7 +275,7 @@ export const deleleteProjectIndividual = action
       const projectIndividual = await db.projectIndividual.findUnique({ where: { code: data.code } })
 
       if (!projectIndividual)
-        return { error: true, code: 404, message: 'Project individual not found', action: 'DELETE_PROJECT_INDIVIDUAL' }
+        return { error: true, status: 404, message: 'Project individual not found', action: 'DELETE_PROJECT_INDIVIDUAL' }
 
       await db.projectIndividual.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 

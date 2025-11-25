@@ -25,7 +25,7 @@ type RoleFormProps = { pageMetaData: PageMetadata; role: Awaited<ReturnType<type
 
 export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
   const router = useRouter()
-  const { code } = useParams()
+  const { code } = useParams() as { code: string }
 
   const isCreate = code === 'add' || !role
 

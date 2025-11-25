@@ -24,7 +24,11 @@ export default function ProjectIndividualOverviewTab({ projectIndividual }: Proj
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Name' value={projectIndividual.name} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Group' value={projectIndividual.projectGroup.name} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Group ID' value={projectIndividual.projectGroup.code}>
+          <Copy value={projectIndividual.projectGroup.code} />
+        </ReadOnlyField>
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Group Name' value={projectIndividual.projectGroup.name} />
 
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'

@@ -31,7 +31,7 @@ type ProjectIndividualFormProps = { pageMetaData: PageMetadata; projectIndividua
 
 export default function ProjectIndividualForm({ pageMetaData, projectIndividual }: ProjectIndividualFormProps) {
   const router = useRouter()
-  const { code } = useParams()
+  const { code } = useParams() as { code: string }
 
   const isCreate = code === 'add' || !projectIndividual
 

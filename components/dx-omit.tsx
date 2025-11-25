@@ -2,7 +2,10 @@
 
 import { useEffect } from 'react'
 
-export default function DxOmit() {
+//TODO: this will rerender when doing editing cell in devextreme grid which afftects its performance  and work properly
+//TODO: find way or optimize the bypassing
+
+export default function DxOmit({ children }: { children?: React.ReactNode }) {
   useEffect(() => {
     const removeDxLicense = () => {
       const banners = document.querySelectorAll('dx-license')
@@ -24,11 +27,11 @@ export default function DxOmit() {
     })
 
     //* observe the body element
-    observer.observe(document.body, { childList: true, subtree: true })
+    observer.observe(document.body, { childList: true })
 
     //* Cleanup
     return () => observer.disconnect()
   }, [])
 
-  return null
+  return <>{children}</>
 }

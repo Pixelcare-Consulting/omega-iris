@@ -15,36 +15,36 @@ import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { type InventoryForm, inventoryFormSchema, PALLET_SIZE_VALUES } from '@/schema/inventory'
 import TextBoxField from '@/components/forms/text-box-field'
-import { FormDebug } from '@/components/forms/form-debug'
 import LoadingButton from '@/components/loading-button'
 import { getInventoryByCode, upsertInventory } from '@/actions/inventory'
 import { PageMetadata } from '@/types/common'
-import { useProjectGroupsClient } from '@/hooks/safe-actions/project-group'
 import SelectBoxField from '@/components/forms/select-box-field'
-import { useNonBpUsersClient, useUsersByRoleKeyClient } from '@/hooks/safe-actions/user'
-import TagBoxField from '@/components/forms/tag-box-field'
+import { useUsersByRoleKeyClient } from '@/hooks/safe-actions/user'
 import TextAreaField from '@/components/forms/text-area-field'
 import { commonItemRender, userItemRender } from '@/utils/devextreme'
 import SwitchField from '@/components/forms/switch-field'
-import { useProjectIndividualsByBpUserCodeClient, useProjectIndividualsClient } from '@/hooks/safe-actions/project-individual'
+import { useProjectIndividualsByBpUserCodeClient } from '@/hooks/safe-actions/project-individual'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import NumberBoxField from '@/components/forms/number-box-field'
 import DateBoxField from '@/components/forms/date-box-field'
 import Separator from '@/components/separator'
 import ImageUploaderField from '@/components/forms/image-uploader-field'
-import { getProjectIndividualsByBpUserCodeClient } from '@/actions/project-individual'
 import { DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
+import { useWarehouseClient } from '@/hooks/safe-actions/warehouse'
+import InventoryWarehouseForm from './inventory-warehouse-form'
+import { FormDebug } from '@/components/forms/form-debug'
+import { useWarehouseInventoriesByItemCodeClient } from '@/hooks/safe-actions/warehouse-inventory'
 
 type InventoryFormProps = { pageMetaData: PageMetadata; inventory: Awaited<ReturnType<typeof getInventoryByCode>> }
 
 export default function InventoryForm({ pageMetaData, inventory }: InventoryFormProps) {
   const router = useRouter()
-  const { code } = useParams()
+  const { code } = useParams() as { code: string }
 
   const isCreate = code === 'add' || !inventory
 
   const values = useMemo(() => {
-    if (inventory) return inventory
+    if (inventory) return { ...inventory, warehouseInventory: [] }
 
     if (isCreate) {
       return {
@@ -73,6 +73,9 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
         isActive: true,
         dateReceived: null,
         inProcess: null,
+
+        //* temporary
+        warehouseInventory: [],
       }
     }
 
@@ -88,9 +91,44 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
   const { executeAsync, isExecuting } = useAction(upsertInventory)
 
   const userCode = useWatch({ control: form.control, name: 'userCode' })
-
   const customerUsers = useUsersByRoleKeyClient('business-partner')
   const projects = useProjectIndividualsByBpUserCodeClient(userCode)
+  const warehouses = useWarehouseClient(true)
+  const warehouseInventories = useWarehouseInventoriesByItemCodeClient(inventory?.code)
+
+  //* initialize warehouses inventory when create based on default warehouses
+  useEffect(() => {
+    if (!isCreate || warehouses.isLoading || warehouses.data.length < 1) return
+
+    const values = warehouses.data.map((wh) => ({
+      code: wh.code,
+      name: wh.name,
+      isLocked: false,
+      inStock: 0,
+      committed: 0,
+      ordered: 0,
+      available: 0,
+    }))
+
+    form.setValue('warehouseInventory', values)
+  }, [isCreate, JSON.stringify(warehouses)])
+
+  //* set warehoise inventoryt when edit based on existing warehose inventory data
+  useEffect(() => {
+    if (isCreate || warehouseInventories.isLoading || warehouseInventories.data.length < 1) return
+
+    const values = warehouseInventories.data.map((wi) => ({
+      code: wi.warehouseCode,
+      name: wi.warehouse.name,
+      isLocked: wi.isLocked,
+      inStock: wi.inStock,
+      committed: wi.committed,
+      ordered: wi.ordered,
+      available: wi.available,
+    }))
+
+    form.setValue('warehouseInventory', values)
+  }, [JSON.stringify(inventory), JSON.stringify(warehouseInventories)])
 
   const handleOnSubmit = async (formData: InventoryForm) => {
     try {
@@ -98,7 +136,10 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
       const result = response?.data
 
       if (result?.error) {
-        if (result.status === 401) form.setError('partNumber', { type: 'custom', message: result.message })
+        if (result.status === 401) {
+          form.setError('partNumber', { type: 'custom', message: result.message })
+          console.log('error part number')
+        }
 
         toast.error(result.message)
         return
@@ -108,6 +149,7 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
 
       if (result?.data && result?.data?.inventory && 'id' in result?.data?.inventory) {
         router.refresh()
+        warehouseInventories.execute({ itemCode: result.data.inventory.code })
 
         setTimeout(() => {
           router.push(`/inventories/${result.data.inventory.code}`)
@@ -214,15 +256,15 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
                 </div>
 
                 <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                  <TextBoxField control={form.control} name='partNumber' label='Part Number' isRequired />
-                </div>
-
-                <div className='col-span-12 md:col-span-6 lg:col-span-4'>
                   <TextBoxField control={form.control} name='manufacturer' label='Manufacturer' isRequired />
                 </div>
 
                 <div className='col-span-12 md:col-span-6 lg:col-span-4'>
                   <TextBoxField control={form.control} name='manufacturerPartNumber' label='MFG P/N' isRequired />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                  <TextBoxField control={form.control} name='partNumber' label='Part Number' isRequired />
                 </div>
 
                 <div className='col-span-12 md:col-span-6 lg:col-span-4'>
@@ -261,7 +303,7 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
               </div>
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <NumberBoxField control={form.control} name='spq' label='SPQ' />
+                <TextBoxField control={form.control} name='spq' label='SPQ' />
               </div>
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
@@ -299,7 +341,7 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
               </div>
 
               <Separator className='col-span-12' />
-              <ReadOnlyFieldHeader className='col-span-12 mb-2' title='Address Details' description='Inventory address details' />
+              <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Address' description='Inventory address details' />
 
               <div className='col-span-12 md:col-span-6'>
                 <TextBoxField control={form.control} name='siteLocation' label='Site Location' />
@@ -321,12 +363,7 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
                 <TextBoxField control={form.control} name='subLocation4' label='Sub Location 4' />
               </div>
 
-              <Separator className='col-span-12' />
-              <ReadOnlyFieldHeader
-                className='col-span-12 mb-2'
-                title='Warehouse Inventory Details'
-                description='Inventory address details'
-              />
+              <InventoryWarehouseForm isLoading={warehouseInventories.isLoading} />
             </div>
           </ScrollView>
         </PageContentWrapper>

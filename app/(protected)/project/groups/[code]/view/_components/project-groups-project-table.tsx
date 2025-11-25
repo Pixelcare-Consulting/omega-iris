@@ -15,7 +15,6 @@ type ProjectGroupProjectTableProps = {
   groupCode: number
   projects: { data: NonNullable<Awaited<ReturnType<typeof getProjectIndividualsByGroupCode>>>; isLoading?: boolean }
 }
-type DataSource = Awaited<ReturnType<typeof getProjectIndividualsByGroupCode>>
 
 export default function ProjectGroupProjectTable({ projects }: ProjectGroupProjectTableProps) {
   const router = useRouter()

@@ -29,7 +29,7 @@ type UserFormProps = { pageMetaData: PageMetadata; user: Awaited<ReturnType<type
 
 export default function UserForm({ pageMetaData, user }: UserFormProps) {
   const router = useRouter()
-  const { code } = useParams()
+  const { code } = useParams() as { code: string }
 
   const isCreate = code === 'add' || !user
 

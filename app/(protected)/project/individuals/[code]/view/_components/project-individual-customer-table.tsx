@@ -63,18 +63,6 @@ export default function ProjectIndividualCustomerTable({ projectCode, customers,
     'setShowColumnChooser',
   ])
 
-  const statusCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
-    const data = e.data as DataSource[number]
-    const isActive = data.isActive
-
-    return (
-      <div className={cn('flex items-center gap-1.5', isActive ? 'text-green-500' : 'text-red-500')}>
-        <div className={cn('size-2 rounded-full', isActive ? 'bg-green-500' : 'bg-red-500')} />
-        <span>{isActive ? 'Active' : 'Inactive'}</span>
-      </div>
-    )
-  }, [])
-
   const lastSigninCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
     const data = e.data as DataSource[number]
     const lastSignin = data?.lastSignin
@@ -180,7 +168,6 @@ export default function ProjectIndividualCustomerTable({ projectCode, customers,
             dataField='isActive'
             dataType='string'
             caption='Status'
-            cellRender={statusCellRender}
             calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
           />
           <Column dataField='location' dataType='string' />
