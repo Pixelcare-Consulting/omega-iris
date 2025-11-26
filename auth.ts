@@ -37,6 +37,7 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     user: ExtendedUser
+    sapSession: SapAuthCookies | null
   }
 }
 
@@ -69,7 +70,6 @@ export const callbacks: NextAuthConfig['callbacks'] = {
 
       const existingAccount = await db.account.findFirst({ where: { userId: existingUser.id } })
 
-      let sapSession = null
       const { id, code, username, fname, lname, email, emailVerified, isActive, isOnline, role } = existingUser
 
       //* user - fields only available after login and for the next subsequent calls it will be undefined
@@ -95,8 +95,8 @@ export const callbacks: NextAuthConfig['callbacks'] = {
           !authCookies?.data?.sapSession?.routeid
         ) {
           logger.error(`SAP Service Layer authentication failed: ${authCookies?.message}`)
-          sapSession = null
-        } else sapSession = authCookies.data.sapSession
+          token.sapSession = null
+        } else token.sapSession = authCookies.data.sapSession
       }
 
       token.user = {
@@ -114,7 +114,7 @@ export const callbacks: NextAuthConfig['callbacks'] = {
         isActive,
         isOnline,
         isOAuth: !!existingAccount,
-        sapSession,
+        sapSession: null,
       }
 
       //* update token.user when triggered update of session
@@ -128,7 +128,12 @@ export const callbacks: NextAuthConfig['callbacks'] = {
   },
   session: async ({ token, session }) => {
     //* anything returned here will be avaible to the client
-    if (token.user) session.user = token.user
+    if (token.user) {
+      session.user = {
+        ...token.user,
+        sapSession: token.sapSession,
+      }
+    }
 
     return session
   },
