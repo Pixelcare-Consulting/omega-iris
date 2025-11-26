@@ -280,4 +280,19 @@ model WarehouseInventory {
     @@index([inventoryCode])
 }
 
+model Settings {
+    id       String  @id @default(cuid())
+    roleCode Int?
+    code     Int     @unique @default(autoincrement())
+    data     Json //* JSON containing all settings
+    isGlobal Boolean @default(false)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+}
+
 //* add model system logs
