@@ -5,6 +5,8 @@ import { Icons } from './icons'
 type AlertProps = {
   className?: string
   message?: string
+  children?: React.ReactNode
+  isHideIcon?: boolean
 } & VariantProps<typeof alertVariants>
 
 const alertVariants = cva('p-3 text-sm rounded-md flex items-center gap-x-2', {
@@ -30,16 +32,16 @@ const icons: Record<NonNullable<AlertProps['variant']>, JSX.Element> = {
   loading: <Icons.spinner className='size-5 animate-spin text-slate-500' />,
 }
 
-export default function Alert({ message, variant, className }: AlertProps) {
+export default function Alert({ message, variant, className, children, isHideIcon }: AlertProps) {
   const alertVariant = variant ?? 'default'
   const Icon = icons[alertVariant as NonNullable<AlertProps['variant']>]
 
-  if (!message) return null
+  if (!message && !children) return null
 
   return (
     <div className={cn(alertVariants({ variant, className }))}>
-      {Icon}
-      <p className='inline-block w-full break-words font-medium'>{message}</p>
+      {isHideIcon ? null : Icon}
+      <p className='inline-block w-full break-words font-medium'>{children || message}</p>
     </div>
   )
 }

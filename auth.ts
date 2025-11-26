@@ -1,13 +1,13 @@
 import 'next-auth/jwt'
 
 import NextAuth, { NextAuthConfig } from 'next-auth'
-// import { authenticateSAPServiceLayer } from "./lib/sap-service-layer"
 import { PrismaAdapter } from '@auth/prisma-adapter'
-// import authConfig from "./auth.config"
+
 import { db } from './utils/db'
-// import { isProd } from './constants/common'
 import authConfig from './auth.config'
-// import { getUserById } from "./actions/user"
+import logger from './utils/logger'
+import { authenticateSapServiceLayer } from './actions/sap-service-layer'
+import { SapAuthCookies, SapCredentials } from './types/sap'
 
 //* module augmentation for next-auth
 export type ExtendedUser = {
@@ -25,7 +25,7 @@ export type ExtendedUser = {
   isOnline: boolean
   isActive: boolean
   isOAuth: boolean
-  sapSession?: { b1session: string; routeid: string }
+  sapSession: SapAuthCookies | null
 }
 
 declare module 'next-auth' {
@@ -41,7 +41,7 @@ declare module 'next-auth/jwt' {
 }
 
 export const callbacks: NextAuthConfig['callbacks'] = {
-  jwt: async ({ token, session, trigger }) => {
+  jwt: async ({ token, session, trigger, user }) => {
     try {
       //* anything returned here will be saved in the JWT and forwarded to the session callback
 
@@ -69,10 +69,37 @@ export const callbacks: NextAuthConfig['callbacks'] = {
 
       const existingAccount = await db.account.findFirst({ where: { userId: existingUser.id } })
 
+      let sapSession = null
       const { id, code, username, fname, lname, email, emailVerified, isActive, isOnline, role } = existingUser
 
       //* user - fields only available after login and for the next subsequent calls it will be undefined
-      //TODO: trigger authenticate SAP only once after login, on subsequent calls it will not be triggered
+      //* trigger authenticate SAP only once after login, on subsequent calls it will not be triggered
+      if (user) {
+        console.log('xxx ', { user })
+
+        //* Authenticate with SAP Service Layer and add session to token
+        //* Only do this in Node.js environment, not in Edge Runtime
+
+        const credentials: SapCredentials = {
+          baseUrl: process.env.SAP_BASE_URL || '',
+          companyDb: process.env.SAP_COMPANY_DB || '',
+          userName: process.env.SAP_USERNAME || '',
+          password: process.env.SAP_PASSWORD || '',
+        }
+
+        const authCookies = await authenticateSapServiceLayer(credentials)
+
+        if (
+          authCookies.error ||
+          !authCookies?.data ||
+          !authCookies?.data?.sapSession ||
+          !authCookies?.data?.sapSession?.b1session ||
+          !authCookies?.data?.sapSession?.routeid
+        ) {
+          logger.error(`SAP Service Layer authentication failed: ${authCookies?.message}`)
+          sapSession = null
+        } else sapSession = authCookies.data.sapSession
+      }
 
       token.user = {
         id,
@@ -89,6 +116,7 @@ export const callbacks: NextAuthConfig['callbacks'] = {
         isActive,
         isOnline,
         isOAuth: !!existingAccount,
+        sapSession,
       }
 
       //* update token.user when triggered update of session
@@ -103,6 +131,7 @@ export const callbacks: NextAuthConfig['callbacks'] = {
   session: async ({ token, session }) => {
     //* anything returned here will be avaible to the client
     if (token.user) session.user = token.user
+
     return session
   },
 }
