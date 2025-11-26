@@ -45,8 +45,6 @@ export default function SigninForm() {
   const { executeAsync, isExecuting } = useAction(signInUser)
 
   const handleSubmit = async (formValues: SigninForm) => {
-    setError('')
-    setSuccess('')
     setIsLoading(true)
     setIsOpen(true)
 
@@ -64,12 +62,14 @@ export default function SigninForm() {
         setIsLoading(false)
         setSeconds(0)
 
-        form.reset()
-
         return
       }
 
-      if (result && result.error) setError(result.message)
+      if (result && result.error) {
+        setError(result.message)
+        setIsLoading(false)
+        setSeconds(0)
+      }
     } catch (err) {
       console.error(err)
       setError('Something went wrong! Please try again later.')
@@ -131,9 +131,6 @@ export default function SigninForm() {
         <p className='text-balance text-sm text-slate-500'>Enter your credentials to access your account</p>
       </div>
 
-      <Alert variant='success' message={success} />
-      <Alert variant='error' message={error} />
-
       <FormProvider {...form}>
         <form id='login-form' className='space-y-5' onSubmit={form.handleSubmit(handleSubmit)}>
           <TextBoxField control={form.control} name='email' label='Email' />
@@ -152,16 +149,33 @@ export default function SigninForm() {
         </form>
       </FormProvider>
 
-      <Popup visible={isOpen} dragEnabled={false} showCloseButton={false} showTitle={false} height={isLoading ? 250 : 310} maxWidth={600}>
+      <Popup
+        visible={isOpen}
+        dragEnabled={false}
+        showCloseButton={false}
+        showTitle={false}
+        height={isLoading ? 250 : error || sapConnectionStatus === 'connected' ? 240 : 310}
+        maxWidth={600}
+      >
         <div className='pt-4'>
           <h2 className='mb-1.5 text-center text-lg font-semibold'>Authenticating</h2>
-          <p className='mb-7 text-center text-sm text-slate-400'>Please wait while we authenticate you...</p>
+          {isLoading && <p className='mb-7 text-center text-sm text-slate-400'>Please wait while we authenticate you...</p>}
+
+          {error && (
+            <Alert variant='error' isHideIcon>
+              <div>
+                <h1 className='text-center text-sm font-bold'>Authentication Error</h1>
+                <p className='mt-1 text-center text-sm'>{error}</p>
+                <p className='mt-2 text-center text-xs'>An error occurred while authenticating. Please try again later.</p>
+              </div>
+            </Alert>
+          )}
 
           {sapConnectionStatus === 'failed' && (
             <Alert variant='warning' isHideIcon>
               <div>
                 <h1 className='text-center text-sm font-bold'>SAP Service Layer Connection Issue</h1>
-                <p className='mt-1 text-center text-sm'>{sapErrorMessage} Fialed to generate token</p>
+                <p className='mt-1 text-center text-sm'>{sapErrorMessage}</p>
                 <p className='mt-2 text-center text-xs'>
                   You can still access the application, but SAP-related features may be limited. You will now be redirected to your
                   dashboard in a {countdown}s...
@@ -170,7 +184,7 @@ export default function SigninForm() {
             </Alert>
           )}
 
-          {sapConnectionStatus === 'success' && (
+          {sapConnectionStatus === 'connected' && (
             <Alert variant='success' isHideIcon>
               <div>
                 <h1 className='text-center text-sm font-bold'>Welcome Back!</h1>
@@ -192,13 +206,17 @@ export default function SigninForm() {
           )}
         </div>
 
-        <ToolbarItem visible={!isLoading} toolbar='bottom' widget='dxButton' location='center' locateInMenu='never'>
+        <ToolbarItem visible={!isLoading && error === undefined} toolbar='bottom' widget='dxButton' location='center' locateInMenu='never'>
           <Button
             text='Go to Dashboard'
             type='default'
             stylingMode='contained'
             onClick={() => redirectUrl && window.location.assign(redirectUrl)}
           />
+        </ToolbarItem>
+
+        <ToolbarItem visible={!!error} toolbar='bottom' widget='dxButton' location='center' locateInMenu='never'>
+          <Button text='Try Again' type='default' stylingMode='contained' onClick={() => setIsOpen(false)} />
         </ToolbarItem>
       </Popup>
     </div>
