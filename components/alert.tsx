@@ -41,7 +41,7 @@ export default function Alert({ message, variant, className, children, isHideIco
   return (
     <div className={cn(alertVariants({ variant, className }))}>
       {isHideIcon ? null : Icon}
-      <p className='inline-block w-full break-words font-medium'>{children || message}</p>
+      <div className='inline-block w-full break-words font-medium'>{children || message}</div>
     </div>
   )
 }
