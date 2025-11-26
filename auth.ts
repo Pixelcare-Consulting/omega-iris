@@ -75,8 +75,6 @@ export const callbacks: NextAuthConfig['callbacks'] = {
       //* user - fields only available after login and for the next subsequent calls it will be undefined
       //* trigger authenticate SAP only once after login, on subsequent calls it will not be triggered
       if (user) {
-        console.log('xxx ', { user })
-
         //* Authenticate with SAP Service Layer and add session to token
         //* Only do this in Node.js environment, not in Edge Runtime
 

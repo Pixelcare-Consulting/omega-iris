@@ -45,8 +45,11 @@ export default function SigninForm() {
   const { executeAsync, isExecuting } = useAction(signInUser)
 
   const handleSubmit = async (formValues: SigninForm) => {
+    setError(undefined)
     setIsLoading(true)
     setIsOpen(true)
+    setSeconds(MAXIMUM_SECONDS)
+    setCountdown(MAXIMUM_COUNTDOWN)
 
     try {
       const response = await executeAsync(formValues)
@@ -61,11 +64,16 @@ export default function SigninForm() {
 
         setIsLoading(false)
         setSeconds(0)
+        setError(undefined)
 
         return
       }
 
       if (result && result.error) {
+        setSapConnectionStatus(undefined)
+        setSapErrorMessage(undefined)
+        setRedirectUrl(undefined)
+
         setError(result.message)
         setIsLoading(false)
         setSeconds(0)
@@ -114,11 +122,11 @@ export default function SigninForm() {
       }, 1000)
     }
 
-    if (countdown === 0 && redirectUrl) {
+    if (countdown === 0) {
       clearInterval(countdownRef.current!)
       countdownRef.current = null
 
-      window.location.assign(redirectUrl)
+      redirectUrl && window.location.assign(redirectUrl)
     }
   }, [countdown, isLoading, redirectUrl])
 
@@ -154,7 +162,7 @@ export default function SigninForm() {
         dragEnabled={false}
         showCloseButton={false}
         showTitle={false}
-        height={isLoading ? 250 : error || sapConnectionStatus === 'connected' ? 240 : 310}
+        height={isLoading ? 250 : error || sapConnectionStatus === 'connected' || sapConnectionStatus === 'failed' ? 255 : 310}
         maxWidth={600}
       >
         <div className='pt-4'>
@@ -194,7 +202,7 @@ export default function SigninForm() {
             </Alert>
           )}
 
-          {seconds !== 0 && (
+          {seconds !== 0 && !error && (
             <ProgressBar
               className='mx-auto my-4 [&_.dx-progressbar-status]:inline-block [&_.dx-progressbar-status]:w-full [&_.dx-progressbar-status]:text-center'
               width='90%'
