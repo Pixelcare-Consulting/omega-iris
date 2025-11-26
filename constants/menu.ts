@@ -79,6 +79,14 @@ export const navigation: NavItem[] = [
   },
   {
     id: '5',
+    text: 'Warehouses',
+    icon: 'home',
+    path: '/warehouses',
+    selected: false,
+    expanded: false,
+  },
+  {
+    id: '6',
     text: 'Inventories',
     icon: 'packagebox',
     path: '/inventories',
@@ -86,7 +94,7 @@ export const navigation: NavItem[] = [
     expanded: false,
   },
   {
-    id: '6',
+    id: '7',
     text: 'Work Orders',
     icon: 'cardcontent',
     path: '/work-orders',
@@ -94,7 +102,7 @@ export const navigation: NavItem[] = [
     expanded: false,
   },
   {
-    id: '7',
+    id: '8',
     text: 'Reporting',
     icon: 'datausage',
     path: '/reporting',
@@ -102,7 +110,7 @@ export const navigation: NavItem[] = [
     expanded: false,
   },
   {
-    id: '7',
+    id: '9',
     text: 'Logs',
     icon: 'ordersbox',
     path: '/logs',

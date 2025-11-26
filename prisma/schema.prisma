@@ -178,7 +178,7 @@ model ProjectIndividualPic {
 model Inventory {
     id                     String    @id @default(cuid())
     code                   Int       @unique @default(autoincrement())
-    userCode               Int       @unique //* user code of a user with customer role
+    userCode               Int //* user code of a user with customer role
     projectIndividualCode  Int
     thumbnail              String?
     partNumber             String    @unique
@@ -193,7 +193,7 @@ model Inventory {
     subLocation3           String?
     subLocation4           String?
     packagingType          String?
-    spq                    Int?
+    spq                    String?
     cost                   Decimal
     countryOfOrigin        String?
     note                   String?
@@ -213,15 +213,36 @@ model Inventory {
     projectIndividual    ProjectIndividual    @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     user                 User                 @relation(fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     warehouseInventories WarehouseInventory[]
+
+    @@index([userCode])
+    @@index([projectIndividualCode])
 }
 
 model Warehouse {
-    id          String  @id @default(cuid())
-    code        Int     @unique @default(autoincrement())
-    name        String
-    description String?
-    isActive    Boolean @default(true)
-    isDefault   Boolean @default(false)
+    id                   String  @id @default(cuid())
+    code                 Int     @unique @default(autoincrement())
+    name                 String
+    description          String?
+    isActive             Boolean @default(true)
+    isDefault            Boolean @default(false)
+    isNettable           Boolean @default(false)
+    isEnableBinLocations Boolean @default(false)
+
+    address1          String?
+    address2          String?
+    address3          String?
+    streetPoBox       String?
+    streetNo          String?
+    block             String?
+    buildingFloorRoom String?
+    zipCode           String?
+    city              String?
+    county            String?
+    countryRegion     String?
+    state             String?
+    federalTaxId      String?
+    gln               String?
+    taxOffice         String?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -253,6 +274,10 @@ model WarehouseInventory {
 
     warehouse Warehouse @relation(fields: [warehouseCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     inventory Inventory @relation(fields: [inventoryCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([warehouseCode, inventoryCode])
+    @@index([warehouseCode])
+    @@index([inventoryCode])
 }
 
 //* add model system logs

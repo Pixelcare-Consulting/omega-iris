@@ -10,6 +10,7 @@ import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
 import { formatNumber } from 'devextreme/localization'
 import { DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { format, isValid } from 'date-fns'
+import { safeParseFloat } from '@/utils'
 
 type InventoryOverviewTabProps = {
   inventory: NonNullable<Awaited<ReturnType<typeof getInventoryByCode>>>
@@ -18,6 +19,13 @@ type InventoryOverviewTabProps = {
 export default function InvetoryOverviewTab({ inventory }: InventoryOverviewTabProps) {
   const customerName = `${inventory.user.fname} ${inventory.user.lname}`
   const customerId = inventory.user.code
+
+  const spq = inventory?.spq
+    ? String(inventory.spq)
+        .replaceAll(' ', '')
+        .split(',')
+        .map((s) => safeParseFloat(s))
+    : null
 
   const projectName = inventory.projectIndividual.name
   const projectId = inventory.projectIndividual.code
@@ -90,7 +98,14 @@ export default function InvetoryOverviewTab({ inventory }: InventoryOverviewTabP
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'
           title='SPQ'
-          value={formatNumber(inventory.spq || 0, DEFAULT_NUMBER_FORMAT)}
+          value={
+            spq && spq.length > 0
+              ? spq
+                  .filter(Boolean)
+                  .map((s) => formatNumber(s, DEFAULT_NUMBER_FORMAT))
+                  .join(', ')
+              : ''
+          }
         />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Pallet Size' value={inventory?.palletSize || ''} />

@@ -16,6 +16,20 @@ export const PALLET_SIZE_VALUES: { label: string; value: string }[] = [
   },
 ]
 
+export const warehouseInventoryFormSchema = z
+  .array(
+    z.object({
+      code: z.coerce.number().min(1, { message: 'Warehouse code is required' }),
+      name: z.string(),
+      isLocked: z.boolean(),
+      inStock: z.coerce.number(),
+      committed: z.coerce.number(),
+      ordered: z.coerce.number(),
+      available: z.coerce.number(),
+    })
+  )
+  .default([])
+
 export const inventoryFormSchema = z.object({
   code: z.coerce.number(),
   userCode: z.coerce.number().min(1, { message: 'Please select a customer' }),
@@ -33,7 +47,7 @@ export const inventoryFormSchema = z.object({
   subLocation3: z.string().nullish(),
   subLocation4: z.string().nullish(),
   packagingType: z.string().nullish(),
-  spq: z.number().nullish(),
+  spq: z.string().nullish(),
   cost: z.coerce.number().min(1, { message: 'Cost is required' }),
   countryOfOrigin: z.string().nullish(),
   note: z.string().nullish(),
@@ -42,6 +56,7 @@ export const inventoryFormSchema = z.object({
   isActive: z.boolean(),
   dateReceived: z.coerce.date().nullish(),
   inProcess: z.coerce.number().nullish(),
+  warehouseInventory: warehouseInventoryFormSchema,
 })
 
 export type InventoryForm = z.infer<typeof inventoryFormSchema>

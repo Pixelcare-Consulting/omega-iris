@@ -57,7 +57,7 @@ export const upsertInventory = action
   .use(authenticationMiddleware)
   .schema(inventoryFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, ...data } = parsedInput
+    const { code, warehouseInventory, ...data } = parsedInput
     const { userId } = ctx
 
     try {
@@ -68,11 +68,39 @@ export const upsertInventory = action
         },
       })
 
-      if (existingInventory) return { error: true, code: 401, message: 'Part number already exists!', action: 'UPSERT_INVENTORY' }
+      if (existingInventory) return { error: true, status: 401, message: 'Part number already exists!', action: 'UPSERT_INVENTORY' }
 
-      //* update inventory
       if (code !== -1) {
-        const updatedInventory = await db.inventory.update({ where: { code }, data: { ...data, updatedBy: userId } })
+        const updatedInventory = await db.$transaction(async (tx) => {
+          //* update inventory
+          const updatedWi = await tx.inventory.update({ where: { code }, data: { ...data, updatedBy: userId } })
+
+          if (warehouseInventory.length > 0) {
+            //* upsert warehouse inventory
+            await Promise.all(
+              warehouseInventory.map(({ name: warehouseName, code: warehouseCode, ...wi }) => {
+                return tx.warehouseInventory.upsert({
+                  where: {
+                    warehouseCode_inventoryCode: {
+                      warehouseCode: warehouseCode,
+                      inventoryCode: code,
+                    },
+                  },
+                  create: {
+                    warehouseCode: warehouseCode,
+                    inventoryCode: code,
+                    ...wi,
+                    createdBy: userId,
+                    updatedBy: userId,
+                  },
+                  update: { ...wi, updatedBy: userId },
+                })
+              })
+            )
+          }
+
+          return updatedWi
+        })
 
         return {
           status: 200,
@@ -83,7 +111,23 @@ export const upsertInventory = action
       }
 
       //* create inventory
-      const newInventory = await db.inventory.create({ data: { ...data, createdBy: userId, updatedBy: userId } })
+      const newInventory = await db.inventory.create({
+        data: {
+          ...data,
+          createdBy: userId,
+          updatedBy: userId,
+          warehouseInventories: {
+            createMany: {
+              data: warehouseInventory.map(({ name, code: warehouseCode, ...wi }) => ({
+                warehouseCode,
+                ...wi,
+                createdBy: userId,
+                updatedBy: userId,
+              })),
+            },
+          },
+        },
+      })
 
       return {
         status: 200,
@@ -110,7 +154,7 @@ export const deleteInventory = action
     try {
       const inventory = await db.inventory.findUnique({ where: { code: data.code } })
 
-      if (!inventory) return { error: true, code: 404, message: 'Inventory not found', action: 'DELETE_INVENTORY' }
+      if (!inventory) return { error: true, status: 404, message: 'Inventory not found', action: 'DELETE_INVENTORY' }
 
       await db.inventory.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 

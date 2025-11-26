@@ -26,7 +26,7 @@ type ProjectGroupFormProps = { pageMetaData: PageMetadata; projectGroup: Awaited
 
 export default function ProjectGroupForm({ pageMetaData, projectGroup }: ProjectGroupFormProps) {
   const router = useRouter()
-  const { code } = useParams()
+  const { code } = useParams() as { code: string }
 
   const isCreate = code === 'add' || !projectGroup
 

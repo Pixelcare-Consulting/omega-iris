@@ -77,7 +77,7 @@ export const deleleteProjectGroup = action
     try {
       const projectGroup = await db.projectGroup.findUnique({ where: { code: data.code } })
 
-      if (!projectGroup) return { error: true, code: 404, message: 'Project group not found', action: 'DELETE_PROJECT_GROUP' }
+      if (!projectGroup) return { error: true, status: 404, message: 'Project group not found', action: 'DELETE_PROJECT_GROUP' }
 
       await db.projectGroup.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 

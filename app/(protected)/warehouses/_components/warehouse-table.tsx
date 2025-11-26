@@ -1,12 +1,12 @@
 'use client'
 
-import { deleleteProjectGroup, getProjectGroups } from '@/actions/project-group'
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
 import { useCallback, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 
+import { deleleteWarehouse, getWarehouses } from '@/actions/warehouse'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -14,20 +14,20 @@ import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-p
 import AlertDialog from '@/components/alert-dialog'
 import CommonDataGrid from '@/components/common-datagrid'
 
-type ProjectGroupTableProps = { projectGroups: Awaited<ReturnType<typeof getProjectGroups>> }
-type DataSource = Awaited<ReturnType<typeof getProjectGroups>>
+type WarehousesTableProps = { warehouses: Awaited<ReturnType<typeof getWarehouses>> }
+type DataSource = Awaited<ReturnType<typeof getWarehouses>>
 
-export default function ProjectGroupTable({ projectGroups }: ProjectGroupTableProps) {
+export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
   const router = useRouter()
 
-  const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-group'
-  const DATAGRID_UNIQUE_KEY = 'project-groups'
+  const DATAGRID_STORAGE_KEY = 'dx-datagrid-warehouses'
+  const DATAGRID_UNIQUE_KEY = 'warehouses'
 
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
   const dataGridRef = useRef<DataGridRef | null>(null)
 
-  const { executeAsync } = useAction(deleleteProjectGroup)
+  const { executeAsync } = useAction(deleleteWarehouse)
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',
@@ -51,13 +51,13 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
 
     const code = e.data?.code
     if (!code) return
-    router.push(`/project/groups/${code}/view`)
+    router.push(`/warehouses/${code}/view`)
   }, [])
 
   const handleEdit = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const code = e.row?.data?.code
     if (!code) return
-    router.push(`/project/groups/${code}`)
+    router.push(`/warehouses/${code}`)
   }, [])
 
   const handleDelete = useCallback(
@@ -76,11 +76,11 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
     setShowConfirmation(false)
 
     toast.promise(executeAsync({ code }), {
-      loading: 'Deleting project group...',
+      loading: 'Deleting warehouse...',
       success: (response) => {
         const result = response?.data
 
-        if (!response || !result) throw { message: 'Failed to delete project group!', unExpectedError: true }
+        if (!response || !result) throw { message: 'Failed to delete warehouse!', unExpectedError: true }
 
         if (!result.error) {
           setTimeout(() => {
@@ -100,18 +100,18 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Project Groups' description='Manage and track your project groups effectively'>
+      <PageHeader title='Warehouses' description='Manage and track your warehouses effectively'>
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
-          addButton={{ text: 'Add Project Group', onClick: () => router.push('/project/groups/add') }}
+          addButton={{ text: 'Add Warehouse', onClick: () => router.push('/warehouses/add') }}
         />
       </PageHeader>
 
       <PageContentWrapper className='h-[calc(100%_-_92px)]'>
         <CommonDataGrid
           dataGridRef={dataGridRef}
-          data={projectGroups}
+          data={warehouses}
           storageKey={DATAGRID_STORAGE_KEY}
           callbacks={{ onRowClick: handleView }}
           dataGridStore={dataGridStore}
@@ -124,6 +124,12 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
             dataType='string'
             caption='Status'
             calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
+          />
+          <Column
+            dataField='isDefault'
+            dataType='string'
+            caption='Default'
+            calculateCellValue={(rowData) => (rowData.isDefault ? 'Yes' : 'No')}
           />
           <Column dataField='createdAt' dataType='datetime' caption='Created At' />
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
@@ -138,7 +144,7 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
       <AlertDialog
         isOpen={showConfirmation}
         title='Are you sure?'
-        description={`Are you sure you want to delete this project group named "${rowData?.name}"?`}
+        description={`Are you sure you want to delete this warehouse named "${rowData?.name}"?`}
         onConfirm={() => handleConfirm(rowData?.code)}
         onCancel={() => setShowConfirmation(false)}
       />
