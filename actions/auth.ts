@@ -10,10 +10,26 @@ import { getUserByEmail } from './users'
 import { DEFAULT_SIGNIN_REDIRECT } from '@/constants/route'
 import { db } from '@/utils/db'
 import { getClientInfo, getLocationFromIp } from './common'
+import logger from '@/utils/logger'
+import { cookies } from 'next/headers'
+import { getSapServiceLayerToken } from './sap-auth'
 
 export async function getCurrentUser() {
   const session = await auth()
   return session?.user
+}
+
+async function cleanupSessionTokens() {
+  try {
+    const cookieStore = await cookies()
+    const sessionTokens = cookieStore.getAll().filter((cookie) => cookie.name.startsWith('authjs.session-token'))
+
+    //* Keep only the most recent token
+    sessionTokens.slice(1).forEach((cookie) => cookieStore.delete(cookie.name))
+    if (sessionTokens.length > 1) logger.info(`Cleaned ${sessionTokens.length - 1} SAP Session Tokens`)
+  } catch (error) {
+    logger.error(`Failed to clean SAP Session Token: ${error}`)
+  }
 }
 
 export const signInUser = action.schema(signinFormSchema).action(async ({ parsedInput: data }) => {
@@ -25,6 +41,9 @@ export const signInUser = action.schema(signinFormSchema).action(async ({ parsed
     if (!user || !user.email || !user.password) {
       return { error: true, code: 401, message: 'User does not exist!', action: 'SIGNIN_USER' }
     }
+
+    //* Clean up any existing session tokens
+    await cleanupSessionTokens()
 
     //? IMPORTANT: DO NOT use redirectTo here, let the client handle redirects when implementing SAP Authentication
     await signIn('credentials', {
@@ -44,9 +63,24 @@ export const signInUser = action.schema(signinFormSchema).action(async ({ parsed
       data: { lastIpAddress: ip, location: location, lastSignin: new Date() },
     })
 
-    redirect(callbackUrl || DEFAULT_SIGNIN_REDIRECT)
+    //* Authenticate with SAP Service Layer after successful application login'
+    let sapConnectionStatus = 'unknown'
+    let sapErrorMessage = ''
 
-    //TODO: Authenticate with SAP Service Layer after successful application login
+    const response = await getSapServiceLayerToken()
+
+    if (response.error || !response?.data?.sapSession || !response?.data?.sapSession?.b1session || !response?.data?.sapSession?.routeid) {
+      sapConnectionStatus = 'failed'
+      sapErrorMessage = response.message
+    } else sapConnectionStatus = 'connected'
+
+    return {
+      status: 200,
+      message: 'Signin successful!',
+      action: 'SIGNIN_USER',
+      redirectUrl: callbackUrl || DEFAULT_SIGNIN_REDIRECT,
+      sapConnection: { sapConnectionStatus, sapErrorMessage },
+    }
   } catch (err) {
     if (err instanceof AuthError) {
       const authError = err as any
@@ -55,9 +89,9 @@ export const signInUser = action.schema(signinFormSchema).action(async ({ parsed
 
       switch (authError?.code) {
         case 'credentials':
-          return { error: true, code: 401, message: 'Invalid Credentials!', action: 'SIGNIN_USER' }
+          return { error: true, status: 401, message: 'Invalid Credentials!', action: 'SIGNIN_USER' }
         default:
-          return { error: true, code: 500, message: 'Failed to login! Please try again later.', action: 'SIGNIN_USER' }
+          return { error: true, status: 500, message: 'Failed to login! Please try again later.', action: 'SIGNIN_USER' }
       }
     }
 

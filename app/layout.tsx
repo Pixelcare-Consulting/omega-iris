@@ -5,6 +5,7 @@ import DxOmit from '@/components/dx-omit'
 import TailwindIndicatorProvider from '@/components/providers/tailwind-indicator-provider'
 import '../styles/globals.css'
 import ToastProvider from '@/components/providers/toast-provider'
+import logger from '@/utils/logger'
 
 export const metadata = {
   title: 'Iris | Omega',

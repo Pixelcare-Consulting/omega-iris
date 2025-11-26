@@ -21,6 +21,8 @@ export default {
 
             const isPasswordMatch = await bcrypt.compare(password, user.password)
 
+            //TODO: include also the default SAP credentials fetch from db settings here if users whats to have multiple SAP credentials e.g US & PH db
+            //TODO: Or include selection of SAP credentials during login and append the property here
             if (isPasswordMatch) return { id: user.id, email: user.email, name: user.username }
           }
 
