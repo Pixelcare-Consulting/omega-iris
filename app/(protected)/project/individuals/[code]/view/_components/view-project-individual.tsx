@@ -10,10 +10,12 @@ import { getProjectIndividualByCode } from '@/actions/project-individual'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import ProjectIndividualOverviewTab from './_tabs/project-individual-overview-tab'
-import UnderDevelopment from '@/app/under-development'
 import { useNonBpUsersClient, useUsersByRoleKeyClient } from '@/hooks/safe-actions/user'
 import ProjectIndividualCustomerTab from './_tabs/project-individual-customer-tab'
 import ProjectIndividualPicTab from './_tabs/project-individual-pic-tab'
+import ProjectIndividualItemTable from './project-individual-item-table'
+import { useProjecItemsClient } from '@/hooks/safe-actions/project-item'
+import { useWarehouseClient } from '@/hooks/safe-actions/warehouse'
 
 type ViewProjectIndividualProps = {
   projectIndividual: NonNullable<Awaited<ReturnType<typeof getProjectIndividualByCode>>>
@@ -24,6 +26,8 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
 
   const customerUsers = useUsersByRoleKeyClient('business-partner')
   const nonCustomerUsers = useNonBpUsersClient()
+  const items = useProjecItemsClient(projectIndividual.code)
+  const warehouses = useWarehouseClient(true)
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
@@ -74,7 +78,12 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
           </TabPanelITem>
 
           <TabPanelITem title='Inventory'>
-            <UnderDevelopment className='h-[60vh]' />
+            <ProjectIndividualItemTable
+              projectCode={projectIndividual.code}
+              projectName={projectIndividual.name}
+              items={items}
+              warehouses={warehouses}
+            />
           </TabPanelITem>
         </TabPanel>
       </PageContentWrapper>

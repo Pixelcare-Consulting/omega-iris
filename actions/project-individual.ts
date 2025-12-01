@@ -11,6 +11,7 @@ import {
 } from '@/schema/project-individual'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import z from 'zod'
+import { ImportError, ImportErrorEntry } from '@/types/common'
 
 const COMMON_PROJECT_INDIVIDUAL_INCLUDE = {
   projectGroup: { select: { code: true, name: true } },
@@ -70,7 +71,7 @@ export async function getProjectIndividualByCode(code: number) {
   }
 }
 
-export async function getProjectIndividualsByBpUserCode(userCode: number) {
+export async function getProjectIndividualsByBpUserCode(userCode?: number | null) {
   try {
     if (!userCode) return []
 
@@ -89,7 +90,7 @@ export async function getProjectIndividualsByBpUserCode(userCode: number) {
 
 export const getProjectIndividualsByBpUserCodeClient = action
   .use(authenticationMiddleware)
-  .schema(z.object({ userCode: z.coerce.number() }))
+  .schema(z.object({ userCode: z.coerce.number().nullish() }))
   .action(async ({ parsedInput: data }) => {
     return getProjectIndividualsByBpUserCode(data.userCode)
   })
@@ -165,6 +166,74 @@ export const upsertProjectIndividual = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'UPSERT_PROJECT_INDIVIDUAL',
+      }
+    }
+  })
+
+export const importProjectIndividuals = action
+  .use(authenticationMiddleware)
+  .schema(z.object({ data: z.array(z.record(z.string(), z.any())) }))
+  .action(async ({ ctx, parsedInput }) => {
+    const { data } = parsedInput
+    const { userId } = ctx
+
+    const importErrors: ImportError[] = []
+
+    try {
+      const batch: Prisma.ProjectIndividualCreateManyInput[] = []
+
+      for (let i = 0; i < data.length; i++) {
+        const errors: ImportErrorEntry[] = []
+        const row = data[i]
+
+        //* check required fields
+        if (!row?.['Name']) errors.push({ field: 'Name', message: 'Missing required fields' })
+
+        //* if errors array is not empty, then update/push to importErrors
+        if (errors.length > 0) {
+          importErrors.push({ rowNumber: row.rowNumber, entries: errors, row })
+          continue
+        }
+
+        //* reshape data
+        const toCreate: Prisma.ProjectIndividualCreateManyInput = {
+          name: row['Name'],
+          groupCode: row?.['Group ID'] || null,
+          description: row?.['Description'] || null,
+          isActive: row?.['Active'] === '1' ? true : false,
+          createdBy: userId,
+          updatedBy: userId,
+        }
+
+        batch.push(toCreate)
+      }
+
+      //* commit the batch
+      await db.projectIndividual.createMany({
+        data: batch,
+        skipDuplicates: true,
+      })
+
+      return {
+        status: 200,
+        message: `Project individuals imported successfully!. ${importErrors.length} errors found.`,
+        action: 'IMPORT_PROJECT_INDIVIDUALS',
+        errors: importErrors,
+      }
+    } catch (error) {
+      console.error('Data import error:', error)
+
+      const errors = data.map((row) => ({
+        rowNumber: row.rowNumber,
+        entries: [{ field: 'Unknown', message: 'Unexpected batch write error' }],
+      }))
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Data import error!',
+        action: 'IMPORT_PROJECT_INDIVIDUALS',
+        errors,
       }
     }
   })

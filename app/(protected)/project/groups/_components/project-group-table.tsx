@@ -1,7 +1,18 @@
 'use client'
 
-import { deleleteProjectGroup, getProjectGroups } from '@/actions/project-group'
-import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
+import { deleleteProjectGroup, getProjectGroups, importProjectGroups } from '@/actions/project-group'
+import DataGrid, {
+  Column,
+  DataGridTypes,
+  DataGridRef,
+  Button as DataGridButton,
+  MasterDetail,
+  Export,
+  Toolbar,
+  Item,
+  Pager,
+  Paging,
+} from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
 import { useCallback, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
@@ -13,6 +24,9 @@ import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import AlertDialog from '@/components/alert-dialog'
 import CommonDataGrid from '@/components/common-datagrid'
+import { parseExcelFile } from '@/utils/xlsx'
+import ImportErrorDataGrid from '@/components/import-error-datagrid'
+import { ImportError } from '@/types/common'
 
 type ProjectGroupTableProps = { projectGroups: Awaited<ReturnType<typeof getProjectGroups>> }
 type DataSource = Awaited<ReturnType<typeof getProjectGroups>>
@@ -24,10 +38,15 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
   const DATAGRID_UNIQUE_KEY = 'project-groups'
 
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showImportError, setShowImportError] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
+  const [importErrors, setImportErrors] = useState<ImportError[]>([])
+
   const dataGridRef = useRef<DataGridRef | null>(null)
+  const importErrorDataGridRef = useRef<DataGridRef | null>(null)
 
   const { executeAsync } = useAction(deleleteProjectGroup)
+  const importData = useAction(importProjectGroups)
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',
@@ -98,12 +117,46 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
     })
   }, [])
 
+  const handleImport: (...args: any[]) => void = async (args) => {
+    const { file } = args
+
+    try {
+      const headers: string[] = ['Name', 'Description', 'Active']
+
+      //* parse excel file
+      const parseData = await parseExcelFile({ file, header: headers })
+      const toImportData = parseData.map((row, i) => ({ rowNumber: i + 2, ...row }))
+
+      const response = await importData.executeAsync({ data: toImportData })
+      const result = response?.data
+
+      if (result?.error) {
+        toast.error(result.message)
+        return
+      }
+
+      toast.success(result?.message)
+      router.refresh()
+
+      if (result?.errors && result?.errors.length > 0) {
+        setShowImportError(true)
+        setImportErrors(result?.errors || [])
+      }
+    } catch (error: any) {
+      console.error(error)
+      toast.error(error?.message || 'Failed to import file')
+    }
+  }
+
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Project Groups' description='Manage and track your project groups effectively'>
+      <PageHeader title='Project Groups' description='Manage and track your project groups effectively' isLoading={importData.isExecuting}>
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
+          isLoading={importData.isExecuting}
+          isEnableImport
+          onImport={handleImport}
           addButton={{ text: 'Add Project Group', onClick: () => router.push('/project/groups/add') }}
         />
       </PageHeader>
@@ -141,6 +194,13 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
         description={`Are you sure you want to delete this project group named "${rowData?.name}"?`}
         onConfirm={() => handleConfirm(rowData?.code)}
         onCancel={() => setShowConfirmation(false)}
+      />
+
+      <ImportErrorDataGrid
+        isOpen={showImportError}
+        setIsOpen={setShowImportError}
+        data={importErrors}
+        dataGridRef={importErrorDataGridRef}
       />
     </div>
   )

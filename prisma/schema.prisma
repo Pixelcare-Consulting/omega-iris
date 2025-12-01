@@ -116,7 +116,7 @@ model ProjectIndividual {
     id          String  @id @default(cuid())
     code        Int     @unique @default(autoincrement())
     name        String
-    groupCode   Int
+    groupCode   Int?
     description String?
     isActive    Boolean @default(true)
 
@@ -129,8 +129,60 @@ model ProjectIndividual {
 
     projectIndividualPics      ProjectIndividualPic[]      @relation(name: "ProjectIndividual-ProjectIndividualPic")
     projectIndividualCustomers ProjectIndividualCustomer[] @relation(name: "ProjectIndividual-ProjectIndividualCustomer")
-    projectGroup               ProjectGroup                @relation(fields: [groupCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    projectGroup               ProjectGroup?               @relation(fields: [groupCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     inventories                Inventory[]
+    items                      ProjectItem[]
+}
+
+//* NOTE: Item must be synced already in SAP before it can be selected for project item 
+model ProjectItem {
+    id                    String  @id @default(cuid())
+    code                  Int     @unique @default(autoincrement())
+    itemCode              Int
+    projectIndividualCode Int
+    isActive              Boolean @default(true)
+    notes                 String?
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    item                            Item                            @relation(fields: [itemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    projectIndividual               ProjectIndividual               @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    projectItemWarehouseInventories ProjectItemWarehouseInventory[]
+
+    @@unique([projectIndividualCode, itemCode])
+    @@index([projectIndividualCode])
+    @@index([itemCode])
+}
+
+model ProjectItemWarehouseInventory {
+    id              String  @id @default(cuid())
+    code            Int     @unique @default(autoincrement())
+    warehouseCode   Int
+    projectItemCode Int
+    isLocked        Boolean @default(false)
+    inStock         Int     @default(0)
+    committed       Int     @default(0)
+    ordered         Int     @default(0)
+    available       Int     @default(0)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    warehouse   Warehouse   @relation(fields: [warehouseCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    projectItem ProjectItem @relation(fields: [projectItemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([warehouseCode, projectItemCode])
+    @@index([warehouseCode])
+    @@index([projectItemCode])
 }
 
 model ProjectIndividualCustomer {
@@ -178,13 +230,13 @@ model ProjectIndividualPic {
 model Inventory {
     id                     String    @id @default(cuid())
     code                   Int       @unique @default(autoincrement())
-    userCode               Int //* user code of a user with customer role
-    projectIndividualCode  Int
+    userCode               Int? //* user code of a user with customer role
+    projectIndividualCode  Int?
     thumbnail              String?
-    partNumber             String    @unique
-    manufacturer           String
-    manufacturerPartNumber String
-    description            String
+    partNumber             String?
+    manufacturer           String?
+    manufacturerPartNumber String    @unique
+    description            String?
     dateCode               String?
     lotCode                String?
     siteLocation           String?
@@ -194,14 +246,12 @@ model Inventory {
     subLocation4           String?
     packagingType          String?
     spq                    String?
-    cost                   Decimal
     countryOfOrigin        String?
-    note                   String?
+    notes                  String?
     palletSize             String? //* STANDARD, OVERSIZE, CRATES 
     palletNo               String?
     isActive               Boolean   @default(true)
     dateReceived           DateTime?
-    inProcess              Int?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -210,12 +260,39 @@ model Inventory {
     updatedBy String?
     deletedBy String?
 
-    projectIndividual    ProjectIndividual    @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    user                 User                 @relation(fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    projectIndividual    ProjectIndividual?   @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    user                 User?                @relation(fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     warehouseInventories WarehouseInventory[]
 
     @@index([userCode])
     @@index([projectIndividualCode])
+}
+
+model Item {
+    id                     String  @id @default(cuid())
+    code                   Int     @unique @default(autoincrement())
+    manufacturerPartNumber String  @unique
+    manufacturer           String?
+    description            String?
+    thumbnail              String?
+    notes                  String?
+    isActive               Boolean @default(true)
+
+    //* sap fields
+    ItemCode   String?
+    ItemName   String?
+    FirmCode   Int?
+    ItmsGrpCod Int?
+    Price      Decimal?
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    projectItems ProjectItem[]
 }
 
 model Warehouse {
@@ -251,7 +328,8 @@ model Warehouse {
     updatedBy String?
     deletedBy String?
 
-    inventories WarehouseInventory[]
+    inventories                     WarehouseInventory[]
+    projectItemWarehouseInventories ProjectItemWarehouseInventory[]
 }
 
 model WarehouseInventory {

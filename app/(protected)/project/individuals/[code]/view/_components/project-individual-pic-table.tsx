@@ -22,14 +22,14 @@ import { updateProjectIndividualPics } from '@/actions/project-individual'
 import LoadingButton from '@/components/loading-button'
 import CommonDataGrid from '@/components/common-datagrid'
 
-type UserTableProps = {
+type ProjectIndividualPicTableProps = {
   projectCode: number
   pics: number[]
   users: { data: Awaited<ReturnType<typeof getNonCustomerUsers>>; isLoading?: boolean }
 }
 type DataSource = Awaited<ReturnType<typeof getNonCustomerUsers>>
 
-export default function ProjectIndividualPicTable({ projectCode, pics, users }: UserTableProps) {
+export default function ProjectIndividualPicTable({ projectCode, pics, users }: ProjectIndividualPicTableProps) {
   const router = useRouter()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual-pic'
@@ -152,7 +152,7 @@ export default function ProjectIndividualPicTable({ projectCode, pics, users }: 
           selectedRowKeys={selectedRowKeys}
           callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChange }}
         >
-          <Column dataField='code' width={100} dataType='string' caption='ID' fixed sortOrder='asc' />
+          <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
           <Column dataField='username' dataType='string' />
           <Column
             dataField='fullName'

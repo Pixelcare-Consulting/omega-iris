@@ -8,7 +8,7 @@ import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Copy from '@/components/copy'
 import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
 import { formatNumber } from 'devextreme/localization'
-import { DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
+import { DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { format, isValid } from 'date-fns'
 import { safeParseFloat } from '@/utils'
 
@@ -17,8 +17,8 @@ type InventoryOverviewTabProps = {
 }
 
 export default function InvetoryOverviewTab({ inventory }: InventoryOverviewTabProps) {
-  const customerName = `${inventory.user.fname} ${inventory.user.lname}`
-  const customerId = inventory.user.code
+  const customerName = inventory.user ? `${inventory.user.fname} ${inventory.user.lname}` : ''
+  const customerId = inventory.user ? inventory.user.code : ''
 
   const spq = inventory?.spq
     ? String(inventory.spq)
@@ -27,8 +27,8 @@ export default function InvetoryOverviewTab({ inventory }: InventoryOverviewTabP
         .map((s) => safeParseFloat(s))
     : null
 
-  const projectName = inventory.projectIndividual.name
-  const projectId = inventory.projectIndividual.code
+  const projectName = inventory?.projectIndividual?.name || ''
+  const projectId = inventory?.projectIndividual?.code || ''
 
   return (
     <ScrollView>
@@ -73,12 +73,6 @@ export default function InvetoryOverviewTab({ inventory }: InventoryOverviewTabP
 
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Cost'
-          value={formatNumber(inventory.cost, DEFAULT_CURRENCY_FORMAT)}
-        />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
           title='Date Received'
           value={inventory?.dateReceived && isValid(inventory?.dateReceived) ? format(inventory.dateReceived, 'MM-dd-yyyy') : '-'}
         />
@@ -114,17 +108,11 @@ export default function InvetoryOverviewTab({ inventory }: InventoryOverviewTabP
 
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='In Process'
-          value={formatNumber(inventory?.inProcess || 0, DEFAULT_NUMBER_FORMAT)}
-        />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
           title='Status'
           value={inventory?.isActive ? 'Active' : 'Inactive'}
         />
 
-        <ReadOnlyField className='col-span-12' title='Note' value={inventory?.note || ''} />
+        <ReadOnlyField className='col-span-12' title='Notes' value={inventory?.notes || ''} />
 
         <ReadOnlyFieldHeader className='col-span-12' title='Address Details' description='Inventory address information' />
 

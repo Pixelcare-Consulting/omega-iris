@@ -126,7 +126,7 @@ export default function SigninForm() {
       clearInterval(countdownRef.current!)
       countdownRef.current = null
 
-      redirectUrl && window.location.assign(redirectUrl)
+      if (redirectUrl) window.location.assign(redirectUrl)
     }
   }, [countdown, isLoading, redirectUrl])
 

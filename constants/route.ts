@@ -25,6 +25,7 @@ export const protectedRoutes = [
   '/project/groups',
   '/project/individuals',
   '/inventories',
+  '/inventory',
   '/warehouses',
 ]
 

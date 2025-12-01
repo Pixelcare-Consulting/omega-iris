@@ -13,7 +13,7 @@ import { parseExcelFile } from '@/utils/xlsx'
 import ImportErrorDataGrid from '@/components/import-error-datagrid'
 import { ImportError } from '@/types/common'
 
-import { deleteInventory, getInventories, importInventories } from '@/actions/inventory'
+import { deleteItem, getItems, importItems } from '@/actions/item'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -22,14 +22,14 @@ import AlertDialog from '@/components/alert-dialog'
 import { exportDataGrid } from 'devextreme/common/export/excel'
 import CommonDataGrid from '@/components/common-datagrid'
 
-type InventoryTableProps = { inventories: Awaited<ReturnType<typeof getInventories>> }
-type DataSource = Awaited<ReturnType<typeof getInventories>>
+type ItemTableProps = { items: Awaited<ReturnType<typeof getItems>> }
+type DataSource = Awaited<ReturnType<typeof getItems>>
 
-export default function InventoryTable({ inventories }: InventoryTableProps) {
+export default function ItemTable({ items }: ItemTableProps) {
   const router = useRouter()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-inventory'
-  const DATAGRID_UNIQUE_KEY = 'inventories'
+  const DATAGRID_UNIQUE_KEY = 'inventory'
 
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [showImportError, setShowImportError] = useState(false)
@@ -39,8 +39,8 @@ export default function InventoryTable({ inventories }: InventoryTableProps) {
   const dataGridRef = useRef<DataGridRef | null>(null)
   const importErrorDataGridRef = useRef<DataGridRef | null>(null)
 
-  const { executeAsync } = useAction(deleteInventory)
-  const importData = useAction(importInventories)
+  const { executeAsync } = useAction(deleteItem)
+  const importData = useAction(importItems)
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',
@@ -71,13 +71,13 @@ export default function InventoryTable({ inventories }: InventoryTableProps) {
 
     const code = e.data?.code
     if (!code) return
-    router.push(`/inventories/${code}/view`)
+    router.push(`/inventory/${code}/view`)
   }, [])
 
   const handleEdit = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const code = e.row?.data?.code
     if (!code) return
-    router.push(`/inventories/${code}`)
+    router.push(`/inventory/${code}`)
   }, [])
 
   const handleDelete = useCallback(
@@ -160,29 +160,7 @@ export default function InventoryTable({ inventories }: InventoryTableProps) {
     const { file } = args
 
     try {
-      const headers: string[] = [
-        'MFG_P/N',
-        'Customer_ID',
-        'Project_ID',
-        'Part_Number',
-        'Manufacturer',
-        'Description',
-        'Date_Received',
-        'Date_Code',
-        'Lot_Code',
-        'Country_Origin',
-        'Packaging_Type',
-        'SPQ',
-        'Pallet_Size',
-        'Pallet_No',
-        'Notes',
-        'Site_Location',
-        'Sub_Location',
-        'Sub_Location2',
-        'Sub_Location3',
-        'Sub_Location4',
-        'Active',
-      ]
+      const headers: string[] = ['MFG_P/N', 'Manufacturer', 'Description', 'Notes', 'Active']
 
       //* parse excel file
       const parseData = await parseExcelFile({ file, header: headers })
@@ -211,14 +189,14 @@ export default function InventoryTable({ inventories }: InventoryTableProps) {
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Inventories' description='Manage and track your inventories effectively' isLoading={importData.isExecuting}>
+      <PageHeader title='Inventory' description='Manage and track your inventory effectively' isLoading={importData.isExecuting}>
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
           isLoading={importData.isExecuting}
           isEnableImport
           onImport={handleImport}
-          addButton={{ text: 'Add Inventory', onClick: () => router.push('/inventories/add') }}
+          addButton={{ text: 'Add Inventory', onClick: () => router.push('/inventory/add') }}
           customs={{ exportToExcel }}
         />
       </PageHeader>
@@ -226,44 +204,23 @@ export default function InventoryTable({ inventories }: InventoryTableProps) {
       <PageContentWrapper className='h-[calc(100%_-_92px)]'>
         <CommonDataGrid
           dataGridRef={dataGridRef}
-          data={inventories}
+          data={items}
           storageKey={DATAGRID_STORAGE_KEY}
           callbacks={{ onRowClick: handleView }}
           dataGridStore={dataGridStore}
         >
           <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
-          <Column dataField='thumbnail' caption='Thumbnail' cellRender={thumbnailCellRender} />
-          <Column dataField='projectIndividual.name' dataType='string' caption='Project' />
-          <Column
-            dataField='customer'
-            dataType='string'
-            caption='Owner'
-            calculateCellValue={(rowData) => (rowData.user ? `${rowData?.user?.fname} ${rowData?.user?.lname}` : '')}
-          />
-          <Column dataField='manufacturerPartNumber' dataType='string' caption='MFG P/N' />
+          <Column dataField='thumbnail' width={140} caption='Thumbnail' cellRender={thumbnailCellRender} />
           <Column dataField='manufacturer' dataType='string' caption='Manufacturer' />
-          <Column dataField='partNumber' dataType='string' caption='Cust. P/N' />
+          <Column dataField='manufacturerPartNumber' dataType='string' caption='MFG P/N' />
           <Column dataField='description' dataType='string' caption='Description' />
-          <Column dataField='Note' dataType='string' caption='Note' />
-          <Column dataField='dateCode' dataType='string' caption='Date Code' />
-          <Column dataField='countryOfOrigin' dataType='string' caption='Ctry Orig' />
-          <Column dataField='lotCode' dataType='string' caption='Lot Code' />
-          <Column dataField='siteLocation' dataType='string' caption='Site Location' />
-          <Column dataField='palletNo' dataType='string' caption='Pallet No' />
-          <Column dataField='subLocation1' dataType='string' caption='Sub Location' />
-          <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' />
-          <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' />
-          <Column dataField='dateReceived' dataType='date' caption='Date Received' />
-          <Column dataField='packagingType' dataType='string' caption='Packaging Type' />
-          <Column dataField='spq' dataType='number' caption='SPQ' />
-          <Column dataField='inProcess' dataType='number' caption='In Process/Pending' />
-          <Column dataField='cost' dataType='number' caption='Cost' />
           <Column
             dataField='isActive'
             dataType='string'
             caption='Status'
             calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
           />
+          <Column dataField='notes' dataType='string' caption='Notes' />
 
           <Column type='buttons' fixed fixedPosition='right' caption='Actions'>
             <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' />

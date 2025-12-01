@@ -154,7 +154,7 @@ export default function ProjectIndividualCustomerTable({ projectCode, customers,
           selectedRowKeys={selectedRowKeys}
           callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChange }}
         >
-          <Column dataField='code' width={100} dataType='string' caption='ID' fixed sortOrder='asc' />
+          <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
           <Column dataField='username' dataType='string' />
           <Column
             dataField='fullName'

@@ -25,11 +25,9 @@ import { commonItemRender, userItemRender } from '@/utils/devextreme'
 import SwitchField from '@/components/forms/switch-field'
 import { useProjectIndividualsByBpUserCodeClient } from '@/hooks/safe-actions/project-individual'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
-import NumberBoxField from '@/components/forms/number-box-field'
 import DateBoxField from '@/components/forms/date-box-field'
 import Separator from '@/components/separator'
 import ImageUploaderField from '@/components/forms/image-uploader-field'
-import { DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
 import { useWarehouseClient } from '@/hooks/safe-actions/warehouse'
 import InventoryWarehouseForm from './inventory-warehouse-form'
 import { FormDebug } from '@/components/forms/form-debug'
@@ -49,13 +47,13 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
     if (isCreate) {
       return {
         code: -1,
-        userCode: 0,
-        projectIndividualCode: 0,
+        userCode: null,
+        projectIndividualCode: null,
         thumbnail: '',
-        partNumber: '',
-        manufacturer: '',
+        partNumber: null,
+        manufacturer: null,
         manufacturerPartNumber: '',
-        description: '',
+        description: null,
         dateCode: null,
         lotCode: null,
         siteLocation: null,
@@ -65,16 +63,12 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
         subLocation4: null,
         packagingType: null,
         spq: null,
-        cost: 0,
         countryOfOrigin: null,
-        note: null,
+        notes: null,
         palletSize: null,
         palletNo: null,
         isActive: true,
         dateReceived: null,
-        inProcess: null,
-
-        //* temporary
         warehouseInventory: [],
       }
     }
@@ -115,7 +109,22 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
 
   //* set warehoise inventoryt when edit based on existing warehose inventory data
   useEffect(() => {
-    if (isCreate || warehouseInventories.isLoading || warehouseInventories.data.length < 1) return
+    if (isCreate || warehouseInventories.isLoading || warehouseInventories.data.length < 1) {
+      if (warehouses?.data.length > 0) {
+        const values = warehouses?.data.map((wh) => ({
+          code: wh.code,
+          name: wh.name,
+          isLocked: false,
+          inStock: 0,
+          committed: 0,
+          ordered: 0,
+          available: 0,
+        }))
+
+        form.setValue('warehouseInventory', values)
+        return
+      }
+    }
 
     const values = warehouseInventories.data.map((wi) => ({
       code: wi.warehouseCode,
@@ -128,7 +137,7 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
     }))
 
     form.setValue('warehouseInventory', values)
-  }, [JSON.stringify(inventory), JSON.stringify(warehouseInventories)])
+  }, [JSON.stringify(warehouseInventories), JSON.stringify(warehouses)])
 
   const handleOnSubmit = async (formData: InventoryForm) => {
     try {
@@ -137,7 +146,7 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
 
       if (result?.error) {
         if (result.status === 401) {
-          form.setError('partNumber', { type: 'custom', message: result.message })
+          form.setError('manufacturerPartNumber', { type: 'custom', message: result.message })
           console.log('error part number')
         }
 
@@ -224,7 +233,6 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
                     valueExpr='code'
                     displayExpr={(item) => (item ? `${item?.fname} (${item?.lname})` : '')}
                     searchExpr={['fname', 'lname', 'code']}
-                    isRequired
                     extendedProps={{ selectBoxOptions: { itemRender: userItemRender } }}
                   />
                 </div>
@@ -239,7 +247,6 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
                     valueExpr='code'
                     displayExpr='name'
                     searchExpr={['name', 'code']}
-                    isRequired
                     extendedProps={{
                       selectBoxOptions: {
                         itemRender: (params) => {
@@ -256,7 +263,7 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
                 </div>
 
                 <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                  <TextBoxField control={form.control} name='manufacturer' label='Manufacturer' isRequired />
+                  <TextBoxField control={form.control} name='manufacturer' label='Manufacturer' />
                 </div>
 
                 <div className='col-span-12 md:col-span-6 lg:col-span-4'>
@@ -264,25 +271,15 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
                 </div>
 
                 <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                  <TextBoxField control={form.control} name='partNumber' label='Part Number' isRequired />
+                  <TextBoxField control={form.control} name='partNumber' label='Part Number' />
                 </div>
 
                 <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                  <TextBoxField control={form.control} name='description' label='Description' isRequired />
+                  <TextBoxField control={form.control} name='description' label='Description' />
                 </div>
 
                 <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                  <NumberBoxField
-                    control={form.control}
-                    name='cost'
-                    label='Cost'
-                    isRequired
-                    extendedProps={{ numberBoxOptions: { format: DEFAULT_CURRENCY_FORMAT } }}
-                  />
-                </div>
-
-                <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                  <DateBoxField control={form.control} name='dateReceived' type='date' label='Date Received' isRequired />
+                  <DateBoxField control={form.control} name='dateReceived' type='date' label='Date Received' />
                 </div>
 
                 <div className='col-span-12 md:col-span-6 lg:col-span-4'>
@@ -323,10 +320,6 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
               </div>
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <NumberBoxField control={form.control} name='inProcess' label='In Process' />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                 <SwitchField
                   control={form.control}
                   name='isActive'
@@ -337,7 +330,7 @@ export default function InventoryForm({ pageMetaData, inventory }: InventoryForm
               </div>
 
               <div className='col-span-12'>
-                <TextAreaField control={form.control} name='note' label='Note' />
+                <TextAreaField control={form.control} name='notes' label='Note' />
               </div>
 
               <Separator className='col-span-12' />

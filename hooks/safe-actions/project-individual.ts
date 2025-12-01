@@ -39,7 +39,7 @@ export function useProjectIndividualsClient(dependencies?: any[]) {
   }
 }
 
-export function useProjectIndividualsByBpUserCodeClient(userCode: number, dependencies?: any[]) {
+export function useProjectIndividualsByBpUserCodeClient(userCode?: number | null, dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getProjectIndividualsByBpUserCodeClient)
 
   useEffect(() => {
