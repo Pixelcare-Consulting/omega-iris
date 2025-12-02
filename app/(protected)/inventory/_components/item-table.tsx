@@ -9,8 +9,11 @@ import { saveAs } from 'file-saver-es'
 import { Anchor, Workbook } from 'exceljs'
 import dxDataGrid from 'devextreme/ui/data_grid'
 import { format } from 'date-fns'
+import { parseExcelFile } from '@/utils/xlsx'
+import ImportErrorDataGrid from '@/components/import-error-datagrid'
+import { ImportError } from '@/types/common'
 
-import { deleteInventory, getInventories } from '@/actions/inventory'
+import { deleteItem, getItems, importItems } from '@/actions/item'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -19,20 +22,25 @@ import AlertDialog from '@/components/alert-dialog'
 import { exportDataGrid } from 'devextreme/common/export/excel'
 import CommonDataGrid from '@/components/common-datagrid'
 
-type InventoryTableProps = { inventories: Awaited<ReturnType<typeof getInventories>> }
-type DataSource = Awaited<ReturnType<typeof getInventories>>
+type ItemTableProps = { items: Awaited<ReturnType<typeof getItems>> }
+type DataSource = Awaited<ReturnType<typeof getItems>>
 
-export default function InventoryTable({ inventories }: InventoryTableProps) {
+export default function ItemTable({ items }: ItemTableProps) {
   const router = useRouter()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-inventory'
-  const DATAGRID_UNIQUE_KEY = 'inventories'
+  const DATAGRID_UNIQUE_KEY = 'inventory'
 
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showImportError, setShowImportError] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
-  const dataGridRef = useRef<DataGridRef | null>(null)
+  const [importErrors, setImportErrors] = useState<ImportError[]>([])
 
-  const { executeAsync } = useAction(deleteInventory)
+  const dataGridRef = useRef<DataGridRef | null>(null)
+  const importErrorDataGridRef = useRef<DataGridRef | null>(null)
+
+  const { executeAsync } = useAction(deleteItem)
+  const importData = useAction(importItems)
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',
@@ -63,13 +71,13 @@ export default function InventoryTable({ inventories }: InventoryTableProps) {
 
     const code = e.data?.code
     if (!code) return
-    router.push(`/inventories/${code}/view`)
+    router.push(`/inventory/${code}/view`)
   }, [])
 
   const handleEdit = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const code = e.row?.data?.code
     if (!code) return
-    router.push(`/inventories/${code}`)
+    router.push(`/inventory/${code}`)
   }, [])
 
   const handleDelete = useCallback(
@@ -148,13 +156,47 @@ export default function InventoryTable({ inventories }: InventoryTableProps) {
     })
   }
 
+  const handleImport: (...args: any[]) => void = async (args) => {
+    const { file } = args
+
+    try {
+      const headers: string[] = ['MFG_P/N', 'Manufacturer', 'Description', 'Notes', 'Active']
+
+      //* parse excel file
+      const parseData = await parseExcelFile({ file, header: headers })
+      const toImportData = parseData.map((row, i) => ({ rowNumber: i + 2, ...row }))
+
+      const response = await importData.executeAsync({ data: toImportData })
+      const result = response?.data
+
+      if (result?.error) {
+        toast.error(result.message)
+        return
+      }
+
+      toast.success(result?.message)
+      router.refresh()
+
+      if (result?.errors && result?.errors.length > 0) {
+        setShowImportError(true)
+        setImportErrors(result?.errors || [])
+      }
+    } catch (error: any) {
+      console.error(error)
+      toast.error(error?.message || 'Failed to import file')
+    }
+  }
+
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Inventories' description='Manage and track your inventories effectively'>
+      <PageHeader title='Inventory' description='Manage and track your inventory effectively' isLoading={importData.isExecuting}>
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
-          addButton={{ text: 'Add Inventory', onClick: () => router.push('/inventories/add') }}
+          isLoading={importData.isExecuting}
+          isEnableImport
+          onImport={handleImport}
+          addButton={{ text: 'Add Inventory', onClick: () => router.push('/inventory/add') }}
           customs={{ exportToExcel }}
         />
       </PageHeader>
@@ -162,44 +204,23 @@ export default function InventoryTable({ inventories }: InventoryTableProps) {
       <PageContentWrapper className='h-[calc(100%_-_92px)]'>
         <CommonDataGrid
           dataGridRef={dataGridRef}
-          data={inventories}
+          data={items}
           storageKey={DATAGRID_STORAGE_KEY}
           callbacks={{ onRowClick: handleView }}
           dataGridStore={dataGridStore}
         >
           <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
-          <Column dataField='thumbnail' caption='Thumbnail' cellRender={thumbnailCellRender} />
-          <Column dataField='projectIndividual.name' dataType='string' caption='Project' />
-          <Column
-            dataField='customer'
-            dataType='string'
-            caption='Owner'
-            calculateCellValue={(rowData) => `${rowData.user.fname} ${rowData.user.lname}`}
-          />
-          <Column dataField='partNumber' dataType='string' caption='Part Number' />
+          <Column dataField='thumbnail' width={140} caption='Thumbnail' cellRender={thumbnailCellRender} />
           <Column dataField='manufacturer' dataType='string' caption='Manufacturer' />
           <Column dataField='manufacturerPartNumber' dataType='string' caption='MFG P/N' />
           <Column dataField='description' dataType='string' caption='Description' />
-          <Column dataField='Note' dataType='string' caption='Note' />
-          <Column dataField='dateCode' dataType='string' caption='Date Code' />
-          <Column dataField='countryOfOrigin' dataType='string' caption='Ctry Orig' />
-          <Column dataField='lotCode' dataType='string' caption='Lot Code' />
-          <Column dataField='siteLocation' dataType='string' caption='Site Location' />
-          <Column dataField='palletNo' dataType='string' caption='Pallet No' />
-          <Column dataField='subLocation1' dataType='string' caption='Sub Location' />
-          <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' />
-          <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' />
-          <Column dataField='dateReceived' dataType='date' caption='Date Received' />
-          <Column dataField='packagingType' dataType='string' caption='Packaging Type' />
-          <Column dataField='spq' dataType='number' caption='SPQ' />
-          <Column dataField='inProcess' dataType='number' caption='In Process/Pending' />
-          <Column dataField='cost' dataType='number' caption='Cost' />
           <Column
             dataField='isActive'
             dataType='string'
             caption='Status'
             calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
           />
+          <Column dataField='notes' dataType='string' caption='Notes' />
 
           <Column type='buttons' fixed fixedPosition='right' caption='Actions'>
             <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' />
@@ -214,6 +235,13 @@ export default function InventoryTable({ inventories }: InventoryTableProps) {
         description={`Are you sure you want to delete this inventory item named "${rowData?.description}"?`}
         onConfirm={() => handleConfirm(rowData?.code)}
         onCancel={() => setShowConfirmation(false)}
+      />
+
+      <ImportErrorDataGrid
+        isOpen={showImportError}
+        setIsOpen={setShowImportError}
+        data={importErrors}
+        dataGridRef={importErrorDataGridRef}
       />
     </div>
   )

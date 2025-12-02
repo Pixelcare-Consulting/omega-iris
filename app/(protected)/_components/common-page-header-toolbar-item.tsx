@@ -7,7 +7,7 @@ import { Button } from 'devextreme-react/button'
 import { Tooltip } from 'devextreme-react/tooltip'
 import { ValueChangedEvent } from 'devextreme/ui/text_box'
 import Menu, { MenuTypes } from 'devextreme-react/menu'
-import { MutableRefObject, useCallback, useMemo, useRef } from 'react'
+import { ChangeEvent, MutableRefObject, useCallback, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -17,19 +17,24 @@ import { exportToExcel } from '@/utils/devextreme'
 type CommonPageHeaderToolbarItemsProps = {
   dataGridUniqueKey: string
   dataGridRef: MutableRefObject<DataGridRef<any, any> | null>
+  isLoading?: boolean
+  isEnableImport?: boolean
+  onImport?: (...args: any[]) => void
   addButton?: { text: string; onClick: () => void }
-  customs?: {
-    exportToExcel?: (...args: any[]) => void
-  }
+  customs?: { exportToExcel?: (...args: any[]) => void }
 }
 
 export default function CommonPageHeaderToolbarItems({
   dataGridUniqueKey,
   dataGridRef,
+  isLoading,
+  isEnableImport,
+  onImport,
   addButton,
   customs,
 }: CommonPageHeaderToolbarItemsProps) {
   const searchTextBoxRef = useRef<TextBoxRef | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',
@@ -151,8 +156,35 @@ export default function CommonPageHeaderToolbarItems({
     instance?.searchByText(e.value)
   }, 1000)
 
+  const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    //* importing only support xlsx file, only 1 file at a time
+    const file = e.target.files?.[0]
+
+    //* check if file exist, if not throw error
+    if (!file) {
+      toast.error('File not found!')
+      return
+    }
+
+    //* check if file is xlsx or xls, if not throw error;
+    if (!file.name.match(/\.(xlsx|xls)$/)) {
+      toast.error('Only .xlsx or .xls file is supported!')
+      return
+    }
+
+    //TODO: implement import progress loading
+    if (onImport) onImport({ file })
+  }
+
   return (
     <>
+      {isEnableImport && (
+        <Item
+          location='after'
+          render={() => <input type='file' className='hidden' ref={fileInputRef} onChange={(e) => handleFileUpload(e)} />}
+        />
+      )}
+
       {addButton && (
         <Item location='after' widget='dxButton'>
           <Tooltip
@@ -162,7 +194,7 @@ export default function CommonPageHeaderToolbarItems({
             hideEvent='mouseleave'
             position='top'
           />
-          <Button id='add-button' icon='add' type='default' stylingMode='contained' onClick={addButton.onClick} />
+          <Button id='add-button' icon='add' type='default' stylingMode='contained' disabled={isLoading} onClick={addButton.onClick} />
         </Item>
       )}
 
@@ -178,6 +210,7 @@ export default function CommonPageHeaderToolbarItems({
           id='toggle-filter-row'
           className={dataGridStore.showFilterRow ? '[&>.dx-button-content>.dx-icon]:text-primary' : ''}
           icon='search'
+          disabled={isLoading}
           onClick={() => dataGridStore.setShowFilterRow(!dataGridStore.showFilterRow)}
         />
       </Item>
@@ -194,6 +227,7 @@ export default function CommonPageHeaderToolbarItems({
           id='toggle-header-filter'
           className={dataGridStore.showHeaderFilter ? '[&>.dx-button-content>.dx-icon]:text-primary' : ''}
           icon='filter'
+          disabled={isLoading}
           onClick={() => dataGridStore.setShowHeaderFilter(!dataGridStore.showHeaderFilter)}
         />
       </Item>
@@ -205,6 +239,7 @@ export default function CommonPageHeaderToolbarItems({
           dataSource={clearMenuItems}
           showFirstSubmenuMode='onClick'
           hideSubmenuOnMouseLeave
+          disabled={isLoading}
           onItemClick={menuItemOnItemClick}
           elementAttr={{
             //* style like button
@@ -212,6 +247,13 @@ export default function CommonPageHeaderToolbarItems({
           }}
         />
       </Item>
+
+      {isEnableImport && (
+        <Item location='after' widget='dxMenu'>
+          <Tooltip target='#import-data' contentRender={() => 'Import'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />
+          <Button id='import-data' icon='import' disabled={isLoading} onClick={() => fileInputRef.current?.click()} />
+        </Item>
+      )}
 
       <Item location='after' widget='dxMenu'>
         <Tooltip
@@ -226,6 +268,7 @@ export default function CommonPageHeaderToolbarItems({
           dataSource={exportToExcelMenuItems}
           showFirstSubmenuMode='onClick'
           hideSubmenuOnMouseLeave
+          disabled={isLoading}
           onItemClick={menuItemOnItemClick}
           elementAttr={{
             //* style like button
@@ -242,6 +285,7 @@ export default function CommonPageHeaderToolbarItems({
           //* should be declared this way to avoid to resolve issue with toolbar item with locateInMenu='always' for button
           text: 'Toggle Filter Builder',
           icon: 'hidepanel',
+          disabled: isLoading,
           onClick: () => dataGridStore.setShowFilterBuilderPanel(!dataGridStore.showFilterBuilderPanel),
           elementAttr: {
             class: dataGridStore.showFilterBuilderPanel ? '[&_.dx-icon]:!text-primary [&_.dx-button-text]:text-primary' : '',
@@ -257,6 +301,7 @@ export default function CommonPageHeaderToolbarItems({
           //* should be declared this way to avoid to resolve issue with toolbar item with locateInMenu='always' for button
           text: 'Toggle Gouping',
           icon: 'groupbycolumn',
+          disabled: isLoading,
           onClick: () => dataGridStore.setShowGroupPanel(!dataGridStore.showGroupPanel),
           elementAttr: {
             class: dataGridStore.showGroupPanel ? '[&_.dx-icon]:!text-primary [&_.dx-button-text]:text-primary' : '',
@@ -273,6 +318,7 @@ export default function CommonPageHeaderToolbarItems({
           text: 'Toggle Auto Column Hiding',
           icon: 'pinleft',
           stylingMode: 'text',
+          disabled: isLoading,
           onClick: () => dataGridStore.setColumnHidingEnabled(!dataGridStore.columnHidingEnabled),
           elementAttr: {
             class: dataGridStore.columnHidingEnabled ? '[&_.dx-icon]:!text-primary [&_.dx-button-text]:text-primary' : '',
@@ -287,12 +333,20 @@ export default function CommonPageHeaderToolbarItems({
         options={{
           text: 'Show Column Chooser',
           icon: 'columnchooser',
+          disabled: isLoading,
           onClick: () => handleColumnChooserOpen(),
         }}
       />
 
       <Item location='after' widget='dxTextBox'>
-        <TextBox ref={searchTextBoxRef} placeholder='Search' onValueChanged={debounceSearch} showClearButton valueChangeEvent='input ' />
+        <TextBox
+          ref={searchTextBoxRef}
+          placeholder='Search'
+          onValueChanged={debounceSearch}
+          showClearButton
+          disabled={isLoading}
+          valueChangeEvent='input '
+        />
       </Item>
     </>
   )

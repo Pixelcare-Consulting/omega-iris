@@ -1,8 +1,10 @@
 import Toolbar, { Item } from 'devextreme-react/toolbar'
+import { BarLoader } from 'react-spinners'
 
 import { cn } from '@/utils'
 
 type PageHeaderProps = {
+  isLoading?: boolean
   className?: string
   title?: string
   titleClassName?: string
@@ -11,7 +13,15 @@ type PageHeaderProps = {
   children?: React.ReactNode
 }
 
-export default function PageHeader({ className, title, titleClassName, description, descriptionClassName, children }: PageHeaderProps) {
+export default function PageHeader({
+  isLoading,
+  className,
+  title,
+  titleClassName,
+  description,
+  descriptionClassName,
+  children,
+}: PageHeaderProps) {
   return (
     <header className={cn('rounded-md bg-white px-4 py-3 shadow-md', className)}>
       <Toolbar>
@@ -19,7 +29,7 @@ export default function PageHeader({ className, title, titleClassName, descripti
           <Item
             location='before'
             render={() => (
-              <div className='max-w-2xl flex-1'>
+              <div className='hidden max-w-2xl flex-1 lg:inline-block'>
                 <h1 className={cn('text-base font-bold tracking-tight sm:text-lg md:text-lg lg:text-left lg:text-xl', titleClassName)}>
                   {title}
                 </h1>
@@ -31,6 +41,8 @@ export default function PageHeader({ className, title, titleClassName, descripti
 
         {children}
       </Toolbar>
+
+      {isLoading && <BarLoader className='mt-1' color='#ed1c24' width='100%' />}
     </header>
   )
 }

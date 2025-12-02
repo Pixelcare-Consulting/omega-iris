@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import { Icons } from '@/components/icons'
 import SigninForm from './_components/signin-form'
 
-export default function LoginPage() {
+export default function SigninPage() {
   return (
     <div className='grid min-h-svh lg:grid-cols-2'>
       <div className='flex flex-col gap-4 p-6 md:p-10'>

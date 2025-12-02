@@ -3,6 +3,9 @@
 const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['pino', 'pino-pretty'],
+    serverActions: {
+      bodySizeLimit: '50MB',
+    },
   },
 }
 

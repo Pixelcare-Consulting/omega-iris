@@ -1,19 +1,19 @@
 import { notFound } from 'next/navigation'
 
-import { getInventoryByCode } from '@/actions/inventory'
+import { getItemByCode } from '@/actions/item'
 import ContentContainer from '@/app/(protected)/_components/content-container'
-import ViewInventory from './_components/view-intentory'
+import ViewItem from './_components/view-item'
 
 export default async function InventoryViewPage({ params }: { params: { code: string } }) {
   const { code } = params
 
-  const inventory = await getInventoryByCode(parseInt(code))
+  const item = await getItemByCode(parseInt(code))
 
-  if (!inventory) notFound()
+  if (!item) notFound()
 
   return (
     <ContentContainer>
-      <ViewInventory inventory={inventory} />
+      <ViewItem item={item} />
     </ContentContainer>
   )
 }

@@ -7,9 +7,9 @@ import { warehouseFormSchema } from '@/schema/warehouse'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 
-export async function getWarehouses(isDefault?: boolean) {
+export async function getWarehouses(isDefault?: boolean | null) {
   try {
-    return await db.warehouse.findMany({ where: { isDefault } })
+    return await db.warehouse.findMany({ where: { ...(isDefault ? { isDefault } : {}) } })
   } catch (error) {
     console.error(error)
     return []
@@ -19,8 +19,8 @@ export async function getWarehouses(isDefault?: boolean) {
 export const getWarehousesClient = action
   .use(authenticationMiddleware)
   .schema(z.object({ isDefault: z.boolean().nullish().default(false) }))
-  .action(async () => {
-    return getWarehouses()
+  .action(async ({ parsedInput }) => {
+    return getWarehouses(parsedInput.isDefault)
   })
 
 export async function getWarehouseByCode(code: number) {

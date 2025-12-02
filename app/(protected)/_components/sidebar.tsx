@@ -19,6 +19,7 @@ export default function Sidebar({ isOpen, setIsOpen, children }: SidebarProps) {
   const router = useRouter()
 
   const treeViewRef = useRef<TreeViewRef>(null)
+  const autoCloseWhenSmall = useRef<boolean>(false)
 
   const xSmallMedia = useMediaQuery('(max-width: 575.98px)')
   const largeMedia = useMediaQuery('(min-width: 1200px)')
@@ -52,12 +53,24 @@ export default function Sidebar({ isOpen, setIsOpen, children }: SidebarProps) {
     [setIsOpen]
   )
 
+  const collapseAllItems = useCallback(() => {
+    if (!treeViewRef.current) return
+    const instance = treeViewRef?.current?.instance()
+    instance.collapseAll()
+  }, [JSON.stringify(treeViewRef)])
+
+  //* when screen is below largeMedia, set isOpen to false, only set isOpen when its true not false
+  useEffect(() => {
+    if (treeViewRef.current && largeMedia !== null && largeMedia === false && isOpen && !autoCloseWhenSmall.current) {
+      autoCloseWhenSmall.current = true
+      setIsOpen(false)
+      collapseAllItems()
+    }
+  }, [largeMedia, isOpen, treeViewRef])
+
   //* collapse all items when drawer is closed
   useEffect(() => {
-    if (!isOpen && treeViewRef.current) {
-      const instance = treeViewRef.current.instance()
-      instance.collapseAll()
-    }
+    if (!isOpen && treeViewRef.current) collapseAllItems()
   }, [treeViewRef, isOpen])
 
   //* set initial selected item
@@ -76,7 +89,6 @@ export default function Sidebar({ isOpen, setIsOpen, children }: SidebarProps) {
       minSize={xSmallMedia ? 0 : 40}
       maxSize={250}
       template='menu'
-      // closeOnOutsideClick={handleCloseOnOutsideClick}
     >
       <main className={cn('mt-[2px] h-[calc(100vh_-_54px)] w-full border-0 bg-slate-50 p-4', largeMedia && !isOpen && 'border-l')}>
         {children}

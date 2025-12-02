@@ -16,11 +16,14 @@ const COMMON_USER_INCLUDE = {
   profile: true,
 } satisfies Prisma.UserInclude
 
+const COMMON_USER_ORDER_BY = { code: 'asc' } satisfies Prisma.UserOrderByWithRelationInput
+
 export async function getUsers() {
   try {
     return await db.user.findMany({
       where: { deletedAt: null, deletedBy: null },
       include: COMMON_USER_INCLUDE,
+      orderBy: COMMON_USER_ORDER_BY,
     })
   } catch (error) {
     console.error(error)
@@ -37,6 +40,7 @@ export async function getNonCustomerUsers() {
     return await db.user.findMany({
       where: { role: { key: { not: 'business-partner' } }, deletedAt: null, deletedBy: null },
       include: COMMON_USER_INCLUDE,
+      orderBy: COMMON_USER_ORDER_BY,
     })
   } catch (error) {
     console.error(error)
@@ -100,7 +104,11 @@ export async function getUsersByRoleKey(key: string) {
   if (!key) return []
 
   try {
-    return await db.user.findMany({ where: { role: { key } }, include: COMMON_USER_INCLUDE })
+    return await db.user.findMany({
+      where: { role: { key }, ...(key === 'business-partner' ? { NOT: [{ customerCode: null }, { customerCode: '' }] } : {}) },
+      include: COMMON_USER_INCLUDE,
+      orderBy: COMMON_USER_ORDER_BY,
+    })
   } catch (err) {
     return []
   }

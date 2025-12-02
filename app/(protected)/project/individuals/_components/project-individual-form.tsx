@@ -44,7 +44,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
         name: '',
         description: '',
         isActive: true,
-        groupCode: 0,
+        groupCode: null,
         customers: [],
         pics: [],
       }
@@ -144,7 +144,6 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                   valueExpr='code'
                   displayExpr='name'
                   searchExpr={['name', 'code']}
-                  isRequired
                   extendedProps={{
                     selectBoxOptions: {
                       itemRender: (params) => {
@@ -184,7 +183,6 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                   valueExpr='code'
                   displayExpr={(item) => (item ? `${item?.fname} (${item?.lname})` : '')}
                   searchExpr={['fname', 'lname', 'code']}
-                  isRequired
                   extendedProps={{ tagBoxOptions: { itemRender: userItemRender } }}
                 />
               </div>
@@ -199,7 +197,6 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                   valueExpr='code'
                   displayExpr={(item) => (item ? `${item?.fname} (${item?.lname})` : '')}
                   searchExpr={['fname', 'lname', 'code']}
-                  isRequired
                   extendedProps={{ tagBoxOptions: { itemRender: userItemRender } }}
                 />
               </div>

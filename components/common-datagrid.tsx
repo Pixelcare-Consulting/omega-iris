@@ -84,7 +84,7 @@ export default function CommonDataGrid<T extends Record<string, any>>({
       <GroupPanel visible={dataGridStore.showGroupPanel} />
       <ColumnFixing enabled />
       <Sorting mode='multiple' />
-      <Scrolling mode='infinite' rowRenderingMode='virtual' columnRenderingMode='virtual' />
+      <Scrolling mode='infinite' rowRenderingMode='standard' columnRenderingMode='standard' />
       <ColumnChooser mode='select' allowSearch width={300} />
       <Export formats={['xlsx']} />
       <Selection mode='multiple' />

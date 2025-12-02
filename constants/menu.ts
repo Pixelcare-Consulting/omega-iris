@@ -87,9 +87,9 @@ export const navigation: NavItem[] = [
   },
   {
     id: '6',
-    text: 'Inventories',
+    text: 'Inventory',
     icon: 'packagebox',
-    path: '/inventories',
+    path: '/inventory',
     selected: false,
     expanded: false,
   },

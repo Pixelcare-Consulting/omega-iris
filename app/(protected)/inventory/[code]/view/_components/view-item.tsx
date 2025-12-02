@@ -6,16 +6,16 @@ import { useRouter } from 'nextjs-toploader/app'
 import { Tooltip } from 'devextreme-react/tooltip'
 import TabPanel, { Item as TabPanelITem } from 'devextreme-react/tab-panel'
 
-import { getInventoryByCode } from '@/actions/inventory'
+import { getItemByCode } from '@/actions/item'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
-import InvetoryOverviewTab from './_tabs/inventory-overview-tab'
+import ItemOverviewTab from './_tab/item-overview-tab'
 
-type ViewInventoryProps = {
-  inventory: NonNullable<Awaited<ReturnType<typeof getInventoryByCode>>>
+type ViewItemProps = {
+  item: NonNullable<Awaited<ReturnType<typeof getItemByCode>>>
 }
 
-export default function ViewInventory({ inventory }: ViewInventoryProps) {
+export default function ViewItem({ item }: ViewItemProps) {
   const router = useRouter()
 
   return (
@@ -29,7 +29,7 @@ export default function ViewInventory({ inventory }: ViewInventoryProps) {
             icon='arrowleft'
             stylingMode='outlined'
             type='default'
-            onClick={() => router.push('/inventories')}
+            onClick={() => router.push('/inventory')}
           />
         </Item>
 
@@ -37,21 +37,21 @@ export default function ViewInventory({ inventory }: ViewInventoryProps) {
           location='after'
           locateInMenu='always'
           widget='dxButton'
-          options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/inventories/add`) }}
+          options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/inventory/add`) }}
         />
 
         <Item
           location='after'
           locateInMenu='always'
           widget='dxButton'
-          options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/inventories/${inventory.code}`) }}
+          options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/inventory/${item.code}`) }}
         />
       </PageHeader>
 
       <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
         <TabPanel width='100%' height='100%' animationEnabled tabsPosition='top' defaultSelectedIndex={0}>
           <TabPanelITem title='Overview'>
-            <InvetoryOverviewTab inventory={inventory} />
+            <ItemOverviewTab item={item} />
           </TabPanelITem>
         </TabPanel>
       </PageContentWrapper>
