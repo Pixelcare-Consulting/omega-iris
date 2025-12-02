@@ -29,7 +29,7 @@ export default function PageHeader({
           <Item
             location='before'
             render={() => (
-              <div className='max-w-2xl flex-1'>
+              <div className='hidden max-w-2xl flex-1 lg:inline-block'>
                 <h1 className={cn('text-base font-bold tracking-tight sm:text-lg md:text-lg lg:text-left lg:text-xl', titleClassName)}>
                   {title}
                 </h1>

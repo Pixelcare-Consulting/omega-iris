@@ -14,6 +14,7 @@ export async function getItems(excludeCodes?: number[] | null) {
   try {
     const result = await db.item.findMany({
       where: { deletedAt: null, deletedBy: null, ...(excludeCodes?.length ? { code: { notIn: excludeCodes } } : {}) },
+      orderBy: { code: 'asc' },
     })
 
     const normalizedResult = result.map((item) => ({
@@ -59,7 +60,7 @@ export const upsertItem = action
   .use(authenticationMiddleware)
   .schema(itemFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, ...data } = parsedInput
+    const { code, warehouseInventory, ...data } = parsedInput
     const { userId } = ctx
 
     try {
@@ -74,7 +75,36 @@ export const upsertItem = action
 
       //* update item
       if (code !== -1) {
-        const updatedItem = await db.item.update({ where: { code }, data: { ...data, updatedBy: userId } })
+        const updatedItem = await db.$transaction(async (tx) => {
+          //* update item
+          const item = await tx.item.update({ where: { code }, data: { ...data, updatedBy: userId } })
+
+          if (warehouseInventory.length > 0) {
+            //* upsert item warehouse inventory
+            await Promise.all(
+              warehouseInventory.map(({ name: warehouseName, code: warehouseCode, ...wi }) => {
+                return tx.itemWarehouseInventory.upsert({
+                  where: {
+                    warehouseCode_itemCode: {
+                      warehouseCode: warehouseCode,
+                      itemCode: code,
+                    },
+                  },
+                  create: {
+                    warehouseCode: warehouseCode,
+                    itemCode: code,
+                    ...wi,
+                    createdBy: userId,
+                    updatedBy: userId,
+                  },
+                  update: { ...wi, updatedBy: userId },
+                })
+              })
+            )
+          }
+
+          return item
+        })
 
         return {
           status: 200,
@@ -90,6 +120,16 @@ export const upsertItem = action
           ...data,
           createdBy: userId,
           updatedBy: userId,
+          itemWarehouseInventory: {
+            createMany: {
+              data: warehouseInventory.map(({ name, code: warehouseCode, ...wi }) => ({
+                warehouseCode,
+                ...wi,
+                createdBy: userId,
+                updatedBy: userId,
+              })),
+            },
+          },
         },
       })
 

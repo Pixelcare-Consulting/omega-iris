@@ -52,7 +52,7 @@ export const upsertProjectItem = action
   .use(authenticationMiddleware)
   .schema(projectItemFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, warehouseInventory, ...data } = parsedInput
+    const { code, ...data } = parsedInput
     const { userId } = ctx
 
     try {
@@ -68,36 +68,8 @@ export const upsertProjectItem = action
 
       //* update item
       if (code !== -1) {
-        const updatedItem = await db.$transaction(async (tx) => {
-          //* update project item
-          const item = await tx.projectItem.update({ where: { code }, data: { ...data, updatedBy: userId } })
-
-          if (warehouseInventory.length > 0) {
-            //* upsert project item warehouse inventory
-            await Promise.all(
-              warehouseInventory.map(({ name: warehouseName, code: warehouseCode, ...wi }) => {
-                return tx.projectItemWarehouseInventory.upsert({
-                  where: {
-                    warehouseCode_projectItemCode: {
-                      warehouseCode: warehouseCode,
-                      projectItemCode: code,
-                    },
-                  },
-                  create: {
-                    warehouseCode: warehouseCode,
-                    projectItemCode: code,
-                    ...wi,
-                    createdBy: userId,
-                    updatedBy: userId,
-                  },
-                  update: { ...wi, updatedBy: userId },
-                })
-              })
-            )
-          }
-
-          return item
-        })
+        //* update project item
+        const updatedItem = await db.projectItem.update({ where: { code }, data: { ...data, updatedBy: userId } })
 
         return {
           status: 200,
@@ -113,16 +85,6 @@ export const upsertProjectItem = action
           ...data,
           createdBy: userId,
           updatedBy: userId,
-          projectItemWarehouseInventories: {
-            createMany: {
-              data: warehouseInventory.map(({ name, code: warehouseCode, ...wi }) => ({
-                warehouseCode,
-                ...wi,
-                createdBy: userId,
-                updatedBy: userId,
-              })),
-            },
-          },
         },
       })
 

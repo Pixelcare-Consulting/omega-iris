@@ -6,7 +6,7 @@ import { Item } from 'devextreme-react/toolbar'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
-import { Dispatch, SetStateAction, useEffect, useMemo } from 'react'
+import { Dispatch, SetStateAction, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 
@@ -17,56 +17,40 @@ import LoadingButton from '@/components/loading-button'
 import { upsertProjectItem } from '@/actions/project-item'
 import SelectBoxField from '@/components/forms/select-box-field'
 import { commonItemRender } from '@/utils/devextreme'
-import SwitchField from '@/components/forms/switch-field'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Separator from '@/components/separator'
-import { useWarehouseClient } from '@/hooks/safe-actions/warehouse'
 import { getProjecItems } from '@/actions/project-item'
 import useItemsClient from '@/hooks/safe-actions/item'
-import { useProjectItemWarehouseInventoryByPItemCodeClient } from '@/hooks/safe-actions/project-item-warehouse-inventory'
 import ReadOnlyField from '@/components/read-only-field'
 import { formatNumber } from 'devextreme/localization'
 import { DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
 import { safeParseFloat } from '@/utils'
-import ProjectIndividualItemWarehouseForm from './project-individual-item-warehouse-inventory-form'
+import ProjectIndividualItemWarehouseInventory from './project-individual-item-warehouse-inventory'
 import { useProjecItemsClient } from '@/hooks/safe-actions/project-item'
+import { useItemWarehouseInventory } from '@/hooks/safe-actions/item-warehouse-inventory'
 
 type ProjectItemFormProps = {
   projectCode: number
   projectName: string
-  isOpen: boolean
   setIsOpen: Dispatch<SetStateAction<boolean>>
   onClose?: () => void
   item: Awaited<ReturnType<typeof getProjecItems>>[number] | null
   items: ReturnType<typeof useProjecItemsClient>
-  warehouses: ReturnType<typeof useWarehouseClient>
 }
 
-export default function ProjectItemForm({
-  projectCode,
-  projectName,
-  isOpen,
-  setIsOpen,
-  onClose,
-  item,
-  items,
-  warehouses,
-}: ProjectItemFormProps) {
+export default function ProjectItemForm({ projectCode, projectName, setIsOpen, onClose, item, items }: ProjectItemFormProps) {
   const router = useRouter()
 
   const isCreate = !item
 
   const values = useMemo(() => {
-    if (item) return { ...item, warehouseInventory: [] }
+    if (item) return item
 
     if (isCreate) {
       return {
         code: -1,
         itemCode: 0,
         projectIndividualCode: projectCode,
-        isActive: true,
-        notes: null,
-        warehouseInventory: [],
       }
     }
 
@@ -83,61 +67,13 @@ export default function ProjectItemForm({
   const { executeAsync, isExecuting } = useAction(upsertProjectItem)
 
   const baseItems = useItemsClient()
-  const pItemWarehouseInventories = useProjectItemWarehouseInventoryByPItemCodeClient(item?.code)
 
   const baseItem = useMemo(() => {
     if (baseItems.isLoading || baseItems.data.length < 1) return null
     return baseItems.data.find((i) => i.code === itemCode)
   }, [itemCode, JSON.stringify(baseItems)])
 
-  //* initialize warehouses inventory when create based on default warehouses
-  useEffect(() => {
-    if (!isCreate || warehouses.isLoading || warehouses.data.length < 1) return
-
-    const values = warehouses.data.map((wh) => ({
-      code: wh.code,
-      name: wh.name,
-      isLocked: false,
-      inStock: 0,
-      committed: 0,
-      ordered: 0,
-      available: 0,
-    }))
-
-    form.setValue('warehouseInventory', values)
-  }, [isOpen, JSON.stringify(item), isCreate, JSON.stringify(warehouses)])
-
-  //* set warehoise inventoryt when edit based on existing warehose inventory data
-  useEffect(() => {
-    if (isCreate || pItemWarehouseInventories.isLoading || pItemWarehouseInventories.data.length < 1) {
-      if (warehouses?.data.length > 0) {
-        const values = warehouses?.data.map((wh) => ({
-          code: wh.code,
-          name: wh.name,
-          isLocked: false,
-          inStock: 0,
-          committed: 0,
-          ordered: 0,
-          available: 0,
-        }))
-
-        form.setValue('warehouseInventory', values)
-        return
-      }
-    }
-
-    const values = pItemWarehouseInventories.data.map((wi) => ({
-      code: wi.warehouseCode,
-      name: wi.warehouse.name,
-      isLocked: wi.isLocked,
-      inStock: wi.inStock,
-      committed: wi.committed,
-      ordered: wi.ordered,
-      available: wi.available,
-    }))
-
-    form.setValue('warehouseInventory', values)
-  }, [isOpen, JSON.stringify(item), JSON.stringify(pItemWarehouseInventories), JSON.stringify(warehouses)])
+  const itemWarehouseInventory = useItemWarehouseInventory(baseItem?.code)
 
   const resetForm = () => {
     form.reset()
@@ -164,7 +100,6 @@ export default function ProjectItemForm({
       if (result?.data && result?.data?.projectItem && 'id' in result?.data?.projectItem) {
         router.refresh()
 
-        pItemWarehouseInventories.execute({ projectItemCode: result.data.projectItem.code })
         items.execute({ projectCode })
 
         setTimeout(() => {
@@ -248,15 +183,7 @@ export default function ProjectItemForm({
 
                 <ReadOnlyField className='col-span-12 md:col-span-6' title='Description ' value={baseItem?.description || ''} />
 
-                <div className='col-span-12 md:col-span-6'>
-                  <SwitchField
-                    control={form.control}
-                    name='isActive'
-                    label='Active'
-                    description='Is this item active?'
-                    extendedProps={{ switchOptions: { disabled: isCreate } }}
-                  />
-                </div>
+                <ReadOnlyField className='col-span-12 md:col-span-6' title='Active' value={baseItem?.isActive ? 'Active' : 'Inactive'} />
 
                 <ReadOnlyField className='col-span-12' title='Notes' value={baseItem?.notes || ''} />
               </div>
@@ -286,7 +213,7 @@ export default function ProjectItemForm({
                 value={formatNumber(safeParseFloat(baseItem?.Price), DEFAULT_CURRENCY_FORMAT)}
               />
 
-              <ProjectIndividualItemWarehouseForm isLoading={pItemWarehouseInventories.isLoading} />
+              <ProjectIndividualItemWarehouseInventory itemWarehouseInventory={itemWarehouseInventory} />
             </div>
           </ScrollView>
         </PageContentWrapper>

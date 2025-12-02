@@ -1,43 +1,38 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import DataGrid, { Column, DataGridRef, Editing, LoadPanel, Pager, Paging, Scrolling, Sorting } from 'devextreme-react/data-grid'
+import DataGrid, {
+  Column,
+  DataGridRef,
+  Editing,
+  Item,
+  LoadPanel,
+  Pager,
+  Paging,
+  Scrolling,
+  SearchPanel,
+  Sorting,
+  Toolbar,
+} from 'devextreme-react/data-grid'
 
-import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import { useFormContext, useWatch } from 'react-hook-form'
 import Separator from '@/components/separator'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 
 import { handleOnRowPrepared } from '@/utils/devextreme'
 import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
-import { InventoryForm } from '@/schema/inventory'
+import { ItemForm } from '@/schema/item'
 
-type InventoryWarehouseFormProps = {
+type ItemWarehouseInventoryFormProps = {
   isLoading?: boolean
 }
 
-export default function InventoryWarehouseForm({ isLoading }: InventoryWarehouseFormProps) {
+export default function ItemWarehouseInventoryForm({ isLoading }: ItemWarehouseInventoryFormProps) {
   const dataGridRef = useRef<DataGridRef | null>(null)
 
-  const dataGridStore = useDataGridStore([
-    'showFilterRow',
-    'setShowFilterRow',
-    'showHeaderFilter',
-    'setShowHeaderFilter',
-    'showFilterBuilderPanel',
-    'setShowFilterBuilderPanel',
-    'showGroupPanel',
-    'setShowGroupPanel',
-    'enableStateStoring',
-    'columnHidingEnabled',
-    'setColumnHidingEnabled',
-    'showColumnChooser',
-    'setShowColumnChooser',
-  ])
+  const form = useFormContext<ItemForm>()
 
-  const form = useFormContext<InventoryForm>()
-
-  const warehouseInventories = useWatch({ control: form.control, name: 'warehouseInventory' }) || []
+  const warehouseInventory = useWatch({ control: form.control, name: 'warehouseInventory' }) || []
 
   //* show loading
   useEffect(() => {
@@ -50,15 +45,14 @@ export default function InventoryWarehouseForm({ isLoading }: InventoryWarehouse
   return (
     <>
       <Separator className='col-span-12' />
-      <ReadOnlyFieldHeader className='col-span-12 mb-2' title='Warehouse Inventory' description='Inventory address details' />
+      <ReadOnlyFieldHeader className='col-span-12 mb-2' title='Warehouse Inventory' description='Item warehouse inventory details' />
 
       <div className='col-span-12'>
         <DataGrid
           ref={dataGridRef}
-          dataSource={warehouseInventories}
+          dataSource={warehouseInventory}
           keyExpr='code'
           showBorders
-          columnHidingEnabled={dataGridStore.columnHidingEnabled}
           hoverStateEnabled
           allowColumnReordering
           allowColumnResizing
@@ -68,7 +62,7 @@ export default function InventoryWarehouseForm({ isLoading }: InventoryWarehouse
           toolbar={{ visible: false }}
           onRowUpdated={(e) => {
             const index = e.key
-            const updatedRows = [...warehouseInventories]
+            const updatedRows = [...warehouseInventory]
             const rowIndex = updatedRows.findIndex((x) => x.code === index)
 
             if (rowIndex !== -1) {
@@ -87,9 +81,13 @@ export default function InventoryWarehouseForm({ isLoading }: InventoryWarehouse
 
           <LoadPanel enabled={isLoading} shadingColor='rgb(241, 245, 249)' showIndicator showPane shading />
           <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
-
+          <SearchPanel visible highlightCaseSensitive={false} />
           <Sorting mode='multiple' />
           <Scrolling mode='standard' />
+
+          <Toolbar>
+            <Item name='searchPanel' location='after' />
+          </Toolbar>
 
           <Pager
             visible={true}

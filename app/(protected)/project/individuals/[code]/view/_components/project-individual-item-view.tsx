@@ -23,9 +23,9 @@ import Copy from '@/components/copy'
 import ReadOnlyField from '@/components/read-only-field'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES, DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
-import { useProjectItemWarehouseInventoryByPItemCodeClient } from '@/hooks/safe-actions/project-item-warehouse-inventory'
 import { formatNumber } from 'devextreme/localization'
 import { handleOnRowPrepared } from '@/utils/devextreme'
+import { useItemWarehouseInventory } from '@/hooks/safe-actions/item-warehouse-inventory'
 
 type ProjectIndividualItemViewProps = {
   data: Awaited<ReturnType<typeof getProjecItems>>[number]
@@ -33,30 +33,22 @@ type ProjectIndividualItemViewProps = {
 }
 
 export default function ProjectIndividualItemView({ data, onClose }: ProjectIndividualItemViewProps) {
-  const pItemWarehouseInventories = useProjectItemWarehouseInventoryByPItemCodeClient(data?.code)
+  const itemWarehouseInventory = useItemWarehouseInventory(data?.itemCode)
   const item = data.item
 
   const dataGridRef = useRef<DataGridRef | null>(null)
 
   const warehouseInventories = useMemo(() => {
-    return pItemWarehouseInventories.data.map((wi) => ({
-      code: wi.warehouseCode,
-      name: wi.warehouse.name,
-      isLocked: wi.isLocked,
-      inStock: wi.inStock,
-      committed: wi.committed,
-      ordered: wi.ordered,
-      available: wi.available,
-    }))
-  }, [JSON.stringify(pItemWarehouseInventories)])
+    return []
+  }, [JSON.stringify(itemWarehouseInventory)])
 
   //* show loading
   useEffect(() => {
     if (dataGridRef.current) {
-      if (pItemWarehouseInventories.isLoading) dataGridRef.current.instance().beginCustomLoading('Loading data...')
+      if (itemWarehouseInventory.isLoading) dataGridRef.current.instance().beginCustomLoading('Loading data...')
       else dataGridRef.current.instance().endCustomLoading()
     }
-  }, [JSON.stringify(pItemWarehouseInventories), dataGridRef.current])
+  }, [JSON.stringify(itemWarehouseInventory), dataGridRef.current])
 
   return (
     <ScrollView>
@@ -125,7 +117,6 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
             width='100%'
             height='100%'
             onRowPrepared={handleOnRowPrepared}
-            editing={{ allowAdding: false, allowUpdating: false, allowDeleting: false }}
           >
             <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' alignment='center' />
             <Column dataField='name' dataType='string' caption='Name' alignment='center' />
@@ -135,8 +126,8 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
             <Column dataField='ordered' dataType='number' caption='Ordered' format={DEFAULT_NUMBER_FORMAT} alignment='center' />
             <Column dataField='available' dataType='number' caption='Available' format={DEFAULT_NUMBER_FORMAT} alignment='center' />
 
-            <LoadPanel enabled={pItemWarehouseInventories.isLoading} shadingColor='rgb(241, 245, 249)' showIndicator showPane shading />
-            <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
+            <LoadPanel enabled={itemWarehouseInventory.isLoading} shadingColor='rgb(241, 245, 249)' showIndicator showPane shading />
+            <Editing mode='cell' allowUpdating={false} allowAdding={false} allowDeleting={false} />
             <SearchPanel visible highlightCaseSensitive={false} />
             <Sorting mode='multiple' />
             <Scrolling mode='standard' />

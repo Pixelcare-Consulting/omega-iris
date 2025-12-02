@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { FormProvider, useForm } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
 import { useParams } from 'next/navigation'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 
@@ -26,6 +26,9 @@ import Separator from '@/components/separator'
 import ImageUploaderField from '@/components/forms/image-uploader-field'
 import NumberBoxField from '@/components/forms/number-box-field'
 import { DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
+import { useWarehouseClient } from '@/hooks/safe-actions/warehouse'
+import { useItemWarehouseInventory } from '@/hooks/safe-actions/item-warehouse-inventory'
+import ItemWarehouseInventoryForm from './item-warehouse-inventory-form'
 
 type ItemFormProps = { pageMetaData: PageMetadata; item: Awaited<ReturnType<typeof getItemByCode>> }
 
@@ -36,7 +39,7 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
   const isCreate = code === 'add' || !item
 
   const values = useMemo(() => {
-    if (item) return item
+    if (item) return { ...item, warehouseInventory: [] }
 
     if (isCreate) {
       return {
@@ -47,6 +50,8 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
         thumbnail: null,
         notes: null,
         isActive: true,
+
+        warehouseInventory: [],
 
         //* sap fields
         ItemCode: null,
@@ -67,6 +72,8 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
   })
 
   const { executeAsync, isExecuting } = useAction(upsertItem)
+  const warehouses = useWarehouseClient()
+  const itemWarehouseInventory = useItemWarehouseInventory(item?.code)
 
   const handleOnSubmit = async (formData: ItemForm) => {
     try {
@@ -86,6 +93,7 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
 
       if (result?.data && result?.data?.item && 'id' in result?.data?.item) {
         router.refresh()
+        itemWarehouseInventory.execute({ itemCode: result.data.item.code })
 
         setTimeout(() => {
           router.push(`/inventory/${result.data.item.code}`)
@@ -96,6 +104,55 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
       toast.error('Something went wrong! Please try again later.')
     }
   }
+
+  //* initialize warehouses inventory when create based on warehouses
+  useEffect(() => {
+    if (!isCreate || warehouses.isLoading || warehouses.data.length < 1) return
+
+    const values = warehouses.data.map((wh) => ({
+      code: wh.code,
+      name: wh.name,
+      isLocked: false,
+      inStock: 0,
+      committed: 0,
+      ordered: 0,
+      available: 0,
+    }))
+
+    form.setValue('warehouseInventory', values)
+  }, [isCreate, JSON.stringify(warehouses)])
+
+  //* set warehoise inventoryt when edit based on existing warehose inventory data
+  useEffect(() => {
+    if (isCreate || itemWarehouseInventory.isLoading || itemWarehouseInventory.data.length < 1) {
+      if (warehouses?.data.length > 0) {
+        const values = warehouses?.data.map((wh) => ({
+          code: wh.code,
+          name: wh.name,
+          isLocked: false,
+          inStock: 0,
+          committed: 0,
+          ordered: 0,
+          available: 0,
+        }))
+
+        form.setValue('warehouseInventory', values)
+        return
+      }
+    }
+
+    const values = itemWarehouseInventory.data.map((wi) => ({
+      code: wi.warehouseCode,
+      name: wi.warehouse.name,
+      isLocked: wi.isLocked,
+      inStock: wi.inStock,
+      committed: wi.committed,
+      ordered: wi.ordered,
+      available: wi.available,
+    }))
+
+    form.setValue('warehouseInventory', values)
+  }, [JSON.stringify(item), JSON.stringify(itemWarehouseInventory), JSON.stringify(warehouses)])
 
   return (
     <FormProvider {...form}>
@@ -220,6 +277,8 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
                   extendedProps={{ numberBoxOptions: { format: DEFAULT_CURRENCY_FORMAT } }}
                 />
               </div>
+
+              <ItemWarehouseInventoryForm isLoading={itemWarehouseInventory.isLoading} />
             </div>
           </ScrollView>
         </PageContentWrapper>

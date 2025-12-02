@@ -136,12 +136,10 @@ model ProjectIndividual {
 
 //* NOTE: Item must be synced already in SAP before it can be selected for project item 
 model ProjectItem {
-    id                    String  @id @default(cuid())
-    code                  Int     @unique @default(autoincrement())
+    id                    String @id @default(cuid())
+    code                  Int    @unique @default(autoincrement())
     itemCode              Int
     projectIndividualCode Int
-    isActive              Boolean @default(true)
-    notes                 String?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -150,39 +148,12 @@ model ProjectItem {
     updatedBy String?
     deletedBy String?
 
-    item                            Item                            @relation(fields: [itemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    projectIndividual               ProjectIndividual               @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    projectItemWarehouseInventories ProjectItemWarehouseInventory[]
+    item              Item              @relation(fields: [itemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    projectIndividual ProjectIndividual @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
 
     @@unique([projectIndividualCode, itemCode])
     @@index([projectIndividualCode])
     @@index([itemCode])
-}
-
-model ProjectItemWarehouseInventory {
-    id              String  @id @default(cuid())
-    code            Int     @unique @default(autoincrement())
-    warehouseCode   Int
-    projectItemCode Int
-    isLocked        Boolean @default(false)
-    inStock         Int     @default(0)
-    committed       Int     @default(0)
-    ordered         Int     @default(0)
-    available       Int     @default(0)
-
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy String?
-    updatedBy String?
-    deletedBy String?
-
-    warehouse   Warehouse   @relation(fields: [warehouseCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    projectItem ProjectItem @relation(fields: [projectItemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-
-    @@unique([warehouseCode, projectItemCode])
-    @@index([warehouseCode])
-    @@index([projectItemCode])
 }
 
 model ProjectIndividualCustomer {
@@ -292,7 +263,34 @@ model Item {
     updatedBy String?
     deletedBy String?
 
-    projectItems ProjectItem[]
+    projectItems           ProjectItem[]
+    itemWarehouseInventory ItemWarehouseInventory[]
+}
+
+model ItemWarehouseInventory {
+    id            String  @id @default(cuid())
+    code          Int     @unique @default(autoincrement())
+    warehouseCode Int
+    itemCode      Int
+    isLocked      Boolean @default(false)
+    inStock       Int     @default(0)
+    committed     Int     @default(0)
+    ordered       Int     @default(0)
+    available     Int     @default(0)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    warehouse Warehouse @relation(fields: [warehouseCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    item      Item      @relation(fields: [itemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([warehouseCode, itemCode])
+    @@index([warehouseCode])
+    @@index([itemCode])
 }
 
 model Warehouse {
@@ -328,8 +326,9 @@ model Warehouse {
     updatedBy String?
     deletedBy String?
 
-    inventories                     WarehouseInventory[]
-    projectItemWarehouseInventories ProjectItemWarehouseInventory[]
+    inventories WarehouseInventory[]
+
+    itemInventories ItemWarehouseInventory[]
 }
 
 model WarehouseInventory {

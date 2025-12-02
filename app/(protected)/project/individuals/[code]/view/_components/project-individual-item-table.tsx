@@ -2,9 +2,8 @@
 
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter } from 'nextjs-toploader/app'
-import { format, set } from 'date-fns'
-import Toolbar, { Item } from 'devextreme-react/toolbar'
+import { format } from 'date-fns'
+import Toolbar from 'devextreme-react/toolbar'
 import { Anchor, Workbook } from 'exceljs'
 import { exportDataGrid } from 'devextreme/common/export/excel'
 import { saveAs } from 'file-saver-es'
@@ -12,7 +11,6 @@ import dxDataGrid from 'devextreme/ui/data_grid'
 import Popup from 'devextreme-react/popup'
 import { useAction } from 'next-safe-action/hooks'
 import { toast } from 'sonner'
-import Button from 'devextreme-react/button'
 
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -21,7 +19,6 @@ import CommonDataGrid from '@/components/common-datagrid'
 import { deleteProjectItem, getProjecItems } from '@/actions/project-item'
 import ProjectItemForm from './project-individual-item-form'
 import { useProjecItemsClient } from '@/hooks/safe-actions/project-item'
-import { useWarehouseClient } from '@/hooks/safe-actions/warehouse'
 import AlertDialog from '@/components/alert-dialog'
 import ProjectIndividualItemView from './project-individual-item-view'
 
@@ -29,11 +26,10 @@ type ProjectIndividualItemTableProps = {
   projectCode: number
   projectName: string
   items: ReturnType<typeof useProjecItemsClient>
-  warehouses: ReturnType<typeof useWarehouseClient>
 }
 type DataSource = Awaited<ReturnType<typeof getProjecItems>>
 
-export default function ProjectIndividualItemTable({ projectCode, projectName, items, warehouses }: ProjectIndividualItemTableProps) {
+export default function ProjectIndividualItemTable({ projectCode, projectName, items }: ProjectIndividualItemTableProps) {
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual-pic'
   const DATAGRID_UNIQUE_KEY = 'project-individual-pics'
 
@@ -233,12 +229,10 @@ export default function ProjectIndividualItemTable({ projectCode, projectName, i
               <ProjectItemForm
                 projectCode={projectCode}
                 projectName={projectName}
-                isOpen={isOpen}
                 setIsOpen={setIsOpen}
                 onClose={handleClose}
                 items={items}
                 item={rowData || null}
-                warehouses={warehouses}
               />
             </Popup>
 
@@ -254,76 +248,6 @@ export default function ProjectIndividualItemTable({ projectCode, projectName, i
       ) : rowData ? (
         <ProjectIndividualItemView data={rowData} onClose={handleClose} />
       ) : null}
-
-      {/* {!isViewMode && (
-        <Toolbar className='mt-5'>
-          <CommonPageHeaderToolbarItems
-            dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
-            dataGridRef={dataGridRef}
-            addButton={{
-              text: 'Add Item',
-              onClick: handleAdd,
-            }}
-            customs={{ exportToExcel }}
-          />
-        </Toolbar>
-      )} */}
-
-      {/* <PageContentWrapper className='max-h-[calc(100%_-_68px)]'>
-        {!isViewMode ? (
-          <CommonDataGrid
-            dataGridRef={dataGridRef}
-            data={items.data}
-            isLoading={items.isLoading}
-            storageKey={DATAGRID_STORAGE_KEY}
-            keyExpr='code'
-            dataGridStore={dataGridStore}
-            callbacks={{ onRowClick: handleView }}
-          >
-            <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
-            <Column dataField='projectIndividual.name' dataType='string' caption='Project' />
-            <Column dataField='item.thumbnail' caption='Thumbnail' cellRender={thumbnailCellRender} />
-            <Column dataField='item.manufacturer' dataType='string' caption='Manufacturer' />
-            <Column dataField='item.manufacturerPartNumber' dataType='string' caption='MFG P/N' />
-            <Column dataField='item.description' dataType='string' caption='Description' />
-            <Column
-              dataField='isActive'
-              dataType='string'
-              caption='Status'
-              calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
-            />
-            <Column dataField='notes' dataType='string' caption='Notes' />
-
-            <Column type='buttons' fixed fixedPosition='right' caption='Actions'>
-              <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' />
-              <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' />
-            </Column>
-          </CommonDataGrid>
-        ) : rowData ? (
-          <ProjectIndividualItemView data={rowData} onClose={handleClose} />
-        ) : null} */}
-
-      {/* <Popup visible={isOpen} dragEnabled={false} showTitle={false} onHiding={() => setIsOpen(false)}>
-          <ProjectItemForm
-            projectCode={projectCode}
-            projectName={projectName}
-            isOpen={isOpen}
-            setIsOpen={setIsOpen}
-            onClose={handleClose}
-            items={items}
-            item={rowData || null}
-            warehouses={warehouses}
-          />
-        </Popup>
-
-        <AlertDialog
-          isOpen={showConfirmation}
-          title='Are you sure?'
-          description={`Are you sure you want to delete this inventory item named "${rowData?.item.description}"?`}
-          onConfirm={() => handleConfirm(rowData?.code)}
-          onCancel={() => setShowConfirmation(false)}
-        /> */}
-      {/* </PageContentWrapper> */}
     </>
   )
 }
