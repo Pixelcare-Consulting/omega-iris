@@ -1,14 +1,10 @@
 import { useAction } from 'next-safe-action/hooks'
 import { useEffect } from 'react'
 
-import {
-  getProjectIndividualsByBpUserCodeClient,
-  getProjectIndividualsByGroupCodeClient,
-  getProjectIndividualsClient,
-} from '@/actions/project-individual'
+import { getPisByBpUserCodeClient, getPisByGroupCodeClient, getPisClient } from '@/actions/project-individual'
 
-export function useProjectIndividualsByGroupCodeClient(groupCode: number, dependencies?: any[]) {
-  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getProjectIndividualsByGroupCodeClient)
+export function usePisByGroupCode(groupCode: number, dependencies?: any[]) {
+  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getPisByGroupCodeClient)
 
   useEffect(() => {
     execute({ groupCode })
@@ -23,8 +19,8 @@ export function useProjectIndividualsByGroupCodeClient(groupCode: number, depend
   }
 }
 
-export function useProjectIndividualsClient(dependencies?: any[]) {
-  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getProjectIndividualsClient)
+export function usePis(dependencies?: any[]) {
+  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getPisClient)
 
   useEffect(() => {
     execute()
@@ -39,8 +35,8 @@ export function useProjectIndividualsClient(dependencies?: any[]) {
   }
 }
 
-export function useProjectIndividualsByBpUserCodeClient(userCode?: number | null, dependencies?: any[]) {
-  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getProjectIndividualsByBpUserCodeClient)
+export function usePisByBpUserCode(userCode?: number | null, dependencies?: any[]) {
+  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getPisByBpUserCodeClient)
 
   useEffect(() => {
     execute({ userCode })

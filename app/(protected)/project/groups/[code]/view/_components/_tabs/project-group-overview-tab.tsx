@@ -2,14 +2,14 @@
 
 import ScrollView from 'devextreme-react/scroll-view'
 
-import { getProjectGroupByCode } from '@/actions/project-group'
+import { getPgByCode } from '@/actions/project-group'
 import ReadOnlyField from '@/components/read-only-field'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Copy from '@/components/copy'
 import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
 
 type ProjectGroupOverviewTabProps = {
-  projectGroup: NonNullable<Awaited<ReturnType<typeof getProjectGroupByCode>>>
+  projectGroup: NonNullable<Awaited<ReturnType<typeof getPgByCode>>>
 }
 
 export default function ProjectGroupOverviewTab({ projectGroup }: ProjectGroupOverviewTabProps) {

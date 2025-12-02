@@ -13,6 +13,8 @@ const COMMON_PROJECT_ITEM_INCLUDE = {
   projectIndividual: true,
 } satisfies Prisma.ProjectItemInclude
 
+const COMMON_PROJECT_ITEM_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectItemOrderByWithRelationInput
+
 export async function getProjecItems(projectCode: number) {
   if (!projectCode) return []
 
@@ -20,6 +22,7 @@ export async function getProjecItems(projectCode: number) {
     return await db.projectItem.findMany({
       where: { deletedAt: null, deletedBy: null, projectIndividualCode: projectCode },
       include: COMMON_PROJECT_ITEM_INCLUDE,
+      orderBy: COMMON_PROJECT_ITEM_ORDER_BY,
     })
   } catch (error) {
     console.error(error)

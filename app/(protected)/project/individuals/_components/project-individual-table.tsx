@@ -1,6 +1,6 @@
 'use client'
 
-import { deleleteProjectIndividual, getProjectIndividuals, importProjectIndividuals } from '@/actions/project-individual'
+import { deleletePi, getPis, importPis } from '@/actions/project-individual'
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
 import { useCallback, useRef, useState } from 'react'
@@ -17,8 +17,8 @@ import { parseExcelFile } from '@/utils/xlsx'
 import { ImportError } from '@/types/common'
 import ImportErrorDataGrid from '@/components/import-error-datagrid'
 
-type ProjectIndividualTableProps = { projectIndividuals: Awaited<ReturnType<typeof getProjectIndividuals>> }
-type DataSource = Awaited<ReturnType<typeof getProjectIndividuals>>
+type ProjectIndividualTableProps = { projectIndividuals: Awaited<ReturnType<typeof getPis>> }
+type DataSource = Awaited<ReturnType<typeof getPis>>
 
 export default function ProjectIndividualsTable({ projectIndividuals }: ProjectIndividualTableProps) {
   const router = useRouter()
@@ -34,8 +34,8 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
   const dataGridRef = useRef<DataGridRef | null>(null)
   const importErrorDataGridRef = useRef<DataGridRef | null>(null)
 
-  const { executeAsync } = useAction(deleleteProjectIndividual)
-  const importData = useAction(importProjectIndividuals)
+  const { executeAsync } = useAction(deleletePi)
+  const importData = useAction(importPis)
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',

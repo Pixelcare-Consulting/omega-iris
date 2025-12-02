@@ -1,7 +1,7 @@
 'use client'
 
 import ReadOnlyField from '@/components/read-only-field'
-import { useUserByIdClient } from '@/hooks/safe-actions/user'
+import { useUserById } from '@/hooks/safe-actions/user'
 import { format, isValid } from 'date-fns'
 
 type RecordMetaDataProps = {
@@ -14,9 +14,9 @@ type RecordMetaDataProps = {
 }
 
 export default function RecordMetaData({ createdAt, updatedAt, deletedAt, createdBy, updatedBy, deletedBy }: RecordMetaDataProps) {
-  const createdByValue = useUserByIdClient(createdBy)
-  const updatedByValue = useUserByIdClient(updatedBy)
-  const deletedByValue = useUserByIdClient(deletedBy)
+  const createdByValue = useUserById(createdBy)
+  const updatedByValue = useUserById(updatedBy)
+  const deletedByValue = useUserById(deletedBy)
 
   return (
     <>

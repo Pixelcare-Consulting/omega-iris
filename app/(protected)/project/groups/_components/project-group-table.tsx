@@ -1,6 +1,6 @@
 'use client'
 
-import { deleleteProjectGroup, getProjectGroups, importProjectGroups } from '@/actions/project-group'
+import { deleletePg, getPgs, importPgs } from '@/actions/project-group'
 import DataGrid, {
   Column,
   DataGridTypes,
@@ -28,8 +28,8 @@ import { parseExcelFile } from '@/utils/xlsx'
 import ImportErrorDataGrid from '@/components/import-error-datagrid'
 import { ImportError } from '@/types/common'
 
-type ProjectGroupTableProps = { projectGroups: Awaited<ReturnType<typeof getProjectGroups>> }
-type DataSource = Awaited<ReturnType<typeof getProjectGroups>>
+type ProjectGroupTableProps = { projectGroups: Awaited<ReturnType<typeof getPgs>> }
+type DataSource = Awaited<ReturnType<typeof getPgs>>
 
 export default function ProjectGroupTable({ projectGroups }: ProjectGroupTableProps) {
   const router = useRouter()
@@ -45,8 +45,8 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
   const dataGridRef = useRef<DataGridRef | null>(null)
   const importErrorDataGridRef = useRef<DataGridRef | null>(null)
 
-  const { executeAsync } = useAction(deleleteProjectGroup)
-  const importData = useAction(importProjectGroups)
+  const { executeAsync } = useAction(deleletePg)
+  const importData = useAction(importPgs)
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',

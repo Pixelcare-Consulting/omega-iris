@@ -18,7 +18,7 @@ import { cn } from '@/utils'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import { ProjectIndividualCustomerForm, projectIndividualCustomerFormSchema } from '@/schema/project-individual'
-import { updateProjectIndividualCustomers } from '@/actions/project-individual'
+import { updatePiCustomers } from '@/actions/project-individual'
 import LoadingButton from '@/components/loading-button'
 import CommonDataGrid from '@/components/common-datagrid'
 
@@ -41,7 +41,7 @@ export default function ProjectIndividualCustomerTable({ projectCode, customers,
     resolver: zodResolver(projectIndividualCustomerFormSchema),
   })
 
-  const { executeAsync, isExecuting } = useAction(updateProjectIndividualCustomers)
+  const { executeAsync, isExecuting } = useAction(updatePiCustomers)
 
   const selectedRowKeys = useWatch({ control: form.control, name: 'customers' }) || []
 

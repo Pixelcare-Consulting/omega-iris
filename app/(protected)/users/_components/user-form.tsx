@@ -19,7 +19,7 @@ import { FormDebug } from '@/components/forms/form-debug'
 import SwitchField from '@/components/forms/switch-field'
 import LoadingButton from '@/components/loading-button'
 import { getUserByCode, upsertUser } from '@/actions/users'
-import { useRolesClient } from '@/hooks/safe-actions/roles'
+import { useRoles } from '@/hooks/safe-actions/roles'
 import SelectBoxField from '@/components/forms/select-box-field'
 import { PageMetadata } from '@/types/common'
 import Separator from '@/components/separator'
@@ -69,7 +69,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
   const roleKey = useWatch({ control: form.control, name: 'roleKey' })
 
   const { executeAsync, isExecuting } = useAction(upsertUser)
-  const roles = useRolesClient()
+  const roles = useRoles()
 
   const handleOnSubmit = async (formData: UserForm) => {
     try {

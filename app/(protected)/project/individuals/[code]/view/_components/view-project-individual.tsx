@@ -6,26 +6,26 @@ import { useRouter } from 'nextjs-toploader/app'
 import { Tooltip } from 'devextreme-react/tooltip'
 import TabPanel, { Item as TabPanelITem } from 'devextreme-react/tab-panel'
 
-import { getProjectIndividualByCode } from '@/actions/project-individual'
+import { getPiByCode } from '@/actions/project-individual'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import ProjectIndividualOverviewTab from './_tabs/project-individual-overview-tab'
-import { useNonBpUsersClient, useUsersByRoleKeyClient } from '@/hooks/safe-actions/user'
+import { useNonBpUsers, useUsersByRoleKey } from '@/hooks/safe-actions/user'
 import ProjectIndividualCustomerTab from './_tabs/project-individual-customer-tab'
 import ProjectIndividualPicTab from './_tabs/project-individual-pic-tab'
 import ProjectIndividualItemTable from './project-individual-item-table'
-import { useProjecItemsClient } from '@/hooks/safe-actions/project-item'
+import { useProjecItems } from '@/hooks/safe-actions/project-item'
 
 type ViewProjectIndividualProps = {
-  projectIndividual: NonNullable<Awaited<ReturnType<typeof getProjectIndividualByCode>>>
+  projectIndividual: NonNullable<Awaited<ReturnType<typeof getPiByCode>>>
 }
 
 export default function ViewProjectIndividual({ projectIndividual }: ViewProjectIndividualProps) {
   const router = useRouter()
 
-  const customerUsers = useUsersByRoleKeyClient('business-partner')
-  const nonCustomerUsers = useNonBpUsersClient()
-  const items = useProjecItemsClient(projectIndividual.code)
+  const customerUsers = useUsersByRoleKey('business-partner')
+  const nonCustomerUsers = useNonBpUsers()
+  const items = useProjecItems(projectIndividual.code)
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>

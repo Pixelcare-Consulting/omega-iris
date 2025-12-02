@@ -17,17 +17,17 @@ import { type ProjectIndividualForm, projectIndividualFormSchema } from '@/schem
 import TextBoxField from '@/components/forms/text-box-field'
 import { FormDebug } from '@/components/forms/form-debug'
 import LoadingButton from '@/components/loading-button'
-import { getProjectIndividualByCode, upsertProjectIndividual } from '@/actions/project-individual'
+import { getPiByCode, upsertPi } from '@/actions/project-individual'
 import { PageMetadata } from '@/types/common'
-import { useProjectGroupsClient } from '@/hooks/safe-actions/project-group'
+import { usePgs } from '@/hooks/safe-actions/project-group'
 import SelectBoxField from '@/components/forms/select-box-field'
-import { useNonBpUsersClient, useUsersByRoleKeyClient } from '@/hooks/safe-actions/user'
+import { useNonBpUsers, useUsersByRoleKey } from '@/hooks/safe-actions/user'
 import TagBoxField from '@/components/forms/tag-box-field'
 import TextAreaField from '@/components/forms/text-area-field'
 import { commonItemRender, userItemRender } from '@/utils/devextreme'
 import SwitchField from '@/components/forms/switch-field'
 
-type ProjectIndividualFormProps = { pageMetaData: PageMetadata; projectIndividual: Awaited<ReturnType<typeof getProjectIndividualByCode>> }
+type ProjectIndividualFormProps = { pageMetaData: PageMetadata; projectIndividual: Awaited<ReturnType<typeof getPiByCode>> }
 
 export default function ProjectIndividualForm({ pageMetaData, projectIndividual }: ProjectIndividualFormProps) {
   const router = useRouter()
@@ -59,11 +59,11 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
     resolver: zodResolver(projectIndividualFormSchema),
   })
 
-  const { executeAsync, isExecuting } = useAction(upsertProjectIndividual)
+  const { executeAsync, isExecuting } = useAction(upsertPi)
 
-  const projectGroups = useProjectGroupsClient()
-  const customerUsers = useUsersByRoleKeyClient('business-partner')
-  const nonCustomerUsers = useNonBpUsersClient()
+  const projectGroups = usePgs()
+  const customerUsers = useUsersByRoleKey('business-partner')
+  const nonCustomerUsers = useNonBpUsers()
 
   const handleOnSubmit = async (formData: ProjectIndividualForm) => {
     try {

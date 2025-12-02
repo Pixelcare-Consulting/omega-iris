@@ -3,7 +3,7 @@ import { useAction } from 'next-safe-action/hooks'
 
 import { getProjecItemsClient } from '@/actions/project-item'
 
-export function useProjecItemsClient(projectCode: number, dependencies?: any[]) {
+export function useProjecItems(projectCode: number, dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getProjecItemsClient)
 
   useEffect(() => {

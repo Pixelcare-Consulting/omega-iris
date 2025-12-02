@@ -10,11 +10,13 @@ import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { ImportError, ImportErrorEntry } from '@/types/common'
 import { safeParseFloat } from '@/utils'
 
+const COMMON_ITEM_ORDER_BY = { code: 'asc' } satisfies Prisma.ItemOrderByWithRelationInput
+
 export async function getItems(excludeCodes?: number[] | null) {
   try {
     const result = await db.item.findMany({
       where: { deletedAt: null, deletedBy: null, ...(excludeCodes?.length ? { code: { notIn: excludeCodes } } : {}) },
-      orderBy: { code: 'asc' },
+      orderBy: COMMON_ITEM_ORDER_BY,
     })
 
     const normalizedResult = result.map((item) => ({
