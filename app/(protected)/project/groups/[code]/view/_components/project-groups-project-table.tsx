@@ -1,6 +1,6 @@
 'use client'
 
-import { getProjectIndividualsByGroupCode } from '@/actions/project-individual'
+import { getPisByGroupCode } from '@/actions/project-individual'
 import { Column, DataGridTypes, DataGridRef } from 'devextreme-react/data-grid'
 import { useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
@@ -13,7 +13,7 @@ import CommonDataGrid from '@/components/common-datagrid'
 
 type ProjectGroupProjectTableProps = {
   groupCode: number
-  projects: { data: NonNullable<Awaited<ReturnType<typeof getProjectIndividualsByGroupCode>>>; isLoading?: boolean }
+  projects: { data: NonNullable<Awaited<ReturnType<typeof getPisByGroupCode>>>; isLoading?: boolean }
 }
 
 export default function ProjectGroupProjectTable({ projects }: ProjectGroupProjectTableProps) {

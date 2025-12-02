@@ -20,13 +20,13 @@ import { commonItemRender } from '@/utils/devextreme'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Separator from '@/components/separator'
 import { getProjecItems } from '@/actions/project-item'
-import useItemsClient from '@/hooks/safe-actions/item'
+import useItems from '@/hooks/safe-actions/item'
 import ReadOnlyField from '@/components/read-only-field'
 import { formatNumber } from 'devextreme/localization'
 import { DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
 import { safeParseFloat } from '@/utils'
 import ProjectIndividualItemWarehouseInventory from './project-individual-item-warehouse-inventory'
-import { useProjecItemsClient } from '@/hooks/safe-actions/project-item'
+import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import { useItemWarehouseInventory } from '@/hooks/safe-actions/item-warehouse-inventory'
 
 type ProjectItemFormProps = {
@@ -35,7 +35,7 @@ type ProjectItemFormProps = {
   setIsOpen: Dispatch<SetStateAction<boolean>>
   onClose?: () => void
   item: Awaited<ReturnType<typeof getProjecItems>>[number] | null
-  items: ReturnType<typeof useProjecItemsClient>
+  items: ReturnType<typeof useProjecItems>
 }
 
 export default function ProjectItemForm({ projectCode, projectName, setIsOpen, onClose, item, items }: ProjectItemFormProps) {
@@ -66,7 +66,7 @@ export default function ProjectItemForm({ projectCode, projectName, setIsOpen, o
   const itemCode = useWatch({ control: form.control, name: 'itemCode' })
   const { executeAsync, isExecuting } = useAction(upsertProjectItem)
 
-  const baseItems = useItemsClient()
+  const baseItems = useItems()
 
   const baseItem = useMemo(() => {
     if (baseItems.isLoading || baseItems.data.length < 1) return null

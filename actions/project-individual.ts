@@ -17,42 +17,46 @@ const COMMON_PROJECT_INDIVIDUAL_INCLUDE = {
   projectGroup: { select: { code: true, name: true } },
 } satisfies Prisma.ProjectIndividualInclude
 
-export async function getProjectIndividuals() {
+const COMMON_PROJECT_INDIVIDUAL_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectIndividualOrderByWithRelationInput
+
+export async function getPis() {
   try {
     return await db.projectIndividual.findMany({
       where: { deletedAt: null, deletedBy: null },
       include: COMMON_PROJECT_INDIVIDUAL_INCLUDE,
+      orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY,
     })
   } catch (error) {
     return []
   }
 }
 
-export const getProjectIndividualsClient = action.use(authenticationMiddleware).action(async () => {
-  return getProjectIndividuals()
+export const getPisClient = action.use(authenticationMiddleware).action(async () => {
+  return getPis()
 })
 
-export async function getProjectIndividualsByGroupCode(groupCode: number) {
+export async function getPisByGroupCode(groupCode: number) {
   if (!groupCode) return []
 
   try {
     return await db.projectIndividual.findMany({
       where: { deletedAt: null, deletedBy: null, projectGroup: { code: groupCode } },
       include: COMMON_PROJECT_INDIVIDUAL_INCLUDE,
+      orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY,
     })
   } catch (error) {
     return []
   }
 }
 
-export const getProjectIndividualsByGroupCodeClient = action
+export const getPisByGroupCodeClient = action
   .use(authenticationMiddleware)
   .schema(z.object({ groupCode: z.coerce.number() }))
   .action(async ({ parsedInput }) => {
-    return getProjectIndividualsByGroupCode(parsedInput.groupCode)
+    return getPisByGroupCode(parsedInput.groupCode)
   })
 
-export async function getProjectIndividualByCode(code: number) {
+export async function getPiByCode(code: number) {
   if (!code) return null
 
   try {
@@ -60,6 +64,7 @@ export async function getProjectIndividualByCode(code: number) {
 
     if (!projectIndividuals) return null
 
+    //TODO: separate the fetching of customers and pics into separate actions & hooks
     const [customers, pics] = await Promise.all([
       db.projectIndividualCustomer.findMany({ where: { projectIndividualCode: code }, select: { userCode: true } }),
       db.projectIndividualPic.findMany({ where: { projectIndividualCode: code }, select: { userCode: true } }),
@@ -71,12 +76,13 @@ export async function getProjectIndividualByCode(code: number) {
   }
 }
 
-export async function getProjectIndividualsByBpUserCode(userCode?: number | null) {
+export async function getPisByBpUserCode(userCode?: number | null) {
   try {
     if (!userCode) return []
 
     const projectIndividualCustomers = await db.projectIndividualCustomer.findMany({
       where: { userCode },
+      orderBy: { code: 'asc' },
       select: { projectIndividual: true },
     })
 
@@ -88,14 +94,14 @@ export async function getProjectIndividualsByBpUserCode(userCode?: number | null
   }
 }
 
-export const getProjectIndividualsByBpUserCodeClient = action
+export const getPisByBpUserCodeClient = action
   .use(authenticationMiddleware)
   .schema(z.object({ userCode: z.coerce.number().nullish() }))
   .action(async ({ parsedInput: data }) => {
-    return getProjectIndividualsByBpUserCode(data.userCode)
+    return getPisByBpUserCode(data.userCode)
   })
 
-export const upsertProjectIndividual = action
+export const upsertPi = action
   .use(authenticationMiddleware)
   .schema(projectIndividualFormSchema)
   .action(async ({ ctx, parsedInput }) => {
@@ -105,7 +111,7 @@ export const upsertProjectIndividual = action
     try {
       //* update project individual
       if (code !== -1) {
-        const [updatedProjectIndividual] = await db.$transaction([
+        const [updatedPi] = await db.$transaction([
           //* update project individual
           db.projectIndividual.update({
             where: { code },
@@ -133,12 +139,12 @@ export const upsertProjectIndividual = action
           status: 200,
           message: 'Project individual updated successfully!',
           action: 'UPSERT_PROJECT_INDIVIDUAL',
-          data: { projectIndividual: updatedProjectIndividual },
+          data: { projectIndividual: updatedPi },
         }
       }
 
       //* create project individual
-      const newProjectIndividual = await db.projectIndividual.create({
+      const newPi = await db.projectIndividual.create({
         data: {
           ...data,
           projectIndividualCustomers: {
@@ -156,7 +162,7 @@ export const upsertProjectIndividual = action
         status: 200,
         message: 'Project individual created successfully!',
         action: 'UPSERT_PROJECT_INDIVIDUAL',
-        data: { projectIndividual: newProjectIndividual },
+        data: { projectIndividual: newPi },
       }
     } catch (error) {
       console.error(error)
@@ -170,7 +176,7 @@ export const upsertProjectIndividual = action
     }
   })
 
-export const importProjectIndividuals = action
+export const importPis = action
   .use(authenticationMiddleware)
   .schema(z.object({ data: z.array(z.record(z.string(), z.any())) }))
   .action(async ({ ctx, parsedInput }) => {
@@ -238,7 +244,7 @@ export const importProjectIndividuals = action
     }
   })
 
-export const updateProjectIndividualCustomers = action
+export const updatePiCustomers = action
   .use(authenticationMiddleware)
   .schema(projectIndividualCustomerFormSchema)
   .action(async ({ ctx, parsedInput }) => {
@@ -246,14 +252,14 @@ export const updateProjectIndividualCustomers = action
     const { userId } = ctx
 
     try {
-      const projectIndividual = await db.projectIndividual.findUnique({ where: { code } })
+      const pi = await db.projectIndividual.findUnique({ where: { code } })
 
-      if (!projectIndividual) {
+      if (!pi) {
         return { error: true, status: 404, message: 'Project individual not found', action: 'UPDATE_PROJECT_INDIVIDUAL_CUSTOMERS' }
       }
 
       //* update project individual
-      const [updatedProjectIndividual] = await db.$transaction([
+      const [updatedPi] = await db.$transaction([
         //* update project individual
         db.projectIndividual.update({
           where: { code },
@@ -273,7 +279,7 @@ export const updateProjectIndividualCustomers = action
         status: 200,
         message: `Project individual's customers updated successfully!`,
         action: 'UPDATE_PROJECT_INDIVIDUAL_CUSTOMERS',
-        data: { projectIndividual: updatedProjectIndividual },
+        data: { projectIndividual: updatedPi },
       }
     } catch (error) {
       console.error(error)
@@ -287,7 +293,7 @@ export const updateProjectIndividualCustomers = action
     }
   })
 
-export const updateProjectIndividualPics = action
+export const updatePiPics = action
   .use(authenticationMiddleware)
   .schema(projectIndividualPicFormSchema)
   .action(async ({ ctx, parsedInput }) => {
@@ -336,7 +342,7 @@ export const updateProjectIndividualPics = action
     }
   })
 
-export const deleleteProjectIndividual = action
+export const deleletePi = action
   .use(authenticationMiddleware)
   .schema(paramsSchema)
   .action(async ({ ctx, parsedInput: data }) => {

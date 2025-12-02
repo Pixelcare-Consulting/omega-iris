@@ -1,13 +1,13 @@
 import { notFound } from 'next/navigation'
 
-import { getProjectGroupByCode } from '@/actions/project-group'
+import { getPgByCode } from '@/actions/project-group'
 import ContentContainer from '@/app/(protected)/_components/content-container'
 import ProjectGroupForm from '../_components/project-group-form'
 
 export default async function ProjectGroupPage({ params }: { params: { code: string } }) {
   const { code } = params
 
-  const projectGroup = await getProjectGroupByCode(parseInt(code))
+  const projectGroup = await getPgByCode(parseInt(code))
 
   const getPageMetadata = () => {
     if (!projectGroup || !projectGroup?.code || code == 'add')

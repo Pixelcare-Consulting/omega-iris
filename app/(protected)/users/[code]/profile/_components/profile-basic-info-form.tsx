@@ -11,7 +11,7 @@ import { getInitials } from '@/utils'
 import { BasicInfoForm, basicInfoFormSchema } from '@/schema/user'
 import TextBoxField from '@/components/forms/text-box-field'
 import SelectBoxField from '@/components/forms/select-box-field'
-import { useRolesClient } from '@/hooks/safe-actions/roles'
+import { useRoles } from '@/hooks/safe-actions/roles'
 import SwitchField from '@/components/forms/switch-field'
 import LoadingButton from '@/components/loading-button'
 import Copy from '@/components/copy'
@@ -45,7 +45,7 @@ export default function ProfileBasicInfoForm({ user }: ProfileBasicInfoFormProps
   })
 
   const { executeAsync, isExecuting } = useAction(updateBasicInfo)
-  const roles = useRolesClient()
+  const roles = useRoles()
 
   const roleKey = useWatch({ control: form.control, name: 'roleKey' })
   const formState = useFormState({ control: form.control })

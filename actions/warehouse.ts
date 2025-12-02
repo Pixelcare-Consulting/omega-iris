@@ -1,15 +1,21 @@
 'use server'
 
 import z from 'zod'
+import { Prisma } from '@prisma/client'
 
 import { paramsSchema } from '@/schema/common'
 import { warehouseFormSchema } from '@/schema/warehouse'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 
+const COMMON_WAREHOUSE_ORDER_BY = { code: 'asc' } satisfies Prisma.WarehouseOrderByWithRelationInput
+
 export async function getWarehouses(isDefault?: boolean | null) {
   try {
-    return await db.warehouse.findMany({ where: { ...(isDefault ? { isDefault } : {}) } })
+    return await db.warehouse.findMany({
+      where: { deletedAt: null, deletedBy: null, ...(isDefault ? { isDefault } : {}) },
+      orderBy: COMMON_WAREHOUSE_ORDER_BY,
+    })
   } catch (error) {
     console.error(error)
     return []

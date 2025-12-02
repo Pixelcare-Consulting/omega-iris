@@ -3,7 +3,7 @@ import { useAction } from 'next-safe-action/hooks'
 
 import { getRolesClient } from '@/actions/roles'
 
-export function useRolesClient(dependencies?: any[]) {
+export function useRoles(dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getRolesClient)
 
   useEffect(() => {

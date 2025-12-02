@@ -1,14 +1,19 @@
 'use server'
 
+import { Prisma } from '@prisma/client'
+
 import { paramsSchema } from '@/schema/common'
 import { roleFormSchema } from '@/schema/role'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 
+const COMMON_ROLE_ORDER_BY = { code: 'asc' } satisfies Prisma.RoleOrderByWithRelationInput
+
 export async function getRoles() {
   try {
     return await db.role.findMany({
       where: { deletedAt: null, deletedBy: null },
+      orderBy: COMMON_ROLE_ORDER_BY,
     })
   } catch (error) {
     return []

@@ -6,22 +6,22 @@ import { useRouter } from 'nextjs-toploader/app'
 import { Tooltip } from 'devextreme-react/tooltip'
 import TabPanel, { Item as TabPanelITem } from 'devextreme-react/tab-panel'
 
-import { getProjectGroupByCode } from '@/actions/project-group'
+import { getPgByCode } from '@/actions/project-group'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import ProjectGroupOverviewTab from './_tabs/project-group-overview-tab'
 import UnderDevelopment from '@/app/under-development'
-import { useProjectIndividualsByGroupCodeClient } from '@/hooks/safe-actions/project-individual'
+import { usePisByGroupCode } from '@/hooks/safe-actions/project-individual'
 import ProjectGroupProjectsTab from './_tabs/project-group-projects-tab'
 
 type ViewProjectGroupProps = {
-  projectGroup: NonNullable<Awaited<ReturnType<typeof getProjectGroupByCode>>>
+  projectGroup: NonNullable<Awaited<ReturnType<typeof getPgByCode>>>
 }
 
 export default function ViewProjectGroup({ projectGroup }: ViewProjectGroupProps) {
   const router = useRouter()
 
-  const projects = useProjectIndividualsByGroupCodeClient(projectGroup.code)
+  const projects = usePisByGroupCode(projectGroup.code)
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>

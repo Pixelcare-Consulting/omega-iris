@@ -3,7 +3,7 @@ import { useAction } from 'next-safe-action/hooks'
 
 import { getItemsClient } from '@/actions/item'
 
-export default function useItemsClient(excludeCodes?: number[] | null, dependencies?: any[]) {
+export default function useItems(excludeCodes?: number[] | null, dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getItemsClient)
 
   console.log({ excludeCodes })

@@ -1,12 +1,12 @@
 import ProjectIndividualItemTable from '../project-individual-item-table'
-import { useProjecItemsClient } from '@/hooks/safe-actions/project-item'
-import { useWarehouseClient } from '@/hooks/safe-actions/warehouse'
+import { useProjecItems } from '@/hooks/safe-actions/project-item'
+import { useWarehouse } from '@/hooks/safe-actions/warehouse'
 
 export type ProjectIndividualItemProps = {
   projectCode: number
   projectName: string
-  items: ReturnType<typeof useProjecItemsClient>
-  warehouses: ReturnType<typeof useWarehouseClient>
+  items: ReturnType<typeof useProjecItems>
+  warehouses: ReturnType<typeof useWarehouse>
 }
 
 export default function ProjectIndividualCustomerTab(props: ProjectIndividualItemProps) {

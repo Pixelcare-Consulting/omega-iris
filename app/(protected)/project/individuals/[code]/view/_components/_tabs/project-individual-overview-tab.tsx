@@ -2,14 +2,14 @@
 
 import ScrollView from 'devextreme-react/scroll-view'
 
-import { getProjectIndividualByCode } from '@/actions/project-individual'
+import { getPiByCode } from '@/actions/project-individual'
 import ReadOnlyField from '@/components/read-only-field'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Copy from '@/components/copy'
 import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
 
 type ProjectIndividualOverviewTabProps = {
-  projectIndividual: NonNullable<Awaited<ReturnType<typeof getProjectIndividualByCode>>>
+  projectIndividual: NonNullable<Awaited<ReturnType<typeof getPiByCode>>>
 }
 
 export default function ProjectIndividualOverviewTab({ projectIndividual }: ProjectIndividualOverviewTabProps) {

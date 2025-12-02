@@ -18,14 +18,14 @@ import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-p
 import CommonDataGrid from '@/components/common-datagrid'
 import { deleteProjectItem, getProjecItems } from '@/actions/project-item'
 import ProjectItemForm from './project-individual-item-form'
-import { useProjecItemsClient } from '@/hooks/safe-actions/project-item'
+import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import AlertDialog from '@/components/alert-dialog'
 import ProjectIndividualItemView from './project-individual-item-view'
 
 type ProjectIndividualItemTableProps = {
   projectCode: number
   projectName: string
-  items: ReturnType<typeof useProjecItemsClient>
+  items: ReturnType<typeof useProjecItems>
 }
 type DataSource = Awaited<ReturnType<typeof getProjecItems>>
 

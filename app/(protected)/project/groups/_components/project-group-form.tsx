@@ -17,12 +17,12 @@ import { type ProjectGroupForm, projectGroupFormSchema } from '@/schema/project-
 import TextBoxField from '@/components/forms/text-box-field'
 import { FormDebug } from '@/components/forms/form-debug'
 import LoadingButton from '@/components/loading-button'
-import { getProjectGroupByCode, upsertProjectGroup } from '@/actions/project-group'
+import { getPgByCode, upsertPg } from '@/actions/project-group'
 import { PageMetadata } from '@/types/common'
 import SwitchField from '@/components/forms/switch-field'
 import TextAreaField from '@/components/forms/text-area-field'
 
-type ProjectGroupFormProps = { pageMetaData: PageMetadata; projectGroup: Awaited<ReturnType<typeof getProjectGroupByCode>> }
+type ProjectGroupFormProps = { pageMetaData: PageMetadata; projectGroup: Awaited<ReturnType<typeof getPgByCode>> }
 
 export default function ProjectGroupForm({ pageMetaData, projectGroup }: ProjectGroupFormProps) {
   const router = useRouter()
@@ -51,7 +51,7 @@ export default function ProjectGroupForm({ pageMetaData, projectGroup }: Project
     resolver: zodResolver(projectGroupFormSchema),
   })
 
-  const { executeAsync, isExecuting } = useAction(upsertProjectGroup)
+  const { executeAsync, isExecuting } = useAction(upsertPg)
 
   const handleOnSubmit = async (formData: ProjectGroupForm) => {
     try {

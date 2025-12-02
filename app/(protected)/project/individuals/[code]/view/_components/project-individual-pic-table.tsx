@@ -18,7 +18,7 @@ import { cn } from '@/utils'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import { ProjectIndividualPicForm, projectIndividualPicFormSchema } from '@/schema/project-individual'
-import { updateProjectIndividualPics } from '@/actions/project-individual'
+import { updatePiPics } from '@/actions/project-individual'
 import LoadingButton from '@/components/loading-button'
 import CommonDataGrid from '@/components/common-datagrid'
 
@@ -41,7 +41,7 @@ export default function ProjectIndividualPicTable({ projectCode, pics, users }: 
     resolver: zodResolver(projectIndividualPicFormSchema),
   })
 
-  const { executeAsync, isExecuting } = useAction(updateProjectIndividualPics)
+  const { executeAsync, isExecuting } = useAction(updatePiPics)
 
   const selectedRowKeys = useWatch({ control: form.control, name: 'pics' }) || []
 

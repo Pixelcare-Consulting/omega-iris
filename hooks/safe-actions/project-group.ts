@@ -1,10 +1,10 @@
 import { useAction } from 'next-safe-action/hooks'
 import { useEffect } from 'react'
 
-import { getProjectGroupsClient } from '@/actions/project-group'
+import { getPgsClient } from '@/actions/project-group'
 
-export function useProjectGroupsClient(dependencies?: any[]) {
-  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getProjectGroupsClient)
+export function usePgs(dependencies?: any[]) {
+  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getPgsClient)
 
   useEffect(() => {
     execute()

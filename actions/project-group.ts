@@ -9,21 +9,24 @@ import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { Prisma } from '@prisma/client'
 import { ImportError, ImportErrorEntry } from '@/types/common'
 
-export async function getProjectGroups() {
+const COMMON_PROJECT_GROUP_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectGroupOrderByWithRelationInput
+
+export async function getPgs() {
   try {
     return await db.projectGroup.findMany({
       where: { deletedAt: null, deletedBy: null },
+      orderBy: COMMON_PROJECT_GROUP_ORDER_BY,
     })
   } catch (error) {
     return []
   }
 }
 
-export const getProjectGroupsClient = action.use(authenticationMiddleware).action(async () => {
-  return getProjectGroups()
+export const getPgsClient = action.use(authenticationMiddleware).action(async () => {
+  return getPgs()
 })
 
-export async function getProjectGroupByCode(code: number) {
+export async function getPgByCode(code: number) {
   if (!code) return null
 
   try {
@@ -33,7 +36,7 @@ export async function getProjectGroupByCode(code: number) {
   }
 }
 
-export const upsertProjectGroup = action
+export const upsertPg = action
   .use(authenticationMiddleware)
   .schema(projectGroupFormSchema)
   .action(async ({ ctx, parsedInput }) => {
@@ -43,24 +46,24 @@ export const upsertProjectGroup = action
     try {
       //* update project group
       if (code !== -1) {
-        const updatedProjectGroup = await db.projectGroup.update({ where: { code }, data: { ...data, updatedBy: userId } })
+        const updatedPg = await db.projectGroup.update({ where: { code }, data: { ...data, updatedBy: userId } })
 
         return {
           status: 200,
           message: 'Project group updated successfully!',
           action: 'UPSERT_PROJECT_GROUP',
-          data: { projectGroup: updatedProjectGroup },
+          data: { projectGroup: updatedPg },
         }
       }
 
       //* create project group
-      const newProjectGroup = await db.projectGroup.create({ data: { ...data, createdBy: userId, updatedBy: userId } })
+      const newPg = await db.projectGroup.create({ data: { ...data, createdBy: userId, updatedBy: userId } })
 
       return {
         status: 200,
         message: 'Project group created successfully!',
         action: 'UPSERT_PROJECT_GROUP',
-        data: { projectGroup: newProjectGroup },
+        data: { projectGroup: newPg },
       }
     } catch (error) {
       console.error(error)
@@ -74,7 +77,7 @@ export const upsertProjectGroup = action
     }
   })
 
-export const deleleteProjectGroup = action
+export const deleletePg = action
   .use(authenticationMiddleware)
   .schema(paramsSchema)
   .action(async ({ ctx, parsedInput: data }) => {
@@ -98,7 +101,7 @@ export const deleleteProjectGroup = action
     }
   })
 
-export const importProjectGroups = action
+export const importPgs = action
   .use(authenticationMiddleware)
   .schema(z.object({ data: z.array(z.record(z.string(), z.any())) }))
   .action(async ({ ctx, parsedInput }) => {

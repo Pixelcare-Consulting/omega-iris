@@ -3,7 +3,7 @@ import { useAction } from 'next-safe-action/hooks'
 
 import { getUsersClient, getUserByIdClient, getNonCustomerUsersClient, getUsersByRoleKeyClient } from '@/actions/users'
 
-export default function useUsersClient(dependencies?: any[]) {
+export default function useUsers(dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getUsersClient)
 
   useEffect(() => {
@@ -19,7 +19,7 @@ export default function useUsersClient(dependencies?: any[]) {
   }
 }
 
-export function useUserByIdClient(id?: string | null, dependencies?: any[]) {
+export function useUserById(id?: string | null, dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getUserByIdClient)
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export function useUserByIdClient(id?: string | null, dependencies?: any[]) {
   }
 }
 
-export function useNonBpUsersClient(dependencies?: any[]) {
+export function useNonBpUsers(dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getNonCustomerUsersClient)
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export function useNonBpUsersClient(dependencies?: any[]) {
   }
 }
 
-export function useUsersByRoleKeyClient(key: string, dependencies?: any[]) {
+export function useUsersByRoleKey(key: string, dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getUsersByRoleKeyClient)
 
   useEffect(() => {
