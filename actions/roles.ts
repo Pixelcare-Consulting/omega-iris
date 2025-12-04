@@ -87,7 +87,7 @@ export const deleleteRole = action
     try {
       const role = await db.role.findUnique({ where: { code: data.code } })
 
-      if (!role) return { error: true, status: 404, message: 'Role not found', action: 'DELETE_ROLE' }
+      if (!role) return { error: true, status: 404, message: 'Role not found!', action: 'DELETE_ROLE' }
 
       await db.role.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 

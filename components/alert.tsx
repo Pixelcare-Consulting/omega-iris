@@ -27,7 +27,7 @@ const alertVariants = cva('p-3 text-sm rounded-md flex items-center gap-x-2', {
 const icons: Record<NonNullable<AlertProps['variant']>, JSX.Element> = {
   default: <i className='dx-icon-info text-xl text-blue-500' />,
   error: <i className='dx-icon-errorcircle text-xl text-rose-500' />,
-  success: <i className='dx-icon-checkmarkcircle green-green-500 text-xl' />,
+  success: <i className='dx-icon-checkmarkcircle text-xl text-green-500' />,
   warning: <i className='dx-icon-warning text-xl text-amber-500' />,
   loading: <Icons.spinner className='size-5 animate-spin text-slate-500' />,
 }

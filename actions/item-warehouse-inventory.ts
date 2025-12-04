@@ -7,6 +7,7 @@ import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 
 const COMMON_ITEM_WAREHOUSE_INVENTORY_ORDER_BY = { code: 'asc' } satisfies Prisma.ItemWarehouseInventoryOrderByWithRelationInput
+const COMMON_ITEM_WAREHOUSE_INVENTORY_INCLUDE = { warehouse: true } satisfies Prisma.ItemWarehouseInventoryInclude
 
 export async function getItemWarehouseInventoryByItemCode(itemCode?: number) {
   if (!itemCode) return []
@@ -14,7 +15,7 @@ export async function getItemWarehouseInventoryByItemCode(itemCode?: number) {
   try {
     return await db.itemWarehouseInventory.findMany({
       where: { itemCode: itemCode },
-      include: { warehouse: true },
+      include: COMMON_ITEM_WAREHOUSE_INVENTORY_INCLUDE,
       orderBy: COMMON_ITEM_WAREHOUSE_INVENTORY_ORDER_BY,
     })
   } catch (error) {

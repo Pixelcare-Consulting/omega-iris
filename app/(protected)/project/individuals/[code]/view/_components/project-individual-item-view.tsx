@@ -38,10 +38,6 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
 
   const dataGridRef = useRef<DataGridRef | null>(null)
 
-  const warehouseInventories = useMemo(() => {
-    return []
-  }, [JSON.stringify(itemWarehouseInventory)])
-
   //* show loading
   useEffect(() => {
     if (dataGridRef.current) {
@@ -108,7 +104,7 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
 
         <div className='col-span-12'>
           <DataGrid
-            dataSource={warehouseInventories}
+            dataSource={itemWarehouseInventory.data}
             keyExpr='code'
             showBorders
             hoverStateEnabled
@@ -119,7 +115,7 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
             onRowPrepared={handleOnRowPrepared}
           >
             <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' alignment='center' />
-            <Column dataField='name' dataType='string' caption='Name' alignment='center' />
+            <Column dataField='warehouse.name' dataType='string' caption='Name' alignment='center' />
             <Column dataField='isLocked' dataType='boolean' caption='Lock' alignment='center' />
             <Column dataField='inStock' dataType='number' caption='In Stock' format={DEFAULT_NUMBER_FORMAT} alignment='center' />
             <Column dataField='committed' dataType='number' caption='Committed' format={DEFAULT_NUMBER_FORMAT} alignment='center' />
@@ -148,7 +144,7 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
           </DataGrid>
         </div>
 
-        <ReadOnlyFieldHeader className='col-span-12 mt-4' title='Record Meta dataz' description='Project item record meta data' />
+        <ReadOnlyFieldHeader className='col-span-12 mt-4' title='Record Meta data' description='Project item record meta data' />
 
         <RecordMetaData
           createdAt={data.createdAt}

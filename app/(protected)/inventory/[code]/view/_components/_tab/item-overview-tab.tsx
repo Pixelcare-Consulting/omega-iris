@@ -52,11 +52,11 @@ export default function ItemOverviewTab({ item }: ItemOverviewTabProps) {
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Manufacturer Code' value={item?.FirmCode || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Manufacturer Name' value={''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Manufacturer Name' value={item?.FirmName || ''} />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Group Code' value={item?.ItmsGrpCod || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Group Name' value={''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Group Name' value={item?.ItmsGrpNam || ''} />
 
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-4'

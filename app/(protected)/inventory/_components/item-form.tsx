@@ -26,7 +26,7 @@ import Separator from '@/components/separator'
 import ImageUploaderField from '@/components/forms/image-uploader-field'
 import NumberBoxField from '@/components/forms/number-box-field'
 import { DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
-import { useWarehouse } from '@/hooks/safe-actions/warehouse'
+import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import { useItemWarehouseInventory } from '@/hooks/safe-actions/item-warehouse-inventory'
 import ItemWarehouseInventoryForm from './item-warehouse-inventory-form'
 
@@ -72,7 +72,7 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
   })
 
   const { executeAsync, isExecuting } = useAction(upsertItem)
-  const warehouses = useWarehouse()
+  const warehouses = useWarehouses()
   const itemWarehouseInventory = useItemWarehouseInventory(item?.code)
 
   const handleOnSubmit = async (formData: ItemForm) => {

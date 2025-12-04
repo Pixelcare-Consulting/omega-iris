@@ -100,6 +100,14 @@ export async function getUserByCode(code: number) {
   }
 }
 
+export const getUserByCodeClient = action
+  .schema(z.object({ code: z.coerce.number().nullish() }))
+  .use(authenticationMiddleware)
+  .action(async ({ parsedInput: data }) => {
+    if (!data.code) return null
+    return getUserByCode(data.code)
+  })
+
 export async function getUsersByRoleKey(key: string) {
   if (!key) return []
 
