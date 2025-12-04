@@ -87,7 +87,7 @@ export const deleleteWarehouse = action
     try {
       const warehouse = await db.warehouse.findUnique({ where: { code: data.code } })
 
-      if (!warehouse) return { error: true, status: 404, message: 'Warehouse not found', action: 'DELETE_WAREHOUSE' }
+      if (!warehouse) return { error: true, status: 404, message: 'Warehouse not found!', action: 'DELETE_WAREHOUSE' }
 
       await db.warehouse.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 

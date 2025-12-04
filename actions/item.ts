@@ -75,7 +75,6 @@ export const upsertItem = action
 
       if (existingItem) return { error: true, status: 401, message: 'MFG P/N already exists!', action: 'UPSERT_ITEM' }
 
-      //* update item
       if (code !== -1) {
         const updatedItem = await db.$transaction(async (tx) => {
           //* update item
@@ -164,7 +163,7 @@ export const importItems = action
     const mfgpns = data?.map((row) => row?.['MFG_P/N'])?.filter(Boolean) || []
 
     try {
-      const batch: Prisma.InventoryCreateManyInput[] = []
+      const batch: Prisma.ItemCreateManyInput[] = []
       const toBeCreatedMfgpns: string[] = [] //* contains toBeCreated inventory manufacturer part numbers
 
       //* get existing item manufacturer part numbers
@@ -243,7 +242,7 @@ export const deleteItem = action
     try {
       const item = await db.item.findUnique({ where: { code: data.code } })
 
-      if (!item) return { error: true, status: 404, message: 'Item not found', action: 'DELETE_ITEM' }
+      if (!item) return { error: true, status: 404, message: 'Item not found!', action: 'DELETE_ITEM' }
 
       await db.item.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 

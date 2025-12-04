@@ -77,7 +77,7 @@ export default function ProjectItemForm({ projectCode, projectName, setIsOpen, o
 
   const resetForm = () => {
     form.reset()
-    form.clearErrors()
+    setTimeout(() => form.clearErrors(), 100)
   }
 
   const handleOnSubmit = async (formData: ProjectItemForm) => {
@@ -102,10 +102,12 @@ export default function ProjectItemForm({ projectCode, projectName, setIsOpen, o
 
         items.execute({ projectCode })
 
-        setTimeout(() => {
-          if (onClose) onClose()
-          resetForm()
-        }, 1500)
+        if (onClose) {
+          setTimeout(() => {
+            resetForm()
+            onClose()
+          }, 1000)
+        }
       }
     } catch (error) {
       console.error(error)
@@ -160,8 +162,8 @@ export default function ProjectItemForm({ projectCode, projectName, setIsOpen, o
                     name='itemCode'
                     label='Item'
                     valueExpr='code'
-                    displayExpr='name'
-                    searchExpr={['name', 'code']}
+                    displayExpr='description'
+                    searchExpr={['description', 'manufacturerPartNumber']}
                     extendedProps={{
                       selectBoxOptions: {
                         itemRender: (params) => {

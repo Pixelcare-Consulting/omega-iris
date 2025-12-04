@@ -39,6 +39,7 @@ type CommonDataGridProps<T extends Record<string, any>> = {
   storageKey: string
   keyExpr?: string
   selectedRowKeys?: any[]
+  isSelectionEnable?: boolean
   dataGridStore: Partial<DataGridStore>
 }
 
@@ -52,6 +53,7 @@ export default function CommonDataGrid<T extends Record<string, any>>({
   storageKey,
   keyExpr = 'id',
   selectedRowKeys,
+  isSelectionEnable,
   dataGridStore,
 }: CommonDataGridProps<T>) {
   return (
@@ -66,7 +68,7 @@ export default function CommonDataGrid<T extends Record<string, any>>({
       allowColumnResizing
       width='100%'
       height='100%'
-      selectedRowKeys={selectedRowKeys}
+      selectedRowKeys={selectedRowKeys ?? []}
       onRowClick={callbacks?.onRowClick}
       onSelectionChanged={callbacks?.onSelectionChanged}
       onRowPrepared={handleOnRowPrepared}
@@ -87,7 +89,7 @@ export default function CommonDataGrid<T extends Record<string, any>>({
       <Scrolling mode='infinite' rowRenderingMode='standard' columnRenderingMode='standard' />
       <ColumnChooser mode='select' allowSearch width={300} />
       <Export formats={['xlsx']} />
-      <Selection mode='multiple' />
+      {isSelectionEnable && <Selection mode='multiple' />}
       <LoadPanel enabled={isLoading} shadingColor='rgb(241, 245, 249)' showIndicator showPane shading />
 
       <StateStoring enabled={dataGridStore.enableStateStoring} type='localStorage' storageKey={storageKey} />

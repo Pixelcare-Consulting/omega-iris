@@ -181,8 +181,8 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                   name='customers'
                   label='Customers'
                   valueExpr='code'
-                  displayExpr={(item) => (item ? `${item?.fname} (${item?.lname})` : '')}
-                  searchExpr={['fname', 'lname', 'code']}
+                  displayExpr={(item) => (item ? `${item?.fname}${item?.lname ? ` ${item?.lname}` : ''}` : '')}
+                  searchExpr={['fname', 'lname', 'code', 'email']}
                   extendedProps={{ tagBoxOptions: { itemRender: userItemRender } }}
                 />
               </div>
@@ -195,8 +195,8 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                   name='pics'
                   label='P.I.Cs'
                   valueExpr='code'
-                  displayExpr={(item) => (item ? `${item?.fname} (${item?.lname})` : '')}
-                  searchExpr={['fname', 'lname', 'code']}
+                  displayExpr={(item) => (item ? `${item?.fname}${item?.lname ? ` ${item?.lname}` : ''}` : '')}
+                  searchExpr={['fname', 'lname', 'code', 'email']}
                   extendedProps={{ tagBoxOptions: { itemRender: userItemRender } }}
                 />
               </div>

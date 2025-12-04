@@ -38,7 +38,7 @@ model User {
 
     projectIndividualPics      ProjectIndividualPic[]      @relation(name: "User-ProjectIndividualPic")
     projectIndividualCustomers ProjectIndividualCustomer[] @relation(name: "User-ProjectIndividualCustomer")
-    inventories                Inventory[]
+    workOrders                 WorkOrder[]
 }
 
 model Role {
@@ -95,150 +95,6 @@ model Account {
     @@id([provider, providerAccountId])
 }
 
-model ProjectGroup {
-    id          String  @id @default(cuid())
-    code        Int     @unique @default(autoincrement())
-    name        String
-    description String?
-    isActive    Boolean @default(true)
-
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy String?
-    updatedBy String?
-    deletedBy String?
-
-    projectIndividuals ProjectIndividual[] @relation()
-}
-
-model ProjectIndividual {
-    id          String  @id @default(cuid())
-    code        Int     @unique @default(autoincrement())
-    name        String
-    groupCode   Int?
-    description String?
-    isActive    Boolean @default(true)
-
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy String?
-    updatedBy String?
-    deletedBy String?
-
-    projectIndividualPics      ProjectIndividualPic[]      @relation(name: "ProjectIndividual-ProjectIndividualPic")
-    projectIndividualCustomers ProjectIndividualCustomer[] @relation(name: "ProjectIndividual-ProjectIndividualCustomer")
-    projectGroup               ProjectGroup?               @relation(fields: [groupCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    inventories                Inventory[]
-    items                      ProjectItem[]
-}
-
-//* NOTE: Item must be synced already in SAP before it can be selected for project item 
-model ProjectItem {
-    id                    String @id @default(cuid())
-    code                  Int    @unique @default(autoincrement())
-    itemCode              Int
-    projectIndividualCode Int
-
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy String?
-    updatedBy String?
-    deletedBy String?
-
-    item              Item              @relation(fields: [itemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    projectIndividual ProjectIndividual @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-
-    @@unique([projectIndividualCode, itemCode])
-    @@index([projectIndividualCode])
-    @@index([itemCode])
-}
-
-model ProjectIndividualCustomer {
-    id                    String @id @default(cuid())
-    code                  Int    @unique @default(autoincrement())
-    projectIndividualCode Int
-    userCode              Int
-
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy String?
-    updatedBy String?
-    deletedBy String?
-
-    projectIndividual ProjectIndividual @relation(name: "ProjectIndividual-ProjectIndividualCustomer", fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    user              User              @relation(name: "User-ProjectIndividualCustomer", fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-
-    @@unique([projectIndividualCode, userCode])
-    @@index([projectIndividualCode])
-    @@index([userCode])
-}
-
-model ProjectIndividualPic {
-    id                    String @id @default(cuid())
-    code                  Int    @unique @default(autoincrement())
-    projectIndividualCode Int
-    userCode              Int
-
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy String?
-    updatedBy String?
-    deletedBy String?
-
-    projectIndividual ProjectIndividual @relation(name: "ProjectIndividual-ProjectIndividualPic", fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    user              User              @relation(name: "User-ProjectIndividualPic", fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-
-    @@unique([projectIndividualCode, userCode])
-    @@index([projectIndividualCode])
-    @@index([userCode])
-}
-
-model Inventory {
-    id                     String    @id @default(cuid())
-    code                   Int       @unique @default(autoincrement())
-    userCode               Int? //* user code of a user with customer role
-    projectIndividualCode  Int?
-    thumbnail              String?
-    partNumber             String?
-    manufacturer           String?
-    manufacturerPartNumber String    @unique
-    description            String?
-    dateCode               String?
-    lotCode                String?
-    siteLocation           String?
-    subLocation1           String?
-    subLocation2           String?
-    subLocation3           String?
-    subLocation4           String?
-    packagingType          String?
-    spq                    String?
-    countryOfOrigin        String?
-    notes                  String?
-    palletSize             String? //* STANDARD, OVERSIZE, CRATES 
-    palletNo               String?
-    isActive               Boolean   @default(true)
-    dateReceived           DateTime?
-
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy String?
-    updatedBy String?
-    deletedBy String?
-
-    projectIndividual    ProjectIndividual?   @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    user                 User?                @relation(fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    warehouseInventories WarehouseInventory[]
-
-    @@index([userCode])
-    @@index([projectIndividualCode])
-}
-
 model Item {
     id                     String  @id @default(cuid())
     code                   Int     @unique @default(autoincrement())
@@ -253,7 +109,9 @@ model Item {
     ItemCode   String?
     ItemName   String?
     FirmCode   Int?
+    FirmName   String?
     ItmsGrpCod Int?
+    ItmsGrpNam String?
     Price      Decimal?
 
     createdAt DateTime  @default(now())
@@ -326,21 +184,16 @@ model Warehouse {
     updatedBy String?
     deletedBy String?
 
-    inventories WarehouseInventory[]
-
     itemInventories ItemWarehouseInventory[]
+    workOrderItems  WorkOrderItem[]
 }
 
-model WarehouseInventory {
-    id            String  @id @default(cuid())
-    code          Int     @unique @default(autoincrement())
-    warehouseCode Int
-    inventoryCode Int
-    isLocked      Boolean @default(false)
-    inStock       Int     @default(0)
-    committed     Int     @default(0)
-    ordered       Int     @default(0)
-    available     Int     @default(0)
+model ProjectGroup {
+    id          String  @id @default(cuid())
+    code        Int     @unique @default(autoincrement())
+    name        String
+    description String?
+    isActive    Boolean @default(true)
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -349,12 +202,168 @@ model WarehouseInventory {
     updatedBy String?
     deletedBy String?
 
-    warehouse Warehouse @relation(fields: [warehouseCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    inventory Inventory @relation(fields: [inventoryCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    projectIndividuals ProjectIndividual[] @relation()
+}
 
-    @@unique([warehouseCode, inventoryCode])
+model ProjectIndividual {
+    id          String  @id @default(cuid())
+    code        Int     @unique @default(autoincrement())
+    name        String
+    groupCode   Int?
+    description String?
+    isActive    Boolean @default(true)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    projectGroup ProjectGroup? @relation(fields: [groupCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    projectIndividualPics      ProjectIndividualPic[]      @relation(name: "ProjectIndividual-ProjectIndividualPic")
+    projectIndividualCustomers ProjectIndividualCustomer[] @relation(name: "ProjectIndividual-ProjectIndividualCustomer")
+    items                      ProjectItem[]
+    workOrders                 WorkOrder[]
+}
+
+//* NOTE: Item must be synced already in SAP before it can be selected for project item 
+model ProjectItem {
+    id                    String @id @default(cuid())
+    code                  Int    @unique @default(autoincrement())
+    itemCode              Int
+    projectIndividualCode Int
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    item              Item              @relation(fields: [itemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    projectIndividual ProjectIndividual @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    workOrderItems WorkOrderItem[]
+
+    @@unique([projectIndividualCode, itemCode])
+    @@index([projectIndividualCode])
+    @@index([itemCode])
+}
+
+model ProjectIndividualCustomer {
+    id                    String @id @default(cuid())
+    code                  Int    @unique @default(autoincrement())
+    projectIndividualCode Int
+    userCode              Int
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    projectIndividual ProjectIndividual @relation(name: "ProjectIndividual-ProjectIndividualCustomer", fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    user              User              @relation(name: "User-ProjectIndividualCustomer", fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([projectIndividualCode, userCode])
+    @@index([projectIndividualCode])
+    @@index([userCode])
+}
+
+model ProjectIndividualPic {
+    id                    String @id @default(cuid())
+    code                  Int    @unique @default(autoincrement())
+    projectIndividualCode Int
+    userCode              Int
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    projectIndividual ProjectIndividual @relation(name: "ProjectIndividual-ProjectIndividualPic", fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    user              User              @relation(name: "User-ProjectIndividualPic", fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([projectIndividualCode, userCode])
+    @@index([projectIndividualCode])
+    @@index([userCode])
+}
+
+model WorkOrder {
+    id                    String  @id @default(cuid())
+    code                  Int     @unique @default(autoincrement())
+    projectIndividualCode Int
+    userCode              Int
+    status                String
+    isInternal            Boolean @default(false)
+    billingAddrCode       String?
+    deliveryAddrCode      String?
+    comments              String?
+    salesOrderCode        Int?
+    purchaseOrderCode     Int?
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    projectIndividual ProjectIndividual @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    user              User              @relation(fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    workOrderItems         WorkOrderItem[]
+    workOrderStatusUpdates WorkOrderStatusUpdate[]
+
+    @@index([projectIndividualCode])
+    @@index([userCode])
+}
+
+model WorkOrderStatusUpdate {
+    id            String  @id @default(cuid())
+    code          Int     @unique @default(autoincrement())
+    workOrderCode Int
+    prevStatus    String
+    currentStatus String
+    comments      String?
+
+    createdAt DateTime @default(now())
+    createdBy String?
+
+    workOrder WorkOrder @relation(fields: [workOrderCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    @@index([workOrderCode])
+}
+
+model WorkOrderItem {
+    workOrderCode   Int
+    projectItemCode Int
+    warehouseCode   Int
+    partNumber      String?
+    dateCode        String?
+    countryOfOrigin String?
+    lotCode         String?
+    palletNo        String?
+    dateReceived    DateTime?
+    dateReceivedBy  Int?
+    packagingType   String?
+    spq             String?
+    cost            Decimal?  @default(0)
+    qty             Decimal?  @default(0)
+
+    workOrder   WorkOrder   @relation(fields: [workOrderCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    projectItem ProjectItem @relation(fields: [projectItemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    warehouse   Warehouse   @relation(fields: [warehouseCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([workOrderCode, projectItemCode])
+    @@index([workOrderCode])
+    @@index([projectItemCode])
     @@index([warehouseCode])
-    @@index([inventoryCode])
 }
 
 model Settings {

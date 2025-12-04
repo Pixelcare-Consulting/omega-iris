@@ -18,7 +18,6 @@ import DataGrid, {
 import { useFormContext, useWatch } from 'react-hook-form'
 import Separator from '@/components/separator'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
-
 import { handleOnRowPrepared } from '@/utils/devextreme'
 import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { ItemForm } from '@/schema/item'
@@ -59,7 +58,6 @@ export default function ItemWarehouseInventoryForm({ isLoading }: ItemWarehouseI
           width='100%'
           height='100%'
           onRowPrepared={handleOnRowPrepared}
-          toolbar={{ visible: false }}
           onRowUpdated={(e) => {
             const index = e.key
             const updatedRows = [...warehouseInventory]

@@ -90,7 +90,10 @@ export default function Sidebar({ isOpen, setIsOpen, children }: SidebarProps) {
       maxSize={250}
       template='menu'
     >
-      <main className={cn('mt-[2px] h-[calc(100vh_-_54px)] w-full border-0 bg-slate-50 p-4', largeMedia && !isOpen && 'border-l')}>
+      <main
+        id='app-main-content'
+        className={cn('mt-[2px] h-[calc(100vh_-_54px)] w-full border-0 bg-slate-50 p-4', largeMedia && !isOpen && 'border-l')}
+      >
         {children}
       </main>
 

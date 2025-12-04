@@ -6,6 +6,8 @@
 
 @layer base {
   :root {
+    /** 1rem = 16px */
+    --dx-font-size: 0.8rem;
     --primary: 237, 28, 36;
   }
 
@@ -14,11 +16,23 @@
   }
 }
 
-/* custom devextreme styles/overrdes */
+/** custom devextreme styles/overrdes */
 .sidebar-treeview .dx-treeview-item {
   @apply flex-row-reverse text-sm font-medium;
 }
 
-/* tr.dx-row > td {
-  font-size: 11px !important;
-} */
+/** set font size of datagrid */
+tr.dx-row > td {
+  font-size: var(--dx-font-size) !important;
+}
+
+/** set font size of  */
+.dx-adaptive-detail-row .dx-form .dx-item-content .dx-field-item-label,
+.dx-adaptive-detail-row .dx-form .dx-item-content .dx-field-item-content {
+  font-size: var(--dx-font-size) !important;
+}
+
+/** set datagrid 'no data' text font size */
+.dx-datagrid-nodata {
+  font-size: 0.9rem !important;
+}

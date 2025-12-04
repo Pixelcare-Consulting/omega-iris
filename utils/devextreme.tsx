@@ -39,18 +39,41 @@ export function userItemRender(params: any) {
   const fullName = `${params?.fname} ${params?.lname}`
 
   return (
-    <div className='flex w-full items-center justify-between'>
-      <div className='flex w-[8%] flex-col justify-center'>
-        <span className='truncate font-semibold' title={fullName}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'start',
+          width: '80%',
+          fontWeight: 600,
+        }}
+      >
+        <span
+          style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          title={fullName}
+        >
           {fullName}
         </span>
-        <span className='truncate text-xs text-slate-400' title={params?.email}>
+        <span
+          style={{
+            display: 'inline-block',
+            width: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            color: '#94A3B8',
+            fontSize: 12,
+          }}
+          title={params?.email}
+        >
           {params?.email}
         </span>
       </div>
 
-      <div className='text-xs font-semibold' title={params?.code}>
-        #{params?.code}
+      <div style={{ width: '20%', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }} title={String(params?.code)}>
+        <div className='text-xs font-semibold'>#{params?.code}</div>
       </div>
     </div>
   )
@@ -61,25 +84,53 @@ export function commonItemRender({
   description,
   value,
   valuePrefix,
+  otherItems,
 }: {
   title: string
   description: string
   value: string | number
   valuePrefix?: string
+  otherItems?: React.ReactNode
 }) {
   return (
-    <div className='flex w-full items-center justify-between'>
-      <div className='flex w-[8%] flex-col justify-center'>
-        <span className='truncate font-semibold' title={title}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 2,
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'start',
+          width: '80%',
+          fontWeight: 600,
+        }}
+      >
+        <span
+          style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          title={title}
+        >
           {title}
         </span>
-        <span className='truncate text-xs text-slate-400' title={description}>
+        <span
+          style={{
+            display: 'inline-block',
+            width: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            color: '#94A3B8',
+            fontSize: 12,
+          }}
+          title={description}
+        >
           {description}
         </span>
+
+        {otherItems}
       </div>
 
-      <div className='text-xs font-semibold' title={String(value)}>
-        {valuePrefix ? `${valuePrefix}${value}` : value}
+      <div style={{ width: '20%', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', columnGap: 4 }} title={String(value)}>
+        <div className='text-xs font-semibold'>{valuePrefix ? `${valuePrefix}${value}` : value}</div>
       </div>
     </div>
   )

@@ -1,0 +1,237 @@
+'use client'
+
+import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
+import { toast } from 'sonner'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'nextjs-toploader/app'
+import { useAction } from 'next-safe-action/hooks'
+import { FormProvider, useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Item } from 'devextreme-react/toolbar'
+import Tooltip from 'devextreme-react/tooltip'
+import Popup from 'devextreme-react/popup'
+
+import { deleteWorkOrder, getWorkOrders } from '@/actions/work-order'
+import PageHeader from '@/app/(protected)/_components/page-header'
+import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
+import { useDataGridStore } from '@/hooks/use-dx-datagrid'
+import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
+import AlertDialog from '@/components/alert-dialog'
+import CommonDataGrid from '@/components/common-datagrid'
+import { WORK_ORDER_STATUS_OPTIONS, WorkOrderStatusUpdateForm, workOrderStatusUpdateFormSchema } from '@/schema/work-order'
+import LoadingButton from '@/components/loading-button'
+import useDebug from '@/hooks/use-debug'
+import WorkOrderUpdateStatusForm from './work-order-update-status-form'
+
+type WorkOrderTableProps = { workOrders: Awaited<ReturnType<typeof getWorkOrders>> }
+type DataSource = Awaited<ReturnType<typeof getWorkOrders>>
+
+export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
+  const router = useRouter()
+
+  const DATAGRID_STORAGE_KEY = 'dx-datagrid-work-order'
+  const DATAGRID_UNIQUE_KEY = 'work-orders'
+
+  const form = useForm({
+    mode: 'onChange',
+    values: {
+      workOrders: [],
+      currentStatus: '',
+      comments: '',
+    },
+    resolver: zodResolver(workOrderStatusUpdateFormSchema),
+  })
+
+  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showUpdateStatusForm, setShowUpdateStatusForm] = useState(false)
+  const [rowData, setRowData] = useState<DataSource[number] | null>(null)
+
+  const dataGridRef = useRef<DataGridRef | null>(null)
+
+  const { executeAsync, isExecuting } = useAction(deleteWorkOrder)
+
+  const workOrderToUpdate = useWatch({ control: form.control, name: 'workOrders' }) || []
+
+  const selectedRowKeys = useMemo(() => {
+    if (workOrderToUpdate.length < 1) return []
+    return workOrderToUpdate.map((wo) => wo.code)
+  }, [JSON.stringify(workOrderToUpdate)])
+
+  const dataGridStore = useDataGridStore([
+    'showFilterRow',
+    'setShowFilterRow',
+    'showHeaderFilter',
+    'setShowHeaderFilter',
+    'showFilterBuilderPanel',
+    'setShowFilterBuilderPanel',
+    'showGroupPanel',
+    'setShowGroupPanel',
+    'enableStateStoring',
+    'columnHidingEnabled',
+    'setColumnHidingEnabled',
+    'showColumnChooser',
+    'setShowColumnChooser',
+  ])
+
+  const handleView = useCallback((e: DataGridTypes.RowClickEvent) => {
+    const rowType = e.rowType
+    if (rowType !== 'data') return
+
+    const code = e.data?.code
+    if (!code) return
+    router.push(`/work-orders/${code}/view`)
+  }, [])
+
+  const handleEdit = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
+    const code = e.row?.data?.code
+    if (!code) return
+    router.push(`/work-orders/${code}`)
+  }, [])
+
+  const handleDelete = useCallback(
+    (e: DataGridTypes.ColumnButtonClickEvent) => {
+      const data = e.row?.data
+      if (!data) return
+      setShowConfirmation(true)
+      setRowData(data)
+    },
+    [setShowConfirmation, setRowData]
+  )
+
+  const handleConfirm = useCallback((code?: number) => {
+    if (!code) return
+
+    setShowConfirmation(false)
+
+    toast.promise(executeAsync({ code }), {
+      loading: 'Deleting work orders...',
+      success: (response) => {
+        const result = response?.data
+
+        if (!response || !result) throw { message: 'Failed to delete work orders!', unExpectedError: true }
+
+        if (!result.error) {
+          setTimeout(() => {
+            router.refresh()
+          }, 1500)
+
+          return result.message
+        }
+
+        throw { message: result.message, expectedError: true }
+      },
+      error: (err: Error & { expectedError: boolean }) => {
+        return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
+      },
+    })
+  }, [])
+
+  const handleOnSelectionChange = useCallback((e: DataGridTypes.SelectionChangedEvent) => {
+    const selectedRowsData = e.selectedRowsData
+
+    const values = selectedRowsData.map((srData) => ({
+      code: srData.code,
+      prevStatus: srData.status,
+    }))
+
+    console.log({ values })
+
+    form.setValue('workOrders', values)
+  }, [])
+
+  const handleCloseUpdateStatusForm = () => {
+    form.reset()
+    setTimeout(() => form.clearErrors(), 100)
+    setShowUpdateStatusForm(false)
+  }
+
+  return (
+    <div className='h-full w-full space-y-5'>
+      <FormProvider {...form}>
+        <PageHeader title='Work Orders' description='Manage and track your work order effectively'>
+          {selectedRowKeys.length > 0 && (
+            <Item location='after' locateInMenu='auto' widget='dxButton'>
+              <Tooltip
+                target='#update-status'
+                contentRender={() => 'Update Status'}
+                showEvent='mouseenter'
+                hideEvent='mouseleave'
+                position='top'
+              />
+              <LoadingButton
+                id='update-status'
+                icon='rename'
+                isLoading={isExecuting}
+                text={`${selectedRowKeys.length} : Update Status`}
+                type='default'
+                stylingMode='outlined'
+                onClick={() => setShowUpdateStatusForm(true)}
+              />
+            </Item>
+          )}
+
+          <CommonPageHeaderToolbarItems
+            dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
+            dataGridRef={dataGridRef}
+            isEnableImport
+            addButton={{ text: 'Add Work Order', onClick: () => router.push('/work-orders/add') }}
+          />
+        </PageHeader>
+
+        <PageContentWrapper className='h-[calc(100%_-_92px)]'>
+          <CommonDataGrid
+            dataGridRef={dataGridRef}
+            data={workOrders}
+            storageKey={DATAGRID_STORAGE_KEY}
+            keyExpr='code'
+            isSelectionEnable
+            dataGridStore={dataGridStore}
+            selectedRowKeys={selectedRowKeys}
+            callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChange }}
+          >
+            <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
+            <Column dataField='projectIndividual.name' dataType='string' caption='Project' />
+            <Column dataField='projectIndividual.projectGroup.name' dataType='string' caption='Project Group' />
+            <Column
+              dataField='status'
+              dataType='string'
+              caption='Status'
+              calculateCellValue={(data) => WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === data.status)?.label}
+            />
+            <Column
+              dataField='owner'
+              dataType='string'
+              caption='Owner'
+              calculateCellValue={(rowData) => `${rowData?.user?.fname} ${rowData?.user?.lname}`}
+            />
+            <Column dataField='user.email' dataType='string' caption='Owner Email' />
+
+            <Column type='buttons' fixed fixedPosition='right' caption='Actions'>
+              <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' />
+              <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' />
+            </Column>
+          </CommonDataGrid>
+
+          <Popup
+            visible={showUpdateStatusForm}
+            dragEnabled={false}
+            showTitle={false}
+            onHiding={() => setShowUpdateStatusForm(false)}
+            width={undefined}
+            height={410}
+          >
+            <WorkOrderUpdateStatusForm onClose={handleCloseUpdateStatusForm} />
+          </Popup>
+
+          <AlertDialog
+            isOpen={showConfirmation}
+            title='Are you sure?'
+            description={`Are you sure you want to delete this work order with id "${rowData?.code}"?`}
+            onConfirm={() => handleConfirm(rowData?.code)}
+            onCancel={() => setShowConfirmation(false)}
+          />
+        </PageContentWrapper>
+      </FormProvider>
+    </div>
+  )
+}

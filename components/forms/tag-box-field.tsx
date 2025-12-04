@@ -19,7 +19,7 @@ type ExtendedProps = FormExtendedProps & { tagBoxOptions?: ITagBoxOptions }
 type TagBoxFieldProps<TFieldValues extends FieldValues = FieldValues, TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>> = {
   data: any
   searchExpr: string | string[]
-  displayExpr: string | ((item: any) => string)
+  displayExpr?: string | ((item: any) => string)
   valueExpr: string
   limit?: number
   isLoading?: boolean

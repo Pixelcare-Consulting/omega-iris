@@ -27,6 +27,7 @@ export async function getPis() {
       orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY,
     })
   } catch (error) {
+    console.error(error)
     return []
   }
 }
@@ -45,6 +46,7 @@ export async function getPisByGroupCode(groupCode: number) {
       orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY,
     })
   } catch (error) {
+    console.error(error)
     return []
   }
 }
@@ -71,7 +73,8 @@ export async function getPiByCode(code: number) {
     ])
 
     return { ...projectIndividuals, customers: customers.map((c) => c.userCode), pics: pics.map((p) => p.userCode) }
-  } catch (err) {
+  } catch (error) {
+    console.error(error)
     return null
   }
 }
@@ -90,6 +93,7 @@ export async function getPisByBpUserCode(userCode?: number | null) {
 
     return result
   } catch (error) {
+    console.error(error)
     return []
   }
 }
@@ -255,7 +259,7 @@ export const updatePiCustomers = action
       const pi = await db.projectIndividual.findUnique({ where: { code } })
 
       if (!pi) {
-        return { error: true, status: 404, message: 'Project individual not found', action: 'UPDATE_PROJECT_INDIVIDUAL_CUSTOMERS' }
+        return { error: true, status: 404, message: 'Project individual not found!', action: 'UPDATE_PROJECT_INDIVIDUAL_CUSTOMERS' }
       }
 
       //* update project individual
@@ -304,7 +308,7 @@ export const updatePiPics = action
       const projectIndividual = await db.projectIndividual.findUnique({ where: { code } })
 
       if (!projectIndividual) {
-        return { error: true, status: 404, message: 'Project individual not found', action: 'UPDATE_PROJECT_INDIVIDUAL_PICS' }
+        return { error: true, status: 404, message: 'Project individual not found!', action: 'UPDATE_PROJECT_INDIVIDUAL_PICS' }
       }
 
       //* update project individual
@@ -350,13 +354,14 @@ export const deleletePi = action
       const projectIndividual = await db.projectIndividual.findUnique({ where: { code: data.code } })
 
       if (!projectIndividual)
-        return { error: true, status: 404, message: 'Project individual not found', action: 'DELETE_PROJECT_INDIVIDUAL' }
+        return { error: true, status: 404, message: 'Project individual not found!', action: 'DELETE_PROJECT_INDIVIDUAL' }
 
       await db.projectIndividual.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 
       return { status: 200, message: 'Project individual deleted successfully!', action: 'DELETE_PROJECT_INDIVIDUAL' }
     } catch (error) {
       console.error(error)
+
       return {
         error: true,
         status: 500,

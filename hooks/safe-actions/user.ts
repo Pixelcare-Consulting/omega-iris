@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useAction } from 'next-safe-action/hooks'
 
-import { getUsersClient, getUserByIdClient, getNonCustomerUsersClient, getUsersByRoleKeyClient } from '@/actions/users'
+import { getUsersClient, getUserByIdClient, getNonCustomerUsersClient, getUsersByRoleKeyClient, getUserByCodeClient } from '@/actions/users'
 
 export default function useUsers(dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getUsersClient)
@@ -25,6 +25,22 @@ export function useUserById(id?: string | null, dependencies?: any[]) {
   useEffect(() => {
     execute({ id })
   }, [id, ...(dependencies || [])])
+
+  return {
+    execute,
+    executeAsync,
+    isLoading,
+    data: result.data ?? null,
+    error: { serverError: result.serverError, validationError: result.validationErrors },
+  }
+}
+
+export function useUserByCode(code?: number | null, dependencies?: any[]) {
+  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getUserByCodeClient)
+
+  useEffect(() => {
+    execute({ code })
+  }, [code, ...(dependencies || [])])
 
   return {
     execute,

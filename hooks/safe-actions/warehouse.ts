@@ -3,7 +3,7 @@ import { useAction } from 'next-safe-action/hooks'
 
 import { getWarehousesClient } from '@/actions/warehouse'
 
-export function useWarehouse(isDefault?: boolean, dependencies?: any[]) {
+export function useWarehouses(isDefault?: boolean, dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getWarehousesClient)
 
   useEffect(() => {

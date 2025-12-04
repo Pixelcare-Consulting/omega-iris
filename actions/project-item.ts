@@ -116,7 +116,7 @@ export const deleteProjectItem = action
     try {
       const projectItem = await db.projectItem.findUnique({ where: { code: data.code } })
 
-      if (!projectItem) return { error: true, status: 404, message: 'Project item not found', action: 'DELETE_PROJECT_ITEM' }
+      if (!projectItem) return { error: true, status: 404, message: 'Project item not found!', action: 'DELETE_PROJECT_ITEM' }
 
       await db.projectItem.delete({ where: { code: data.code } }) //* hard delete
 

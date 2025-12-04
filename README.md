@@ -14,6 +14,7 @@ Omga GTI Inventory Management System
 - hooks/safe-actions/ - global react custom hooks for next-safe-actions
 - prisma/ - prisma schema and migration files
 - public/ - public static files
+- public/images/ - public static images
 - schema - reusable zod schema/types
 - styles/ - global custom styles
 - styles/devextreme/ - devextreme custom theme styles

@@ -1,12 +1,12 @@
 'use server'
 
 import z from 'zod'
+import { Prisma } from '@prisma/client'
 
 import { paramsSchema } from '@/schema/common'
 import { projectGroupFormSchema } from '@/schema/project-group'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
-import { Prisma } from '@prisma/client'
 import { ImportError, ImportErrorEntry } from '@/types/common'
 
 const COMMON_PROJECT_GROUP_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectGroupOrderByWithRelationInput
@@ -84,7 +84,7 @@ export const deleletePg = action
     try {
       const projectGroup = await db.projectGroup.findUnique({ where: { code: data.code } })
 
-      if (!projectGroup) return { error: true, status: 404, message: 'Project group not found', action: 'DELETE_PROJECT_GROUP' }
+      if (!projectGroup) return { error: true, status: 404, message: 'Project group not found!', action: 'DELETE_PROJECT_GROUP' }
 
       await db.projectGroup.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 

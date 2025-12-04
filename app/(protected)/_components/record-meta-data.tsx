@@ -18,6 +18,11 @@ export default function RecordMetaData({ createdAt, updatedAt, deletedAt, create
   const updatedByValue = useUserById(updatedBy)
   const deletedByValue = useUserById(deletedBy)
 
+  const renderValue = (value: ReturnType<typeof useUserById>) => {
+    if (value.isLoading) return ''
+    return `${value.data?.fname || ''}${value.data?.lname ? ` ${value.data?.lname}` : ''}`
+  }
+
   return (
     <>
       <ReadOnlyField
@@ -41,21 +46,21 @@ export default function RecordMetaData({ createdAt, updatedAt, deletedAt, create
       <ReadOnlyField
         className='col-span-12 md:col-span-6 lg:col-span-4'
         title='Created By'
-        value={createdByValue.data ? `${createdByValue.data.fname} ${createdByValue.data.lname}` : ''}
+        value={renderValue(createdByValue)}
         isLoading={createdByValue.isLoading}
       />
 
       <ReadOnlyField
         className='col-span-12 md:col-span-6 lg:col-span-4'
         title='Updated By'
-        value={updatedByValue.data ? `${updatedByValue.data.fname} ${updatedByValue.data.lname}` : ''}
+        value={renderValue(updatedByValue)}
         isLoading={updatedByValue.isLoading}
       />
 
       <ReadOnlyField
         className='col-span-12 md:col-span-6 lg:col-span-4'
         title='Deleted By'
-        value={deletedByValue.data ? `${deletedByValue.data.fname} ${deletedByValue.data.lname}` : ''}
+        value={renderValue(deletedByValue)}
         isLoading={deletedByValue.isLoading}
       />
     </>

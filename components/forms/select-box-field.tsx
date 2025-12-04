@@ -20,7 +20,7 @@ type SelectBoxFieldProps<
 > = {
   data: any
   searchExpr: string | string[]
-  displayExpr: string | ((item: any) => string)
+  displayExpr?: string | ((item: any) => string)
   valueExpr: string
   isLoading?: boolean
   control: Control<TFieldValues>

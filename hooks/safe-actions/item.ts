@@ -6,8 +6,6 @@ import { getItemsClient } from '@/actions/item'
 export default function useItems(excludeCodes?: number[] | null, dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getItemsClient)
 
-  console.log({ excludeCodes })
-
   useEffect(() => {
     execute({ excludeCodes })
   }, [JSON.stringify(excludeCodes), ...(dependencies || [])])
