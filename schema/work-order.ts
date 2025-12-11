@@ -24,24 +24,7 @@ export const WORK_ORDER_STATUS_OPTIONS: { label: (typeof WORK_ORDER_STATUS)[numb
 
 export const workOrderItemFormSchema = z.object({
   projectItemCode: z.coerce.number().min(1, { message: 'Item is required' }),
-  warehouseCode: z.coerce.number().min(1, { message: 'Warehouse is required' }),
-  partNumber: z.string().min(1, { message: 'Part number is required' }),
-  dateCode: z.string().nullish(),
-  countryOfOrigin: z.string().nullish(),
-  lotCode: z.string().nullish(),
-  palletNo: z.string().nullish(),
-  dateReceived: z.coerce.date().nullish(),
-  dateReceivedBy: z.coerce.number().nullish(),
-  packagingType: z.string().nullish(),
-  spq: z.string().nullish(),
-  cost: z.coerce.number().refine((val) => val > 0, { message: 'Cost is required' }),
   qty: z.coerce.number().refine((val) => val > 0, { message: 'Quantity is required' }),
-
-  //* temporary fields
-  projectName: z.string().nullish(),
-  projectItemManufacturer: z.string().nullish(),
-  projectItemMpn: z.string().nullish(),
-  projectItemDescription: z.string().nullish(),
 })
 
 export const upsertWorkOrderLineItemFormSchema = workOrderItemFormSchema.merge(

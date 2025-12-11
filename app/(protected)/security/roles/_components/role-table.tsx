@@ -45,13 +45,10 @@ export default function RoleTable({ roles }: RoleTableProps) {
     'setShowColumnChooser',
   ])
 
-  const handleView = useCallback((e: DataGridTypes.RowClickEvent) => {
-    const rowType = e.rowType
-    if (rowType !== 'data') return
-
-    const code = e.data?.code
-    if (!code) return
-    router.push(`/security/roles/${code}/view`)
+  const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
+    const data = e.row?.data
+    if (!data) return
+    router.push(`/security/roles/${data?.code}/view`)
   }, [])
 
   const handleEdit = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
@@ -109,22 +106,17 @@ export default function RoleTable({ roles }: RoleTableProps) {
       </PageHeader>
 
       <PageContentWrapper className='h-[calc(100%_-_92px)]'>
-        <CommonDataGrid
-          dataGridRef={dataGridRef}
-          data={roles}
-          storageKey={DATAGRID_STORAGE_KEY}
-          callbacks={{ onRowClick: handleView }}
-          dataGridStore={dataGridStore}
-        >
-          <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
+        <CommonDataGrid dataGridRef={dataGridRef} data={roles} storageKey={DATAGRID_STORAGE_KEY} dataGridStore={dataGridStore}>
+          <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
           <Column dataField='name' dataType='string' />
           <Column dataField='description' dataType='string' />
           <Column dataField='createdAt' dataType='datetime' caption='Created At' />
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
-          <Column type='buttons' fixed fixedPosition='right' caption='Actions'>
-            <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' />
-            <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' />
+          <Column type='buttons' fixed fixedPosition='right' minWidth={140} caption='Actions'>
+            <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
+            <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' hint='Edit' />
+            <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' hint='Delete' />
           </Column>
         </CommonDataGrid>
       </PageContentWrapper>

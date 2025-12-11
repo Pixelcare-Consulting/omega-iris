@@ -13,7 +13,7 @@ import ProjectIndividualOverviewTab from './_tabs/project-individual-overview-ta
 import { useNonBpUsers, useUsersByRoleKey } from '@/hooks/safe-actions/user'
 import ProjectIndividualCustomerTab from './_tabs/project-individual-customer-tab'
 import ProjectIndividualPicTab from './_tabs/project-individual-pic-tab'
-import ProjectIndividualItemTa from './_tabs/project-individual-item-tab'
+import ProjectIndividualItemTab from './_tabs/project-individual-item-tab'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
 
 type ViewProjectIndividualProps = {
@@ -76,7 +76,7 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
           </TabPanelITem>
 
           <TabPanelITem title='Inventory'>
-            <ProjectIndividualItemTa projectCode={projectIndividual.code} projectName={projectIndividual.name} items={items} />
+            <ProjectIndividualItemTab projectCode={projectIndividual.code} projectName={projectIndividual.name} items={items} />
           </TabPanelITem>
         </TabPanel>
       </PageContentWrapper>

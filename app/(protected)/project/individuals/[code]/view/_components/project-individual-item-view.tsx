@@ -1,31 +1,20 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
-import DataGrid, {
-  Column,
-  DataGridRef,
-  Editing,
-  Item,
-  LoadPanel,
-  Pager,
-  Paging,
-  Scrolling,
-  SearchPanel,
-  Sorting,
-  Toolbar,
-} from 'devextreme-react/data-grid'
+import { useMemo } from 'react'
 import ScrollView from 'devextreme-react/scroll-view'
 import Button from 'devextreme-react/button'
+import { format, isValid } from 'date-fns'
 
 import { getProjecItems } from '@/actions/project-item'
 import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
 import Copy from '@/components/copy'
 import ReadOnlyField from '@/components/read-only-field'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
-import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES, DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
+import { DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { formatNumber } from 'devextreme/localization'
-import { handleOnRowPrepared } from '@/utils/devextreme'
 import { useItemWarehouseInventory } from '@/hooks/safe-actions/item-warehouse-inventory'
+import Separator from '@/components/separator'
+import { safeParseFloat } from '@/utils'
 
 type ProjectIndividualItemViewProps = {
   data: Awaited<ReturnType<typeof getProjecItems>>[number]
@@ -33,18 +22,18 @@ type ProjectIndividualItemViewProps = {
 }
 
 export default function ProjectIndividualItemView({ data, onClose }: ProjectIndividualItemViewProps) {
-  const itemWarehouseInventory = useItemWarehouseInventory(data?.itemCode)
   const item = data.item
+  const warehouse = data.warehouse
 
-  const dataGridRef = useRef<DataGridRef | null>(null)
+  const dateReceived = data.dateReceived && isValid(data?.dateReceived) ? format(data.dateReceived, 'MM/dd/yyyy hh:mm a') : '' // prettier-ignore
+  const dateReceivedBy = data.dateReceivedByUser && data.dateReceivedByUser.fname  ? `${data.dateReceivedByUser.fname}${data.dateReceivedByUser.lname ? ` ${data.dateReceivedByUser.lname}` : ''}` : '' // prettier-ignore
 
-  //* show loading
-  useEffect(() => {
-    if (dataGridRef.current) {
-      if (itemWarehouseInventory.isLoading) dataGridRef.current.instance().beginCustomLoading('Loading data...')
-      else dataGridRef.current.instance().endCustomLoading()
-    }
-  }, [JSON.stringify(itemWarehouseInventory), dataGridRef.current])
+  const itemMasterWarehouseInventory = useItemWarehouseInventory(item?.code)
+
+  const selectedItemMasterWarehouseInventory = useMemo(() => {
+    if (itemMasterWarehouseInventory.isLoading || itemMasterWarehouseInventory.data.length < 1) return null
+    return itemMasterWarehouseInventory.data.find((wi) => wi.warehouseCode === warehouse?.code)
+  }, [JSON.stringify(itemMasterWarehouseInventory), warehouse?.code])
 
   return (
     <ScrollView>
@@ -84,65 +73,110 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
 
         <ReadOnlyFieldHeader className='col-span-12' title='SAP Fields' description='SAP related fields' />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Code' value={item?.ItemCode || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Code' value={item?.ItemCode || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Manufacturer Code' value={item?.FirmCode || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Manufacturer Code' value={item?.FirmCode || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Manufacturer Name' value={''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Manufacturer Name' value={item.FirmName || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Group Code' value={item?.ItmsGrpCod || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Description' value={item.ItemName || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Group Name' value={''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Group Code' value={item?.ItmsGrpCod || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Group Name' value={item.ItmsGrpNam || ''} />
 
         <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-4'
+          className='col-span-12 md:col-span-6 lg:col-span-3'
           title='Price'
           value={formatNumber(item?.Price as any, DEFAULT_CURRENCY_FORMAT)}
         />
 
-        <ReadOnlyFieldHeader className='col-span-12' title='Warehouse Inventory' description='Project item address details' />
+        <Separator className='col-span-12' />
+        <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Project Item' description='Project item details' />
 
-        <div className='col-span-12'>
-          <DataGrid
-            dataSource={itemWarehouseInventory.data}
-            keyExpr='code'
-            showBorders
-            hoverStateEnabled
-            allowColumnReordering
-            allowColumnResizing
-            width='100%'
-            height='100%'
-            onRowPrepared={handleOnRowPrepared}
-          >
-            <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' alignment='center' />
-            <Column dataField='warehouse.name' dataType='string' caption='Name' alignment='center' />
-            <Column dataField='isLocked' dataType='boolean' caption='Lock' alignment='center' />
-            <Column dataField='inStock' dataType='number' caption='In Stock' format={DEFAULT_NUMBER_FORMAT} alignment='center' />
-            <Column dataField='committed' dataType='number' caption='Committed' format={DEFAULT_NUMBER_FORMAT} alignment='center' />
-            <Column dataField='ordered' dataType='number' caption='Ordered' format={DEFAULT_NUMBER_FORMAT} alignment='center' />
-            <Column dataField='available' dataType='number' caption='Available' format={DEFAULT_NUMBER_FORMAT} alignment='center' />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Part Number' value={data?.partNumber || ''} />
 
-            <LoadPanel enabled={itemWarehouseInventory.isLoading} shadingColor='rgb(241, 245, 249)' showIndicator showPane shading />
-            <Editing mode='cell' allowUpdating={false} allowAdding={false} allowDeleting={false} />
-            <SearchPanel visible highlightCaseSensitive={false} />
-            <Sorting mode='multiple' />
-            <Scrolling mode='standard' />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Date Code' value={data?.dateCode || ''} />
 
-            <Toolbar>
-              <Item name='searchPanel' location='after' />
-            </Toolbar>
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Country Of Origin' value={data?.countryOfOrigin || ''} />
 
-            <Pager
-              visible={true}
-              allowedPageSizes={DATAGRID_PAGE_SIZES}
-              showInfo
-              displayMode='full'
-              showPageSizeSelector
-              showNavigationButtons
-            />
-            <Paging defaultPageSize={DATAGRID_DEFAULT_PAGE_SIZE} />
-          </DataGrid>
-        </div>
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Lot Code' value={data?.lotCode || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Pallet No' value={data?.palletNo || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Packaging Type' value={data?.packagingType || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='SPQ' value={data?.spq || ''} />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Cost'
+          value={formatNumber(safeParseFloat(data?.cost), DEFAULT_CURRENCY_FORMAT)}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Available To Order'
+          value={formatNumber(safeParseFloat(data?.availableToOrder), DEFAULT_NUMBER_FORMAT)}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='In Process'
+          value={formatNumber(safeParseFloat(data?.inProcess), DEFAULT_NUMBER_FORMAT)}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Total Stock'
+          value={formatNumber(safeParseFloat(data?.totalStock), DEFAULT_NUMBER_FORMAT)}
+        />
+
+        <Separator className='col-span-12' />
+        <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Item Received' description='Item date received and received by details' />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Date Received' value={dateReceived} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Received By' value={dateReceivedBy} />
+
+        <Separator className='col-span-12' />
+        <ReadOnlyFieldHeader
+          className='col-span-12 mb-1'
+          title='Site Location '
+          description='Item warehouse and warehouse inventory details'
+        />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6' title='Warehouse' value={warehouse?.name || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6' title='Description' value={warehouse?.description || ''} />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='In Stock'
+          value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.inStock), DEFAULT_NUMBER_FORMAT)}
+          isLoading={itemMasterWarehouseInventory.isLoading}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Committed'
+          value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.committed), DEFAULT_NUMBER_FORMAT)}
+          isLoading={itemMasterWarehouseInventory.isLoading}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Ordered'
+          value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.ordered), DEFAULT_NUMBER_FORMAT)}
+          isLoading={itemMasterWarehouseInventory.isLoading}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Available'
+          value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.available), DEFAULT_NUMBER_FORMAT)}
+          isLoading={itemMasterWarehouseInventory.isLoading}
+        />
 
         <ReadOnlyFieldHeader className='col-span-12 mt-4' title='Record Meta data' description='Project item record meta data' />
 

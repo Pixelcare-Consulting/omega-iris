@@ -39,6 +39,7 @@ model User {
     projectIndividualPics      ProjectIndividualPic[]      @relation(name: "User-ProjectIndividualPic")
     projectIndividualCustomers ProjectIndividualCustomer[] @relation(name: "User-ProjectIndividualCustomer")
     workOrders                 WorkOrder[]
+    projectItemDateReceivedBy  ProjectItem[]               @relation()
 }
 
 model Role {
@@ -185,7 +186,7 @@ model Warehouse {
     deletedBy String?
 
     itemInventories ItemWarehouseInventory[]
-    workOrderItems  WorkOrderItem[]
+    projectItems    ProjectItem[]
 }
 
 model ProjectGroup {
@@ -235,6 +236,22 @@ model ProjectItem {
     itemCode              Int
     projectIndividualCode Int
 
+    warehouseCode    Int
+    partNumber       String?
+    dateCode         String?
+    countryOfOrigin  String?
+    lotCode          String?
+    palletNo         String?
+    packagingType    String?
+    spq              String?
+    dateReceived     DateTime?
+    dateReceivedBy   Int?
+    cost             Decimal?  @default(0)
+    availableToOrder Decimal?  @default(0)
+    inProcess        Decimal?  @default(0)
+    totalStock       Decimal?  @default(0)
+    notes            String?
+
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
     deletedAt DateTime?
@@ -242,12 +259,13 @@ model ProjectItem {
     updatedBy String?
     deletedBy String?
 
-    item              Item              @relation(fields: [itemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    projectIndividual ProjectIndividual @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    item               Item              @relation(fields: [itemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    projectIndividual  ProjectIndividual @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    warehouse          Warehouse         @relation(fields: [warehouseCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    dateReceivedByUser User?             @relation(fields: [dateReceivedBy], references: [code], onUpdate: Cascade, onDelete: Cascade)
 
     workOrderItems WorkOrderItem[]
 
-    @@unique([projectIndividualCode, itemCode])
     @@index([projectIndividualCode])
     @@index([itemCode])
 }
@@ -343,27 +361,14 @@ model WorkOrderStatusUpdate {
 model WorkOrderItem {
     workOrderCode   Int
     projectItemCode Int
-    warehouseCode   Int
-    partNumber      String?
-    dateCode        String?
-    countryOfOrigin String?
-    lotCode         String?
-    palletNo        String?
-    dateReceived    DateTime?
-    dateReceivedBy  Int?
-    packagingType   String?
-    spq             String?
-    cost            Decimal?  @default(0)
-    qty             Decimal?  @default(0)
+    qty             Decimal? @default(0)
 
     workOrder   WorkOrder   @relation(fields: [workOrderCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     projectItem ProjectItem @relation(fields: [projectItemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    warehouse   Warehouse   @relation(fields: [warehouseCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
 
     @@unique([workOrderCode, projectItemCode])
     @@index([workOrderCode])
     @@index([projectItemCode])
-    @@index([warehouseCode])
 }
 
 model Settings {

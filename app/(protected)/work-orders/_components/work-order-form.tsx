@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
 import { useParams } from 'next/navigation'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 
@@ -132,44 +132,6 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
       toast.error('Something went wrong! Please try again later.')
     }
   }
-
-  //* set line items if work order data exist
-  useEffect(() => {
-    if (workOrder && workOrderItems.data.length > 0) {
-      const woItems = workOrderItems.data
-        .filter((woItem) => woItem.projectItem !== null)
-        .map((woItem) => {
-          const pItem = woItem.projectItem
-
-          const cost = safeParseFloat(woItem.cost)
-          const qty = safeParseFloat(woItem.qty)
-
-          return {
-            projectItemCode: pItem.code,
-            warehouseCode: woItem.warehouseCode,
-            partNumber: woItem?.partNumber ?? '',
-            dateCode: woItem?.dateCode ?? null,
-            countryOfOrigin: woItem?.countryOfOrigin ?? null,
-            lotCode: woItem?.lotCode ?? null,
-            palletNo: woItem?.palletNo ?? null,
-            dateReceived: woItem?.dateReceived ?? null,
-            dateReceivedBy: woItem?.dateReceivedBy ?? null,
-            packagingType: woItem?.packagingType ?? null,
-            spq: woItem?.spq ?? null,
-            cost,
-            qty,
-
-            //* set temporary fields
-            projectName: pItem?.projectIndividual?.name ?? null,
-            projectItemManufacturer: pItem?.item?.manufacturer ?? null,
-            projectItemMpn: pItem?.item?.manufacturerPartNumber ?? null,
-            projectItemDescription: pItem?.item?.description ?? null,
-          }
-        })
-
-      form.setValue('lineItems', woItems)
-    }
-  }, [JSON.stringify(workOrder), JSON.stringify(workOrderItems)])
 
   return (
     <FormProvider {...form}>
@@ -318,7 +280,6 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                 />
               </div>
 
-              {/* // TODO: add function to do multiple select received by */}
               <WorkOrderLineItemTable
                 workOrder={workOrder}
                 workOrderItems={workOrderItems}

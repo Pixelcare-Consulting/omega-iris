@@ -18,9 +18,8 @@ import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import AlertDialog from '@/components/alert-dialog'
 import CommonDataGrid from '@/components/common-datagrid'
-import { WORK_ORDER_STATUS_OPTIONS, WorkOrderStatusUpdateForm, workOrderStatusUpdateFormSchema } from '@/schema/work-order'
+import { WORK_ORDER_STATUS_OPTIONS, workOrderStatusUpdateFormSchema } from '@/schema/work-order'
 import LoadingButton from '@/components/loading-button'
-import useDebug from '@/hooks/use-debug'
 import WorkOrderUpdateStatusForm from './work-order-update-status-form'
 
 type WorkOrderTableProps = { workOrders: Awaited<ReturnType<typeof getWorkOrders>> }
@@ -73,13 +72,11 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     'setShowColumnChooser',
   ])
 
-  const handleView = useCallback((e: DataGridTypes.RowClickEvent) => {
-    const rowType = e.rowType
-    if (rowType !== 'data') return
+  const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
+    const data = e.row?.data
+    if (!data) return
 
-    const code = e.data?.code
-    if (!code) return
-    router.push(`/work-orders/${code}/view`)
+    router.push(`/work-orders/${data?.code}/view`)
   }, [])
 
   const handleEdit = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
@@ -189,7 +186,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             selectedRowKeys={selectedRowKeys}
             callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChange }}
           >
-            <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
+            <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
             <Column dataField='projectIndividual.name' dataType='string' caption='Project' />
             <Column dataField='projectIndividual.projectGroup.name' dataType='string' caption='Project Group' />
             <Column
@@ -199,6 +196,12 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
               calculateCellValue={(data) => WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === data.status)?.label}
             />
             <Column
+              dataField='isInternal'
+              dataType='string'
+              caption='Internal'
+              calculateCellValue={(data) => (data?.isInternal ? 'Yes' : 'No')}
+            />
+            <Column
               dataField='owner'
               dataType='string'
               caption='Owner'
@@ -206,9 +209,10 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             />
             <Column dataField='user.email' dataType='string' caption='Owner Email' />
 
-            <Column type='buttons' fixed fixedPosition='right' caption='Actions'>
-              <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' />
-              <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' />
+            <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
+              <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
+              <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' hint='Edit' />
+              <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' hint='Delete' />
             </Column>
           </CommonDataGrid>
 

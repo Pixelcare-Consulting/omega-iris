@@ -1,11 +1,12 @@
 'use client'
 
-import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
+import { Column, DataGridTypes, DataGridRef, Button as DataGridButton, Editing } from 'devextreme-react/data-grid'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Toolbar from 'devextreme-react/toolbar'
 import Popup from 'devextreme-react/popup'
 import { useAction } from 'next-safe-action/hooks'
 import { toast } from 'sonner'
+import Tooltip from 'devextreme-react/tooltip'
 
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -14,7 +15,7 @@ import CommonDataGrid from '@/components/common-datagrid'
 
 import { useWoItemsByWoCode } from '@/hooks/safe-actions/work-order-item'
 import AlertDialog from '@/components/alert-dialog'
-import { deleteWorkOrderLineItem, getWorkOrderByCode } from '@/actions/work-order'
+import { deleteWorkOrderLineItem, getWorkOrderByCode, upsertWorkOrderLineItem } from '@/actions/work-order'
 import { safeParseFloat } from '@/utils'
 import { DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import WorkOrderLineItemForm from '../work-order-line-item-form'
@@ -29,7 +30,7 @@ type WorkOrderLineItemTabProps = {
   workOrderItems: ReturnType<typeof useWoItemsByWoCode>
 }
 
-type DataSource = WorkOrderItemForm
+type DataSource = Record<string, any> & WorkOrderItemForm
 
 export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: WorkOrderLineItemTabProps) {
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-work-order-item'
@@ -41,6 +42,8 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
   const [isViewMode, setIsViewMode] = useState(false)
 
   const { executeAsync } = useAction(deleteWorkOrderLineItem)
+  const upsertWorkOrderLineItemClient = useAction(upsertWorkOrderLineItem)
+
   const dataGridRef = useRef<DataGridRef | null>(null)
 
   const projectItems = useProjecItems(workOrder.projectIndividualCode ?? 0)
@@ -54,32 +57,45 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
       .filter((woItem) => woItem.projectItem !== null)
       .map((woItem) => {
         const pItem = woItem.projectItem
+        const itemMaster = pItem?.item
 
-        const cost = safeParseFloat(woItem.cost)
-        const qty = safeParseFloat(woItem.qty)
+        if (!pItem || !itemMaster) return null
+
+        const cost = safeParseFloat(pItem?.cost)
+        const qty = safeParseFloat(woItem?.qty)
+        const availableToOrder = safeParseFloat(pItem?.availableToOrder)
+        const inProcess = safeParseFloat(pItem?.inProcess)
+        const totalStock = safeParseFloat(pItem?.totalStock)
+
+        const warehouse = pItem?.warehouse
+        const dateReceivedBy = pItem?.dateReceivedByUser ? `${pItem.dateReceivedByUser.fname}${pItem.dateReceivedByUser.lname ? ` ${pItem.dateReceivedByUser.lname}` : ''}` : '' // prettier-ignore
 
         return {
-          projectItemCode: pItem.code,
-          warehouseCode: woItem.warehouseCode,
-          partNumber: woItem?.partNumber ?? '',
-          dateCode: woItem?.dateCode ?? null,
-          countryOfOrigin: woItem?.countryOfOrigin ?? null,
-          lotCode: woItem?.lotCode ?? null,
-          palletNo: woItem?.palletNo ?? null,
-          dateReceived: woItem?.dateReceived ?? null,
-          dateReceivedBy: woItem?.dateReceivedBy ?? null,
-          packagingType: woItem?.packagingType ?? null,
-          spq: woItem?.spq ?? null,
+          projectItemCode: pItem?.code,
+          manufacturerPartNumber: itemMaster?.manufacturerPartNumber || '',
+          manufacturer: itemMaster?.manufacturer || '',
+          partNumber: pItem?.partNumber || '',
+          description: itemMaster?.description || '',
+          dateCode: pItem?.dateCode || '',
+          countryOfOrigin: pItem?.countryOfOrigin || '',
+          lotCode: pItem?.lotCode || '',
+          palletNo: pItem?.palletNo || '',
+          warehouseName: warehouse?.name || '',
+          warehouseCode: warehouse?.code,
+          warehouseDescription: warehouse?.description || '',
+          dateReceived: pItem?.dateReceived,
+          dateReceivedBy,
+          packagingType: pItem?.packagingType || '',
+          spq: pItem?.spq || '',
+          availableToOrder,
+          inProcess,
+          totalStock,
           cost,
           qty,
-
-          //* set temporary fields
-          projectName: pItem?.projectIndividual?.name ?? null,
-          projectItemManufacturer: pItem?.item?.manufacturer ?? null,
-          projectItemMpn: pItem?.item?.manufacturerPartNumber ?? null,
-          projectItemDescription: pItem?.item?.description ?? null,
+          item: itemMaster,
         }
       })
+      .filter((item) => item !== null)
   }, [JSON.stringify(workOrderItems)])
 
   const dataGridStore = useDataGridStore([
@@ -103,15 +119,15 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
     setIsOpen(true)
   }, [])
 
-  const handleView = useCallback((e: DataGridTypes.RowClickEvent) => {
-    const rowType = e.rowType
-    if (rowType !== 'data') return
-
-    const data = e.data
-    if (!data) return
-    setRowData(e.data)
-    setIsViewMode(true)
-  }, [])
+  const handleView = useCallback(
+    (e: DataGridTypes.ColumnButtonClickEvent) => {
+      const data = e.row?.data
+      if (!data) return
+      setRowData(data)
+      setIsViewMode(true)
+    },
+    [setRowData, setIsViewMode]
+  )
 
   const handleEdit = useCallback(
     (e: DataGridTypes.ColumnButtonClickEvent) => {
@@ -168,6 +184,33 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
     setIsViewMode(false)
   }, [])
 
+  const handleOnRowUpdated = useCallback(
+    async (e: DataGridTypes.RowUpdatedEvent<any, any>) => {
+      const updatedData = e.data
+      const workOrderCode = workOrder.code
+
+      const formData = { workOrderCode, projectItemCode: updatedData.projectItemCode, qty: updatedData.qty, operation: 'update' as const }
+
+      try {
+        const response = await upsertWorkOrderLineItemClient.executeAsync(formData)
+        const result = response?.data
+
+        if (result?.error) {
+          toast.error(result.message)
+          return
+        }
+
+        toast.success(result?.message)
+
+        if (result?.data && result?.data?.workOrderItem) workOrderItems.execute({ workOrderCode })
+      } catch (error) {
+        console.error(error)
+        toast.error('Something went wrong! Please try again later.')
+      }
+    },
+    [JSON.stringify(workOrderItems), JSON.stringify(workOrder.code)]
+  )
+
   //* show loading
   useEffect(() => {
     if (dataGridRef.current) {
@@ -199,24 +242,35 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
               storageKey={DATAGRID_STORAGE_KEY}
               keyExpr='projectItemCode'
               dataGridStore={dataGridStore}
-              callbacks={{ onRowClick: handleView }}
+              callbacks={{ onRowUpdated: handleOnRowUpdated }}
             >
-              <Column dataField='partNumber' dataType='string' caption='Part Number' sortOrder='asc' />
-              <Column dataField='projectItemManufacturer' dataType='string' caption='Manufacturer' />
-              <Column dataField='projectItemMpn' dataType='string' caption='MFG P/N' />
-              <Column dataField='projectItemDescription' dataType='string' caption='Description' />
+              <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' sortOrder='asc' allowEditing={false} />
+              <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
+              <Column dataField='manufacturer' dataType='string' caption='Manufacturer' allowEditing={false} />
+              <Column dataField='manufacturerPartNumber' dataType='string' caption='MFG P/N' allowEditing={false} />
+              <Column dataField='description' dataType='string' caption='Description' allowEditing={false} />
+              <Column
+                dataField='totalStock'
+                dataType='number'
+                caption='Total Stock'
+                alignment='left'
+                format={DEFAULT_NUMBER_FORMAT}
+                allowEditing={false}
+              />
               <Column dataField='qty' dataType='number' caption='Quantity' format={DEFAULT_NUMBER_FORMAT} alignment='left' />
 
-              <Column type='buttons' fixed fixedPosition='right' caption='Actions'>
-                <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' />
-                <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' />
+              <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
+                <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
+                <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' hint='Edit' />
+                <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' hint='Delete' />
               </Column>
+
+              <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
             </CommonDataGrid>
 
             <Popup visible={isOpen} dragEnabled={false} showTitle={false} onHiding={() => setIsOpen(false)} width={undefined}>
               <WorkOrderLineItemForm
                 workOrderCode={workOrder.code}
-                projectCode={workOrder.projectIndividualCode}
                 projectName={workOrder.projectIndividual.name}
                 setIsOpen={setIsOpen}
                 onClose={handleClose}
@@ -231,14 +285,14 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
             <AlertDialog
               isOpen={showConfirmation}
               title='Are you sure?'
-              description={`Are you sure you want to delete this item named "${rowData?.projectItemDescription}"?`}
+              description={`Are you sure you want to delete this item with MFG P/N of "${rowData?.manufacturerPartNumber}" and has Id of "${rowData?.projectItemCode}"?`}
               onConfirm={() => handleConfirm(workOrder.code, rowData?.projectItemCode || 0)}
               onCancel={() => setShowConfirmation(false)}
             />
           </PageContentWrapper>
         </div>
       ) : rowData ? (
-        <WorkOrderLineItemView workOrderCode={workOrder.code} data={rowData} onClose={handleClose} />
+        <WorkOrderLineItemView data={rowData} onClose={handleClose} />
       ) : null}
     </>
   )

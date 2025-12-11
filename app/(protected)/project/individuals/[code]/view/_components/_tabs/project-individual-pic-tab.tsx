@@ -1,7 +1,7 @@
 'use client'
 
 import { getNonCustomerUsers } from '@/actions/users'
-import { Column, DataGridTypes, DataGridRef } from 'devextreme-react/data-grid'
+import { Column, DataGridTypes, DataGridRef, Button } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
 import { useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
@@ -69,13 +69,10 @@ export default function ProjectIndividualPicTab({ projectCode, pics, users }: Pr
     return format(lastSignin, 'MM-dd-yyyy hh:mm a')
   }, [])
 
-  const handleView = useCallback((e: DataGridTypes.RowClickEvent) => {
-    const rowType = e.rowType
-    if (rowType !== 'data') return
-
-    const code = e.data?.code
-    if (!code) return
-    router.push(`/users/${code}/view`)
+  const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
+    const data = e.row?.data
+    if (!data) return
+    router.push(`/users/${data?.code}/view`)
   }, [])
 
   const handleOnSelectionChange = useCallback((e: DataGridTypes.SelectionChangedEvent) => {
@@ -152,7 +149,7 @@ export default function ProjectIndividualPicTab({ projectCode, pics, users }: Pr
           selectedRowKeys={selectedRowKeys}
           callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChange }}
         >
-          <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
+          <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
           <Column dataField='username' dataType='string' />
           <Column
             dataField='fullName'
@@ -171,6 +168,10 @@ export default function ProjectIndividualPicTab({ projectCode, pics, users }: Pr
           <Column dataField='location' dataType='string' />
           <Column dataField='lastIpAddress' dataType='string' caption='Last IP Address' />
           <Column dataField='lastSignin' dataType='string' caption='Last Signin' cellRender={lastSigninCellRender} />
+
+          <Column type='buttons' minWidth={100} fixed fixedPosition='right' caption='Actions'>
+            <Button icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
+          </Column>
         </CommonDataGrid>
       </PageContentWrapper>
     </>

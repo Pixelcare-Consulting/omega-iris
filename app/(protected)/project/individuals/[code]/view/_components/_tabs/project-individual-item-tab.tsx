@@ -21,6 +21,10 @@ import ProjectItemForm from '../project-individual-item-form'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import AlertDialog from '@/components/alert-dialog'
 import ProjectIndividualItemView from '../project-individual-item-view'
+import useUsers from '@/hooks/safe-actions/user'
+import { useWarehouses } from '@/hooks/safe-actions/warehouse'
+import useItems from '@/hooks/safe-actions/item'
+import { DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 
 type ProjectIndividualItemTabProps = {
   projectCode: number
@@ -29,7 +33,7 @@ type ProjectIndividualItemTabProps = {
 }
 type DataSource = Awaited<ReturnType<typeof getProjecItems>>
 
-export default function ProjectIndividualItemTa({ projectCode, projectName, items }: ProjectIndividualItemTabProps) {
+export default function ProjectIndividualItemTab({ projectCode, projectName, items }: ProjectIndividualItemTabProps) {
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual-item'
   const DATAGRID_UNIQUE_KEY = 'project-individual-items'
 
@@ -37,6 +41,10 @@ export default function ProjectIndividualItemTa({ projectCode, projectName, item
   const [isOpen, setIsOpen] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
   const [isViewMode, setIsViewMode] = useState(false)
+
+  const users = useUsers()
+  const warehouses = useWarehouses()
+  const itemMasters = useItems()
 
   const { executeAsync } = useAction(deleteProjectItem)
   const dataGridRef = useRef<DataGridRef | null>(null)
@@ -64,19 +72,26 @@ export default function ProjectIndividualItemTa({ projectCode, projectName, item
     return <img src={thumbnail || '/images/placeholder-img.jpg'} className='size-[60px]' />
   }, [])
 
+  const dateReceivedByCalculatedCellValue = useCallback((rowData: DataSource[number]) => {
+    const dateReceivedBy = rowData?.dateReceivedByUser
+    const fullName = `${dateReceivedBy?.fname}${dateReceivedBy?.lname ? ` ${dateReceivedBy?.lname}` : ''}`
+    if (!dateReceivedBy || !fullName) return ''
+    return fullName
+  }, [])
+
   const handleAdd = useCallback(() => {
     setIsOpen(true)
   }, [])
 
-  const handleView = useCallback((e: DataGridTypes.RowClickEvent) => {
-    const rowType = e.rowType
-    if (rowType !== 'data') return
-
-    const code = e.data?.code
-    if (!code) return
-    setRowData(e.data)
-    setIsViewMode(true)
-  }, [])
+  const handleView = useCallback(
+    (e: DataGridTypes.ColumnButtonClickEvent) => {
+      const data = e.row?.data
+      if (!data) return
+      setRowData(data)
+      setIsViewMode(true)
+    },
+    [setRowData, setIsViewMode]
+  )
 
   const handleEdit = useCallback(
     (e: DataGridTypes.ColumnButtonClickEvent) => {
@@ -205,23 +220,41 @@ export default function ProjectIndividualItemTa({ projectCode, projectName, item
               dataGridStore={dataGridStore}
               callbacks={{ onRowClick: handleView }}
             >
-              <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
-              <Column dataField='item.thumbnail' width={140} caption='Thumbnail' cellRender={thumbnailCellRender} />
-              <Column dataField='projectIndividual.name' dataType='string' caption='Project' />
-              <Column dataField='item.manufacturer' dataType='string' caption='Manufacturer' />
+              <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
+              <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} />
               <Column dataField='item.manufacturerPartNumber' dataType='string' caption='MFG P/N' />
+              <Column dataField='item.manufacturer' dataType='string' caption='Manufacturer' />
+              <Column dataField='partNumber' dataType='string' caption='Part Number' />
               <Column dataField='item.description' dataType='string' caption='Description' />
+              <Column dataField='dateCode' dataType='string' caption='Date Code' />
+              <Column dataField='countryOfOrigin' dataType='string' caption='Country Of Origin' />
+              <Column dataField='lotCode' dataType='string' caption='Lot Code' />
+              <Column dataField='palletNo' dataType='string' caption='Pallet No' />
+              <Column dataField='warehouse.name' dataType='string' caption='Warehouse' />
+              <Column dataField='dateReceived' dataType='datetime' caption='Date Received' />
               <Column
-                dataField='isActive'
+                dataField='dateReceivedBy'
                 dataType='string'
-                caption='Status'
-                calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
+                caption='Date Received By'
+                calculateCellValue={dateReceivedByCalculatedCellValue}
               />
-              <Column dataField='notes' dataType='string' caption='Notes' />
+              <Column dataField='packagingType' dataType='string' caption='Packaging Type' />
+              <Column dataField='spq' dataType='string' caption='SPQ' />
+              <Column
+                dataField='availableToOrder'
+                dataType='number'
+                caption='Available To Order'
+                alignment='left'
+                format={DEFAULT_NUMBER_FORMAT}
+              />
+              <Column dataField='inProcess' dataType='number' caption='In Process' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
+              <Column dataField='totalStock' dataType='number' caption='Total Stock' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
+              <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
 
-              <Column type='buttons' fixed fixedPosition='right' caption='Actions'>
-                <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' />
-                <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' />
+              <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
+                <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
+                <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' hint='Edit' />
+                <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' hint='Delete' />
               </Column>
             </CommonDataGrid>
 
@@ -231,8 +264,11 @@ export default function ProjectIndividualItemTa({ projectCode, projectName, item
                 projectName={projectName}
                 setIsOpen={setIsOpen}
                 onClose={handleClose}
-                items={items}
                 item={rowData || null}
+                items={items}
+                itemMasters={itemMasters}
+                users={users}
+                warehouses={warehouses}
               />
             </Popup>
 
