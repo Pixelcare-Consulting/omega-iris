@@ -19,7 +19,7 @@ export async function getItemGroups() {
 }
 
 export const getItemGroupsClient = action.use(authenticationMiddleware).action(async () => {
-  return getItemGroups
+  return getItemGroups()
 })
 
 export async function getItemGroupByCode(code: number) {

@@ -99,7 +99,7 @@ export async function callSapServiceLayerApi(params: CallSapServiceLayerApiParam
     const sapSession = authCookies.data.sapSession
 
     //* create request
-    const response = await axios.post(params.url, {
+    const response = await axios.get(params.url, {
       headers: {
         Cookie: `${sapSession.b1session}; ${sapSession.routeid}`,
         'Content-Type': 'application/json',

@@ -19,7 +19,7 @@ export async function getManufacturers() {
 }
 
 export const getManufacturersClient = action.use(authenticationMiddleware).action(async () => {
-  return getManufacturers
+  return getManufacturers()
 })
 
 export async function getManufacturerByCode(code: number) {
