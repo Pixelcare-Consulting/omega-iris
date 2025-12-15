@@ -4,7 +4,7 @@ import ScrollView from 'devextreme-react/scroll-view'
 import { Button } from 'devextreme-react/button'
 import { Item } from 'devextreme-react/toolbar'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { FormProvider, useForm } from 'react-hook-form'
+import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
 import { useParams } from 'next/navigation'
 import { useEffect, useMemo } from 'react'
@@ -29,6 +29,9 @@ import { DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import { useItemWarehouseInventory } from '@/hooks/safe-actions/item-warehouse-inventory'
 import ItemWarehouseInventoryForm from './item-warehouse-inventory-form'
+import { useItemGroups } from '@/hooks/safe-actions/item-group'
+import { useManufacturers } from '@/hooks/safe-actions/manufacturer'
+import { commonItemRender } from '@/utils/devextreme'
 
 type ItemFormProps = { pageMetaData: PageMetadata; item: Awaited<ReturnType<typeof getItemByCode>> }
 
@@ -57,7 +60,9 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
         ItemCode: null,
         ItemName: null,
         ItmsGrpCod: null,
+        ItmsGrpNam: null,
         FirmCode: null,
+        FirmName: null,
         Price: null,
       }
     }
@@ -71,9 +76,16 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
     resolver: zodResolver(itemFormSchema),
   })
 
+  const ItmsGrpCod = useWatch({ control: form.control, name: 'ItmsGrpCod' })
+  const FirmCode = useWatch({ control: form.control, name: 'FirmCode' })
+
   const { executeAsync, isExecuting } = useAction(upsertItem)
-  const warehouses = useWarehouses()
-  const itemWarehouseInventory = useItemWarehouseInventory(item?.code)
+
+  const itemGroups = useItemGroups()
+  const manufacturers = useManufacturers()
+
+  // const warehouses = useWarehouses()
+  // const itemWarehouseInventory = useItemWarehouseInventory(item?.code)
 
   const handleOnSubmit = async (formData: ItemForm) => {
     try {
@@ -93,7 +105,8 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
 
       if (result?.data && result?.data?.item && 'id' in result?.data?.item) {
         router.refresh()
-        itemWarehouseInventory.execute({ itemCode: result.data.item.code })
+
+        // itemWarehouseInventory.execute({ itemCode: result.data.item.code })
 
         setTimeout(() => {
           router.push(`/inventory/${result.data.item.code}`)
@@ -153,6 +166,22 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
 
   //   form.setValue('warehouseInventory', values)
   // }, [JSON.stringify(item), JSON.stringify(itemWarehouseInventory), JSON.stringify(warehouses)])
+
+  //* set item group name when itmsGrpCod is changed
+  useEffect(() => {
+    if (ItmsGrpCod && !itemGroups.isLoading && itemGroups.data?.length > 0) {
+      const selectedItemGroup = itemGroups.data.find((ig: any) => ig.Number === ItmsGrpCod)
+      if (selectedItemGroup) form.setValue('ItmsGrpNam', selectedItemGroup.GroupName)
+    }
+  }, [ItmsGrpCod, JSON.stringify(itemGroups)])
+
+  //* set manufacturer name when firmCode is changed
+  useEffect(() => {
+    if (FirmCode && !manufacturers.isLoading && manufacturers.data?.length > 0) {
+      const selectedManufacturer = manufacturers.data.find((m: any) => m.Code === FirmCode)
+      if (selectedManufacturer) form.setValue('FirmName', selectedManufacturer.ManufacturerName)
+    }
+  }, [FirmCode, JSON.stringify(manufacturers)])
 
   return (
     <FormProvider {...form}>
@@ -243,13 +272,25 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
 
               <div className='col-span-12 md:col-span-6 lg:col-span-4'>
                 <SelectBoxField
-                  data={[]}
+                  data={manufacturers.data}
+                  isLoading={manufacturers.isLoading}
                   control={form.control}
                   name='FirmCode'
                   label='Manufacturer'
                   valueExpr='FirmCode'
                   displayExpr='label'
-                  searchExpr={['FirmCode', 'FirmName']}
+                  searchExpr={['ManufacturerName', 'Code']}
+                  extendedProps={{
+                    selectBoxOptions: {
+                      itemRender: (params) => {
+                        return commonItemRender({
+                          title: params?.ManufacturerName,
+                          value: params?.Code,
+                          valuePrefix: '#',
+                        })
+                      },
+                    },
+                  }}
                 />
               </div>
 
@@ -259,13 +300,25 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
 
               <div className='col-span-12 md:col-span-6 lg:col-span-4'>
                 <SelectBoxField
-                  data={[]}
+                  data={itemGroups.data}
+                  isLoading={itemGroups.isLoading}
                   control={form.control}
                   name='ItmsGrpCod'
                   label='Group'
                   valueExpr='ItmsGrpCod'
                   displayExpr='label'
-                  searchExpr={['ItmsGrpCod', 'ItmsGrpNam']}
+                  searchExpr={['GroupName', 'Number']}
+                  extendedProps={{
+                    selectBoxOptions: {
+                      itemRender: (params) => {
+                        return commonItemRender({
+                          title: params?.GroupName,
+                          value: params?.Number,
+                          valuePrefix: '#',
+                        })
+                      },
+                    },
+                  }}
                 />
               </div>
 

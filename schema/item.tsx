@@ -30,7 +30,9 @@ export const itemFormSchema = z.object({
   ItemCode: z.string().nullish(),
   ItemName: z.string().nullish(),
   ItmsGrpCod: z.coerce.number().nullish(),
+  ItmsGrpNam: z.string().nullish(),
   FirmCode: z.coerce.number().nullish(),
+  FirmName: z.string().nullish(),
   Price: z.coerce.number().nullish(),
 })
 

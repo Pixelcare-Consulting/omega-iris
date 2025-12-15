@@ -87,7 +87,7 @@ export function commonItemRender({
   otherItems,
 }: {
   title: string
-  description: string
+  description?: string
   value: string | number
   valuePrefix?: string
   otherItems?: React.ReactNode
@@ -111,20 +111,22 @@ export function commonItemRender({
         >
           {title}
         </span>
-        <span
-          style={{
-            display: 'inline-block',
-            width: '100%',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            color: '#94A3B8',
-            fontSize: 12,
-          }}
-          title={description}
-        >
-          {description}
-        </span>
+        {description && (
+          <span
+            style={{
+              display: 'inline-block',
+              width: '100%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              color: '#94A3B8',
+              fontSize: 12,
+            }}
+            title={description}
+          >
+            {description}
+          </span>
+        )}
 
         {otherItems}
       </div>
