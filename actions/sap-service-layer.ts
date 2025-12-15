@@ -110,8 +110,8 @@ export async function callSapServiceLayerApi(params: CallSapServiceLayerApiParam
     })
 
     return response.data
-  } catch (error) {
-    logger.error('Failed to call SAP Service Layer API')
+  } catch (error: any) {
+    logger.error(error?.message || 'Failed to call SAP Service Layer API')
     return null
   }
 }

@@ -277,8 +277,8 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
                   control={form.control}
                   name='FirmCode'
                   label='Manufacturer'
-                  valueExpr='FirmCode'
-                  displayExpr='label'
+                  valueExpr='Code'
+                  displayExpr='ManufacturerName'
                   searchExpr={['ManufacturerName', 'Code']}
                   extendedProps={{
                     selectBoxOptions: {
@@ -305,8 +305,8 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
                   control={form.control}
                   name='ItmsGrpCod'
                   label='Group'
-                  valueExpr='ItmsGrpCod'
-                  displayExpr='label'
+                  valueExpr='Number'
+                  displayExpr='GroupName'
                   searchExpr={['GroupName', 'Number']}
                   extendedProps={{
                     selectBoxOptions: {
