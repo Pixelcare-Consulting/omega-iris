@@ -7,6 +7,7 @@ import ReadOnlyField from '@/components/read-only-field'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Copy from '@/components/copy'
 import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
+import Separator from '@/components/separator'
 
 type ProjectIndividualOverviewTabProps = {
   projectIndividual: NonNullable<Awaited<ReturnType<typeof getPiByCode>>>
@@ -46,6 +47,7 @@ export default function ProjectIndividualOverviewTab({ projectIndividual }: Proj
 
         <ReadOnlyField className='col-span-12' title='Description' value={projectIndividual?.description || ''} />
 
+        <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='Record Meta data' description='Project group record meta data' />
 
         <RecordMetaData

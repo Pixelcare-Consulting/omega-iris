@@ -45,13 +45,10 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
     'setShowColumnChooser',
   ])
 
-  const handleView = useCallback((e: DataGridTypes.RowClickEvent) => {
-    const rowType = e.rowType
-    if (rowType !== 'data') return
-
-    const code = e.data?.code
-    if (!code) return
-    router.push(`/warehouses/${code}/view`)
+  const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
+    const data = e.row?.data
+    if (!data) return
+    router.push(`/warehouses/${data?.code}/view`)
   }, [])
 
   const handleEdit = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
@@ -104,19 +101,13 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
-          addButton={{ text: 'Add Warehouse', onClick: () => router.push('/warehouses/add') }}
+          // addButton={{ text: 'Add Warehouse', onClick: () => router.push('/warehouses/add') }}
         />
       </PageHeader>
 
       <PageContentWrapper className='h-[calc(100%_-_92px)]'>
-        <CommonDataGrid
-          dataGridRef={dataGridRef}
-          data={warehouses}
-          storageKey={DATAGRID_STORAGE_KEY}
-          callbacks={{ onRowClick: handleView }}
-          dataGridStore={dataGridStore}
-        >
-          <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
+        <CommonDataGrid dataGridRef={dataGridRef} data={warehouses} storageKey={DATAGRID_STORAGE_KEY} dataGridStore={dataGridStore}>
+          <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
           <Column dataField='name' dataType='string' />
           <Column dataField='description' dataType='string' />
           <Column
@@ -134,9 +125,10 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
           <Column dataField='createdAt' dataType='datetime' caption='Created At' />
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
-          <Column type='buttons' fixed fixedPosition='right' caption='Actions'>
-            <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' />
-            <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' />
+          <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
+            <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
+            <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' hint='Edit' />
+            <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' hint='Delete' />
           </Column>
         </CommonDataGrid>
       </PageContentWrapper>

@@ -7,10 +7,12 @@ import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { projectItemFormSchema } from '@/schema/project-item'
 import { paramsSchema } from '@/schema/common'
+import { safeParseFloat } from '@/utils'
 
 const COMMON_PROJECT_ITEM_INCLUDE = {
   item: true,
-  projectIndividual: true,
+  dateReceivedByUser: { select: { fname: true, lname: true } },
+  warehouse: { select: { code: true, name: true, description: true } },
 } satisfies Prisma.ProjectItemInclude
 
 const COMMON_PROJECT_ITEM_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectItemOrderByWithRelationInput
@@ -19,11 +21,19 @@ export async function getProjecItems(projectCode: number) {
   if (!projectCode) return []
 
   try {
-    return await db.projectItem.findMany({
+    const result = await db.projectItem.findMany({
       where: { deletedAt: null, deletedBy: null, projectIndividualCode: projectCode },
       include: COMMON_PROJECT_ITEM_INCLUDE,
       orderBy: COMMON_PROJECT_ITEM_ORDER_BY,
     })
+
+    return result.map((item) => ({
+      ...item,
+      cost: safeParseFloat(item.cost),
+      availableToOrder: safeParseFloat(item.availableToOrder),
+      inProcess: safeParseFloat(item.inProcess),
+      totalStock: safeParseFloat(item.totalStock),
+    }))
   } catch (error) {
     console.error(error)
     return []
@@ -59,16 +69,6 @@ export const upsertProjectItem = action
     const { userId } = ctx
 
     try {
-      const existingProjectItem = await db.projectItem.findFirst({
-        where: {
-          projectIndividualCode: data.projectIndividualCode,
-          itemCode: data.itemCode,
-          ...(code && code !== -1 && { code: { not: code } }),
-        },
-      })
-
-      if (existingProjectItem) return { error: true, status: 401, message: 'Project item already exists!', action: 'UPSERT_PROJECT_ITEM' }
-
       //* update item
       if (code !== -1) {
         //* update project item

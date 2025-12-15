@@ -73,10 +73,6 @@ export default function ViewWorkOrder({ workOrder }: ViewWorkOrderProps) {
           <TabPanelITem title='Sales Order'>
             <UnderDevelopment className='h-[60vh]' />
           </TabPanelITem>
-
-          <TabPanelITem title='Purchase Order'>
-            <UnderDevelopment className='h-[60vh]' />
-          </TabPanelITem>
         </TabPanel>
       </PageContentWrapper>
     </div>

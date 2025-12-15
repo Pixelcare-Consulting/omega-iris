@@ -21,13 +21,14 @@ import DataGrid, {
 } from 'devextreme-react/data-grid'
 import React, { Ref } from 'react'
 
-import { DataGridStore, useDataGridStore } from '@/hooks/use-dx-datagrid'
+import { DataGridStore } from '@/hooks/use-dx-datagrid'
 import { handleOnAdaptiveDetailRowPreparing, handleOnRowPrepared } from '@/utils/devextreme'
-import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES } from '@/constants/devextreme'
+import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES, DEFAULT_COLUMN_MIN_WIDTH } from '@/constants/devextreme'
 
 type DataGridCallbacks = {
   onRowClick?: (e: DataGridTypes.RowClickEvent) => void
   onSelectionChanged?: (e: DataGridTypes.SelectionChangedEvent) => void
+  onRowUpdated?: (e: DataGridTypes.RowUpdatedEvent<any, any>) => void
 }
 
 type CommonDataGridProps<T extends Record<string, any>> = {
@@ -65,17 +66,18 @@ export default function CommonDataGrid<T extends Record<string, any>>({
       columnHidingEnabled={dataGridStore.columnHidingEnabled}
       hoverStateEnabled
       allowColumnReordering
-      allowColumnResizing
+      // allowColumnResizing
       width='100%'
       height='100%'
       selectedRowKeys={selectedRowKeys ?? []}
       onRowClick={callbacks?.onRowClick}
       onSelectionChanged={callbacks?.onSelectionChanged}
       onRowPrepared={handleOnRowPrepared}
+      onRowUpdated={callbacks?.onRowUpdated}
       onAdaptiveDetailRowPreparing={handleOnAdaptiveDetailRowPreparing}
-      // columnAutoWidth={false}
-      // columnMinWidth={100}
-      // columnWidth={200}
+      wordWrapEnabled
+      columnAutoWidth={false}
+      columnMinWidth={DEFAULT_COLUMN_MIN_WIDTH}
     >
       {children}
 

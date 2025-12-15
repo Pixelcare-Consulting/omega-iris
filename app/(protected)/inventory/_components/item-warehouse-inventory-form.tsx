@@ -31,7 +31,7 @@ export default function ItemWarehouseInventoryForm({ isLoading }: ItemWarehouseI
 
   const form = useFormContext<ItemForm>()
 
-  const warehouseInventory = useWatch({ control: form.control, name: 'warehouseInventory' }) || []
+  // const warehouseInventory = useWatch({ control: form.control, name: 'warehouseInventory' }) || []
 
   //* show loading
   useEffect(() => {
@@ -46,6 +46,7 @@ export default function ItemWarehouseInventoryForm({ isLoading }: ItemWarehouseI
       <Separator className='col-span-12' />
       <ReadOnlyFieldHeader className='col-span-12 mb-2' title='Warehouse Inventory' description='Item warehouse inventory details' />
 
+      {/* 
       <div className='col-span-12'>
         <DataGrid
           ref={dataGridRef}
@@ -97,7 +98,7 @@ export default function ItemWarehouseInventoryForm({ isLoading }: ItemWarehouseI
           />
           <Paging defaultPageSize={DATAGRID_DEFAULT_PAGE_SIZE} />
         </DataGrid>
-      </div>
+      </div> */}
     </>
   )
 }

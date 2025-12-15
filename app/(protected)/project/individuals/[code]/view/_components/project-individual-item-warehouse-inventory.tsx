@@ -55,7 +55,7 @@ export default function ProjectIndividualItemWarehouseInventory({ itemWarehouseI
           onRowPrepared={handleOnRowPrepared}
           editing={{ allowAdding: false, allowUpdating: false, allowDeleting: false }}
         >
-          <Column dataField='warehouse.code' width={100} dataType='string' caption='ID' sortOrder='asc' alignment='center' />
+          <Column dataField='warehouse.code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' alignment='center' />
           <Column dataField='warehouse.name' dataType='string' caption='Name' alignment='center' />
           <Column dataField='isLocked' dataType='boolean' caption='Lock' alignment='center' />
           <Column dataField='inStock' dataType='number' caption='In Stock' format={DEFAULT_NUMBER_FORMAT} alignment='center' />

@@ -57,8 +57,7 @@ export const upsertWorkOrder = action
     const { code, lineItems, ...data } = parsedInput
     const { userId } = ctx
 
-    const workOrderItems =
-      lineItems?.map(({ projectName, projectItemManufacturer, projectItemMpn, projectItemDescription, ...li }) => li) || []
+    const woItems = lineItems
 
     try {
       if (code !== -1) {
@@ -70,7 +69,7 @@ export const upsertWorkOrder = action
           db.workOrderItem.deleteMany({ where: { workOrderCode: code } }),
 
           //* create new work order items
-          db.workOrderItem.createMany({ data: workOrderItems.map((li) => ({ ...li, workOrderCode: code })) }),
+          db.workOrderItem.createMany({ data: woItems.map((li) => ({ ...li, workOrderCode: code })) }),
         ])
 
         return {
@@ -87,7 +86,7 @@ export const upsertWorkOrder = action
           ...data,
           createdBy: userId,
           updatedBy: userId,
-          workOrderItems: { createMany: { data: workOrderItems } },
+          workOrderItems: { createMany: { data: woItems } },
         },
       })
 
@@ -112,17 +111,8 @@ export const upsertWorkOrder = action
 export const upsertWorkOrderLineItem = action
   .use(authenticationMiddleware)
   .schema(upsertWorkOrderLineItemFormSchema)
-  .action(async ({ ctx, parsedInput }) => {
-    const {
-      workOrderCode,
-      projectItemCode,
-      operation,
-      projectName,
-      projectItemManufacturer,
-      projectItemMpn,
-      projectItemDescription,
-      ...data
-    } = parsedInput
+  .action(async ({ parsedInput }) => {
+    const { workOrderCode, projectItemCode, operation, ...data } = parsedInput
 
     try {
       //* update work order line item
@@ -138,19 +128,6 @@ export const upsertWorkOrderLineItem = action
           action: 'UPDATE_WORK_ORDER_LINE_ITEM',
           data: { workOrderItem: updatedWorkOrderItem },
         }
-      }
-
-      const workOrderLineItems = await db.workOrderItem.findUnique({
-        where: {
-          workOrderCode_projectItemCode: {
-            workOrderCode,
-            projectItemCode,
-          },
-        },
-      })
-
-      if (workOrderLineItems) {
-        return { error: true, status: 401, message: 'Work order line item selected!', action: 'UPSERT_WORK_ORDER_LINE_ITEM' }
       }
 
       //* create work order line item

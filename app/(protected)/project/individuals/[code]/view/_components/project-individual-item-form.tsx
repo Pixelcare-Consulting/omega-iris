@@ -16,18 +16,25 @@ import { type ProjectItemForm, projectItemFormSchema } from '@/schema/project-it
 import LoadingButton from '@/components/loading-button'
 import { upsertProjectItem } from '@/actions/project-item'
 import SelectBoxField from '@/components/forms/select-box-field'
-import { commonItemRender } from '@/utils/devextreme'
+import { commonItemRender, userItemRender } from '@/utils/devextreme'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Separator from '@/components/separator'
 import { getProjecItems } from '@/actions/project-item'
 import useItems from '@/hooks/safe-actions/item'
 import ReadOnlyField from '@/components/read-only-field'
 import { formatNumber } from 'devextreme/localization'
-import { DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
+import { DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { safeParseFloat } from '@/utils'
 import ProjectIndividualItemWarehouseInventory from './project-individual-item-warehouse-inventory'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import { useItemWarehouseInventory } from '@/hooks/safe-actions/item-warehouse-inventory'
+import TextBoxField from '@/components/forms/text-box-field'
+import NumberBoxField from '@/components/forms/number-box-field'
+import DateBoxField from '@/components/forms/date-box-field'
+import useUsers from '@/hooks/safe-actions/user'
+import { useWarehouses } from '@/hooks/safe-actions/warehouse'
+import TextAreaField from '@/components/forms/text-area-field'
+import { FormDebug } from '@/components/forms/form-debug'
 
 type ProjectItemFormProps = {
   projectCode: number
@@ -36,9 +43,20 @@ type ProjectItemFormProps = {
   onClose?: () => void
   item: Awaited<ReturnType<typeof getProjecItems>>[number] | null
   items: ReturnType<typeof useProjecItems>
+  itemMasters: ReturnType<typeof useItems>
+  users: ReturnType<typeof useUsers>
 }
 
-export default function ProjectItemForm({ projectCode, projectName, setIsOpen, onClose, item, items }: ProjectItemFormProps) {
+export default function ProjectItemForm({
+  projectCode,
+  projectName,
+  setIsOpen,
+  onClose,
+  item,
+  items,
+  itemMasters,
+  users,
+}: ProjectItemFormProps) {
   const router = useRouter()
 
   const isCreate = !item
@@ -51,6 +69,24 @@ export default function ProjectItemForm({ projectCode, projectName, setIsOpen, o
         code: -1,
         itemCode: 0,
         projectIndividualCode: projectCode,
+        warehouseCode: null,
+        partNumber: null,
+        dateCode: null,
+        countryOfOrigin: null,
+        lotCode: null,
+        palletNo: null,
+        packagingType: null,
+        spq: null,
+        cost: 0,
+        availableToOrder: 0,
+        inProcess: 0,
+        totalStock: 0,
+        dateReceived: null,
+        dateReceivedBy: null,
+        siteLocation: null,
+        subLocation2: null,
+        subLocation3: null,
+        notes: null,
       }
     }
 
@@ -63,17 +99,29 @@ export default function ProjectItemForm({ projectCode, projectName, setIsOpen, o
     resolver: zodResolver(projectItemFormSchema),
   })
 
+  const warehouseCode = useWatch({ control: form.control, name: 'warehouseCode' })
   const itemCode = useWatch({ control: form.control, name: 'itemCode' })
+
   const { executeAsync, isExecuting } = useAction(upsertProjectItem)
 
-  const baseItems = useItems()
+  const selectedBaseItem = useMemo(() => {
+    if (itemMasters.isLoading || itemMasters.data.length < 1) return null
+    return itemMasters.data.find((i) => i.code === itemCode)
+  }, [itemCode, JSON.stringify(itemMasters)])
 
-  const baseItem = useMemo(() => {
-    if (baseItems.isLoading || baseItems.data.length < 1) return null
-    return baseItems.data.find((i) => i.code === itemCode)
-  }, [itemCode, JSON.stringify(baseItems)])
+  const itemMasterWarehouseInventory = useItemWarehouseInventory(selectedBaseItem?.code)
 
-  const itemWarehouseInventory = useItemWarehouseInventory(baseItem?.code)
+  //* Temporary disable
+  // const selectedItemMasterWarehouseInventory = useMemo(() => {
+  //   if (itemMasterWarehouseInventory.isLoading || itemMasterWarehouseInventory.data.length < 1) return null
+  //   return itemMasterWarehouseInventory.data.find((wi) => wi.warehouseCode === warehouseCode)
+  // }, [JSON.stringify(itemMasterWarehouseInventory), warehouseCode])
+
+  //* Temporary disable
+  // const warehouse = useMemo(() => {
+  //   if (warehouses.isLoading || warehouses.data.length < 1) return null
+  //   return warehouses.data.find((w) => w.code === warehouseCode)
+  // }, [JSON.stringify(warehouses), warehouseCode])
 
   const resetForm = () => {
     form.reset()
@@ -142,12 +190,12 @@ export default function ProjectItemForm({ projectCode, projectName, setIsOpen, o
           <ScrollView>
             {/* <FormDebug form={form} /> */}
 
-            <div className='grid h-full grid-cols-12 gap-5 pr-4'>
+            <div className='grid h-full grid-cols-12 gap-5 py-2 pr-4'>
               <ReadOnlyField
                 className='col-span-12 lg:col-span-3'
                 value={
                   <img
-                    src={baseItem?.thumbnail || '/images/placeholder-img.jpg'}
+                    src={selectedBaseItem?.thumbnail || '/images/placeholder-img.jpg'}
                     className='size-[280px] w-full rounded-2xl object-cover object-center'
                   />
                 }
@@ -156,8 +204,8 @@ export default function ProjectItemForm({ projectCode, projectName, setIsOpen, o
               <div className='col-span-12 grid h-fit grid-cols-12 gap-5 pt-4 md:col-span-12 lg:col-span-9 lg:pt-0'>
                 <div className='col-span-12'>
                   <SelectBoxField
-                    data={baseItems.data}
-                    isLoading={baseItems.isLoading}
+                    data={itemMasters.data}
+                    isLoading={itemMasters.isLoading}
                     control={form.control}
                     name='itemCode'
                     label='Item'
@@ -179,43 +227,228 @@ export default function ProjectItemForm({ projectCode, projectName, setIsOpen, o
                   />
                 </div>
 
-                <ReadOnlyField className='col-span-12 md:col-span-6' title='Manufacturer' value={baseItem?.manufacturer || ''} />
+                <ReadOnlyField className='col-span-12 md:col-span-6' title='Manufacturer' value={selectedBaseItem?.manufacturer || ''} />
 
-                <ReadOnlyField className='col-span-12 md:col-span-6' title='MFG P/N' value={baseItem?.manufacturerPartNumber || ''} />
+                <ReadOnlyField
+                  className='col-span-12 md:col-span-6'
+                  title='MFG P/N'
+                  value={selectedBaseItem?.manufacturerPartNumber || ''}
+                />
 
-                <ReadOnlyField className='col-span-12 md:col-span-6' title='Description ' value={baseItem?.description || ''} />
+                <ReadOnlyField className='col-span-12 md:col-span-6' title='Description ' value={selectedBaseItem?.description || ''} />
 
-                <ReadOnlyField className='col-span-12 md:col-span-6' title='Active' value={baseItem?.isActive ? 'Active' : 'Inactive'} />
+                <ReadOnlyField
+                  className='col-span-12 md:col-span-6'
+                  title='Active'
+                  value={selectedBaseItem?.isActive ? 'Active' : 'Inactive'}
+                />
 
-                <ReadOnlyField className='col-span-12' title='Notes' value={baseItem?.notes || ''} />
+                <ReadOnlyField className='col-span-12' title='Notes' value={selectedBaseItem?.notes || ''} />
               </div>
 
               <Separator className='col-span-12' />
               <ReadOnlyFieldHeader className='col-span-12 mb-1' title='SAP Fields' description='SAP related fields' />
 
-              <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Code' value={baseItem?.ItemCode || ''} />
+              <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Code' value={selectedBaseItem?.ItemCode || ''} />
 
               <ReadOnlyField
-                className='col-span-12 md:col-span-6 lg:col-span-4'
+                className='col-span-12 md:col-span-6 lg:col-span-3'
                 title='Manufacturer Code'
-                value={baseItem?.FirmCode || ''}
+                value={selectedBaseItem?.FirmCode || ''}
               />
 
-              <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Manufacturer Name' value={''} />
-
-              <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Description' value={baseItem?.ItemName || ''} />
-
-              <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Group Code' value={baseItem?.ItmsGrpCod || ''} />
-
-              <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Group Name' value={''} />
+              <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Manufacturer Name' value={''} />
 
               <ReadOnlyField
-                className='col-span-12 md:col-span-6 lg:col-span-4'
-                title='Price'
-                value={formatNumber(safeParseFloat(baseItem?.Price), DEFAULT_CURRENCY_FORMAT)}
+                className='col-span-12 md:col-span-6 lg:col-span-3'
+                title='Description'
+                value={selectedBaseItem?.ItemName || ''}
               />
 
-              <ProjectIndividualItemWarehouseInventory itemWarehouseInventory={itemWarehouseInventory} />
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-3'
+                title='Group Code'
+                value={selectedBaseItem?.ItmsGrpCod || ''}
+              />
+
+              <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Group Name' value={''} />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-3'
+                title='Price'
+                value={formatNumber(safeParseFloat(selectedBaseItem?.Price), DEFAULT_CURRENCY_FORMAT)}
+              />
+
+              <Separator className='col-span-12' />
+              <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Project Item' description='Project item details' />
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <TextBoxField control={form.control} name='partNumber' label='Part Number' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <TextBoxField control={form.control} name='dateCode' label='Date Code' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <TextBoxField control={form.control} name='countryOfOrigin' label='Country Of Origin' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <TextBoxField control={form.control} name='lotCode' label='Lot Code' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <TextBoxField control={form.control} name='palletNo' label='Pallet No' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <TextBoxField control={form.control} name='packagingType' label='Packaging Type' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <TextBoxField control={form.control} name='spq' label='SPQ' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <NumberBoxField
+                  control={form.control}
+                  name='cost'
+                  label='Cost'
+                  extendedProps={{ numberBoxOptions: { format: DEFAULT_CURRENCY_FORMAT } }}
+                />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <NumberBoxField
+                  control={form.control}
+                  name='availableToOrder'
+                  label='Available To Order'
+                  extendedProps={{ numberBoxOptions: { format: DEFAULT_NUMBER_FORMAT } }}
+                />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <NumberBoxField
+                  control={form.control}
+                  name='inProcess'
+                  label='In Process'
+                  extendedProps={{ numberBoxOptions: { format: DEFAULT_NUMBER_FORMAT } }}
+                />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <NumberBoxField
+                  control={form.control}
+                  name='totalStock'
+                  label='Total Stock'
+                  extendedProps={{ numberBoxOptions: { format: DEFAULT_NUMBER_FORMAT } }}
+                />
+              </div>
+
+              <div className='col-span-12'>
+                <TextAreaField control={form.control} name='notes' label='Notes' />
+              </div>
+
+              <Separator className='col-span-12' />
+              <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Location' description='Item location details' />
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                <TextBoxField control={form.control} name='siteLocation' label='Site Location' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                <TextBoxField control={form.control} name='subLocation2' label='Sub Location 2' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                <TextBoxField control={form.control} name='subLocation3' label='Sub Location 3' />
+              </div>
+
+              <Separator className='col-span-12' />
+              <ReadOnlyFieldHeader
+                className='col-span-12 mb-1'
+                title='Item Received '
+                description='Item date received and received by details'
+              />
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <DateBoxField control={form.control} type='datetime' name='dateReceived' label='Date Received' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <SelectBoxField
+                  data={users.data}
+                  isLoading={users.isLoading}
+                  control={form.control}
+                  name='dateReceivedBy'
+                  label='Received By'
+                  valueExpr='code'
+                  displayExpr={(item) => (item ? `${item?.fname}${item?.lname ? ` ${item?.lname}` : ''}` : '')}
+                  searchExpr={['fname', 'lname', 'code', 'email']}
+                  extendedProps={{ selectBoxOptions: { itemRender: userItemRender } }}
+                />
+              </div>
+
+              {/* //* Temporary disable */}
+              {/* <Separator className='col-span-12' />
+              <ReadOnlyFieldHeader
+                className='col-span-12 mb-1'
+                title='Site Location '
+                description='Item warehouse and warehouse inventory details'
+              />
+
+              <div className='col-span-12 md:col-span-6'>
+                <SelectBoxField
+                  data={warehouses.data}
+                  isLoading={warehouses.isLoading}
+                  control={form.control}
+                  name='warehouseCode'
+                  label='Warehouse'
+                  valueExpr='code'
+                  displayExpr='name'
+                  searchExpr={['code', 'name']}
+                  isRequired
+                  extendedProps={{
+                    selectBoxOptions: {
+                      itemRender: (params) => {
+                        return commonItemRender({
+                          title: params?.name,
+                          description: params?.description,
+                          value: params?.code,
+                          valuePrefix: '#',
+                        })
+                      },
+                    },
+                  }}
+                />
+              </div>
+
+              <ReadOnlyField className='col-span-12 md:col-span-6' title='Description' value={warehouse?.description || ''} />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-3'
+                title='In Stock'
+                value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.inStock), DEFAULT_NUMBER_FORMAT)}
+              />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-3'
+                title='Committed'
+                value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.committed), DEFAULT_NUMBER_FORMAT)}
+              />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-3'
+                title='Ordered'
+                value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.ordered), DEFAULT_NUMBER_FORMAT)}
+              />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-3'
+                title='Available'
+                value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.available), DEFAULT_NUMBER_FORMAT)}
+              /> */}
             </div>
           </ScrollView>
         </PageContentWrapper>

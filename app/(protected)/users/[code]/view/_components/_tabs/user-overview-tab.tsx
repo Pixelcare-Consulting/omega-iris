@@ -48,6 +48,7 @@ export default function UserOverviewTab({ user }: UserOverviewTabProps) {
           value={user?.lastSignin && isValid(user?.lastSignin) ? format(user.lastSignin, 'MM-dd-yyyy hh:mm a') : ''}
         />
 
+        <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='Record Meta data' description='Role record meta data' />
 
         <RecordMetaData

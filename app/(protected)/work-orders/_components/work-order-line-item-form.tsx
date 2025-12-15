@@ -2,6 +2,7 @@ import { Dispatch, SetStateAction, useCallback, useEffect, useMemo } from 'react
 import { Item } from 'devextreme-react/toolbar'
 import { Button } from 'devextreme-react/button'
 import ScrollView from 'devextreme-react/scroll-view'
+import { format, isValid } from 'date-fns'
 
 import { WorkOrderForm, workOrderItemFormSchema } from '@/schema/work-order'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -14,9 +15,7 @@ import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import { useItemWarehouseInventory } from '@/hooks/safe-actions/item-warehouse-inventory'
 import PageContentWrapper from '../../_components/page-content-wrapper'
 import SelectBoxField from '@/components/forms/select-box-field'
-import { commonItemRender, userItemRender } from '@/utils/devextreme'
-import TextBoxField from '@/components/forms/text-box-field'
-import DateBoxField from '@/components/forms/date-box-field'
+import { commonItemRender } from '@/utils/devextreme'
 import useUsers from '@/hooks/safe-actions/user'
 import Separator from '@/components/separator'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
@@ -30,26 +29,16 @@ import { Badge } from '@/components/badge'
 import { FormDebug } from '@/components/forms/form-debug'
 
 type WorkOrderLineItemFormProps = {
-  projectCode?: number
   projectName?: string
   setIsOpen: Dispatch<SetStateAction<boolean>>
   onClose?: () => void
-  lineItem: WorkOrderItemForm | null
+  lineItem: (Record<string, any> & WorkOrderItemForm) | null
   users: ReturnType<typeof useUsers>
   warehouses: ReturnType<typeof useWarehouses>
   projectItems: ReturnType<typeof useProjecItems>
 }
 
-export default function WorkOrderLineItemForm({
-  projectCode,
-  projectName,
-  setIsOpen,
-  onClose,
-  lineItem,
-  users,
-  warehouses,
-  projectItems,
-}: WorkOrderLineItemFormProps) {
+export default function WorkOrderLineItemForm({ projectName, setIsOpen, onClose, lineItem, projectItems }: WorkOrderLineItemFormProps) {
   const mainForm = useFormContext<WorkOrderForm>()
 
   const lineItems = useWatch({ control: mainForm.control, name: 'lineItems' }) || []
@@ -59,29 +48,7 @@ export default function WorkOrderLineItemForm({
   const values = useMemo(() => {
     if (lineItem) return lineItem
 
-    if (isCreate) {
-      return {
-        projectItemCode: 0,
-        warehouseCode: 0,
-        partNumber: '',
-        dateCode: null,
-        countryOfOrigin: null,
-        lotCode: null,
-        palletNo: null,
-        dateReceived: null,
-        dateReceivedBy: null,
-        packagingType: null,
-        spq: null,
-        cost: 0,
-        qty: 0,
-
-        //* temporary fields
-        projectName: null,
-        projectItemManufacturer: null,
-        projectItemMpn: null,
-        projectItemDescription: null,
-      }
-    }
+    if (isCreate) return { projectItemCode: 0, qty: 0 }
 
     return undefined
   }, [isCreate, JSON.stringify(lineItem)])
@@ -93,7 +60,6 @@ export default function WorkOrderLineItemForm({
   })
 
   const projectItemCode = useWatch({ control: form.control, name: 'projectItemCode' })
-  const warehouseCode = useWatch({ control: form.control, name: 'warehouseCode' })
 
   const projectItemsOptions = useMemo(() => {
     if (projectItems.isLoading || projectItems.data.length < 1) return []
@@ -114,12 +80,29 @@ export default function WorkOrderLineItemForm({
     return projectItems.data.find((pi) => pi.code === projectItemCode)
   }, [JSON.stringify(projectItems), projectItemCode])
 
-  const itemWarehouseInventory = useItemWarehouseInventory(selectedProjectItem?.item?.code)
+  //* Temporary disable
+  // const itemWarehouseInventory = useItemWarehouseInventory(selectedProjectItem?.item?.code)
 
-  const selectedItemWarehouseInventory = useMemo(() => {
-    if (itemWarehouseInventory.isLoading || itemWarehouseInventory.data.length < 1) return null
-    return itemWarehouseInventory.data.find((wi) => wi.warehouseCode === warehouseCode)
-  }, [JSON.stringify(itemWarehouseInventory), warehouseCode])
+  //* Temporary disable
+  // const selectedItemWarehouseInventory = useMemo(() => {
+  //   if (itemWarehouseInventory.isLoading || itemWarehouseInventory.data.length < 1) return null
+  //   return itemWarehouseInventory.data.find((wi) => wi.warehouseCode === selectedProjectItem?.warehouse?.code)
+  // }, [JSON.stringify(itemWarehouseInventory), JSON.stringify(selectedProjectItem?.warehouse?.code)])
+
+  const dateReceived = useMemo(() => {
+    if (!selectedProjectItem?.dateReceived || !isValid(selectedProjectItem?.dateReceived)) return ''
+    return format(selectedProjectItem?.dateReceived, 'MM/dd/yyyy hh:mm a')
+  }, [JSON.stringify(selectedProjectItem?.dateReceived)])
+
+  const dateReceivedBy = useMemo(() => {
+    if (!selectedProjectItem?.dateReceivedByUser) return ''
+    return `${selectedProjectItem?.dateReceivedByUser.fname}${selectedProjectItem?.dateReceivedByUser.lname ? ` ${selectedProjectItem?.dateReceivedByUser.lname}` : ''}`
+  }, [JSON.stringify(selectedProjectItem?.dateReceivedByUser)])
+
+  //* Temporary disable
+  // const warehouse = useMemo(() => {
+  //   return selectedProjectItem?.warehouse
+  // }, [JSON.stringify(selectedProjectItem)])
 
   const resetForm = () => {
     form.reset()
@@ -134,19 +117,9 @@ export default function WorkOrderLineItemForm({
 
   const handleOnSubmit = useCallback(
     async (formData: WorkOrderItemForm) => {
-      const item = selectedProjectItem?.item
-
-      const finalFormData = {
-        ...formData,
-        projectName: projectName,
-        projectItemManufacturer: item?.manufacturer, //TODO: should use the one from SAP
-        projectItemMpn: item?.manufacturerPartNumber, //TODO: should use the one from SAP
-        projectItemDescription: item?.description, //TODO: should use the one from SAP
-      }
-
       if (isCreate) {
         //* throw error if item is already selected
-        const isSelected = lineItems.find((li) => li.projectItemCode === finalFormData.projectItemCode)
+        const isSelected = lineItems.find((li) => li.projectItemCode === formData.projectItemCode)
 
         if (isSelected) {
           form.setError('projectItemCode', { type: 'custom', message: 'Item already selected!' })
@@ -156,16 +129,27 @@ export default function WorkOrderLineItemForm({
 
         //* if create push the new line item
         const currentLineItems = [...lineItems]
-        currentLineItems.push(finalFormData)
+        currentLineItems.push(formData)
         mainForm.setValue('lineItems', currentLineItems)
         mainForm.clearErrors('lineItems')
       } else {
+        //* throw error if item is already selected, it should not equial to the current line item project item code and should not exist in the line items
+        const isSelected = lineItems.find(
+          (li) => lineItem.projectItemCode !== formData.projectItemCode && li.projectItemCode === formData.projectItemCode
+        )
+
+        if (isSelected) {
+          form.setError('projectItemCode', { type: 'custom', message: 'Item already selected!' })
+          toast.error('Item already selected!')
+          return
+        }
+
         //* if edit update the existing line item
         const currentLineItems = [...lineItems]
-        const index = currentLineItems.findIndex((li) => li.projectItemCode === finalFormData.projectItemCode)
+        const index = currentLineItems.findIndex((li) => li.projectItemCode === formData.projectItemCode)
 
         if (index !== -1) {
-          currentLineItems[index] = finalFormData
+          currentLineItems[index] = formData
           mainForm.setValue('lineItems', currentLineItems)
         } else toast.error('Failed to update the line item!')
       }
@@ -175,7 +159,7 @@ export default function WorkOrderLineItemForm({
         onClose()
       }
     },
-    [isCreate, JSON.stringify(selectedProjectItem), JSON.stringify(lineItems), projectCode, projectName, onClose]
+    [isCreate, JSON.stringify(selectedProjectItem), JSON.stringify(lineItems), JSON.stringify(lineItem), onClose]
   )
 
   useEffect(() => {
@@ -212,7 +196,7 @@ export default function WorkOrderLineItemForm({
             {/* <FormDebug form={form} /> */}
 
             <div className='grid h-full grid-cols-12 gap-5 py-2 pr-4'>
-              <div className='col-span-12'>
+              <div className='col-span-12 md:col-span-6'>
                 <SelectBoxField
                   data={projectItemsOptions}
                   isLoading={projectItems.isLoading}
@@ -241,46 +225,6 @@ export default function WorkOrderLineItemForm({
                 />
               </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <TextBoxField control={form.control} name='partNumber' label='Part Number' description='Custoner Part Number' isRequired />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <TextBoxField control={form.control} name='dateCode' label='Date Code' />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <TextBoxField control={form.control} name='countryOfOrigin' label='Country Of Origin' />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <TextBoxField control={form.control} name='lotCode' label='Lot Code' />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <TextBoxField control={form.control} name='palletNo' label='Pallet No' />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <TextBoxField control={form.control} name='packagingType' label='Packaging Type' />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <TextBoxField control={form.control} name='spq' label='SPQ' />
-              </div>
-
-              <Separator className='col-span-12' />
-              <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Cost and Quantity' description='Item cost and quantity details' />
-
-              <div className='col-span-12 md:col-span-6'>
-                <NumberBoxField
-                  control={form.control}
-                  name='cost'
-                  label='Cost'
-                  extendedProps={{ numberBoxOptions: { format: DEFAULT_CURRENCY_FORMAT } }}
-                />
-              </div>
-
               <div className='col-span-12 md:col-span-6'>
                 <NumberBoxField
                   control={form.control}
@@ -291,6 +235,91 @@ export default function WorkOrderLineItemForm({
                 />
               </div>
 
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='Part Number'
+                value={selectedProjectItem?.partNumber || ''}
+              />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='Date Code'
+                value={selectedProjectItem?.dateCode || ''}
+              />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='Country Of Origin'
+                value={selectedProjectItem?.countryOfOrigin || ''}
+              />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='Lot Code'
+                value={selectedProjectItem?.lotCode || ''}
+              />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='Pallet No'
+                value={selectedProjectItem?.palletNo || ''}
+              />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='Packaging Type'
+                value={selectedProjectItem?.packagingType || ''}
+              />
+
+              <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='SPQ' value={selectedProjectItem?.spq || ''} />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='Cost'
+                value={formatNumber(safeParseFloat(selectedProjectItem?.cost), DEFAULT_CURRENCY_FORMAT)}
+              />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='Available To Order'
+                value={formatNumber(safeParseFloat(selectedProjectItem?.availableToOrder), DEFAULT_NUMBER_FORMAT)}
+              />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='In Process'
+                value={formatNumber(safeParseFloat(selectedProjectItem?.inProcess), DEFAULT_NUMBER_FORMAT)}
+              />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='Total Stock'
+                value={formatNumber(safeParseFloat(selectedProjectItem?.totalStock), DEFAULT_NUMBER_FORMAT)}
+              />
+
+              <ReadOnlyField className='col-span-12' title='Notes' value={selectedProjectItem?.notes || ''} />
+
+              <Separator className='col-span-12' />
+              <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Location' description='Item location details' />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='Site Location'
+                value={selectedProjectItem?.siteLocation || ''}
+              />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='Sub Location 2'
+                value={selectedProjectItem?.subLocation2 || ''}
+              />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='Sub Location 3'
+                value={selectedProjectItem?.subLocation3 || ''}
+              />
+
               <Separator className='col-span-12' />
               <ReadOnlyFieldHeader
                 className='col-span-12 mb-1'
@@ -298,86 +327,45 @@ export default function WorkOrderLineItemForm({
                 description='Item date received and received by details'
               />
 
-              <div className='col-span-12 md:col-span-6'>
-                <DateBoxField control={form.control} type='datetime' name='dateReceived' label='Date Received' />
-              </div>
+              <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Date Received' value={dateReceived} />
 
-              <div className='col-span-12 md:col-span-6'>
-                <SelectBoxField
-                  data={users.data}
-                  isLoading={users.isLoading}
-                  control={form.control}
-                  name='dateReceivedBy'
-                  label='Received By'
-                  valueExpr='code'
-                  displayExpr={(item) => (item ? `${item?.fname}${item?.lname ? ` ${item?.lname}` : ''}` : '')}
-                  searchExpr={['fname', 'lname', 'code', 'email']}
-                  extendedProps={{ selectBoxOptions: { itemRender: userItemRender } }}
-                />
-              </div>
+              <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Date Received By' value={dateReceivedBy} />
 
-              <Separator className='col-span-12' />
+              {/* //* Temporary disable */}
+              {/* <Separator className='col-span-12' />
               <ReadOnlyFieldHeader
                 className='col-span-12 mb-1'
                 title='Site Location '
-                description='Item site location and inventory details'
+                description='Item warehouse and warehouse inventory details'
               />
 
-              <div className='col-span-12 md:col-span-6'>
-                <SelectBoxField
-                  data={warehouses.data}
-                  isLoading={warehouses.isLoading}
-                  control={form.control}
-                  name='warehouseCode'
-                  label='Warehouse'
-                  valueExpr='code'
-                  displayExpr='name'
-                  searchExpr={['code', 'name']}
-                  isRequired
-                  extendedProps={{
-                    selectBoxOptions: {
-                      itemRender: (params) => {
-                        return commonItemRender({
-                          title: params?.name,
-                          description: params?.description,
-                          value: params?.code,
-                          valuePrefix: '#',
-                        })
-                      },
-                    },
-                  }}
-                />
-              </div>
+              <ReadOnlyField className='col-span-12 md:col-span-6' title='Warehouse' value={warehouse?.name || ''} />
+
+              <ReadOnlyField className='col-span-12 md:col-span-6' title='Description' value={warehouse?.description || ''} />
 
               <ReadOnlyField
-                className='col-span-12 md:col-span-6'
-                title='Price'
-                value={formatNumber(safeParseFloat(selectedProjectItem?.item?.Price), DEFAULT_CURRENCY_FORMAT)}
-              />
-
-              <ReadOnlyField
-                className='col-span-12 md:col-span-6'
+                className='col-span-12 md:col-span-6 lg:col-span-3'
                 title='In Stock'
                 value={formatNumber(safeParseFloat(selectedItemWarehouseInventory?.inStock), DEFAULT_NUMBER_FORMAT)}
               />
 
               <ReadOnlyField
-                className='col-span-12 md:col-span-6'
+                className='col-span-12 md:col-span-6 lg:col-span-3'
                 title='Committed'
                 value={formatNumber(safeParseFloat(selectedItemWarehouseInventory?.committed), DEFAULT_NUMBER_FORMAT)}
               />
 
               <ReadOnlyField
-                className='col-span-12 md:col-span-6'
+                className='col-span-12 md:col-span-6 lg:col-span-3'
                 title='Ordered'
                 value={formatNumber(safeParseFloat(selectedItemWarehouseInventory?.ordered), DEFAULT_NUMBER_FORMAT)}
               />
 
               <ReadOnlyField
-                className='col-span-12 md:col-span-6'
+                className='col-span-12 md:col-span-6 lg:col-span-3'
                 title='Available'
                 value={formatNumber(safeParseFloat(selectedItemWarehouseInventory?.available), DEFAULT_NUMBER_FORMAT)}
-              />
+              /> */}
             </div>
           </ScrollView>
         </PageContentWrapper>

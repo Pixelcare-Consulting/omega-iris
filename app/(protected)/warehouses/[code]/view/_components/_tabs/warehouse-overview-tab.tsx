@@ -7,6 +7,7 @@ import ReadOnlyField from '@/components/read-only-field'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Copy from '@/components/copy'
 import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
+import Separator from '@/components/separator'
 
 type WarehouseOverviewTabProps = {
   warehouse: NonNullable<Awaited<ReturnType<typeof getWarehouseByCode>>>
@@ -42,6 +43,7 @@ export default function WarehouseOverviewTab({ warehouse }: WarehouseOverviewTab
           value={warehouse.isEnableBinLocations ? 'Yes' : 'No'}
         />
 
+        <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='Warehouse Location' description='Warehouse location details' />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Street 1' value={warehouse?.address1 || ''} />
@@ -78,6 +80,7 @@ export default function WarehouseOverviewTab({ warehouse }: WarehouseOverviewTab
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Tax Office' value={warehouse?.taxOffice || ''} />
 
+        <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='Record Meta data' description='Project group record meta data' />
 
         <RecordMetaData

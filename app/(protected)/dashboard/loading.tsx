@@ -1,3 +1,5 @@
+'use client'
+
 import { LoadPanel } from 'devextreme-react/load-panel'
 
 export default function DashboardLoading() {
