@@ -4,12 +4,12 @@ import z from 'zod'
 
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { callSapServiceLayerApi } from './sap-service-layer'
-import { BASE_URL } from '@/constants/common'
+import { SAP_BASE_URL } from '@/constants/sap'
 
 export async function getManufacturers() {
   try {
     return await callSapServiceLayerApi({
-      url: `${BASE_URL}/b1s/v1/Manufacturers`,
+      url: `${SAP_BASE_URL}/b1s/v1/Manufacturers`,
       headers: { Prefer: 'odata.maxpagesize=999' },
     })
   } catch (error) {
@@ -24,7 +24,7 @@ export const getManufacturersClient = action.use(authenticationMiddleware).actio
 
 export async function getManufacturerByCode(code: number) {
   try {
-    return await callSapServiceLayerApi({ url: `${BASE_URL}/b1s/v1/Manufacturers(${code})` })
+    return await callSapServiceLayerApi({ url: `${SAP_BASE_URL}/b1s/v1/Manufacturers(${code})` })
   } catch (error) {
     console.error(error)
     return null
