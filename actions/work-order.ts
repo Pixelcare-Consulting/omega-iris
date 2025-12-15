@@ -57,7 +57,7 @@ export const upsertWorkOrder = action
     const { code, lineItems, ...data } = parsedInput
     const { userId } = ctx
 
-    const woItems = lineItems.map((li) => ({ ...li, workOrderCode: code }))
+    const woItems = lineItems
 
     try {
       if (code !== -1) {
@@ -69,7 +69,7 @@ export const upsertWorkOrder = action
           db.workOrderItem.deleteMany({ where: { workOrderCode: code } }),
 
           //* create new work order items
-          db.workOrderItem.createMany({ data: woItems }),
+          db.workOrderItem.createMany({ data: woItems.map((li) => ({ ...li, workOrderCode: code })) }),
         ])
 
         return {

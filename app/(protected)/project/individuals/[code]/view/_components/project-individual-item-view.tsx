@@ -23,17 +23,19 @@ type ProjectIndividualItemViewProps = {
 
 export default function ProjectIndividualItemView({ data, onClose }: ProjectIndividualItemViewProps) {
   const item = data.item
-  const warehouse = data.warehouse
+  // const warehouse = data.warehouse
 
   const dateReceived = data.dateReceived && isValid(data?.dateReceived) ? format(data.dateReceived, 'MM/dd/yyyy hh:mm a') : '' // prettier-ignore
   const dateReceivedBy = data.dateReceivedByUser && data.dateReceivedByUser.fname  ? `${data.dateReceivedByUser.fname}${data.dateReceivedByUser.lname ? ` ${data.dateReceivedByUser.lname}` : ''}` : '' // prettier-ignore
 
-  const itemMasterWarehouseInventory = useItemWarehouseInventory(item?.code)
+  //* Temporary disable
+  // const itemMasterWarehouseInventory = useItemWarehouseInventory(item?.code)
 
-  const selectedItemMasterWarehouseInventory = useMemo(() => {
-    if (itemMasterWarehouseInventory.isLoading || itemMasterWarehouseInventory.data.length < 1) return null
-    return itemMasterWarehouseInventory.data.find((wi) => wi.warehouseCode === warehouse?.code)
-  }, [JSON.stringify(itemMasterWarehouseInventory), warehouse?.code])
+  //* Temporary disable
+  // const selectedItemMasterWarehouseInventory = useMemo(() => {
+  //   if (itemMasterWarehouseInventory.isLoading || itemMasterWarehouseInventory.data.length < 1) return null
+  //   return itemMasterWarehouseInventory.data.find((wi) => wi.warehouseCode === warehouse?.code)
+  // }, [JSON.stringify(itemMasterWarehouseInventory), warehouse?.code])
 
   return (
     <ScrollView>
@@ -71,6 +73,7 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
           <ReadOnlyField className='col-span-12' title='Notes' value={item?.notes || ''} />
         </div>
 
+        <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='SAP Fields' description='SAP related fields' />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Code' value={item?.ItemCode || ''} />
@@ -132,6 +135,17 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
           value={formatNumber(safeParseFloat(data?.totalStock), DEFAULT_NUMBER_FORMAT)}
         />
 
+        <ReadOnlyField className='col-span-12' title='Notes' value={data?.notes || ''} />
+
+        <Separator className='col-span-12' />
+        <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Location' description='Item location details' />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Site Location' value={data?.siteLocation || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 2' value={data?.subLocation2 || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 3' value={data?.subLocation3 || ''} />
+
         <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Item Received' description='Item date received and received by details' />
 
@@ -139,7 +153,8 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Received By' value={dateReceivedBy} />
 
-        <Separator className='col-span-12' />
+        {/*  //* Temporary disable */}
+        {/* <Separator className='col-span-12' />
         <ReadOnlyFieldHeader
           className='col-span-12 mb-1'
           title='Site Location '
@@ -176,8 +191,9 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
           title='Available'
           value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.available), DEFAULT_NUMBER_FORMAT)}
           isLoading={itemMasterWarehouseInventory.isLoading}
-        />
+        /> */}
 
+        <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12 mt-4' title='Record Meta data' description='Project item record meta data' />
 
         <RecordMetaData

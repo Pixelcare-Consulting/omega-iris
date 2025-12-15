@@ -33,6 +33,8 @@ import NumberBoxField from '@/components/forms/number-box-field'
 import DateBoxField from '@/components/forms/date-box-field'
 import useUsers from '@/hooks/safe-actions/user'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
+import TextAreaField from '@/components/forms/text-area-field'
+import { FormDebug } from '@/components/forms/form-debug'
 
 type ProjectItemFormProps = {
   projectCode: number
@@ -43,7 +45,6 @@ type ProjectItemFormProps = {
   items: ReturnType<typeof useProjecItems>
   itemMasters: ReturnType<typeof useItems>
   users: ReturnType<typeof useUsers>
-  warehouses: ReturnType<typeof useWarehouses>
 }
 
 export default function ProjectItemForm({
@@ -55,7 +56,6 @@ export default function ProjectItemForm({
   items,
   itemMasters,
   users,
-  warehouses,
 }: ProjectItemFormProps) {
   const router = useRouter()
 
@@ -69,7 +69,7 @@ export default function ProjectItemForm({
         code: -1,
         itemCode: 0,
         projectIndividualCode: projectCode,
-        warehouseCode: 0,
+        warehouseCode: null,
         partNumber: null,
         dateCode: null,
         countryOfOrigin: null,
@@ -83,6 +83,10 @@ export default function ProjectItemForm({
         totalStock: 0,
         dateReceived: null,
         dateReceivedBy: null,
+        siteLocation: null,
+        subLocation2: null,
+        subLocation3: null,
+        notes: null,
       }
     }
 
@@ -107,15 +111,17 @@ export default function ProjectItemForm({
 
   const itemMasterWarehouseInventory = useItemWarehouseInventory(selectedBaseItem?.code)
 
-  const selectedItemMasterWarehouseInventory = useMemo(() => {
-    if (itemMasterWarehouseInventory.isLoading || itemMasterWarehouseInventory.data.length < 1) return null
-    return itemMasterWarehouseInventory.data.find((wi) => wi.warehouseCode === warehouseCode)
-  }, [JSON.stringify(itemMasterWarehouseInventory), warehouseCode])
+  //* Temporary disable
+  // const selectedItemMasterWarehouseInventory = useMemo(() => {
+  //   if (itemMasterWarehouseInventory.isLoading || itemMasterWarehouseInventory.data.length < 1) return null
+  //   return itemMasterWarehouseInventory.data.find((wi) => wi.warehouseCode === warehouseCode)
+  // }, [JSON.stringify(itemMasterWarehouseInventory), warehouseCode])
 
-  const warehouse = useMemo(() => {
-    if (warehouses.isLoading || warehouses.data.length < 1) return null
-    return warehouses.data.find((w) => w.code === warehouseCode)
-  }, [JSON.stringify(warehouses), warehouseCode])
+  //* Temporary disable
+  // const warehouse = useMemo(() => {
+  //   if (warehouses.isLoading || warehouses.data.length < 1) return null
+  //   return warehouses.data.find((w) => w.code === warehouseCode)
+  // }, [JSON.stringify(warehouses), warehouseCode])
 
   const resetForm = () => {
     form.reset()
@@ -340,6 +346,25 @@ export default function ProjectItemForm({
                 />
               </div>
 
+              <div className='col-span-12'>
+                <TextAreaField control={form.control} name='notes' label='Notes' />
+              </div>
+
+              <Separator className='col-span-12' />
+              <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Location' description='Item location details' />
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                <TextBoxField control={form.control} name='siteLocation' label='Site Location' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                <TextBoxField control={form.control} name='subLocation2' label='Sub Location 2' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                <TextBoxField control={form.control} name='subLocation3' label='Sub Location 3' />
+              </div>
+
               <Separator className='col-span-12' />
               <ReadOnlyFieldHeader
                 className='col-span-12 mb-1'
@@ -365,7 +390,8 @@ export default function ProjectItemForm({
                 />
               </div>
 
-              <Separator className='col-span-12' />
+              {/* //* Temporary disable */}
+              {/* <Separator className='col-span-12' />
               <ReadOnlyFieldHeader
                 className='col-span-12 mb-1'
                 title='Site Location '
@@ -422,9 +448,7 @@ export default function ProjectItemForm({
                 className='col-span-12 md:col-span-6 lg:col-span-3'
                 title='Available'
                 value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.available), DEFAULT_NUMBER_FORMAT)}
-              />
-
-              {/* <ProjectIndividualItemWarehouseInventory itemWarehouseInventory={itemWarehouseInventory} /> */}
+              /> */}
             </div>
           </ScrollView>
         </PageContentWrapper>

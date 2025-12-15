@@ -24,7 +24,7 @@ export const itemFormSchema = z.object({
   isActive: z.boolean(),
 
   //* warehouse inventory
-  warehouseInventory: itemWarehouseInventoryFormSchema,
+  // warehouseInventory: itemWarehouseInventoryFormSchema,
 
   //* sap fields
   ItemCode: z.string().nullish(),

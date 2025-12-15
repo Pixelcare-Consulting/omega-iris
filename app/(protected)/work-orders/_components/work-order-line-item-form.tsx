@@ -15,9 +15,7 @@ import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import { useItemWarehouseInventory } from '@/hooks/safe-actions/item-warehouse-inventory'
 import PageContentWrapper from '../../_components/page-content-wrapper'
 import SelectBoxField from '@/components/forms/select-box-field'
-import { commonItemRender, userItemRender } from '@/utils/devextreme'
-import TextBoxField from '@/components/forms/text-box-field'
-import DateBoxField from '@/components/forms/date-box-field'
+import { commonItemRender } from '@/utils/devextreme'
 import useUsers from '@/hooks/safe-actions/user'
 import Separator from '@/components/separator'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
@@ -82,12 +80,14 @@ export default function WorkOrderLineItemForm({ projectName, setIsOpen, onClose,
     return projectItems.data.find((pi) => pi.code === projectItemCode)
   }, [JSON.stringify(projectItems), projectItemCode])
 
-  const itemWarehouseInventory = useItemWarehouseInventory(selectedProjectItem?.item?.code)
+  //* Temporary disable
+  // const itemWarehouseInventory = useItemWarehouseInventory(selectedProjectItem?.item?.code)
 
-  const selectedItemWarehouseInventory = useMemo(() => {
-    if (itemWarehouseInventory.isLoading || itemWarehouseInventory.data.length < 1) return null
-    return itemWarehouseInventory.data.find((wi) => wi.warehouseCode === selectedProjectItem?.warehouse?.code)
-  }, [JSON.stringify(itemWarehouseInventory), JSON.stringify(selectedProjectItem?.warehouse?.code)])
+  //* Temporary disable
+  // const selectedItemWarehouseInventory = useMemo(() => {
+  //   if (itemWarehouseInventory.isLoading || itemWarehouseInventory.data.length < 1) return null
+  //   return itemWarehouseInventory.data.find((wi) => wi.warehouseCode === selectedProjectItem?.warehouse?.code)
+  // }, [JSON.stringify(itemWarehouseInventory), JSON.stringify(selectedProjectItem?.warehouse?.code)])
 
   const dateReceived = useMemo(() => {
     if (!selectedProjectItem?.dateReceived || !isValid(selectedProjectItem?.dateReceived)) return ''
@@ -99,9 +99,10 @@ export default function WorkOrderLineItemForm({ projectName, setIsOpen, onClose,
     return `${selectedProjectItem?.dateReceivedByUser.fname}${selectedProjectItem?.dateReceivedByUser.lname ? ` ${selectedProjectItem?.dateReceivedByUser.lname}` : ''}`
   }, [JSON.stringify(selectedProjectItem?.dateReceivedByUser)])
 
-  const warehouse = useMemo(() => {
-    return selectedProjectItem?.warehouse
-  }, [JSON.stringify(selectedProjectItem)])
+  //* Temporary disable
+  // const warehouse = useMemo(() => {
+  //   return selectedProjectItem?.warehouse
+  // }, [JSON.stringify(selectedProjectItem)])
 
   const resetForm = () => {
     form.reset()
@@ -296,6 +297,29 @@ export default function WorkOrderLineItemForm({ projectName, setIsOpen, onClose,
                 value={formatNumber(safeParseFloat(selectedProjectItem?.totalStock), DEFAULT_NUMBER_FORMAT)}
               />
 
+              <ReadOnlyField className='col-span-12' title='Notes' value={selectedProjectItem?.notes || ''} />
+
+              <Separator className='col-span-12' />
+              <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Location' description='Item location details' />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='Site Location'
+                value={selectedProjectItem?.siteLocation || ''}
+              />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='Sub Location 2'
+                value={selectedProjectItem?.subLocation2 || ''}
+              />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='Sub Location 3'
+                value={selectedProjectItem?.subLocation3 || ''}
+              />
+
               <Separator className='col-span-12' />
               <ReadOnlyFieldHeader
                 className='col-span-12 mb-1'
@@ -307,7 +331,8 @@ export default function WorkOrderLineItemForm({ projectName, setIsOpen, onClose,
 
               <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Date Received By' value={dateReceivedBy} />
 
-              <Separator className='col-span-12' />
+              {/* //* Temporary disable */}
+              {/* <Separator className='col-span-12' />
               <ReadOnlyFieldHeader
                 className='col-span-12 mb-1'
                 title='Site Location '
@@ -340,7 +365,7 @@ export default function WorkOrderLineItemForm({ projectName, setIsOpen, onClose,
                 className='col-span-12 md:col-span-6 lg:col-span-3'
                 title='Available'
                 value={formatNumber(safeParseFloat(selectedItemWarehouseInventory?.available), DEFAULT_NUMBER_FORMAT)}
-              />
+              /> */}
             </div>
           </ScrollView>
         </PageContentWrapper>

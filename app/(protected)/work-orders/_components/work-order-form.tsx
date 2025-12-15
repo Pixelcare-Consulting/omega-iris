@@ -249,10 +249,6 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                 <TextBoxField control={form.control} name='salesOrderCode' label='Sales Order Code' />
               </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField control={form.control} name='salesOrderCode' label='Purchase Order Code' />
-              </div>
-
               <Separator className='col-span-12' />
               <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Address Details' description='Billing & delivery address details' />
 

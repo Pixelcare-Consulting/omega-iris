@@ -7,6 +7,7 @@ import ReadOnlyField from '@/components/read-only-field'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Copy from '@/components/copy'
 import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
+import Separator from '@/components/separator'
 
 type ProjectGroupOverviewTabProps = {
   projectGroup: NonNullable<Awaited<ReturnType<typeof getPgByCode>>>
@@ -32,6 +33,7 @@ export default function ProjectGroupOverviewTab({ projectGroup }: ProjectGroupOv
 
         <ReadOnlyField className='col-span-12' title='Description' value={projectGroup?.description || ''} />
 
+        <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='Record Meta data' description='Project group record meta data' />
 
         <RecordMetaData

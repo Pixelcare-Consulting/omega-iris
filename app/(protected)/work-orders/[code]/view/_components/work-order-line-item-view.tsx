@@ -22,35 +22,37 @@ type WorkOrderLineItemViewProps = {
 }
 
 export default function WorkOrderLineItemView({ data, onClose }: WorkOrderLineItemViewProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
+  // const containerRef = useRef<HTMLDivElement>(null)
 
   const dateReceived = useMemo(() => {
     if (!data?.dateReceived || !isValid(data?.dateReceived)) return ''
     return format(data?.dateReceived, 'MM/dd/yyyy hh:mm a')
   }, [JSON.stringify(data?.dateReceived)])
 
-  const itemWarehouseInventory = useItemWarehouseInventory(data?.item?.code || '', [JSON.stringify(data)])
+  //* Temporary disable
+  // const itemWarehouseInventory = useItemWarehouseInventory(data?.item?.code || '', [JSON.stringify(data)])
 
-  const selectedItemWarehouseInventory = useMemo(() => {
-    if (itemWarehouseInventory.isLoading || itemWarehouseInventory.data.length < 1) return null
-    return itemWarehouseInventory.data.find((wi) => wi.warehouseCode === data?.warehouseCode)
-  }, [JSON.stringify(itemWarehouseInventory), JSON.stringify(data)])
+  //* Temporary disable
+  // const selectedItemWarehouseInventory = useMemo(() => {
+  //   if (itemWarehouseInventory.isLoading || itemWarehouseInventory.data.length < 1) return null
+  //   return itemWarehouseInventory.data.find((wi) => wi.warehouseCode === data?.warehouseCode)
+  // }, [JSON.stringify(itemWarehouseInventory), JSON.stringify(data)])
 
-  if (itemWarehouseInventory.isLoading)
-    return (
-      <div id='work-order-line-item-view-loading' className='relative mt-4 flex h-[60vh] w-full items-center justify-center'>
-        <LoadPanel
-          container='#work-order-line-item-view-loading'
-          shadingColor='rgb(241, 245, 249)'
-          position={{ of: containerRef?.current as any, at: 'center', my: 'center', offset: { x: 110, y: 55 } }}
-          message='Loading data...'
-          visible
-          showIndicator
-          showPane
-          shading
-        />
-      </div>
-    )
+  // if (itemWarehouseInventory.isLoading)
+  //   return (
+  //     <div id='work-order-line-item-view-loading' className='relative mt-4 flex h-[60vh] w-full items-center justify-center'>
+  //       <LoadPanel
+  //         container='#work-order-line-item-view-loading'
+  //         shadingColor='rgb(241, 245, 249)'
+  //         position={{ of: containerRef?.current as any, at: 'center', my: 'center', offset: { x: 110, y: 55 } }}
+  //         message='Loading data...'
+  //         visible
+  //         showIndicator
+  //         showPane
+  //         shading
+  //       />
+  //     </div>
+  //   )
 
   return (
     <ScrollView>
@@ -116,6 +118,17 @@ export default function WorkOrderLineItemView({ data, onClose }: WorkOrderLineIt
           value={formatNumber(safeParseFloat(data?.qty), DEFAULT_NUMBER_FORMAT)}
         />
 
+        <ReadOnlyField className='col-span-12' title='Notes' value={data?.notes || ''} />
+
+        <Separator className='col-span-12' />
+        <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Location' description='Item location details' />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Site Location' value={data?.siteLocation || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 2' value={data?.subLocation2 || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 3' value={data?.subLocation3 || ''} />
+
         <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Item Received ' description='Item date received and received by details' />
 
@@ -123,7 +136,8 @@ export default function WorkOrderLineItemView({ data, onClose }: WorkOrderLineIt
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Date Received By' value={data?.dateReceivedBy} />
 
-        <Separator className='col-span-12' />
+        {/*   //* Temporary disable */}
+        {/* <Separator className='col-span-12' />
         <ReadOnlyFieldHeader
           className='col-span-12 mb-1'
           title='Site Location '
@@ -156,7 +170,7 @@ export default function WorkOrderLineItemView({ data, onClose }: WorkOrderLineIt
           className='col-span-12 md:col-span-6 lg:col-span-3'
           title='Available'
           value={formatNumber(safeParseFloat(selectedItemWarehouseInventory?.available), DEFAULT_NUMBER_FORMAT)}
-        />
+        /> */}
       </div>
     </ScrollView>
   )

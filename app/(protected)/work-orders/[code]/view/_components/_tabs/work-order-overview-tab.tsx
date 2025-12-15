@@ -10,6 +10,7 @@ import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
 import { formatNumber } from 'devextreme/localization'
 import { DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
 import { WORK_ORDER_STATUS_OPTIONS } from '@/schema/work-order'
+import Separator from '@/components/separator'
 
 type WorkOrderOverviewTabProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
@@ -62,11 +63,10 @@ export default function WorkOrderOverviewTab({ workOrder }: WorkOrderOverviewTab
 
         <ReadOnlyField className='col-span-12' title='Order Comments' value={fullName} />
 
+        <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='SAP Fields' description='SAP related fields' />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Sales Order Code' value={workOrder.salesOrderCode} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Purchase Order Code' value={workOrder.salesOrderCode} />
 
         <ReadOnlyFieldHeader className='col-span-12' title='Owner' description='Work order owner details' />
 
@@ -86,12 +86,14 @@ export default function WorkOrderOverviewTab({ workOrder }: WorkOrderOverviewTab
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Owner Email' value={workOrder?.user?.email || ''} />
 
+        <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='Address Details' description='Billing & delivery address details' />
 
         <ReadOnlyField className='col-span-12 md:col-span-6' title='Billing Address' value={''} />
 
         <ReadOnlyField className='col-span-12 md:col-span-6' title='Delivery Address' value={''} />
 
+        <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='Record Meta data' description='Work order record meta data' />
 
         <RecordMetaData

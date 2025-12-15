@@ -51,7 +51,7 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
         notes: null,
         isActive: true,
 
-        warehouseInventory: [],
+        // warehouseInventory: [],
 
         //* sap fields
         ItemCode: null,
@@ -106,53 +106,53 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
   }
 
   //* initialize warehouses inventory when create based on warehouses
-  useEffect(() => {
-    if (!isCreate || warehouses.isLoading || warehouses.data.length < 1) return
+  // useEffect(() => {
+  //   if (!isCreate || warehouses.isLoading || warehouses.data.length < 1) return
 
-    const values = warehouses.data.map((wh) => ({
-      code: wh.code,
-      name: wh.name,
-      isLocked: false,
-      inStock: 0,
-      committed: 0,
-      ordered: 0,
-      available: 0,
-    }))
+  //   const values = warehouses.data.map((wh) => ({
+  //     code: wh.code,
+  //     name: wh.name,
+  //     isLocked: false,
+  //     inStock: 0,
+  //     committed: 0,
+  //     ordered: 0,
+  //     available: 0,
+  //   }))
 
-    form.setValue('warehouseInventory', values)
-  }, [isCreate, JSON.stringify(warehouses)])
+  //   form.setValue('warehouseInventory', values)
+  // }, [isCreate, JSON.stringify(warehouses)])
 
-  //* set warehoise inventoryt when edit based on existing warehose inventory data
-  useEffect(() => {
-    if (isCreate || itemWarehouseInventory.isLoading || itemWarehouseInventory.data.length < 1) {
-      if (warehouses?.data.length > 0) {
-        const values = warehouses?.data.map((wh) => ({
-          code: wh.code,
-          name: wh.name,
-          isLocked: false,
-          inStock: 0,
-          committed: 0,
-          ordered: 0,
-          available: 0,
-        }))
+  // //* set warehoise inventoryt when edit based on existing warehose inventory data
+  // useEffect(() => {
+  //   if (isCreate || itemWarehouseInventory.isLoading || itemWarehouseInventory.data.length < 1) {
+  //     if (warehouses?.data.length > 0) {
+  //       const values = warehouses?.data.map((wh) => ({
+  //         code: wh.code,
+  //         name: wh.name,
+  //         isLocked: false,
+  //         inStock: 0,
+  //         committed: 0,
+  //         ordered: 0,
+  //         available: 0,
+  //       }))
 
-        form.setValue('warehouseInventory', values)
-        return
-      }
-    }
+  //       form.setValue('warehouseInventory', values)
+  //       return
+  //     }
+  //   }
 
-    const values = itemWarehouseInventory.data.map((wi) => ({
-      code: wi.warehouseCode,
-      name: wi.warehouse.name,
-      isLocked: wi.isLocked,
-      inStock: wi.inStock,
-      committed: wi.committed,
-      ordered: wi.ordered,
-      available: wi.available,
-    }))
+  //   const values = itemWarehouseInventory.data.map((wi) => ({
+  //     code: wi.warehouseCode,
+  //     name: wi.warehouse.name,
+  //     isLocked: wi.isLocked,
+  //     inStock: wi.inStock,
+  //     committed: wi.committed,
+  //     ordered: wi.ordered,
+  //     available: wi.available,
+  //   }))
 
-    form.setValue('warehouseInventory', values)
-  }, [JSON.stringify(item), JSON.stringify(itemWarehouseInventory), JSON.stringify(warehouses)])
+  //   form.setValue('warehouseInventory', values)
+  // }, [JSON.stringify(item), JSON.stringify(itemWarehouseInventory), JSON.stringify(warehouses)])
 
   return (
     <FormProvider {...form}>
@@ -278,7 +278,7 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
                 />
               </div>
 
-              <ItemWarehouseInventoryForm isLoading={itemWarehouseInventory.isLoading} />
+              {/* <ItemWarehouseInventoryForm isLoading={itemWarehouseInventory.isLoading} /> */}
             </div>
           </ScrollView>
         </PageContentWrapper>

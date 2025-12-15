@@ -43,7 +43,6 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
   const [isViewMode, setIsViewMode] = useState(false)
 
   const users = useUsers()
-  const warehouses = useWarehouses()
   const itemMasters = useItems()
 
   const { executeAsync } = useAction(deleteProjectItem)
@@ -268,7 +267,6 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
                 items={items}
                 itemMasters={itemMasters}
                 users={users}
-                warehouses={warehouses}
               />
             </Popup>
 

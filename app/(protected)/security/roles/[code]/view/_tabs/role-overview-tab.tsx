@@ -7,6 +7,7 @@ import ReadOnlyField from '@/components/read-only-field'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Copy from '@/components/copy'
 import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
+import Separator from '@/components/separator'
 
 type RoleOverviewTabProps = {
   role: NonNullable<Awaited<ReturnType<typeof getRolesByCode>>>
@@ -28,6 +29,7 @@ export default function RolesOverviewTab({ role }: RoleOverviewTabProps) {
 
         <ReadOnlyField className='col-span-12' title='Description' value={role?.description || ''} />
 
+        <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='Record Meta data' description='Role record meta data' />
 
         <RecordMetaData

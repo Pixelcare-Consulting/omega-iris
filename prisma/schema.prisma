@@ -236,7 +236,7 @@ model ProjectItem {
     itemCode              Int
     projectIndividualCode Int
 
-    warehouseCode    Int
+    warehouseCode    Int?
     partNumber       String?
     dateCode         String?
     countryOfOrigin  String?
@@ -250,6 +250,9 @@ model ProjectItem {
     availableToOrder Decimal?  @default(0)
     inProcess        Decimal?  @default(0)
     totalStock       Decimal?  @default(0)
+    siteLocation     String?
+    subLocation2     String?
+    subLocation3     String?
     notes            String?
 
     createdAt DateTime  @default(now())
@@ -261,7 +264,7 @@ model ProjectItem {
 
     item               Item              @relation(fields: [itemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     projectIndividual  ProjectIndividual @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    warehouse          Warehouse         @relation(fields: [warehouseCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    warehouse          Warehouse?        @relation(fields: [warehouseCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     dateReceivedByUser User?             @relation(fields: [dateReceivedBy], references: [code], onUpdate: Cascade, onDelete: Cascade)
 
     workOrderItems WorkOrderItem[]

@@ -3,7 +3,7 @@
 import { LoadPanel } from 'devextreme-react/load-panel'
 
 export default function DashboardLoading() {
-  const container = document.getElementById('app-main-content')
+  const container = window !== undefined ? document.getElementById('app-main-content') : null
 
   if (!container) return null
 
