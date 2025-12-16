@@ -16,9 +16,8 @@ import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Item } from 'devextreme-react/toolbar'
 import Tooltip from 'devextreme-react/tooltip'
-import Button from 'devextreme-react/button'
 
-import { deleteItem, getItems, importItems, syncToSap } from '@/actions/item'
+import { deleteItem, getItems, importItems, syncFromSap, syncToSap } from '@/actions/item'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -29,10 +28,7 @@ import CommonDataGrid from '@/components/common-datagrid'
 
 import { SyncToSapForm, syncToSapFormSchema } from '@/schema/item'
 import LoadingButton from '@/components/loading-button'
-import { useItemGroups } from '@/hooks/safe-actions/item-group'
-import { useManufacturers } from '@/hooks/safe-actions/manufacturer'
-import { SAP_BASE_URL } from '@/constants/sap'
-import { callSapServiceLayerApi } from '@/actions/sap-service-layer'
+import { useSyncMeta } from '@/hooks/safe-actions/sync-meta'
 
 type ItemTableProps = { items: Awaited<ReturnType<typeof getItems>> }
 type DataSource = Awaited<ReturnType<typeof getItems>>
@@ -57,7 +53,8 @@ export default function ItemTable({ items }: ItemTableProps) {
   }, [JSON.stringify(itemsToSync)])
 
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
-  const [showSyncConfirmation, setShowSyncConfirmation] = useState(false)
+  const [showSyncToSapConfirmation, setShowSyncToSapConfirmation] = useState(false)
+  const [showSyncFromSapConfirmation, setShowSyncFromSapConfirmation] = useState(false)
 
   const [showImportError, setShowImportError] = useState(false)
   const [showSyncError, setShowSyncError] = useState(false)
@@ -72,7 +69,9 @@ export default function ItemTable({ items }: ItemTableProps) {
 
   const { executeAsync } = useAction(deleteItem)
   const importData = useAction(importItems)
-  const syncData = useAction(syncToSap)
+  const syncToSapData = useAction(syncToSap)
+  const syncFromSapData = useAction(syncFromSap)
+  const syncMeta = useSyncMeta('item')
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',
@@ -233,11 +232,11 @@ export default function ItemTable({ items }: ItemTableProps) {
     }
   }
 
-  const handleConfirmSync = async (formData: SyncToSapForm) => {
+  const handleConfirmSyncToSap = async (formData: SyncToSapForm) => {
     try {
-      setShowSyncConfirmation(false)
+      setShowSyncToSapConfirmation(false)
 
-      const response = await syncData.executeAsync(formData)
+      const response = await syncToSapData.executeAsync(formData)
       const result = response?.data
 
       if (result?.error) {
@@ -259,12 +258,32 @@ export default function ItemTable({ items }: ItemTableProps) {
     }
   }
 
+  const handleConfirmSyncFromSap = async () => {
+    try {
+      setShowSyncFromSapConfirmation(false)
+
+      const response = await syncFromSapData.executeAsync()
+      const result = response?.data
+
+      if (result?.error) {
+        toast.error(result.message)
+        return
+      }
+
+      toast.success(result?.message)
+      router.refresh()
+    } catch (error: any) {
+      console.error(error)
+      toast.error(error?.message || 'Failed to sync items from SAP!', { duration: 10000 })
+    }
+  }
+
   return (
     <div className='h-full w-full space-y-5'>
       <PageHeader
         title='Inventory'
         description='Manage and track your inventory effectively'
-        isLoading={importData.isExecuting || syncData.isExecuting}
+        isLoading={importData.isExecuting || syncToSapData.isExecuting || syncFromSapData.isExecuting}
       >
         {selectedRowKeys.length > 0 && (
           <Item location='after' locateInMenu='auto' widget='dxButton'>
@@ -278,20 +297,41 @@ export default function ItemTable({ items }: ItemTableProps) {
             <LoadingButton
               id='sync-items-to-sap'
               icon='upload'
-              isLoading={syncData.isExecuting}
+              isLoading={syncToSapData.isExecuting}
               text={`${selectedRowKeys.length} : Sync To SAP`}
               type='default'
               loadingText='Syncing'
               stylingMode='outlined'
-              onClick={() => setShowSyncConfirmation(true)}
+              onClick={() => setShowSyncToSapConfirmation(true)}
             />
           </Item>
         )}
 
+        <Item location='after' locateInMenu='auto' widget='dxButton'>
+          {!syncMeta.isLoading && (
+            <Tooltip
+              target='#sync-from-sap-to-portal'
+              contentRender={() => `Last Sync: ${format(syncMeta.data?.lastSyncAt || new Date('01/01/2020'), 'PP, hh:mm a')}`}
+              showEvent='mouseenter'
+              hideEvent='mouseleave'
+              position='top'
+            />
+          )}
+          <LoadingButton
+            id='sync-from-sap-to-portal'
+            icon='refresh'
+            isLoading={syncFromSapData.isExecuting}
+            type='default'
+            loadingText={syncMeta.isLoading ? 'Depedecy loading' : 'Syncing'}
+            stylingMode='outlined'
+            onClick={() => setShowSyncFromSapConfirmation(true)}
+          />
+        </Item>
+
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
-          isLoading={importData.isExecuting}
+          isLoading={importData.isExecuting || syncToSapData.isExecuting || syncFromSapData.isExecuting}
           isEnableImport
           onImport={handleImport}
           addButton={{ text: 'Add Inventory', onClick: () => router.push('/inventory/add') }}
@@ -341,11 +381,19 @@ export default function ItemTable({ items }: ItemTableProps) {
       />
 
       <AlertDialog
-        isOpen={showSyncConfirmation}
+        isOpen={showSyncToSapConfirmation}
         title='Are you sure?'
         description={`Are you sure you want to sync this item${itemsToSync.length > 1 ? 's' : ''} to SAP?`}
-        onConfirm={() => handleConfirmSync(form.getValues())}
-        onCancel={() => setShowSyncConfirmation(false)}
+        onConfirm={() => handleConfirmSyncToSap(form.getValues())}
+        onCancel={() => setShowSyncToSapConfirmation(false)}
+      />
+
+      <AlertDialog
+        isOpen={showSyncFromSapConfirmation}
+        title='Are you sure?'
+        description='Are you sure you want to sync from SAP?'
+        onConfirm={() => handleConfirmSyncFromSap()}
+        onCancel={() => setShowSyncFromSapConfirmation(false)}
       />
 
       <ImportSyncErrorDataGrid

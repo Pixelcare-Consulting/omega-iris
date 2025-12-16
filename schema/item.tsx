@@ -41,10 +41,10 @@ export const syncToSapFormSchema = z.object({
   items: z.array(
     z.object({
       code: z.coerce.number(),
-      ItemCode: z.string().min(1, { message: 'Item code is required' }),
-      ItemName: z.string(),
-      Manufacturer: z.coerce.number(),
-      ItemsGroupCode: z.coerce.number(),
+      ItemCode: z.string().nullish(),
+      ItemName: z.string().nullish(),
+      Manufacturer: z.coerce.number().nullish(),
+      ItemsGroupCode: z.coerce.number().nullish(),
     })
   ),
 })
