@@ -257,7 +257,11 @@ export default function ProjectItemForm({
                 value={selectedBaseItem?.FirmCode || ''}
               />
 
-              <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Manufacturer Name' value={''} />
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-3'
+                title='Manufacturer Name'
+                value={selectedBaseItem?.FirmName || ''}
+              />
 
               <ReadOnlyField
                 className='col-span-12 md:col-span-6 lg:col-span-3'
@@ -271,13 +275,17 @@ export default function ProjectItemForm({
                 value={selectedBaseItem?.ItmsGrpCod || ''}
               />
 
-              <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Group Name' value={''} />
-
               <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-3'
+                title='Group Name'
+                value={selectedBaseItem?.ItmsGrpNam || ''}
+              />
+
+              {/* <ReadOnlyField
                 className='col-span-12 md:col-span-6 lg:col-span-3'
                 title='Price'
                 value={formatNumber(safeParseFloat(selectedBaseItem?.Price), DEFAULT_CURRENCY_FORMAT)}
-              />
+              /> */}
 
               <Separator className='col-span-12' />
               <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Project Item' description='Project item details' />
