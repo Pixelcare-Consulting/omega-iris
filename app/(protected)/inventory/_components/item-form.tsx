@@ -332,14 +332,14 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
                 />
               </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+              {/* <div className='col-span-12 md:col-span-6 lg:col-span-4'>
                 <NumberBoxField
                   control={form.control}
                   name='Price'
                   label='Price'
                   extendedProps={{ numberBoxOptions: { format: DEFAULT_CURRENCY_FORMAT } }}
                 />
-              </div>
+              </div> */}
 
               {/* <ItemWarehouseInventoryForm isLoading={itemWarehouseInventory.isLoading} /> */}
             </div>
