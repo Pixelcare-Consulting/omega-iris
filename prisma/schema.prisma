@@ -115,6 +115,8 @@ model Item {
     ItmsGrpNam String?
     Price      Decimal?
 
+    syncStatus String @default("pending") //* pending, synced 
+
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
     deletedAt DateTime?

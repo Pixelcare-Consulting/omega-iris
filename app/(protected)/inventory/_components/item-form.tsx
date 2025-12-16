@@ -32,6 +32,8 @@ import ItemWarehouseInventoryForm from './item-warehouse-inventory-form'
 import { useItemGroups } from '@/hooks/safe-actions/item-group'
 import { useManufacturers } from '@/hooks/safe-actions/manufacturer'
 import { commonItemRender } from '@/utils/devextreme'
+import ReadOnlyField from '@/components/read-only-field'
+import { titleCase } from '@/utils'
 
 type ItemFormProps = { pageMetaData: PageMetadata; item: Awaited<ReturnType<typeof getItemByCode>> }
 
@@ -53,6 +55,7 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
         thumbnail: null,
         notes: null,
         isActive: true,
+        syncStatus: 'pending',
 
         // warehouseInventory: [],
 
@@ -78,6 +81,7 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
 
   const ItmsGrpCod = useWatch({ control: form.control, name: 'ItmsGrpCod' })
   const FirmCode = useWatch({ control: form.control, name: 'FirmCode' })
+  const syncStatus = useWatch({ control: form.control, name: 'syncStatus' })
 
   const { executeAsync, isExecuting } = useAction(upsertItem)
 
@@ -261,6 +265,12 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
                 <div className='col-span-12'>
                   <TextAreaField control={form.control} name='notes' label='Note' />
                 </div>
+
+                <ReadOnlyField
+                  className='col-span-12 md:col-span-6 lg:col-span-4'
+                  title='Sync Status'
+                  value={syncStatus ? titleCase(syncStatus) : ''}
+                />
               </div>
 
               <Separator className='col-span-12' />
