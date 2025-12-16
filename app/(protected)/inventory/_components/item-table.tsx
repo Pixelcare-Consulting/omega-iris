@@ -286,7 +286,7 @@ export default function ItemTable({ items }: ItemTableProps) {
         description='Manage and track your inventory effectively'
         isLoading={importData.isExecuting || syncToSapData.isExecuting || syncFromSapData.isExecuting}
       >
-        {selectedRowKeys.length > 0 && (
+        {/* {selectedRowKeys.length > 0 && (
           <Item location='after' locateInMenu='auto' widget='dxButton'>
             <Tooltip
               target='#sync-items-to-sap'
@@ -306,7 +306,7 @@ export default function ItemTable({ items }: ItemTableProps) {
               onClick={() => setShowSyncToSapConfirmation(true)}
             />
           </Item>
-        )}
+        )} */}
 
         {selectedRowKeys.length < 1 && (
           <Item location='after' locateInMenu='auto' widget='dxButton'>

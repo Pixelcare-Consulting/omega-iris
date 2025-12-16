@@ -439,7 +439,6 @@ export const syncFromSap = action.use(authenticationMiddleware).action(async ({ 
           where: { manufacturerPartNumber: itemData.manufacturerPartNumber }, //* if manufacturerPartNumber will be remove based it on the ItemCode
           create: itemData,
           update: itemData,
-          skipDuplicates: true,
         })
       })
     }
