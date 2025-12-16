@@ -270,16 +270,18 @@ export const syncToSap = action
   .schema(syncToSapFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { items } = parsedInput
+    const { userId } = ctx
 
-    const ImportSyncError: ImportSyncError[] = []
+    const importSyncErrors: ImportSyncError[] = []
+    const toUpdateSyncStatus: number[] = []
 
     try {
-      const sapBatch: Promise<any>[] = []
-      const prismaBatch: Prisma.ItemCreateManyInput[] = []
+      const sapBatch: { rowNumber: number; code: number; promise: Promise<any>; row: Record<string, any> }[] = []
 
       for (let i = 0; i < items.length; i++) {
         const errors: ImportSyncErrorEntry[] = []
         const row = items[i]
+        const rowNumber = i + 1
 
         //* check required fields
         if (!row?.['ItemCode']) errors.push({ field: 'MFG_P/N', message: 'Missing required fields' })
@@ -292,7 +294,7 @@ export const syncToSap = action
 
         //* if errors array is not empty, then update/push to ImportSyncError
         if (errors.length > 0) {
-          ImportSyncError.push({ rowNumber: i + 1, entries: errors, row })
+          importSyncErrors.push({ rowNumber, entries: errors, row, code: row?.['code'] })
           continue
         }
 
@@ -303,56 +305,62 @@ export const syncToSap = action
           ItemName: row['ItemName'],
         }
 
-        sapBatch.push(callSapServiceLayerApi({ url: `${SAP_BASE_URL}/b1s/v1/Items`, method: 'post', data: toCreate }))
+        //* push the batch item to the sapBatch array
+        sapBatch.push({
+          rowNumber,
+          code: row['code'],
+          promise: callSapServiceLayerApi({ url: `${SAP_BASE_URL}/b1s/v1/Items`, method: 'post', data: toCreate }),
+          row,
+        })
       }
 
       //* create items into sap
-      const sapCreated = await Promise.all(sapBatch)
+      const sapCreated = await Promise.all(sapBatch.map((b) => b.promise))
 
-      //* create those items who alread created in sap into prisma db
+      //* populate error if any related to sap
       for (let i = 0; i < sapCreated.length; i++) {
-        const rowNumber = i + 1
-        const row = items[i]
+        const batchItem = sapBatch[i] //* sapCreated and sapBatch has the same order
 
-        //* if erroor present means there's error in sap
+        //* if error present means there's error when creating in sap
         if (sapCreated[i].error) {
-          ImportSyncError[rowNumber].entries.push({
-            field: 'SAP Error',
-            message: sapCreated[i]?.error?.message?.value || 'Unknown SAP error',
-          })
+          //* find the import error related to the batch items code
+          const importError = importSyncErrors.find((e) => e?.code === batchItem?.code)
+
+          //* update the error if there existing import error otherwise create a new one
+          if (importError) {
+            importError.entries.push({
+              field: 'SAP Error',
+              message: sapCreated[i]?.error?.message?.value || 'Unknown SAP error',
+            })
+          } else {
+            importSyncErrors.push({
+              rowNumber: batchItem.rowNumber,
+              entries: [{ field: 'SAP Error', message: sapCreated[i]?.error?.message?.value || 'Unknown SAP error' }],
+              row: batchItem.row,
+              code: batchItem.code,
+            })
+          }
+
           continue
         }
 
-        const toCreate: Prisma.ItemCreateManyInput = {
-          manufacturerPartNumber: row['ItemCode'],
-          description: row['ItemName'],
-          manufacturer: '', //* should get the manufacturer name from sap manufactuerer
-
-          ItemCode: row['ItemCode'],
-          ItemName: row['ItemName'],
-          FirmCode: row['Manufacturer'],
-          FirmName: null, //* should get the manufacturer name from sap
-          ItmsGrpCod: row['ItemsGroupCode'],
-          ItmsGrpNam: null, //* should get the item group name from sap
-          syncStatus: 'synced',
-          createdBy: ctx.userId,
-          updatedBy: ctx.userId,
-        }
-
-        prismaBatch.push(toCreate)
+        //* add code to the toUpdateSyncStatus array, only the code will be added that does not encountered any error in sap creation
+        toUpdateSyncStatus.push(batchItem.code)
       }
 
-      //* create items into prisma db
-      const prismaCreated = await db.item.createManyAndReturn({
-        data: prismaBatch,
-        skipDuplicates: true,
+      //* update the sync status of the items who created in sap
+      await db.item.updateMany({
+        where: { code: { in: toUpdateSyncStatus } },
+        data: { syncStatus: 'synced', updatedBy: userId },
       })
+
+      const completed = sapCreated?.filter((sc) => !sc?.error)
 
       return {
         status: 200,
-        message: `Inventory items sync successfully!. ${items.length}/${prismaCreated.length} items created. ${ImportSyncError.length} errors found.`,
+        message: `Inventory items sync successfully!. ${completed.length}/${items.length} items created into SAP. ${importSyncErrors.length} errors found.`,
         action: 'SYNC_TO_SAP',
-        errors: ImportSyncError,
+        errors: importSyncErrors,
       }
     } catch (error) {
       console.error('Data sync error:', error)

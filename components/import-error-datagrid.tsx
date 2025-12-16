@@ -19,10 +19,12 @@ import DataGrid, {
 import { Popup } from 'devextreme-react/popup'
 
 import { ImportSyncError } from '@/types/common'
-import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES } from '@/constants/devextreme'
+import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES, DEFAULT_COLUMN_MIN_WIDTH } from '@/constants/devextreme'
 import { CellRange } from 'devextreme/excel_exporter.types'
 
-type ImportErrorDataGridProps = {
+type ImportSyncErrorDataGridProps = {
+  title?: string
+  description?: string
   isOpen: boolean
   setIsOpen: Dispatch<SetStateAction<boolean>>
   data: ImportSyncError[]
@@ -30,7 +32,18 @@ type ImportErrorDataGridProps = {
   children?: React.ReactNode
 }
 
-export default function ImportErrorDataGrid({ isOpen, setIsOpen, data, dataGridRef, children }: ImportErrorDataGridProps) {
+export default function ImportSyncErrorDataGrid({
+  title,
+  description,
+  isOpen,
+  setIsOpen,
+  data,
+  dataGridRef,
+  children,
+}: ImportSyncErrorDataGridProps) {
+  const DEFAULT_TITLE = 'Import Error'
+  const DEFAULT_DESCRIPTION = 'There was an error encountered while importing.'
+
   const masterRowsRef = useRef<Record<string, any>>([])
 
   const DetailTemplate = useCallback((props: DataGridTypes.MasterDetailTemplateData) => {
@@ -173,6 +186,9 @@ export default function ImportErrorDataGrid({ isOpen, setIsOpen, data, dataGridR
           width='100%'
           height='100%'
           onExporting={onExporting}
+          wordWrapEnabled
+          columnAutoWidth={false}
+          columnMinWidth={DEFAULT_COLUMN_MIN_WIDTH}
         >
           <Column dataField='rowNumber' dataType='number' caption='Row #' alignment='center' />
           {children}
@@ -194,8 +210,8 @@ export default function ImportErrorDataGrid({ isOpen, setIsOpen, data, dataGridR
               location='before'
               render={() => (
                 <div className='max-w-md'>
-                  <h2 className='text-lg font-semibold'>Import Error</h2>
-                  <p className='text-sm text-slate-400'>There was an error encountered while importing.</p>
+                  <h2 className='text-lg font-semibold'>{title || DEFAULT_TITLE}</h2>
+                  <p className='text-sm text-slate-400'>{description || DEFAULT_DESCRIPTION}</p>
                 </div>
               )}
             />

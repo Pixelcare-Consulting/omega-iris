@@ -10,7 +10,7 @@ import { Anchor, Workbook } from 'exceljs'
 import dxDataGrid from 'devextreme/ui/data_grid'
 import { format } from 'date-fns'
 import { parseExcelFile } from '@/utils/xlsx'
-import ImportErrorDataGrid from '@/components/import-error-datagrid'
+import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import { ImportSyncError } from '@/types/common'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -73,11 +73,6 @@ export default function ItemTable({ items }: ItemTableProps) {
   const { executeAsync } = useAction(deleteItem)
   const importData = useAction(importItems)
   const syncData = useAction(syncToSap)
-
-  const itemGroups = useItemGroups()
-  const manufacturers = useManufacturers()
-
-  const dependeciesIsloading = itemGroups.isLoading || manufacturers.isLoading
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',
@@ -238,8 +233,10 @@ export default function ItemTable({ items }: ItemTableProps) {
     }
   }
 
-  const handleSyncToSap = async (formData: SyncToSapForm) => {
+  const handleConfirmSync = async (formData: SyncToSapForm) => {
     try {
+      setShowSyncConfirmation(false)
+
       const response = await syncData.executeAsync(formData)
       const result = response?.data
 
@@ -248,16 +245,17 @@ export default function ItemTable({ items }: ItemTableProps) {
         return
       }
 
-      toast.success(result?.message)
+      toast.success(result?.message, { duration: 10000 })
+      form.reset()
       router.refresh()
 
       if (result?.errors && result?.errors.length > 0) {
-        setShowImportError(true)
+        setShowSyncError(true)
         setSyncErrors(result?.errors || [])
       }
     } catch (error: any) {
       console.error(error)
-      toast.error(error?.message || 'Failed to sync items to SAP!')
+      toast.error(error?.message || 'Failed to sync items to SAP!', { duration: 10000 })
     }
   }
 
@@ -280,10 +278,10 @@ export default function ItemTable({ items }: ItemTableProps) {
             <LoadingButton
               id='sync-items-to-sap'
               icon='upload'
-              isLoading={dependeciesIsloading}
+              isLoading={syncData.isExecuting}
               text={`${selectedRowKeys.length} : Sync To SAP`}
               type='default'
-              loadingText={dependeciesIsloading ? 'Dependcies Loading' : 'Syncing'}
+              loadingText='Syncing'
               stylingMode='outlined'
               onClick={() => setShowSyncConfirmation(true)}
             />
@@ -346,20 +344,27 @@ export default function ItemTable({ items }: ItemTableProps) {
         isOpen={showSyncConfirmation}
         title='Are you sure?'
         description={`Are you sure you want to sync this item${itemsToSync.length > 1 ? 's' : ''} to SAP?`}
-        onConfirm={() => handleSyncToSap(form.getValues())}
+        onConfirm={() => handleConfirmSync(form.getValues())}
         onCancel={() => setShowSyncConfirmation(false)}
       />
 
-      <ImportErrorDataGrid
+      <ImportSyncErrorDataGrid
         isOpen={showImportError}
         setIsOpen={setShowImportError}
         data={importErrors}
         dataGridRef={importErrorDataGridRef}
       />
 
-      <ImportErrorDataGrid isOpen={showSyncError} setIsOpen={setShowSyncError} data={syncErrors} dataGridRef={syncErrorDataGridRef}>
+      <ImportSyncErrorDataGrid
+        title='Sync Error'
+        description='There was an error encountered while syncing.'
+        isOpen={showSyncError}
+        setIsOpen={setShowSyncError}
+        data={syncErrors}
+        dataGridRef={syncErrorDataGridRef}
+      >
         <Column dataField='code' dataType='string' caption='Id' alignment='center' />
-      </ImportErrorDataGrid>
+      </ImportSyncErrorDataGrid>
     </div>
   )
 }

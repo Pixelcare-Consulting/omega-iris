@@ -25,7 +25,7 @@ import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-p
 import AlertDialog from '@/components/alert-dialog'
 import CommonDataGrid from '@/components/common-datagrid'
 import { parseExcelFile } from '@/utils/xlsx'
-import ImportErrorDataGrid from '@/components/import-error-datagrid'
+import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import { ImportSyncError } from '@/types/common'
 
 type ProjectGroupTableProps = { projectGroups: Awaited<ReturnType<typeof getPgs>> }
@@ -188,7 +188,7 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
         onCancel={() => setShowConfirmation(false)}
       />
 
-      <ImportErrorDataGrid
+      <ImportSyncErrorDataGrid
         isOpen={showImportError}
         setIsOpen={setShowImportError}
         data={importErrors}
