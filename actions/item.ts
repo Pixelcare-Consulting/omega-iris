@@ -391,7 +391,7 @@ export const syncFromSap = action.use(authenticationMiddleware).action(async ({ 
   try {
     //* fetch all item master from sap
     const data = await Promise.allSettled([
-      callSapServiceLayerApi({ url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query2')/List` }),
+      callSapServiceLayerApi({ url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query2')/List`, headers: { Prefer: 'odata.maxpagesize=50' } }),
       db.syncMeta.findUnique({ where: { code: 'item' } }),
     ])
 
