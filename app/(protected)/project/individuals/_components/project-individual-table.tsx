@@ -15,7 +15,7 @@ import AlertDialog from '@/components/alert-dialog'
 import CommonDataGrid from '@/components/common-datagrid'
 import { parseExcelFile } from '@/utils/xlsx'
 import { ImportSyncError } from '@/types/common'
-import ImportErrorDataGrid from '@/components/import-error-datagrid'
+import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 
 type ProjectIndividualTableProps = { projectIndividuals: Awaited<ReturnType<typeof getPis>> }
 type DataSource = Awaited<ReturnType<typeof getPis>>
@@ -182,7 +182,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
         onCancel={() => setShowConfirmation(false)}
       />
 
-      <ImportErrorDataGrid
+      <ImportSyncErrorDataGrid
         isOpen={showImportError}
         setIsOpen={setShowImportError}
         data={importErrors}
