@@ -272,6 +272,7 @@ export default function ItemTable({ items }: ItemTableProps) {
 
       toast.success(result?.message)
       router.refresh()
+      syncMeta.execute({ code: 'item' })
     } catch (error: any) {
       console.error(error)
       toast.error(error?.message || 'Failed to sync items from SAP!', { duration: 10000 })
@@ -307,26 +308,29 @@ export default function ItemTable({ items }: ItemTableProps) {
           </Item>
         )}
 
-        <Item location='after' locateInMenu='auto' widget='dxButton'>
-          {!syncMeta.isLoading && (
-            <Tooltip
-              target='#sync-from-sap-to-portal'
-              contentRender={() => `Last Sync: ${format(syncMeta.data?.lastSyncAt || new Date('01/01/2020'), 'PP, hh:mm a')}`}
-              showEvent='mouseenter'
-              hideEvent='mouseleave'
-              position='top'
+        {selectedRowKeys.length < 1 && (
+          <Item location='after' locateInMenu='auto' widget='dxButton'>
+            {!syncMeta.isLoading && (
+              <Tooltip
+                target='#sync-from-sap-to-portal'
+                contentRender={() => `Last Sync: ${format(syncMeta.data?.lastSyncAt || new Date('01/01/2020'), 'PP, hh:mm a')}`}
+                showEvent='mouseenter'
+                hideEvent='mouseleave'
+                position='top'
+              />
+            )}
+            <LoadingButton
+              id='sync-from-sap-to-portal'
+              icon='refresh'
+              isLoading={syncFromSapData.isExecuting}
+              type='default'
+              text='Sync From SAP'
+              loadingText={syncMeta.isLoading ? 'Depedecy loading' : 'Syncing'}
+              stylingMode='outlined'
+              onClick={() => setShowSyncFromSapConfirmation(true)}
             />
-          )}
-          <LoadingButton
-            id='sync-from-sap-to-portal'
-            icon='refresh'
-            isLoading={syncFromSapData.isExecuting}
-            type='default'
-            loadingText={syncMeta.isLoading ? 'Depedecy loading' : 'Syncing'}
-            stylingMode='outlined'
-            onClick={() => setShowSyncFromSapConfirmation(true)}
-          />
-        </Item>
+          </Item>
+        )}
 
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
