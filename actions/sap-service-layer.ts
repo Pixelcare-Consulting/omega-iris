@@ -74,11 +74,13 @@ export async function authenticateSapServiceLayer(credentials: SapCredentials): 
 
 type CallSapServiceLayerApiParams = {
   url: string
-  params?: string
+  method?: 'get' | 'post' | 'patch' | 'delete'
   headers?: Record<string, any>
+  data?: any
+  params?: Record<string, any>
 }
 
-export async function callSapServiceLayerApi(params: CallSapServiceLayerApiParams): Promise<any> {
+export async function callSapServiceLayerApi(config: CallSapServiceLayerApiParams): Promise<any> {
   try {
     //* create agent
     const agent = new https.Agent({ rejectUnauthorized: false })
@@ -98,20 +100,24 @@ export async function callSapServiceLayerApi(params: CallSapServiceLayerApiParam
 
     const sapSession = authCookies.data.sapSession
 
-    //* create request
-    const response = await axios.get(params.url, {
+    const response = await axios({
+      url: config.url,
+      method: config.method ?? 'get',
       headers: {
         Cookie: `${sapSession.b1session}; ${sapSession.routeid}`,
         'Content-Type': 'application/json',
-        ...(params.headers ? params.headers : {}),
+        ...(config.headers ? config.headers : {}),
       },
+      params: config.params, //* query string params
+      data: config.data, //* body
       httpsAgent: agent,
-      data: { ParamList: params },
     })
 
-    return response.data
+    return response?.data
   } catch (error: any) {
+    const response = error?.response
     logger.error(error?.message || 'Failed to call SAP Service Layer API')
-    return null
+    if (!response) return null
+    return response?.data
   }
 }

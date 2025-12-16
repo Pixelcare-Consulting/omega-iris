@@ -14,7 +14,7 @@ import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-p
 import AlertDialog from '@/components/alert-dialog'
 import CommonDataGrid from '@/components/common-datagrid'
 import { parseExcelFile } from '@/utils/xlsx'
-import { ImportError } from '@/types/common'
+import { ImportSyncError } from '@/types/common'
 import ImportErrorDataGrid from '@/components/import-error-datagrid'
 
 type ProjectIndividualTableProps = { projectIndividuals: Awaited<ReturnType<typeof getPis>> }
@@ -29,7 +29,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [showImportError, setShowImportError] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
-  const [importErrors, setImportErrors] = useState<ImportError[]>([])
+  const [importErrors, setImportErrors] = useState<ImportSyncError[]>([])
 
   const dataGridRef = useRef<DataGridRef | null>(null)
   const importErrorDataGridRef = useRef<DataGridRef | null>(null)

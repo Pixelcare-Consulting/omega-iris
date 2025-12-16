@@ -1,10 +1,10 @@
 export type PageMetadata = { title: string; description: string }
 export type DuplicateFields = { field: string; name: string; message: string }[]
 
-export type ImportErrorEntry = { field: string; message: string }
+export type ImportSyncErrorEntry = { field: string; message: string }
 
-export type ImportError = {
+export type ImportSyncError = {
   rowNumber: number
-  entries: ImportErrorEntry[]
+  entries: ImportSyncErrorEntry[]
   row?: any
-}
+} & Record<string, any>

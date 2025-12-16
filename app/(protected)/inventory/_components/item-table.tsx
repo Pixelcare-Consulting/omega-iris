@@ -2,7 +2,7 @@
 
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 import { saveAs } from 'file-saver-es'
@@ -11,9 +11,14 @@ import dxDataGrid from 'devextreme/ui/data_grid'
 import { format } from 'date-fns'
 import { parseExcelFile } from '@/utils/xlsx'
 import ImportErrorDataGrid from '@/components/import-error-datagrid'
-import { ImportError } from '@/types/common'
+import { ImportSyncError } from '@/types/common'
+import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Item } from 'devextreme-react/toolbar'
+import Tooltip from 'devextreme-react/tooltip'
+import Button from 'devextreme-react/button'
 
-import { deleteItem, getItems, importItems } from '@/actions/item'
+import { deleteItem, getItems, importItems, syncToSap } from '@/actions/item'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -21,6 +26,13 @@ import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-p
 import AlertDialog from '@/components/alert-dialog'
 import { exportDataGrid } from 'devextreme/common/export/excel'
 import CommonDataGrid from '@/components/common-datagrid'
+
+import { SyncToSapForm, syncToSapFormSchema } from '@/schema/item'
+import LoadingButton from '@/components/loading-button'
+import { useItemGroups } from '@/hooks/safe-actions/item-group'
+import { useManufacturers } from '@/hooks/safe-actions/manufacturer'
+import { SAP_BASE_URL } from '@/constants/sap'
+import { callSapServiceLayerApi } from '@/actions/sap-service-layer'
 
 type ItemTableProps = { items: Awaited<ReturnType<typeof getItems>> }
 type DataSource = Awaited<ReturnType<typeof getItems>>
@@ -31,16 +43,41 @@ export default function ItemTable({ items }: ItemTableProps) {
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-inventory'
   const DATAGRID_UNIQUE_KEY = 'inventory'
 
-  const [showConfirmation, setShowConfirmation] = useState(false)
+  const form = useForm({
+    mode: 'onChange',
+    values: { items: [] },
+    resolver: zodResolver(syncToSapFormSchema),
+  })
+
+  const itemsToSync = useWatch({ control: form.control, name: 'items' })
+
+  const selectedRowKeys = useMemo(() => {
+    if (itemsToSync.length < 1) return []
+    return itemsToSync.map((wo) => wo.code)
+  }, [JSON.stringify(itemsToSync)])
+
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
+  const [showSyncConfirmation, setShowSyncConfirmation] = useState(false)
+
   const [showImportError, setShowImportError] = useState(false)
+  const [showSyncError, setShowSyncError] = useState(false)
+
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
-  const [importErrors, setImportErrors] = useState<ImportError[]>([])
+  const [importErrors, setImportErrors] = useState<ImportSyncError[]>([])
+  const [syncErrors, setSyncErrors] = useState<ImportSyncError[]>([])
 
   const dataGridRef = useRef<DataGridRef | null>(null)
   const importErrorDataGridRef = useRef<DataGridRef | null>(null)
+  const syncErrorDataGridRef = useRef<DataGridRef | null>(null)
 
   const { executeAsync } = useAction(deleteItem)
   const importData = useAction(importItems)
+  const syncData = useAction(syncToSap)
+
+  const itemGroups = useItemGroups()
+  const manufacturers = useManufacturers()
+
+  const dependeciesIsloading = itemGroups.isLoading || manufacturers.isLoading
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',
@@ -81,16 +118,16 @@ export default function ItemTable({ items }: ItemTableProps) {
     (e: DataGridTypes.ColumnButtonClickEvent) => {
       const data = e.row?.data
       if (!data) return
-      setShowConfirmation(true)
+      setShowDeleteConfirmation(true)
       setRowData(data)
     },
-    [setShowConfirmation, setRowData]
+    [setShowDeleteConfirmation, setRowData]
   )
 
   const handleConfirm = useCallback((code?: number) => {
     if (!code) return
 
-    setShowConfirmation(false)
+    setShowDeleteConfirmation(false)
 
     toast.promise(executeAsync({ code }), {
       loading: 'Deleting inventory...',
@@ -113,6 +150,23 @@ export default function ItemTable({ items }: ItemTableProps) {
         return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
       },
     })
+  }, [])
+
+  const handleOnSelectionChange = useCallback((e: DataGridTypes.SelectionChangedEvent) => {
+    const allowData = e.selectedRowsData.filter((row) => row.syncStatus === 'pending')
+    const notAllowData = e.selectedRowsData.filter((row) => row.syncStatus === 'synced')
+
+    const values = allowData.map((row) => ({
+      code: row.code,
+      ItemCode: row.ItemCode,
+      ItemName: row.ItemName,
+      Manufacturer: row?.FirmCode ?? -1,
+      ItemsGroupCode: row?.ItmsGrpCod ?? -1,
+    }))
+
+    if (notAllowData.length > 0) e.component.deselectRows(notAllowData.map((row) => row.code))
+
+    form.setValue('items', values)
   }, [])
 
   function exportToExcel(fileName: string, component?: dxDataGrid<any, any> | null, selectedRowsOnly = false) {
@@ -175,18 +229,67 @@ export default function ItemTable({ items }: ItemTableProps) {
       router.refresh()
 
       if (result?.errors && result?.errors.length > 0) {
-        setShowImportError(true)
+        setShowSyncError(true)
         setImportErrors(result?.errors || [])
       }
     } catch (error: any) {
       console.error(error)
-      toast.error(error?.message || 'Failed to import file')
+      toast.error(error?.message || 'Failed to import file!')
+    }
+  }
+
+  const handleSyncToSap = async (formData: SyncToSapForm) => {
+    try {
+      const response = await syncData.executeAsync(formData)
+      const result = response?.data
+
+      if (result?.error) {
+        toast.error(result.message)
+        return
+      }
+
+      toast.success(result?.message)
+      router.refresh()
+
+      if (result?.errors && result?.errors.length > 0) {
+        setShowImportError(true)
+        setSyncErrors(result?.errors || [])
+      }
+    } catch (error: any) {
+      console.error(error)
+      toast.error(error?.message || 'Failed to sync items to SAP!')
     }
   }
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Inventory' description='Manage and track your inventory effectively' isLoading={importData.isExecuting}>
+      <PageHeader
+        title='Inventory'
+        description='Manage and track your inventory effectively'
+        isLoading={importData.isExecuting || syncData.isExecuting}
+      >
+        {selectedRowKeys.length > 0 && (
+          <Item location='after' locateInMenu='auto' widget='dxButton'>
+            <Tooltip
+              target='#sync-items-to-sap'
+              contentRender={() => 'Sync To SAP'}
+              showEvent='mouseenter'
+              hideEvent='mouseleave'
+              position='top'
+            />
+            <LoadingButton
+              id='sync-items-to-sap'
+              icon='upload'
+              isLoading={dependeciesIsloading}
+              text={`${selectedRowKeys.length} : Sync To SAP`}
+              type='default'
+              loadingText={dependeciesIsloading ? 'Dependcies Loading' : 'Syncing'}
+              stylingMode='outlined'
+              onClick={() => setShowSyncConfirmation(true)}
+            />
+          </Item>
+        )}
+
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
@@ -199,12 +302,22 @@ export default function ItemTable({ items }: ItemTableProps) {
       </PageHeader>
 
       <PageContentWrapper className='h-[calc(100%_-_92px)]'>
-        <CommonDataGrid dataGridRef={dataGridRef} data={items} storageKey={DATAGRID_STORAGE_KEY} dataGridStore={dataGridStore}>
+        <CommonDataGrid
+          dataGridRef={dataGridRef}
+          data={items}
+          storageKey={DATAGRID_STORAGE_KEY}
+          keyExpr='code'
+          isSelectionEnable
+          dataGridStore={dataGridStore}
+          selectedRowKeys={selectedRowKeys}
+          callbacks={{ onSelectionChanged: handleOnSelectionChange }}
+        >
           <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
           <Column dataField='thumbnail' minWidth={140} caption='Thumbnail' cellRender={thumbnailCellRender} />
           <Column dataField='manufacturer' dataType='string' caption='Manufacturer' />
           <Column dataField='manufacturerPartNumber' dataType='string' caption='MFG P/N' />
           <Column dataField='description' dataType='string' caption='Description' />
+          <Column dataField='syncStatus' dataType='string' caption='Sync Status' cssClass='capitalize' />
           <Column
             dataField='isActive'
             dataType='string'
@@ -222,11 +335,19 @@ export default function ItemTable({ items }: ItemTableProps) {
       </PageContentWrapper>
 
       <AlertDialog
-        isOpen={showConfirmation}
+        isOpen={showDeleteConfirmation}
         title='Are you sure?'
         description={`Are you sure you want to delete this inventory item named "${rowData?.description}"?`}
         onConfirm={() => handleConfirm(rowData?.code)}
-        onCancel={() => setShowConfirmation(false)}
+        onCancel={() => setShowDeleteConfirmation(false)}
+      />
+
+      <AlertDialog
+        isOpen={showSyncConfirmation}
+        title='Are you sure?'
+        description={`Are you sure you want to sync this item${itemsToSync.length > 1 ? 's' : ''} to SAP?`}
+        onConfirm={() => handleSyncToSap(form.getValues())}
+        onCancel={() => setShowSyncConfirmation(false)}
       />
 
       <ImportErrorDataGrid
@@ -235,6 +356,10 @@ export default function ItemTable({ items }: ItemTableProps) {
         data={importErrors}
         dataGridRef={importErrorDataGridRef}
       />
+
+      <ImportErrorDataGrid isOpen={showSyncError} setIsOpen={setShowSyncError} data={syncErrors} dataGridRef={syncErrorDataGridRef}>
+        <Column dataField='code' dataType='string' caption='Id' alignment='center' />
+      </ImportErrorDataGrid>
     </div>
   )
 }

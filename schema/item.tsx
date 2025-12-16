@@ -22,6 +22,7 @@ export const itemFormSchema = z.object({
   thumbnail: z.string().nullish(),
   notes: z.string().nullish(),
   isActive: z.boolean(),
+  syncStatus: z.string().nullish(),
 
   //* warehouse inventory
   // warehouseInventory: itemWarehouseInventoryFormSchema,
@@ -36,4 +37,17 @@ export const itemFormSchema = z.object({
   Price: z.coerce.number().nullish(),
 })
 
+export const syncToSapFormSchema = z.object({
+  items: z.array(
+    z.object({
+      code: z.coerce.number(),
+      ItemCode: z.string().min(1, { message: 'Item code is required' }),
+      ItemName: z.string(),
+      Manufacturer: z.coerce.number(),
+      ItemsGroupCode: z.coerce.number(),
+    })
+  ),
+})
+
 export type ItemForm = z.infer<typeof itemFormSchema>
+export type SyncToSapForm = z.infer<typeof syncToSapFormSchema>

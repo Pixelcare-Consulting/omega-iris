@@ -7,7 +7,7 @@ import { paramsSchema } from '@/schema/common'
 import { projectGroupFormSchema } from '@/schema/project-group'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
-import { ImportError, ImportErrorEntry } from '@/types/common'
+import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 
 const COMMON_PROJECT_GROUP_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectGroupOrderByWithRelationInput
 
@@ -108,13 +108,13 @@ export const importPgs = action
     const { data } = parsedInput
     const { userId } = ctx
 
-    const importErrors: ImportError[] = []
+    const importErrors: ImportSyncError[] = []
 
     try {
       const batch: Prisma.ProjectGroupCreateManyInput[] = []
 
       for (let i = 0; i < data.length; i++) {
-        const errors: ImportErrorEntry[] = []
+        const errors: ImportSyncErrorEntry[] = []
         const row = data[i]
 
         //* check required fields

@@ -4,11 +4,13 @@ import z from 'zod'
 import { Prisma } from '@prisma/client'
 
 import { paramsSchema } from '@/schema/common'
-import { itemFormSchema } from '@/schema/item'
+import { itemFormSchema, syncToSapFormSchema } from '@/schema/item'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
-import { ImportError, ImportErrorEntry } from '@/types/common'
+import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import { safeParseFloat } from '@/utils'
+import { callSapServiceLayerApi } from './sap-service-layer'
+import { SAP_BASE_URL } from '@/constants/sap'
 
 const COMMON_ITEM_ORDER_BY = { code: 'asc' } satisfies Prisma.ItemOrderByWithRelationInput
 
@@ -78,7 +80,10 @@ export const upsertItem = action
       if (code !== -1) {
         const updatedItem = await db.$transaction(async (tx) => {
           //* update item
-          const item = await tx.item.update({ where: { code }, data: { ...data, updatedBy: userId } })
+          const item = await tx.item.update({
+            where: { code },
+            data: { ...data, syncStatus: data?.syncStatus ?? 'pending', updatedBy: userId },
+          })
 
           // if (warehouseInventory.length > 0) {
           //   //* upsert item warehouse inventory
@@ -119,6 +124,7 @@ export const upsertItem = action
       const newItem = await db.item.create({
         data: {
           ...data,
+          syncStatus: data?.syncStatus ?? 'pending',
           createdBy: userId,
           updatedBy: userId,
           // itemWarehouseInventory: {
@@ -159,7 +165,7 @@ export const importItems = action
     const { data } = parsedInput
     const { userId } = ctx
 
-    const importErrors: ImportError[] = []
+    const importErrors: ImportSyncError[] = []
     const mfgpns = data?.map((row) => row?.['MFG_P/N'])?.filter(Boolean) || []
 
     try {
@@ -172,7 +178,7 @@ export const importItems = action
       ).map((inv) => inv.manufacturerPartNumber)
 
       for (let i = 0; i < data.length; i++) {
-        const errors: ImportErrorEntry[] = []
+        const errors: ImportSyncErrorEntry[] = []
         const row = data[i]
 
         //* check required fields
@@ -255,6 +261,115 @@ export const deleteItem = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'DELETE_ITEM',
+      }
+    }
+  })
+
+export const syncToSap = action
+  .use(authenticationMiddleware)
+  .schema(syncToSapFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { items } = parsedInput
+
+    const ImportSyncError: ImportSyncError[] = []
+
+    try {
+      const sapBatch: Promise<any>[] = []
+      const prismaBatch: Prisma.ItemCreateManyInput[] = []
+
+      for (let i = 0; i < items.length; i++) {
+        const errors: ImportSyncErrorEntry[] = []
+        const row = items[i]
+
+        //* check required fields
+        if (!row?.['ItemCode']) errors.push({ field: 'MFG_P/N', message: 'Missing required fields' })
+
+        if (!row?.['ItemsGroupCode']) errors.push({ field: 'Group', message: 'Missing required fields' })
+
+        if (!row?.['Manufacturer']) errors.push({ field: 'Manufacturer', message: 'Missing required fields' })
+
+        if (!row?.['ItemName']) errors.push({ field: 'Description', message: 'Missing required fields' })
+
+        //* if errors array is not empty, then update/push to ImportSyncError
+        if (errors.length > 0) {
+          ImportSyncError.push({ rowNumber: i + 1, entries: errors, row })
+          continue
+        }
+
+        const toCreate = {
+          ItemCode: row['ItemCode'],
+          Manufacturer: row['Manufacturer'],
+          ItemsGroupCode: row['ItemsGroupCode'],
+          ItemName: row['ItemName'],
+        }
+
+        sapBatch.push(callSapServiceLayerApi({ url: `${SAP_BASE_URL}/b1s/v1/Items`, method: 'post', data: toCreate }))
+      }
+
+      //* create items into sap
+      const sapCreated = await Promise.all(sapBatch)
+
+      //* create those items who alread created in sap into prisma db
+      for (let i = 0; i < sapCreated.length; i++) {
+        const rowNumber = i + 1
+        const row = items[i]
+
+        //* if erroor present means there's error in sap
+        if (sapCreated[i].error) {
+          ImportSyncError[rowNumber].entries.push({
+            field: 'SAP Error',
+            message: sapCreated[i]?.error?.message?.value || 'Unknown SAP error',
+          })
+          continue
+        }
+
+        const toCreate: Prisma.ItemCreateManyInput = {
+          manufacturerPartNumber: row['ItemCode'],
+          description: row['ItemName'],
+          manufacturer: '', //* should get the manufacturer name from sap manufactuerer
+
+          ItemCode: row['ItemCode'],
+          ItemName: row['ItemName'],
+          FirmCode: row['Manufacturer'],
+          FirmName: null, //* should get the manufacturer name from sap
+          ItmsGrpCod: row['ItemsGroupCode'],
+          ItmsGrpNam: null, //* should get the item group name from sap
+          syncStatus: 'synced',
+          createdBy: ctx.userId,
+          updatedBy: ctx.userId,
+        }
+
+        prismaBatch.push(toCreate)
+      }
+
+      //* create items into prisma db
+      const prismaCreated = await db.item.createManyAndReturn({
+        data: prismaBatch,
+        skipDuplicates: true,
+      })
+
+      return {
+        status: 200,
+        message: `Inventory items sync successfully!. ${items.length}/${prismaCreated.length} items created. ${ImportSyncError.length} errors found.`,
+        action: 'SYNC_TO_SAP',
+        errors: ImportSyncError,
+      }
+    } catch (error) {
+      console.error('Data sync error:', error)
+
+      const errors = items.map((row, index) => ({
+        rowNumber: index + 1,
+        code: row.code,
+        entries: [{ field: 'Unknown', message: 'Unexpected batch write error' }],
+        row,
+      }))
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Data import error!',
+        action: 'SYNC_TO_SAP',
+        errors,
       }
     }
   })

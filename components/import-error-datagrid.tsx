@@ -18,18 +18,19 @@ import DataGrid, {
 } from 'devextreme-react/data-grid'
 import { Popup } from 'devextreme-react/popup'
 
-import { ImportError } from '@/types/common'
+import { ImportSyncError } from '@/types/common'
 import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES } from '@/constants/devextreme'
 import { CellRange } from 'devextreme/excel_exporter.types'
 
 type ImportErrorDataGridProps = {
   isOpen: boolean
   setIsOpen: Dispatch<SetStateAction<boolean>>
-  data: ImportError[]
+  data: ImportSyncError[]
   dataGridRef: Ref<DataGridRef>
+  children?: React.ReactNode
 }
 
-export default function ImportErrorDataGrid({ isOpen, setIsOpen, data, dataGridRef }: ImportErrorDataGridProps) {
+export default function ImportErrorDataGrid({ isOpen, setIsOpen, data, dataGridRef, children }: ImportErrorDataGridProps) {
   const masterRowsRef = useRef<Record<string, any>>([])
 
   const DetailTemplate = useCallback((props: DataGridTypes.MasterDetailTemplateData) => {
@@ -174,6 +175,7 @@ export default function ImportErrorDataGrid({ isOpen, setIsOpen, data, dataGridR
           onExporting={onExporting}
         >
           <Column dataField='rowNumber' dataType='number' caption='Row #' alignment='center' />
+          {children}
           <Export enabled formats={['xlsx']} />
 
           <Pager
