@@ -2,6 +2,7 @@
 
 import z from 'zod'
 import { Prisma } from '@prisma/client'
+import { isAfter, parse } from 'date-fns'
 
 import { paramsSchema } from '@/schema/common'
 import { itemFormSchema, syncToSapFormSchema } from '@/schema/item'
@@ -381,3 +382,94 @@ export const syncToSap = action
       }
     }
   })
+
+export const syncFromSap = action.use(authenticationMiddleware).action(async ({ ctx, parsedInput }) => {
+  const { userId } = ctx
+
+  const SYNC_META_CODE = 'item'
+
+  try {
+    //* fetch all item master from sap
+    const data = await Promise.allSettled([
+      callSapServiceLayerApi({ url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query2')/List` }),
+      db.syncMeta.findUnique({ where: { code: 'item' } }),
+    ])
+
+    const itemMaster = data[0].status === 'fulfilled' ? data[0]?.value?.value || [] : []
+    const lastSyncDate = data[1].status === 'fulfilled' ? data[1]?.value?.lastSyncAt || new Date('01/01/2020') : new Date('01/01/2020')
+
+    if (itemMaster.length < 1) {
+      return {
+        error: true,
+        status: 404,
+        message: 'Failed to fetch item master from SAP!',
+        action: 'SYNC_FROM_SAP',
+      }
+    }
+
+    //* do an upsert operation
+    //*  filter the records where CreateDate > lastSyncDate or  UpdateDate > lastSyncDate
+    const filteredSapItemMasters =
+      itemMaster?.filter((row: any) => {
+        const createDate = parse(row.CreateDate, 'yyyyMMdd', new Date())
+        const updateDate = parse(row.UpdateDate, 'yyyyMMdd', new Date())
+        return isAfter(createDate, lastSyncDate) || isAfter(updateDate, lastSyncDate)
+      }) || []
+
+    const getUpsertPromises = (filteredSapItemMasters: Record<string, any>[], tx: any) => {
+      return filteredSapItemMasters.map((row: any) => {
+        const itemData = {
+          manufacturerPartNumber: row?.ItemCode,
+          manufacturer: row?.FirmName || '',
+          description: row?.ItemName || '',
+          syncStatus: 'synced',
+          createdBy: userId,
+          updatedBy: userId,
+
+          //* sap fields
+          ItemCode: row?.ItemCode || '',
+          ItemName: row?.ItemName || '',
+          ItmsGrpCod: row?.ItmsGrpCod || -1,
+          ItmsGrpNam: row?.ItmsGrpNam || '',
+          FirmCode: row?.FirmCode || -1,
+          FirmName: row?.FirmName || '',
+        }
+
+        return tx.item.upsert({
+          where: { manufacturerPartNumber: itemData.manufacturerPartNumber }, //* if manufacturerPartNumber will be remove based it on the ItemCode
+          create: itemData,
+          update: itemData,
+          skipDuplicates: true,
+        })
+      })
+    }
+
+    //* perform upsert and  update the sync meta
+    await db.$transaction(async (tx) => {
+      //* upsert items
+      await Promise.all(getUpsertPromises(filteredSapItemMasters, tx))
+
+      //* upsert sync meta
+      await tx.syncMeta.upsert({
+        where: { code: SYNC_META_CODE },
+        create: { code: SYNC_META_CODE, description: 'Last item master synced date', lastSyncAt: new Date() },
+        update: { code: SYNC_META_CODE, description: 'Last synced date', lastSyncAt: new Date() },
+      })
+    })
+
+    return {
+      status: 200,
+      message: 'Inventory items sync successfully!',
+      action: 'SYNC_FROM_SAP',
+    }
+  } catch (error) {
+    console.error(error)
+
+    return {
+      error: true,
+      status: 500,
+      message: error instanceof Error ? error.message : 'Something went wrong!',
+      action: 'SYNC_FROM_SAP',
+    }
+  }
+})
