@@ -421,15 +421,17 @@ export const syncFromSap = action.use(authenticationMiddleware).action(async ({ 
     //*  filter the records where CreatedDate === lastSyncDate or  CreateDate > lastSyncDate or UpdateDate === lastSyncDate or UpdateDate > lastSyncDate
     const filteredSapItemMasters =
       itemMaster?.filter((row: any) => {
-        const createDate = parse(row.CreateDate, 'yyyy-MM-dd', new Date())
-        const updateDate = parse(row.UpdateDate, 'yyyy-MM-dd', new Date())
+        const item = row?.Items
 
-        return (
-          isSameDay(createDate, lastSyncDate) ||
-          isAfter(createDate, lastSyncDate) ||
-          isSameDay(updateDate, lastSyncDate) ||
-          isAfter(updateDate, lastSyncDate)
-        )
+        const createDate = item?.CreateDate ? parse(item?.CreateDate, 'yyyy-MM-dd', new Date()) : null
+        const updateDate = item?.UpdateDate ? parse(item?.UpdateDate, 'yyyy-MM-dd', new Date()) : null
+
+        const isCreateDateSameDay = createDate ? isSameDay(createDate, lastSyncDate) : false
+        const isUpdateDateSameDay = updateDate ? isSameDay(updateDate, lastSyncDate) : false
+        const isCreateDateAfter = createDate ? isAfter(createDate, lastSyncDate) : false
+        const isUpdateDateAfter = updateDate ? isAfter(updateDate, lastSyncDate) : false
+
+        return isCreateDateSameDay || isUpdateDateSameDay || isCreateDateAfter || isUpdateDateAfter
       }) || []
 
     const getUpsertPromises = (filteredSapItemMasters: Record<string, any>[], tx: any) => {
