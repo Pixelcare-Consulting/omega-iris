@@ -42,7 +42,11 @@ export default function PageHeader({
         {children}
       </Toolbar>
 
-      {isLoading && <BarLoader className='mt-1' color='#ed1c24' width='100%' />}
+      {isLoading && (
+        <div className='flex h-[20px] items-center'>
+          <BarLoader className='mt-1' color='#ed1c24' width='100%' />
+        </div>
+      )}
     </header>
   )
 }

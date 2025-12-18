@@ -17,6 +17,7 @@ import { toast } from 'sonner'
 import { useCallback, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
+import ProgressBar from 'devextreme-react/progress-bar'
 
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
@@ -26,7 +27,7 @@ import AlertDialog from '@/components/alert-dialog'
 import CommonDataGrid from '@/components/common-datagrid'
 import { parseExcelFile } from '@/utils/xlsx'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
-import { ImportSyncError } from '@/types/common'
+import { ImportSyncError, Stats } from '@/types/common'
 
 type ProjectGroupTableProps = { projectGroups: Awaited<ReturnType<typeof getPgs>> }
 type DataSource = Awaited<ReturnType<typeof getPgs>>
@@ -36,6 +37,9 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-group'
   const DATAGRID_UNIQUE_KEY = 'project-groups'
+
+  const [isLoading, setIsLoading] = useState(false)
+  const [stats, setStats] = useState<Stats>({ total: 0, completed: 0, progress: 0, errors: [], status: 'processing' })
 
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [showImportError, setShowImportError] = useState(false)
@@ -117,28 +121,56 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
   const handleImport: (...args: any[]) => void = async (args) => {
     const { file } = args
 
+    setIsLoading(true)
+
     try {
       const headers: string[] = ['Name', 'Description', 'Active']
+      const batchSize = 10
 
       //* parse excel file
       const parseData = await parseExcelFile({ file, header: headers })
       const toImportData = parseData.map((row, i) => ({ rowNumber: i + 2, ...row }))
 
-      const response = await importData.executeAsync({ data: toImportData })
-      const result = response?.data
+      //* trigger write by batch
+      let batch: typeof toImportData = []
+      let stats: Stats = { total: 0, completed: 0, progress: 0, errors: [], status: 'processing' }
 
-      if (result?.error) {
-        toast.error(result.message)
-        return
+      for (let i = 0; i < toImportData.length; i++) {
+        const isLastRow = i === toImportData.length - 1
+        const row = toImportData[i]
+
+        //* add to batch
+        batch.push(row)
+
+        //* check if batch size is reached or last row
+        if (batch.length === batchSize || isLastRow) {
+          const response = await importData.executeAsync({ data: batch, total: toImportData.length, stats, isLastRow })
+          const result = response?.data
+
+          if (result?.error) {
+            setStats((prev: any) => ({ ...prev, error: [...prev.error, ...result.stats.errors] }))
+            stats.errors = [...stats.errors, ...result.stats.errors]
+          } else if (result?.stats) {
+            setStats(result.stats)
+            stats = result.stats
+          }
+
+          batch = []
+        }
       }
 
-      toast.success(result?.message)
-      router.refresh()
+      if (stats.status === 'completed') {
+        toast.success(`Project groups imported successfully! ${stats.errors.length} errors found.`)
+        setStats((prev: any) => ({ ...prev, total: 0, completed: 0, progress: 0, status: 'processing' }))
+        router.refresh()
+      }
 
-      if (result?.errors && result?.errors.length > 0) {
+      if (stats.errors.length > 0) {
         setShowImportError(true)
-        setImportErrors(result?.errors || [])
+        setImportErrors(stats.errors)
       }
+
+      setIsLoading(false)
     } catch (error: any) {
       console.error(error)
       toast.error(error?.message || 'Failed to import file')
@@ -147,15 +179,17 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Project Groups' description='Manage and track your project groups effectively' isLoading={importData.isExecuting}>
+      <PageHeader title='Project Groups' description='Manage and track your project groups effectively'>
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
-          isLoading={importData.isExecuting}
+          isLoading={isLoading || importData.isExecuting}
           isEnableImport
           onImport={handleImport}
           addButton={{ text: 'Add Project Group', onClick: () => router.push('/project/groups/add') }}
         />
+
+        {stats && stats.progress && isLoading ? <ProgressBar min={0} max={100} showStatus={false} value={stats.progress} /> : null}
       </PageHeader>
 
       <PageContentWrapper className='h-[calc(100%_-_92px)]'>

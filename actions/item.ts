@@ -2,7 +2,7 @@
 
 import z from 'zod'
 import { Prisma } from '@prisma/client'
-import { isAfter, parse } from 'date-fns'
+import { isAfter, isEqual, isSameDay, parse } from 'date-fns'
 
 import { paramsSchema } from '@/schema/common'
 import { itemFormSchema, syncToSapFormSchema } from '@/schema/item'
@@ -12,6 +12,8 @@ import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import { safeParseFloat } from '@/utils'
 import { callSapServiceLayerApi } from './sap-service-layer'
 import { SAP_BASE_URL } from '@/constants/sap'
+import { getItemMaster } from './item-master'
+import { importFormSchema } from '@/schema/import'
 
 const COMMON_ITEM_ORDER_BY = { code: 'asc' } satisfies Prisma.ItemOrderByWithRelationInput
 
@@ -161,12 +163,11 @@ export const upsertItem = action
 
 export const importItems = action
   .use(authenticationMiddleware)
-  .schema(z.object({ data: z.array(z.record(z.string(), z.any())) }))
+  .schema(importFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { data } = parsedInput
+    const { data, total, stats, isLastRow } = parsedInput
     const { userId } = ctx
 
-    const importErrors: ImportSyncError[] = []
     const mfgpns = data?.map((row) => row?.['MFG_P/N'])?.filter(Boolean) || []
 
     try {
@@ -192,7 +193,7 @@ export const importItems = action
 
         //* if errors array is not empty, then update/push to importErrors
         if (errors.length > 0) {
-          importErrors.push({ rowNumber: row.rowNumber, entries: errors, row })
+          stats.errors.push({ rowNumber: row.rowNumber, entries: errors, row })
           continue
         }
 
@@ -213,31 +214,43 @@ export const importItems = action
       }
 
       //* commit the batch
-      const created = await db.item.createManyAndReturn({
+      await db.item.createManyAndReturn({
         data: batch,
         skipDuplicates: true,
       })
 
+      const progress = ((stats.completed + batch.length) / total) * 100
+
+      const updatedStats = {
+        ...stats,
+        completed: stats.completed + batch.length,
+        progress,
+        status: progress >= 100 || isLastRow ? 'completed' : 'processing',
+      }
+
       return {
         status: 200,
-        message: `Inventory items imported successfully!. ${created.length}/${data.length} items created. ${importErrors.length} errors found.`,
+        message: `${updatedStats.completed} inventory items created successfully!`,
         action: 'IMPORT_ITEMS',
-        errors: importErrors,
+        stats: updatedStats,
       }
     } catch (error) {
       console.error('Data import error:', error)
 
       const errors = data.map((row) => ({
-        rowNumber: row.rowNumber,
+        rowNumber: row.rowNumber as number,
         entries: [{ field: 'Unknown', message: 'Unexpected batch write error' }],
-      }))
+        row: null,
+      })) as any
+
+      stats.errors.push(errors)
 
       return {
         error: true,
         status: 500,
         message: error instanceof Error ? error.message : 'Data import error!',
         action: 'IMPORT_ITEMS',
-        errors,
+        stats,
       }
     }
   })
@@ -389,13 +402,10 @@ export const syncFromSap = action.use(authenticationMiddleware).action(async ({ 
   const SYNC_META_CODE = 'item'
 
   try {
-    //* fetch all item master from sap
-    const data = await Promise.allSettled([
-      callSapServiceLayerApi({ url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query2')/List`, headers: { Prefer: 'odata.maxpagesize=50' } }),
-      db.syncMeta.findUnique({ where: { code: 'item' } }),
-    ])
+    //* fetch all item master from sap & last sync date
+    const data = await Promise.allSettled([getItemMaster(), db.syncMeta.findUnique({ where: { code: 'item' } })])
 
-    const itemMaster = data[0].status === 'fulfilled' ? data[0]?.value?.value || [] : []
+    const itemMaster = data[0].status === 'fulfilled' ? data[0]?.value || [] : []
     const lastSyncDate = data[1].status === 'fulfilled' ? data[1]?.value?.lastSyncAt || new Date('01/01/2020') : new Date('01/01/2020')
 
     if (itemMaster.length < 1) {
@@ -408,39 +418,55 @@ export const syncFromSap = action.use(authenticationMiddleware).action(async ({ 
     }
 
     //* do an upsert operation
-    //*  filter the records where CreateDate > lastSyncDate or  UpdateDate > lastSyncDate
+    //*  filter the records where CreatedDate === lastSyncDate or  CreateDate > lastSyncDate or UpdateDate === lastSyncDate or UpdateDate > lastSyncDate
     const filteredSapItemMasters =
       itemMaster?.filter((row: any) => {
-        const createDate = parse(row.CreateDate, 'yyyyMMdd', new Date())
-        const updateDate = parse(row.UpdateDate, 'yyyyMMdd', new Date())
-        return isAfter(createDate, lastSyncDate) || isAfter(updateDate, lastSyncDate)
+        const createDate = parse(row.CreateDate, 'yyyy-MM-dd', new Date())
+        const updateDate = parse(row.UpdateDate, 'yyyy-MM-dd', new Date())
+
+        return (
+          isSameDay(createDate, lastSyncDate) ||
+          isAfter(createDate, lastSyncDate) ||
+          isSameDay(updateDate, lastSyncDate) ||
+          isAfter(updateDate, lastSyncDate)
+        )
       }) || []
 
     const getUpsertPromises = (filteredSapItemMasters: Record<string, any>[], tx: any) => {
-      return filteredSapItemMasters.map((row: any) => {
-        const itemData = {
-          manufacturerPartNumber: row?.ItemCode,
-          manufacturer: row?.FirmName || '',
-          description: row?.ItemName || '',
-          syncStatus: 'synced',
-          createdBy: userId,
-          updatedBy: userId,
+      //* filtered items by U_Portal_Sync === Y
+      return filteredSapItemMasters
+        .filter((row: any) => row?.Items?.U_Portal_Sync === 'Y')
+        .map((row: any) => {
+          const item = row?.Items
+          const ItemGroup = row?.ItemGroups
+          const Manufacturer = row?.Manufacturers
 
-          //* sap fields
-          ItemCode: row?.ItemCode || '',
-          ItemName: row?.ItemName || '',
-          ItmsGrpCod: row?.ItmsGrpCod || -1,
-          ItmsGrpNam: row?.ItmsGrpNam || '',
-          FirmCode: row?.FirmCode || -1,
-          FirmName: row?.FirmName || '',
-        }
+          if (!item) return null
 
-        return tx.item.upsert({
-          where: { manufacturerPartNumber: itemData.manufacturerPartNumber }, //* if manufacturerPartNumber will be remove based it on the ItemCode
-          create: itemData,
-          update: itemData,
+          const itemData = {
+            manufacturerPartNumber: item?.ItemCode,
+            manufacturer: Manufacturer?.ManufacturerName || '',
+            description: item?.ItemName || '',
+            syncStatus: 'synced',
+            createdBy: userId,
+            updatedBy: userId,
+
+            //* sap fields
+            ItemCode: item?.ItemCode || '',
+            ItemName: item?.ItemName || '',
+            ItmsGrpCod: ItemGroup?.Number || -1,
+            ItmsGrpNam: ItemGroup?.GroupName || '',
+            FirmCode: Manufacturer?.Code || -1,
+            FirmName: Manufacturer?.ManufacturerName || '',
+          }
+
+          return tx.item.upsert({
+            where: { manufacturerPartNumber: itemData.manufacturerPartNumber }, //* if manufacturerPartNumber will be remove based it on the ItemCode
+            create: itemData,
+            update: itemData,
+          })
         })
-      })
+        .filter((row) => row !== null)
     }
 
     //* perform upsert and  update the sync meta
