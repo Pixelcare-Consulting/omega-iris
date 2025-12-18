@@ -11,7 +11,7 @@ import dxDataGrid from 'devextreme/ui/data_grid'
 import { format } from 'date-fns'
 import { parseExcelFile } from '@/utils/xlsx'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
-import { ImportSyncError } from '@/types/common'
+import { ImportSyncError, Stats } from '@/types/common'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Item } from 'devextreme-react/toolbar'
@@ -25,6 +25,7 @@ import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-p
 import AlertDialog from '@/components/alert-dialog'
 import { exportDataGrid } from 'devextreme/common/export/excel'
 import CommonDataGrid from '@/components/common-datagrid'
+import ProgressBar from 'devextreme-react/progress-bar'
 
 import { SyncToSapForm, syncToSapFormSchema } from '@/schema/item'
 import LoadingButton from '@/components/loading-button'
@@ -51,6 +52,9 @@ export default function ItemTable({ items }: ItemTableProps) {
     if (itemsToSync.length < 1) return []
     return itemsToSync.map((wo) => wo.code)
   }, [JSON.stringify(itemsToSync)])
+
+  const [isLoading, setIsLoading] = useState(false)
+  const [stats, setStats] = useState<Stats>({ total: 0, completed: 0, progress: 0, errors: [], status: 'processing' })
 
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [showSyncToSapConfirmation, setShowSyncToSapConfirmation] = useState(false)
@@ -204,28 +208,56 @@ export default function ItemTable({ items }: ItemTableProps) {
   const handleImport: (...args: any[]) => void = async (args) => {
     const { file } = args
 
+    setIsLoading(true)
+
     try {
       const headers: string[] = ['MFG_P/N', 'Manufacturer', 'Description', 'Notes', 'Active']
+      const batchSize = 100
 
       //* parse excel file
       const parseData = await parseExcelFile({ file, header: headers })
       const toImportData = parseData.map((row, i) => ({ rowNumber: i + 2, ...row }))
 
-      const response = await importData.executeAsync({ data: toImportData })
-      const result = response?.data
+      //* trigger write by batch
+      let batch: typeof toImportData = []
+      let stats: Stats = { total: 0, completed: 0, progress: 0, errors: [], status: 'processing' }
 
-      if (result?.error) {
-        toast.error(result.message)
-        return
+      for (let i = 0; i < toImportData.length; i++) {
+        const isLastRow = i === toImportData.length - 1
+        const row = toImportData[i]
+
+        //* add to batch
+        batch.push(row)
+
+        //* check if batch size is reached or last row
+        if (batch.length === batchSize || isLastRow) {
+          const response = await importData.executeAsync({ data: batch, total: toImportData.length, stats, isLastRow })
+          const result = response?.data
+
+          if (result?.error) {
+            setStats((prev: any) => ({ ...prev, error: [...prev.error, ...result.stats.errors] }))
+            stats.errors = [...stats.errors, ...result.stats.errors]
+          } else if (result?.stats) {
+            setStats(result.stats)
+            stats = result.stats
+          }
+
+          batch = []
+        }
       }
 
-      toast.success(result?.message)
-      router.refresh()
-
-      if (result?.errors && result?.errors.length > 0) {
-        setShowSyncError(true)
-        setImportErrors(result?.errors || [])
+      if (stats.status === 'completed') {
+        toast.success(`Project groups imported successfully! ${stats.errors.length} errors found.`)
+        setStats((prev: any) => ({ ...prev, total: 0, completed: 0, progress: 0, status: 'processing' }))
+        router.refresh()
       }
+
+      if (stats.errors.length > 0) {
+        setShowImportError(true)
+        setImportErrors(stats.errors)
+      }
+
+      setIsLoading(false)
     } catch (error: any) {
       console.error(error)
       toast.error(error?.message || 'Failed to import file!')
@@ -265,6 +297,8 @@ export default function ItemTable({ items }: ItemTableProps) {
       const response = await syncFromSapData.executeAsync()
       const result = response?.data
 
+      console.log({ response })
+
       if (result?.error) {
         toast.error(result.message)
         return
@@ -284,7 +318,7 @@ export default function ItemTable({ items }: ItemTableProps) {
       <PageHeader
         title='Inventory'
         description='Manage and track your inventory effectively'
-        isLoading={importData.isExecuting || syncToSapData.isExecuting || syncFromSapData.isExecuting}
+        isLoading={syncToSapData.isExecuting || syncFromSapData.isExecuting}
       >
         {selectedRowKeys.length > 0 && (
           <Item location='after' locateInMenu='auto' widget='dxButton'>
@@ -335,12 +369,14 @@ export default function ItemTable({ items }: ItemTableProps) {
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
-          isLoading={importData.isExecuting || syncToSapData.isExecuting || syncFromSapData.isExecuting}
+          isLoading={isLoading || importData.isExecuting || syncToSapData.isExecuting || syncFromSapData.isExecuting}
           isEnableImport
           onImport={handleImport}
           addButton={{ text: 'Add Inventory', onClick: () => router.push('/inventory/add') }}
           customs={{ exportToExcel }}
         />
+
+        {stats && stats.progress && isLoading ? <ProgressBar min={0} max={100} showStatus={false} value={stats.progress} /> : null}
       </PageHeader>
 
       <PageContentWrapper className='h-[calc(100%_-_92px)]'>

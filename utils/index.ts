@@ -73,6 +73,11 @@ export function safeParseFloat(value: any) {
   return isNaN(num) || !isFinite(num) ? 0 : num
 }
 
+export function safeParseInt(value: any) {
+  const num = parseInt(value)
+  return isNaN(num) || !isFinite(num) ? 0 : num
+}
+
 export function toBase64(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()

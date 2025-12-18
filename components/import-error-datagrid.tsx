@@ -51,7 +51,15 @@ export default function ImportSyncErrorDataGrid({
     const dataSource = data?.entries || []
 
     return (
-      <DataGrid dataSource={dataSource} showBorders showColumnLines showRowLines>
+      <DataGrid
+        dataSource={dataSource}
+        showBorders
+        showColumnLines
+        showRowLines
+        wordWrapEnabled
+        columnAutoWidth={false}
+        columnMinWidth={DEFAULT_COLUMN_MIN_WIDTH}
+      >
         <Column dataField='field' dataType='string' caption='Field' />
         <Column dataField='message' dataType='string' caption='Message' />
         <Pager visible={true} showInfo displayMode='full' showNavigationButtons />

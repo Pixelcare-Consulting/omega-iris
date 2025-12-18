@@ -12,6 +12,7 @@ import {
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import z from 'zod'
 import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
+import { importFormSchema } from '@/schema/import'
 
 const COMMON_PROJECT_INDIVIDUAL_INCLUDE = {
   projectGroup: { select: { code: true, name: true } },
@@ -182,12 +183,10 @@ export const upsertPi = action
 
 export const importPis = action
   .use(authenticationMiddleware)
-  .schema(z.object({ data: z.array(z.record(z.string(), z.any())) }))
+  .schema(importFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { data } = parsedInput
+    const { data, total, stats, isLastRow } = parsedInput
     const { userId } = ctx
-
-    const importErrors: ImportSyncError[] = []
 
     try {
       const batch: Prisma.ProjectIndividualCreateManyInput[] = []
@@ -201,7 +200,7 @@ export const importPis = action
 
         //* if errors array is not empty, then update/push to importErrors
         if (errors.length > 0) {
-          importErrors.push({ rowNumber: row.rowNumber, entries: errors, row })
+          stats.errors.push({ rowNumber: row.rowNumber, entries: errors, row })
           continue
         }
 
@@ -224,26 +223,38 @@ export const importPis = action
         skipDuplicates: true,
       })
 
+      const progress = ((stats.completed + batch.length) / total) * 100
+
+      const updatedStats = {
+        ...stats,
+        completed: stats.completed + batch.length,
+        progress,
+        status: progress >= 100 || isLastRow ? 'completed' : 'processing',
+      }
+
       return {
         status: 200,
-        message: `Project individuals imported successfully!. ${importErrors.length} errors found.`,
+        message: `${updatedStats.completed} project individual created successfully!`,
         action: 'IMPORT_PROJECT_INDIVIDUALS',
-        errors: importErrors,
+        stats: updatedStats,
       }
     } catch (error) {
       console.error('Data import error:', error)
 
       const errors = data.map((row) => ({
-        rowNumber: row.rowNumber,
+        rowNumber: row.rowNumber as number,
         entries: [{ field: 'Unknown', message: 'Unexpected batch write error' }],
-      }))
+        row: null,
+      })) as any
+
+      stats.errors.push(errors)
 
       return {
         error: true,
         status: 500,
         message: error instanceof Error ? error.message : 'Data import error!',
         action: 'IMPORT_PROJECT_INDIVIDUALS',
-        errors,
+        stats,
       }
     }
   })
