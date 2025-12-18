@@ -214,7 +214,7 @@ export const importItems = action
       }
 
       //* commit the batch
-      await db.item.createManyAndReturn({
+      await db.item.createMany({
         data: batch,
         skipDuplicates: true,
       })
@@ -243,7 +243,8 @@ export const importItems = action
         row: null,
       })) as any
 
-      stats.errors.push(errors)
+      stats.errors.push(...errors)
+      stats.status = 'error'
 
       return {
         error: true,
@@ -317,6 +318,7 @@ export const syncToSap = action
           Manufacturer: row['Manufacturer'],
           ItemsGroupCode: row['ItemsGroupCode'],
           ItemName: row['ItemName'],
+          U_Portal_Sync: 'Y',
         }
 
         //* push the batch item to the sapBatch array
@@ -396,7 +398,7 @@ export const syncToSap = action
     }
   })
 
-export const syncFromSap = action.use(authenticationMiddleware).action(async ({ ctx, parsedInput }) => {
+export const syncFromSap = action.use(authenticationMiddleware).action(async ({ ctx }) => {
   const { userId } = ctx
 
   const SYNC_META_CODE = 'item'

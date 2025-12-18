@@ -167,7 +167,8 @@ export const importPgs = action
         row: null,
       })) as any
 
-      stats.errors.push(errors)
+      stats.errors.push(...errors)
+      stats.status = 'error'
 
       return {
         error: true,

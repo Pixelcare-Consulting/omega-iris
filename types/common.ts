@@ -6,7 +6,7 @@ export type Stats = {
   completed: number
   progress: number
   errors: ImportSyncError[]
-  status: string //* "processing" | "completed"
+  status: string //* "processing" | "completed" | "error"
 }
 
 export type ImportSyncErrorEntry = { field: string; message: string }

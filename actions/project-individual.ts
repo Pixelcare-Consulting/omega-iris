@@ -11,7 +11,7 @@ import {
 } from '@/schema/project-individual'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import z from 'zod'
-import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
+import { ImportSyncErrorEntry } from '@/types/common'
 import { importFormSchema } from '@/schema/import'
 
 const COMMON_PROJECT_INDIVIDUAL_INCLUDE = {
@@ -247,7 +247,8 @@ export const importPis = action
         row: null,
       })) as any
 
-      stats.errors.push(errors)
+      stats.errors.push(...errors)
+      stats.status = 'error'
 
       return {
         error: true,
