@@ -137,7 +137,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
           const result = response?.data
 
           if (result?.error) {
-            setStats((prev: any) => ({ ...prev, error: [...prev.error, ...result.stats.errors] }))
+            setStats((prev: any) => ({ ...prev, errors: [...prev.errors, ...result.stats.errors] }))
             stats.errors = [...stats.errors, ...result.stats.errors]
           } else if (result?.stats) {
             setStats(result.stats)

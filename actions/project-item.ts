@@ -7,7 +7,10 @@ import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { projectItemFormSchema } from '@/schema/project-item'
 import { paramsSchema } from '@/schema/common'
-import { safeParseFloat } from '@/utils'
+import { safeParseFloat, safeParseInt } from '@/utils'
+import { importFormSchema } from '@/schema/import'
+import { ImportSyncErrorEntry } from '@/types/common'
+import { isValid, parse } from 'date-fns'
 
 const COMMON_PROJECT_ITEM_INCLUDE = {
   item: true,
@@ -129,6 +132,126 @@ export const deleteProjectItem = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'DELETE_PROJECT_ITEM',
+      }
+    }
+  })
+
+export const importProjectItems = action
+  .use(authenticationMiddleware)
+  .schema(importFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { data, total, stats, isLastRow, metaData } = parsedInput
+    const { userId } = ctx
+
+    const projectCode = metaData?.projectCode
+
+    const mpns = data?.map((row) => row?.['MFG_P/N'])?.filter(Boolean) || []
+    const uniqueMpns = [...new Set(mpns)]
+
+    try {
+      const batch: Prisma.ProjectItemCreateManyInput[] = []
+
+      //* get existing items
+      const existingItems = await db.item.findMany({
+        where: { OR: [{ manufacturerPartNumber: { in: uniqueMpns } }, { ItemCode: { in: uniqueMpns } }] },
+        select: { code: true, manufacturerPartNumber: true, ItemCode: true }, //* manufacturerPartNumber can be remove in the future
+      })
+
+      for (let i = 0; i < data.length; i++) {
+        const errors: ImportSyncErrorEntry[] = []
+        const row = data[i]
+
+        const baseItem = existingItems.find(
+          (item) => item.manufacturerPartNumber === row?.['MFG_P/N'] || item.ItemCode === row?.['MFG_P/N']
+        )
+
+        //* check required fields
+        if (!row?.['MFG_P/N']) errors.push({ field: 'MFG_P/N', message: 'Missing required fields' })
+
+        //* check if project code is provided
+        if (!projectCode) errors.push({ field: 'Project Code', message: 'Project code not found' })
+
+        //* check if MFG_P/N of an item exist in the db
+        if (row?.['MFG_P/N'] && !baseItem) errors.push({ field: 'MFG_P/N', message: 'MFG_P/N does not exist' })
+
+        //* check if date received provided and its is a valid  date
+        if (row?.['Date_Received'] && !isValid(parse(row?.['Date_Received'], 'MM/dd/yyyy', new Date()))) {
+          errors.push({ field: 'Date_Received', message: 'Date received is not a valid date' })
+        }
+
+        //* if errors array is not empty, then update/push to stats.error
+        if (errors.length > 0) {
+          stats.errors.push({ rowNumber: row.rowNumber, entries: errors, row })
+          continue
+        }
+
+        //* reshape data
+        const toCreate: Prisma.ProjectItemCreateManyInput = {
+          itemCode: baseItem?.code!,
+          projectIndividualCode: projectCode!,
+          partNumber: row?.['Part_Number'] || null,
+          dateCode: row?.['Date_Code'] || null,
+          countryOfOrigin: row?.['Country_Origin'] || null,
+          lotCode: row?.['Lot_Code'] || null,
+          palletNo: row?.['Pallet_No'] || null,
+          packagingType: row?.['Packaging_Type'] || null,
+          spq: row?.['SPQ'] || null,
+          cost: safeParseFloat(row?.['Cost']),
+          availableToOrder: safeParseFloat(row?.['Available_To_Order']),
+          inProcess: safeParseFloat(row?.['In_Process_Pending']),
+          totalStock: safeParseFloat(row?.['Total_Stock']),
+          notes: row?.['Notes'] || null,
+          siteLocation: row?.['Site_Location'] || null,
+          subLocation2: row?.['Sub_Location2'] || null,
+          subLocation3: row?.['Sub_Location3'] || null,
+          dateReceived: row?.['Date_Received'] ? parse(row?.['Date_Received'], 'MM/dd/yyyy', new Date()) : null,
+          dateReceivedBy: safeParseInt(row?.['Received_By']) || null,
+          createdBy: userId,
+          updatedBy: userId,
+        }
+
+        batch.push(toCreate)
+      }
+
+      //* commit the batch
+      await db.projectItem.createMany({
+        data: batch,
+        skipDuplicates: true,
+      })
+
+      const progress = ((stats.completed + batch.length) / total) * 100
+
+      const updatedStats = {
+        ...stats,
+        completed: stats.completed + batch.length,
+        progress,
+        status: progress >= 100 || isLastRow ? 'completed' : 'processing',
+      }
+
+      return {
+        status: 200,
+        message: `${updatedStats.completed} project items created successfully!`,
+        action: 'IMPORT_PROJECT_ITEMS',
+        stats: updatedStats,
+      }
+    } catch (error) {
+      console.error('Data import error:', error)
+
+      const errors = data.map((row) => ({
+        rowNumber: row.rowNumber as number,
+        entries: [{ field: 'Unknown', message: 'Unexpected batch write error' }],
+        row: null,
+      })) as any
+
+      stats.errors.push(...errors)
+      stats.status = 'error'
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Data import error!',
+        action: 'IMPORT_PROJECT_ITEMS',
+        stats,
       }
     }
   })

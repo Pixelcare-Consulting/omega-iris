@@ -11,12 +11,14 @@ import dxDataGrid from 'devextreme/ui/data_grid'
 import Popup from 'devextreme-react/popup'
 import { useAction } from 'next-safe-action/hooks'
 import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
+import ProgressBar from 'devextreme-react/progress-bar'
 
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import CommonDataGrid from '@/components/common-datagrid'
-import { deleteProjectItem, getProjecItems } from '@/actions/project-item'
+import { deleteProjectItem, getProjecItems, importProjectItems } from '@/actions/project-item'
 import ProjectItemForm from '../project-individual-item-form'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import AlertDialog from '@/components/alert-dialog'
@@ -25,6 +27,10 @@ import useUsers from '@/hooks/safe-actions/user'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import useItems from '@/hooks/safe-actions/item'
 import { DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
+import { ImportSyncError, Stats } from '@/types/common'
+import { parseExcelFile } from '@/utils/xlsx'
+import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
+import { delay } from '@/utils'
 
 type ProjectIndividualItemTabProps = {
   projectCode: number
@@ -34,19 +40,29 @@ type ProjectIndividualItemTabProps = {
 type DataSource = Awaited<ReturnType<typeof getProjecItems>>
 
 export default function ProjectIndividualItemTab({ projectCode, projectName, items }: ProjectIndividualItemTabProps) {
+  const router = useRouter()
+
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual-item'
   const DATAGRID_UNIQUE_KEY = 'project-individual-items'
 
+  const [isLoading, setIsLoading] = useState(false)
+  const [stats, setStats] = useState<Stats>({ total: 0, completed: 0, progress: 0, errors: [], status: 'processing' })
+
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showImportError, setShowImportError] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
   const [isViewMode, setIsViewMode] = useState(false)
+  const [importErrors, setImportErrors] = useState<ImportSyncError[]>([])
 
   const users = useUsers()
   const itemMasters = useItems()
 
-  const { executeAsync } = useAction(deleteProjectItem)
   const dataGridRef = useRef<DataGridRef | null>(null)
+  const importErrorDataGridRef = useRef<DataGridRef | null>(null)
+
+  const { executeAsync } = useAction(deleteProjectItem)
+  const importData = useAction(importProjectItems)
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',
@@ -185,6 +201,92 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
     })
   }, [])
 
+  const handleImport: (...args: any[]) => void = async (args) => {
+    const { file } = args
+
+    setIsLoading(true)
+
+    try {
+      const headers: string[] = [
+        'MFG_P/N',
+        'Part_Number',
+        'Date_Code',
+        'Country_Origin',
+        'Lot_Code',
+        'Pallet_No',
+        'Packaging_Type',
+        'SPQ',
+        'Cost',
+        'Available_To_Order',
+        'In_Process_Pending',
+        'Total_Stock',
+        'Notes',
+        'Site_Location',
+        'Sub_Location2',
+        'Sub_Location3',
+        'Date_Received',
+        'Received_By',
+      ]
+
+      const batchSize = 100
+
+      const parseData = await parseExcelFile({ file, header: headers })
+      const toImportData = parseData.map((row, i) => ({ rowNumber: i + 2, ...row }))
+
+      //* trigger write by batch
+      let batch: typeof toImportData = []
+      let stats: Stats = { total: 0, completed: 0, progress: 0, errors: [], status: 'processing' }
+
+      for (let i = 0; i < toImportData.length; i++) {
+        const isLastRow = i === toImportData.length - 1
+        const row = toImportData[i]
+
+        //* add to batch
+        batch.push(row)
+
+        //* check if batch size is reached or last row
+        if (batch.length === batchSize || isLastRow) {
+          await delay(2000)
+          const response = await importData.executeAsync({
+            data: batch,
+            total: toImportData.length,
+            stats,
+            isLastRow,
+            metaData: { projectCode },
+          })
+          const result = response?.data
+
+          if (result?.error) {
+            setStats((prev: any) => ({ ...prev, errors: [...prev.errors, ...result.stats.errors] }))
+            stats.errors = [...stats.errors, ...result.stats.errors]
+          } else if (result?.stats) {
+            setStats(result.stats)
+            stats = result.stats
+          }
+
+          batch = []
+        }
+      }
+
+      if (stats.status === 'completed') {
+        toast.success(`Project groups imported successfully! ${stats.errors.length} errors found.`)
+        setStats((prev: any) => ({ ...prev, total: 0, completed: 0, progress: 0, status: 'processing' }))
+        router.refresh()
+        items.execute({ projectCode })
+      }
+
+      if (stats.errors.length > 0) {
+        setShowImportError(true)
+        setImportErrors(stats.errors)
+      }
+
+      setIsLoading(false)
+    } catch (error: any) {
+      console.error(error)
+      toast.error(error?.message || 'Failed to import file')
+    }
+  }
+
   //* show loading
   useEffect(() => {
     if (dataGridRef.current) {
@@ -201,12 +303,17 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
             <CommonPageHeaderToolbarItems
               dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
               dataGridRef={dataGridRef}
+              isLoading={isLoading || importData.isExecuting}
+              isEnableImport
+              onImport={handleImport}
               addButton={{
                 text: 'Add Item',
                 onClick: handleAdd,
               }}
               customs={{ exportToExcel }}
             />
+
+            {stats && stats.progress && isLoading ? <ProgressBar min={0} max={100} showStatus={false} value={stats.progress} /> : null}
           </Toolbar>
 
           <PageContentWrapper className='max-h-[calc(100%_-_68px)]'>
@@ -229,7 +336,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               <Column dataField='countryOfOrigin' dataType='string' caption='Country Of Origin' />
               <Column dataField='lotCode' dataType='string' caption='Lot Code' />
               <Column dataField='palletNo' dataType='string' caption='Pallet No' />
-              <Column dataField='warehouse.name' dataType='string' caption='Warehouse' />
+              {/* <Column dataField='warehouse.name' dataType='string' caption='Warehouse' /> */}
               <Column dataField='dateReceived' dataType='datetime' caption='Date Received' />
               <Column
                 dataField='dateReceivedBy'
@@ -276,6 +383,13 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               description={`Are you sure you want to delete this inventory item named "${rowData?.item.description}"?`}
               onConfirm={() => handleConfirm(rowData?.code)}
               onCancel={() => setShowConfirmation(false)}
+            />
+
+            <ImportSyncErrorDataGrid
+              isOpen={showImportError}
+              setIsOpen={setShowImportError}
+              data={importErrors}
+              dataGridRef={importErrorDataGridRef}
             />
           </PageContentWrapper>
         </div>
