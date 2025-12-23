@@ -188,7 +188,6 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
                   name='CardCode'
                   label='Code'
                   description='If code is not provided, system will provide random temporary code'
-                  isRequired
                 />
               </div>
 
