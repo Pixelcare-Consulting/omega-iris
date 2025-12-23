@@ -56,20 +56,28 @@ export const navigation: NavItem[] = [
   },
   {
     id: '4',
+    text: 'Customers',
+    icon: 'group',
+    path: '/customers',
+    selected: false,
+    expanded: false,
+  },
+  {
+    id: '5',
     text: 'Projects',
     icon: 'folder',
     selected: false,
     expanded: false,
     items: [
       {
-        id: '4_2',
+        id: '5_2',
         text: 'Groups',
         path: '/project/groups',
         selected: false,
         expanded: false,
       },
       {
-        id: '4_1',
+        id: '5_1',
         text: 'Individuals',
         path: '/project/individuals',
         selected: false,
@@ -78,7 +86,7 @@ export const navigation: NavItem[] = [
     ],
   },
   {
-    id: '5',
+    id: '6',
     text: 'Warehouses',
     icon: 'home',
     path: '/warehouses',
@@ -86,7 +94,7 @@ export const navigation: NavItem[] = [
     expanded: false,
   },
   {
-    id: '6',
+    id: '7',
     text: 'Inventory',
     icon: 'packagebox',
     path: '/inventory',
@@ -94,7 +102,7 @@ export const navigation: NavItem[] = [
     expanded: false,
   },
   {
-    id: '7',
+    id: '8',
     text: 'Work Orders',
     icon: 'cardcontent',
     path: '/work-orders',
@@ -102,21 +110,21 @@ export const navigation: NavItem[] = [
     expanded: false,
   },
   {
-    id: '8',
+    id: '9',
     text: 'Reporting',
     icon: 'datausage',
     path: '/reporting',
     selected: false,
     expanded: false,
   },
-  {
-    id: '9',
-    text: 'Logs',
-    icon: 'ordersbox',
-    path: '/logs',
-    selected: false,
-    expanded: false,
-  },
+  // {
+  //   id: '10',
+  //   text: 'Logs',
+  //   icon: 'ordersbox',
+  //   path: '/logs',
+  //   selected: false,
+  //   expanded: false,
+  // },
 ]
 
 export function markSelectedAndExpand(items: NavItem[], path: string): NavItem[] {
