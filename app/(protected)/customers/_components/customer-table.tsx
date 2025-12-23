@@ -312,7 +312,7 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
-          isLoading={isLoading}
+          isLoading={isLoading || syncToSapData.isExecuting || syncFromSapData.isExecuting}
           isEnableImport
           //   onImport={handleImport}
           addButton={{ text: 'Add Customer', onClick: () => router.push('/customers/add') }}
