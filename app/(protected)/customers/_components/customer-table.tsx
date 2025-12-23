@@ -24,7 +24,7 @@ import AlertDialog from '@/components/alert-dialog'
 import CommonDataGrid from '@/components/common-datagrid'
 import ProgressBar from 'devextreme-react/progress-bar'
 
-import { BUSINESS_PARTNER_MAP, SyncToSapForm, syncToSapFormSchema } from '@/schema/business-partner'
+import { BUSINESS_PARTNER_TYPE_MAP, SyncToSapForm, syncToSapFormSchema } from '@/schema/business-partner'
 import LoadingButton from '@/components/loading-button'
 import { useSyncMeta } from '@/hooks/safe-actions/sync-meta'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
@@ -130,7 +130,7 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
 
     setShowDeleteConfirmation(false)
 
-    const cardTypeValue = BUSINESS_PARTNER_MAP?.[cardType] || 'Lead'
+    const cardTypeValue = BUSINESS_PARTNER_TYPE_MAP?.[cardType] || 'Lead'
 
     toast.promise(deleteBpData.executeAsync({ code, cardType }), {
       loading: `Deleting ${cardTypeValue.toLowerCase()}...`,
@@ -160,7 +160,7 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
 
     setShowRestoreConfirmation(false)
 
-    const cardTypeValue = BUSINESS_PARTNER_MAP?.[cardType] || 'Lead'
+    const cardTypeValue = BUSINESS_PARTNER_TYPE_MAP?.[cardType] || 'Lead'
 
     toast.promise(restoreBpData.executeAsync({ code, cardType }), {
       loading: `Restoring ${cardTypeValue.toLowerCase()}...`,
@@ -258,7 +258,11 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Customers' description='Manage and track your customers effectively' isLoading={false}>
+      <PageHeader
+        title='Customers'
+        description='Manage and track your customers effectively'
+        isLoading={syncToSapData.isExecuting || syncFromSapData.isExecuting}
+      >
         {selectedRowKeys.length > 0 && (
           <Item location='after' locateInMenu='auto' widget='dxButton'>
             <Tooltip
@@ -271,7 +275,7 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
             <LoadingButton
               id='sync-items-to-sap'
               icon='upload'
-              isLoading={false}
+              isLoading={syncToSapData.isExecuting}
               text={`${selectedRowKeys.length} : Sync To SAP`}
               type='default'
               loadingText='Syncing'
@@ -295,7 +299,7 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
             <LoadingButton
               id='sync-from-sap-to-portal'
               icon='refresh'
-              isLoading={false}
+              isLoading={syncFromSapData.isExecuting}
               type='default'
               text='Sync From SAP'
               loadingText={syncMeta.isLoading ? 'Depedecy loading' : 'Syncing'}
@@ -335,20 +339,14 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
             dataField='CardType'
             dataType='string'
             caption='Type'
-            calculateDisplayValue={(rowData) => BUSINESS_PARTNER_MAP?.[rowData.CardType] || 'Lead'}
+            calculateDisplayValue={(rowData) => BUSINESS_PARTNER_TYPE_MAP?.[rowData.CardType] || 'Lead'}
           />
           <Column dataField='GroupName' dataType='string' caption='Group' />
           <Column dataField='CurrName' dataType='string' caption='Currency' />
           <Column dataField='PymntGroup' dataType='string' caption='Payment Term' />
-          <Column dataField='AccountTypeName' dataType='string' caption='Account Type' />
-          <Column
-            dataField='AccountBalance'
-            dataType='number'
-            caption='Account Balance'
-            alignment='left'
-            format={DEFAULT_CURRENCY_FORMAT}
-          />
-          <Column dataField='Checks' dataType='number' caption='Checks' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
+          <Column dataField='AcctType' dataType='string' caption='Account Type' />
+          <Column dataField='Balance' dataType='number' caption='Account Balance' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
+          <Column dataField='ChecksBal' dataType='number' caption='Checks' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
           <Column dataField='syncStatus' dataType='string' caption='Sync Status' cssClass='capitalize' />
           <Column
             dataField='isActive'
@@ -434,6 +432,17 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
         onConfirm={() => handleConfirmSyncFromSap('C')}
         onCancel={() => setShowSyncFromSapConfirmation(false)}
       />
+
+      <ImportSyncErrorDataGrid
+        title='Sync Error'
+        description='There was an error encountered while syncing.'
+        isOpen={showSyncError}
+        setIsOpen={setShowSyncError}
+        data={syncErrors}
+        dataGridRef={syncErrorDataGridRef}
+      >
+        <Column dataField='code' dataType='string' caption='Id' alignment='center' />
+      </ImportSyncErrorDataGrid>
     </div>
   )
 }

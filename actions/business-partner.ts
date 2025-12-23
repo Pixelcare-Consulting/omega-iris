@@ -6,8 +6,8 @@ import { isAfter, isSameDay, parse } from 'date-fns'
 
 import { paramsSchema } from '@/schema/common'
 import {
-  BUSINESS_PARTNER_MAP,
-  BUSINESS_PARTNER_VALUES_MAP,
+  BUSINESS_PARTNER_TYPE_MAP,
+  BUSINESS_PARTNER_STD_API_VALUES_MAP,
   businessPartnerFormSchema,
   syncFromSapFormSchema,
   syncToSapFormSchema,
@@ -113,7 +113,7 @@ export const upsertBp = action
         return {
           error: true,
           status: 401,
-          message: `${BUSINESS_PARTNER_MAP[data.CardType]} code already exists!`,
+          message: `${BUSINESS_PARTNER_TYPE_MAP[data.CardType]} code already exists!`,
           action: 'UPSERT_BUSINESS_PARTNER',
         }
       }
@@ -128,7 +128,7 @@ export const upsertBp = action
 
         return {
           status: 200,
-          message: `${BUSINESS_PARTNER_MAP[data.CardType]} updated successfully!`,
+          message: `${BUSINESS_PARTNER_TYPE_MAP[data.CardType]} updated successfully!`,
           action: 'UPSERT_BUSINESS_PARTNER',
           data: { businessPartner: updatedBp },
         }
@@ -146,7 +146,7 @@ export const upsertBp = action
 
       return {
         status: 200,
-        message: `${BUSINESS_PARTNER_MAP[data.CardType]} created successfully!`,
+        message: `${BUSINESS_PARTNER_TYPE_MAP[data.CardType]} created successfully!`,
         action: 'UPSERT_BUSINESS_PARTNER',
         data: { businessPartner: newBp },
       }
@@ -170,11 +170,20 @@ export const deleteBp = action
       const bp = await db.businessPartner.findUnique({ where: { code: data.code } })
 
       if (!bp)
-        return { error: true, status: 404, message: `${BUSINESS_PARTNER_MAP[data.cardType]} not found!`, action: 'DELETE_BUSINESS_PARTNER' }
+        return {
+          error: true,
+          status: 404,
+          message: `${BUSINESS_PARTNER_TYPE_MAP[data.cardType]} not found!`,
+          action: 'DELETE_BUSINESS_PARTNER',
+        }
 
       await db.businessPartner.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 
-      return { status: 200, message: `${BUSINESS_PARTNER_MAP[data.cardType]} deleted successfully!`, action: 'DELETE_BUSINESS_PARTNER' }
+      return {
+        status: 200,
+        message: `${BUSINESS_PARTNER_TYPE_MAP[data.cardType]} deleted successfully!`,
+        action: 'DELETE_BUSINESS_PARTNER',
+      }
     } catch (error) {
       console.error(error)
 
@@ -198,14 +207,18 @@ export const restoreBp = action
         return {
           error: true,
           status: 404,
-          message: `${BUSINESS_PARTNER_MAP[data.cardType]} not found!`,
+          message: `${BUSINESS_PARTNER_TYPE_MAP[data.cardType]} not found!`,
           action: 'RESTORE_BUSINESS_PARTNER',
         }
       }
 
       await db.businessPartner.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
 
-      return { status: 200, message: `${BUSINESS_PARTNER_MAP[data.cardType]} restored successfully!`, action: 'RESTORE_BUSINESS_PARTNER' }
+      return {
+        status: 200,
+        message: `${BUSINESS_PARTNER_TYPE_MAP[data.cardType]} restored successfully!`,
+        action: 'RESTORE_BUSINESS_PARTNER',
+      }
     } catch (error) {
       console.error(error)
 
@@ -291,7 +304,7 @@ export const syncToSap = action
         const toCreate = {
           CardCode: row?.CardCode,
           CardName: row?.CardName,
-          CardType: BUSINESS_PARTNER_VALUES_MAP?.[row?.CardType as string] || 'cLid',
+          CardType: BUSINESS_PARTNER_STD_API_VALUES_MAP?.[row?.CardType as string] || 'cLid',
           GroupCode: row?.GroupCode || null,
           PayTermsGrpCode: row?.GroupNum || null,
           Currency: row?.CurrCode || null,
@@ -301,6 +314,8 @@ export const syncToSap = action
           OpenChecksBalance: row?.ChecksBal || null,
           U_Portal_Sync: 'Y',
         }
+
+        console.log({ toCreate })
 
         sapBatch.push({
           rowNumber,
@@ -354,7 +369,7 @@ export const syncToSap = action
 
       return {
         status: 200,
-        message: `${BUSINESS_PARTNER_MAP[cardType]} sync successfully!. ${completed.length}/${bps.length} ${BUSINESS_PARTNER_MAP[cardType].toLowerCase()} created into SAP. ${importSyncErrors.length} errors found.`,
+        message: `${BUSINESS_PARTNER_TYPE_MAP[cardType]} sync successfully!. ${completed.length}/${bps.length} ${BUSINESS_PARTNER_TYPE_MAP[cardType].toLowerCase()} created into SAP. ${importSyncErrors.length} errors found.`,
         action: 'SYNC_TO_SAP',
         errors: importSyncErrors,
       }
@@ -384,7 +399,7 @@ export const syncFromSap = action
   .action(async ({ ctx, parsedInput }) => {
     const { userId } = ctx
 
-    const SYNC_META_CODE = BUSINESS_PARTNER_MAP[parsedInput.cardType].toLowerCase()
+    const SYNC_META_CODE = BUSINESS_PARTNER_TYPE_MAP[parsedInput.cardType].toLowerCase()
 
     try {
       //* fetch all bp master from sap & last sync date
@@ -472,7 +487,7 @@ export const syncFromSap = action
 
         return {
           status: 200,
-          message: `${BUSINESS_PARTNER_MAP[parsedInput.cardType]} sync successfully!`,
+          message: `${BUSINESS_PARTNER_TYPE_MAP[parsedInput.cardType]} sync successfully!`,
           action: 'SYNC_FROM_SAP',
         }
       })

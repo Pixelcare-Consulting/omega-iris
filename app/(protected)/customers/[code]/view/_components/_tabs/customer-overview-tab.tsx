@@ -10,7 +10,7 @@ import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
 import { formatNumber } from 'devextreme/localization'
 import { DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
 import Separator from '@/components/separator'
-import { BUSINESS_PARTNER_MAP } from '@/schema/business-partner'
+import { BUSINESS_PARTNER_TYPE_MAP } from '@/schema/business-partner'
 
 type CustomerOverviewTabProps = {
   customer: NonNullable<Awaited<ReturnType<typeof getBpByCode>>>
@@ -35,14 +35,14 @@ export default function CustomerOverviewTab({ customer }: CustomerOverviewTabPro
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'
           title='Type'
-          value={BUSINESS_PARTNER_MAP?.[customer.CardType] || ''}
+          value={BUSINESS_PARTNER_TYPE_MAP?.[customer.CardType] || ''}
         />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Group Code' value={customer?.GroupCode || ''} />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Group Name' value={customer?.GroupName || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Account Type Code' value={customer?.AcctType || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Account Type' value={customer?.AcctType || ''} />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Currency Code' value={customer?.CurrCode || ''} />
 
