@@ -242,18 +242,39 @@ export async function getBpMaster(cardType?: string) {
 
     const requestsPromises = []
 
-    for (let i = 0; i <= totalPage; i++) {
-      const skip = i * PER_PAGE //* offset
+    //* if card type is C or L, then fetch all C and L, otherwise fetch only the selected e.g S
+    if (cardType === 'C' || cardType === 'L') {
+      const ctypes = ['L', 'C']
 
-      //* create request
-      const request = callSapServiceLayerApi({
-        url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query1')/List?&$skip=${skip}`,
-        headers: { Prefer: `odata.maxpagesize=${PER_PAGE}` },
-        data: { ParamList: `CardType='${cardType}'` },
+      ctypes.forEach((cType) => {
+        for (let i = 0; i <= totalPage; i++) {
+          const skip = i * PER_PAGE //* offset
+
+          //* create request
+          const request = callSapServiceLayerApi({
+            url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query1')/List?&$skip=${skip}`,
+            headers: { Prefer: `odata.maxpagesize=${PER_PAGE}` },
+            data: { ParamList: `CardType='${cType}'` },
+          })
+
+          //* push request to the requestsPromises array
+          requestsPromises.push(request)
+        }
       })
+    } else {
+      for (let i = 0; i <= totalPage; i++) {
+        const skip = i * PER_PAGE //* offset
 
-      //* push request to the requestsPromises array
-      requestsPromises.push(request)
+        //* create request
+        const request = callSapServiceLayerApi({
+          url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query1')/List?&$skip=${skip}`,
+          headers: { Prefer: `odata.maxpagesize=${PER_PAGE}` },
+          data: { ParamList: `CardType='${cardType}'` },
+        })
+
+        //* push request to the requestsPromises array
+        requestsPromises.push(request)
+      }
     }
 
     //* fetch all bp master from sap in parallel
