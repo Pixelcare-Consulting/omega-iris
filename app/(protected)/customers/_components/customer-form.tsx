@@ -13,7 +13,12 @@ import { useAction } from 'next-safe-action/hooks'
 
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
-import { BUSINESS_PARTNER_MAP, type BusinessPartnerForm, businessPartnerFormSchema } from '@/schema/business-partner'
+import {
+  BUSINESS_PARTNER_STD_API_GROUP_TYPE_MAP,
+  BUSINESS_PARTNER_TYPE_MAP,
+  type BusinessPartnerForm,
+  businessPartnerFormSchema,
+} from '@/schema/business-partner'
 import TextBoxField from '@/components/forms/text-box-field'
 import LoadingButton from '@/components/loading-button'
 import { getBpByCardCode, upsertBp } from '@/actions/business-partner'
@@ -88,6 +93,20 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
   const currencies = useCurrencies()
   const paymentTerms = usePaymentTerms()
   const accountTypes = useAccountTypes()
+
+  const bpGroupsOptions = useMemo(() => {
+    if (bpGroups.isLoading || !bpGroups.data || bpGroups.data.length < 1) return []
+
+    const selectedBpGroupType = BUSINESS_PARTNER_STD_API_GROUP_TYPE_MAP[cardType] || 'bbpgt_CustomerGroup'
+
+    //* filter group based by type which based on the selected card type
+    return bpGroups.data
+      .map((bpg: any) => ({
+        label: bpg?.Name || '',
+        value: bpg?.Code || '',
+      }))
+      .filter((bpg: any) => bpg.Type === selectedBpGroupType)
+  }, [cardType, JSON.stringify(bpGroups)])
 
   const handleOnSubmit = async (formData: BusinessPartnerForm) => {
     try {
@@ -198,25 +217,25 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
               <ReadOnlyField
                 className='col-span-12 md:col-span-6 lg:col-span-3'
                 title='Type'
-                value={BUSINESS_PARTNER_MAP?.[cardType] || ''}
+                value={BUSINESS_PARTNER_TYPE_MAP?.[cardType] || ''}
               />
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                 <SelectBoxField
-                  data={bpGroups.data}
+                  data={bpGroupsOptions}
                   isLoading={bpGroups.isLoading}
                   control={form.control}
                   name='GroupCode'
                   label='Group'
-                  valueExpr='Code'
-                  displayExpr='Name'
-                  searchExpr={['Name', 'Code']}
+                  valueExpr='value'
+                  displayExpr='label'
+                  searchExpr={['label', 'value']}
                   extendedProps={{
                     selectBoxOptions: {
                       itemRender: (params) => {
                         return commonItemRender({
-                          title: params?.Name,
-                          value: params?.Code,
+                          title: params?.label,
+                          value: params?.value,
                           valuePrefix: '#',
                         })
                       },
@@ -232,9 +251,9 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
                   control={form.control}
                   name='AcctType'
                   label='Account Type'
-                  valueExpr='U_OMEG_AcctType'
-                  displayExpr='U_OMEG_AcctType'
-                  searchExpr={['U_OMEG_AcctType']}
+                  valueExpr='Code'
+                  displayExpr='Name'
+                  searchExpr={['Name', 'Code']}
                 />
               </div>
 

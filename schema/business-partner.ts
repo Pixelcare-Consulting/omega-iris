@@ -8,16 +8,22 @@ export const BUSINESS_PARTNER_TYPE_OPTIONS: { label: (typeof BUSINESS_PARTNER_TY
   { label: 'Supplier', value: 'S' },
 ]
 
-export const BUSINESS_PARTNER_MAP: Record<string, (typeof BUSINESS_PARTNER_TYPE)[number]> = {
+export const BUSINESS_PARTNER_TYPE_MAP: Record<string, (typeof BUSINESS_PARTNER_TYPE)[number]> = {
   L: 'Lead',
   C: 'Customer',
   S: 'Supplier',
 }
 
-export const BUSINESS_PARTNER_VALUES_MAP: Record<string, string> = {
+export const BUSINESS_PARTNER_STD_API_VALUES_MAP: Record<string, string> = {
   L: 'cLid',
   C: 'cCustomer',
   S: 'cSupplier',
+}
+
+export const BUSINESS_PARTNER_STD_API_GROUP_TYPE_MAP: Record<string, string> = {
+  L: 'bbpgt_CustomerGroup',
+  C: 'bbpgt_CustomerGroup',
+  S: 'bbpgt_VendorGroup',
 }
 
 export const businessPartnerFormSchema = z.object({
