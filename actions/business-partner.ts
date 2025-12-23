@@ -439,7 +439,7 @@ export const syncFromSap = action
         return values
           .filter((row: any) => row?.U_Portal_Sync === 'Y')
           .map((row: any) => {
-            if (row?.['CardCode']) return null
+            if (!row?.['CardCode']) return null
 
             const bpData = {
               syncStatus: 'synced',
