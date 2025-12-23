@@ -126,6 +126,8 @@ export const upsertBp = action
           data: { ...data, syncStatus: data?.syncStatus ?? 'pending', updatedBy: userId },
         })
 
+        //* upsert address & contacts
+
         return {
           status: 200,
           message: `${BUSINESS_PARTNER_TYPE_MAP[data.CardType]} updated successfully!`,
@@ -331,6 +333,7 @@ export const syncToSap = action
           Currency: row?.CurrCode || null,
           Phone1: row?.Phone1 || null,
           U_OMEG_AcctType: row?.AcctType || null,
+          CmpPrivate: row?.CmpPrivate || null,
           CurrentAccountBalance: row?.Balance || null,
           OpenChecksBalance: row?.ChecksBal || null,
           U_Portal_Sync: 'Y',
@@ -479,6 +482,7 @@ export const syncFromSap = action
               PymntGroup: row?.PymntGroup || null,
               Phone1: row?.Phone1 || null,
               AcctType: row?.U_OMEG_AcctType || null,
+              CmpPrivate: row?.CmpPrivate || null,
               Balance: row?.Balance || null,
               ChecksBal: row?.ChecksBal || null,
             }

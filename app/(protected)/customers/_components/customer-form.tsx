@@ -35,6 +35,7 @@ import { useCurrencies } from '@/hooks/safe-actions/currency'
 import { usePaymentTerms } from '@/hooks/safe-actions/payment-term'
 import { FormDebug } from '@/components/forms/form-debug'
 import { useAccountTypes } from '@/hooks/safe-actions/account-type'
+import { useBusinessTypes } from '@/hooks/safe-actions/business-type'
 
 type CustomerFormProps = { pageMetaData: PageMetadata; bp: Awaited<ReturnType<typeof getBpByCardCode>> }
 
@@ -68,6 +69,7 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
         ShipToDef: null,
         BillToDef: null,
         AcctType: null,
+        CmpPrivate: null,
         Balance: 0,
         ChecksBal: 0,
       }
@@ -93,6 +95,7 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
   const currencies = useCurrencies()
   const paymentTerms = usePaymentTerms()
   const accountTypes = useAccountTypes()
+  const businessTypes = useBusinessTypes()
 
   const bpGroupsOptions = useMemo(() => {
     if (bpGroups.isLoading || !bpGroups.data || bpGroups.data.length < 1) return []
@@ -251,6 +254,19 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
                   control={form.control}
                   name='AcctType'
                   label='Account Type'
+                  valueExpr='Code'
+                  displayExpr='Name'
+                  searchExpr={['Name', 'Code']}
+                />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <SelectBoxField
+                  data={businessTypes.data}
+                  isLoading={businessTypes.isLoading}
+                  control={form.control}
+                  name='CmpPrivate'
+                  label='Type of Business'
                   valueExpr='Code'
                   displayExpr='Name'
                   searchExpr={['Name', 'Code']}

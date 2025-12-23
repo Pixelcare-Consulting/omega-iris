@@ -4,10 +4,10 @@ import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { callSapServiceLayerApi } from './sap-service-layer'
 import { SAP_BASE_URL } from '@/constants/sap'
 
-export async function getAccountTypes() {
+export async function getBusinessTypes() {
   try {
     return await callSapServiceLayerApi({
-      url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query19')/List`,
+      url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('20')/List`,
       headers: { Prefer: 'odata.maxpagesize=999' },
     })
   } catch (error) {
@@ -16,6 +16,6 @@ export async function getAccountTypes() {
   }
 }
 
-export const getAccountTypesClient = action.use(authenticationMiddleware).action(async () => {
-  return getAccountTypes()
+export const getBusinessTypesClient = action.use(authenticationMiddleware).action(async () => {
+  return getBusinessTypes()
 })
