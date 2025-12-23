@@ -296,7 +296,6 @@ export const syncToSap = action
           PayTermsGrpCode: row?.GroupNum || null,
           Currency: row?.CurrCode || null,
           Phone1: row?.Phone1 || null,
-          Phone2: row?.Phone2 || null,
           U_OMEG_AcctType: row?.AcctType || null,
           CurrentAccountBalance: row?.Balance || null,
           OpenChecksBalance: row?.ChecksBal || null,

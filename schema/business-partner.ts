@@ -61,7 +61,6 @@ export const syncToSapFormSchema = z.object({
       CurrCode: z.string().nullish(),
       GroupNum: z.coerce.number().nullish(),
       Phone1: z.string().nullish(),
-      Phone2: z.string().nullish(),
       AcctType: z.string().nullish(),
       Balance: z.coerce.number().nullish(),
       ChecksBal: z.coerce.number().nullish(),
