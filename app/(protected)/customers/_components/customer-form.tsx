@@ -101,11 +101,11 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
 
     //* filter group based by type which based on the selected card type
     return bpGroups.data
+      .filter((bpg: any) => bpg.Type === selectedBpGroupType)
       .map((bpg: any) => ({
         label: bpg?.Name || '',
         value: bpg?.Code || '',
       }))
-      .filter((bpg: any) => bpg.Type === selectedBpGroupType)
   }, [cardType, JSON.stringify(bpGroups)])
 
   const handleOnSubmit = async (formData: BusinessPartnerForm) => {

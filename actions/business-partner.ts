@@ -262,7 +262,7 @@ export async function getBpMaster(cardType?: string) {
     return bpMaster
       .flatMap((res) => res?.value || [])
       .filter(Boolean)
-      .sort((a, b) => a?.BusinessPartners.CardCode - b?.BusinessPartners.CardCode)
+      .sort((a, b) => a?.CardCode - b?.CardCode)
   } catch (error) {
     console.log({ error })
     logger.error(error, 'Failed to fetch bp master from SAP')
@@ -422,8 +422,8 @@ export const syncFromSap = action
       //*  filter the records where CreatedDate === lastSyncDate or  CreateDate > lastSyncDate or UpdateDate === lastSyncDate or UpdateDate > lastSyncDate
       const filteredSapBpMasters =
         bpMaster?.filter((row: any) => {
-          const createDate = row?.CreateDate ? parse(row?.CreateDate, 'yyyy-MM-dd', new Date()) : null
-          const updateDate = row?.UpdateDate ? parse(row?.UpdateDate, 'yyyy-MM-dd', new Date()) : null
+          const createDate = row?.CreateDate ? parse(row?.CreateDate, 'yyyyMMdd', new Date()) : null
+          const updateDate = row?.UpdateDate ? parse(row?.UpdateDate, 'yyyyMMdd', new Date()) : null
 
           const isCreateDateSameDay = createDate ? isSameDay(createDate, lastSyncDate) : false
           const isUpdateDateSameDay = updateDate ? isSameDay(updateDate, lastSyncDate) : false
@@ -433,10 +433,10 @@ export const syncFromSap = action
           return isCreateDateSameDay || isUpdateDateSameDay || isCreateDateAfter || isUpdateDateAfter
         }) || []
 
-      const getUpsertPromises = (filteredSapBpMasters: Record<string, any>[], tx: any) => {
+      const getUpsertPromises = (values: Record<string, any>[], tx: any) => {
         //* filtered bps by U_Portal_Sync === Y
 
-        return filteredSapBpMasters
+        return values
           .filter((row: any) => row?.U_Portal_Sync === 'Y')
           .map((row: any) => {
             if (row?.['CardCode']) return null
@@ -482,13 +482,13 @@ export const syncFromSap = action
           create: { code: SYNC_META_CODE, description: 'Last bp customer master synced date', lastSyncAt: new Date() },
           update: { code: SYNC_META_CODE, description: 'Last bp customer master synced date', lastSyncAt: new Date() },
         })
-
-        return {
-          status: 200,
-          message: `${BUSINESS_PARTNER_TYPE_MAP[parsedInput.cardType]} sync successfully!`,
-          action: 'SYNC_FROM_SAP',
-        }
       })
+
+      return {
+        status: 200,
+        message: `${BUSINESS_PARTNER_TYPE_MAP[parsedInput.cardType]} sync successfully!`,
+        action: 'SYNC_FROM_SAP',
+      }
     } catch (error) {
       console.error(error)
 
