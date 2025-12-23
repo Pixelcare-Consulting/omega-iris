@@ -17,7 +17,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Item } from 'devextreme-react/toolbar'
 import Tooltip from 'devextreme-react/tooltip'
 
-import { deleteItem, getItems, importItems, restoreItem, syncFromSap, syncToSap } from '@/actions/item'
+import { deleteBp, getBps, restoreBp, syncFromSap, syncToSap } from '@/actions/business-partner'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -27,32 +27,33 @@ import { exportDataGrid } from 'devextreme/common/export/excel'
 import CommonDataGrid from '@/components/common-datagrid'
 import ProgressBar from 'devextreme-react/progress-bar'
 
-import { SyncToSapForm, syncToSapFormSchema } from '@/schema/item'
+import { BUSINESS_PARTNER_MAP, SyncToSapForm, syncToSapFormSchema } from '@/schema/business-partner'
 import LoadingButton from '@/components/loading-button'
 import { useSyncMeta } from '@/hooks/safe-actions/sync-meta'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
+import { DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
 
-type ItemTableProps = { items: Awaited<ReturnType<typeof getItems>> }
-type DataSource = Awaited<ReturnType<typeof getItems>>
+type CustomerTableProps = { bps: Awaited<ReturnType<typeof getBps>> }
+type DataSource = Awaited<ReturnType<typeof getBps>>
 
-export default function ItemTable({ items }: ItemTableProps) {
+export default function CustomerTable({ bps }: CustomerTableProps) {
   const router = useRouter()
 
-  const DATAGRID_STORAGE_KEY = 'dx-datagrid-inventory'
-  const DATAGRID_UNIQUE_KEY = 'inventory'
+  const DATAGRID_STORAGE_KEY = 'dx-datagrid-customer'
+  const DATAGRID_UNIQUE_KEY = 'customers'
 
   const form = useForm({
     mode: 'onChange',
-    values: { items: [] },
+    values: { bps: [], cardType: 'C' },
     resolver: zodResolver(syncToSapFormSchema),
   })
 
-  const itemsToSync = useWatch({ control: form.control, name: 'items' })
+  const bpsToSync = useWatch({ control: form.control, name: 'bps' })
 
   const selectedRowKeys = useMemo(() => {
-    if (itemsToSync.length < 1) return []
-    return itemsToSync.map((wo) => wo.code)
-  }, [JSON.stringify(itemsToSync)])
+    if (bpsToSync.length < 1) return []
+    return bpsToSync.map((wo) => wo.code)
+  }, [JSON.stringify(bpsToSync)])
 
   const [isLoading, setIsLoading] = useState(false)
   const [stats, setStats] = useState<Stats>({ total: 0, completed: 0, progress: 0, errors: [], status: 'processing' })
@@ -73,12 +74,11 @@ export default function ItemTable({ items }: ItemTableProps) {
   const importErrorDataGridRef = useRef<DataGridRef | null>(null)
   const syncErrorDataGridRef = useRef<DataGridRef | null>(null)
 
-  const deleteItemData = useAction(deleteItem)
-  const restoreItemData = useAction(restoreItem)
-  const importData = useAction(importItems)
+  const deleteBpData = useAction(deleteBp)
+  const restoreBpData = useAction(restoreBp)
+  const syncMeta = useSyncMeta('customer')
   const syncToSapData = useAction(syncToSap)
   const syncFromSapData = useAction(syncFromSap)
-  const syncMeta = useSyncMeta('item')
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',
@@ -96,23 +96,16 @@ export default function ItemTable({ items }: ItemTableProps) {
     'setShowColumnChooser',
   ])
 
-  const thumbnailCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
-    const data = e.data as DataSource[number]
-    const thumbnail = data.thumbnail
-
-    return <img src={thumbnail || '/images/placeholder-img.jpg'} className='size-[60px]' />
-  }, [])
-
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const data = e.row?.data
     if (!data) return
-    router.push(`/inventory/${data?.code}/view`)
+    router.push(`/customers/${data?.code}/view`)
   }, [])
 
   const handleEdit = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const code = e.row?.data?.code
     if (!code) return
-    router.push(`/inventory/${code}`)
+    router.push(`/customers/${code}`)
   }, [])
 
   const handleDelete = useCallback(
@@ -135,17 +128,19 @@ export default function ItemTable({ items }: ItemTableProps) {
     [setShowRestoreConfirmation, setRowData]
   )
 
-  const handleConfirmDelete = (code?: number) => {
-    if (!code) return
+  const handleConfirmDelete = (code?: number, cardType?: string) => {
+    if (!code || !cardType) return
 
     setShowDeleteConfirmation(false)
 
-    toast.promise(deleteItemData.executeAsync({ code }), {
-      loading: 'Deleting inventory...',
+    const cardTypeValue = BUSINESS_PARTNER_MAP?.[cardType] || 'Lead'
+
+    toast.promise(deleteBpData.executeAsync({ code, cardType }), {
+      loading: `Deleting ${cardTypeValue.toLowerCase()}...`,
       success: (response) => {
         const result = response?.data
 
-        if (!response || !result) throw { message: 'Failed to delete inventory!', unExpectedError: true }
+        if (!response || !result) throw { message: `Failed to delete ${cardTypeValue.toLowerCase()}!`, unExpectedError: true }
 
         if (!result.error) {
           setTimeout(() => {
@@ -163,17 +158,19 @@ export default function ItemTable({ items }: ItemTableProps) {
     })
   }
 
-  const handleConfirmRestore = (code?: number) => {
-    if (!code) return
+  const handleConfirmRestore = (code?: number, cardType?: string) => {
+    if (!code || !cardType) return
 
     setShowRestoreConfirmation(false)
 
-    toast.promise(restoreItemData.executeAsync({ code }), {
-      loading: 'Restoring inventory...',
+    const cardTypeValue = BUSINESS_PARTNER_MAP?.[cardType] || 'Lead'
+
+    toast.promise(restoreBpData.executeAsync({ code, cardType }), {
+      loading: `Restoring ${cardTypeValue.toLowerCase()}...`,
       success: (response) => {
         const result = response?.data
 
-        if (!response || !result) throw { message: 'Failed to restore inventory!', unExpectedError: true }
+        if (!response || !result) throw { message: `Failed to restore ${cardTypeValue.toLowerCase()}!`, unExpectedError: true }
 
         if (!result.error) {
           setTimeout(() => {
@@ -198,113 +195,22 @@ export default function ItemTable({ items }: ItemTableProps) {
 
     const values = allowData.map((row) => ({
       code: row.code,
-      ItemCode: row.ItemCode,
-      ItemName: row.ItemName,
-      Manufacturer: row?.FirmCode ?? -1,
-      ItemsGroupCode: row?.ItmsGrpCod ?? -1,
+      CardCode: row.CardCode,
+      CardName: row.CardName,
+      CardType: row.CardType,
+      CurrCode: row?.CurrCode ?? -1,
+      GroupCode: row?.GroupCode ?? -1,
+      GroupNum: row?.GroupNum ?? -1,
+      Phone1: row?.Phone1 ?? null,
+      AcctType: row?.AcctType ?? null,
+      Balance: row?.Balance ?? 0,
+      ChecksBal: row?.ChecksBal ?? 0,
     }))
 
     if (notAllowData.length > 0) e.component.deselectRows(notAllowData.map((row) => row.code))
 
-    form.setValue('items', values)
+    form.setValue('bps', values)
   }, [])
-
-  function exportToExcel(fileName: string, component?: dxDataGrid<any, any> | null, selectedRowsOnly = false) {
-    if (!component) return
-
-    const normalizedFileName = fileName.replace(/[^a-zA-Z0-9-]/g, '-')
-    const workbook = new Workbook()
-    const worksheet = workbook.addWorksheet('Main sheet')
-
-    exportDataGrid({
-      component: component,
-      worksheet,
-      autoFilterEnabled: true,
-      selectedRowsOnly,
-      customizeCell: ({ gridCell, excelCell }) => {
-        if (gridCell?.rowType === 'data') {
-          if (gridCell?.column?.dataField === 'thumbnail') {
-            excelCell.value = undefined
-
-            const image = workbook.addImage({
-              base64: gridCell.value,
-              extension: 'png',
-            })
-
-            worksheet.getRow(excelCell.row).height = 60
-            worksheet.getColumn(excelCell.col).width = 20
-            worksheet.addImage(image, {
-              tl: { col: excelCell.col - 1, row: excelCell.row - 1 } as Anchor,
-              br: { col: excelCell.col, row: excelCell.row } as Anchor,
-            })
-          }
-        }
-      },
-    }).then(() => {
-      workbook.xlsx.writeBuffer().then((buffer) => {
-        saveAs(new Blob([buffer], { type: 'application/octet-stream' }), `${normalizedFileName}-${format(new Date(), 'MM-dd-yyyy')}.xlsx`)
-      })
-    })
-  }
-
-  const handleImport: (...args: any[]) => void = async (args) => {
-    const { file } = args
-
-    setIsLoading(true)
-
-    try {
-      const headers: string[] = ['MFG_P/N', 'Manufacturer', 'Description', 'Notes', 'Active']
-      const batchSize = 100
-
-      //* parse excel file
-      const parseData = await parseExcelFile({ file, header: headers })
-      const toImportData = parseData.map((row, i) => ({ rowNumber: i + 2, ...row }))
-
-      //* trigger write by batch
-      let batch: typeof toImportData = []
-      let stats: Stats = { total: 0, completed: 0, progress: 0, errors: [], status: 'processing' }
-
-      for (let i = 0; i < toImportData.length; i++) {
-        const isLastRow = i === toImportData.length - 1
-        const row = toImportData[i]
-
-        //* add to batch
-        batch.push(row)
-
-        //* check if batch size is reached or last row
-        if (batch.length === batchSize || isLastRow) {
-          const response = await importData.executeAsync({ data: batch, total: toImportData.length, stats, isLastRow })
-          const result = response?.data
-
-          if (result?.error) {
-            setStats((prev: any) => ({ ...prev, errors: [...prev.errors, ...result.stats.errors] }))
-            stats.errors = [...stats.errors, ...result.stats.errors]
-          } else if (result?.stats) {
-            setStats(result.stats)
-            stats = result.stats
-          }
-
-          batch = []
-        }
-      }
-
-      if (stats.status === 'completed') {
-        toast.success(`Project groups imported successfully! ${stats.errors.length} errors found.`)
-        setStats((prev: any) => ({ ...prev, total: 0, completed: 0, progress: 0, status: 'processing' }))
-        router.refresh()
-      }
-
-      if (stats.errors.length > 0) {
-        setShowImportError(true)
-        setImportErrors(stats.errors)
-      }
-
-      setIsLoading(false)
-    } catch (error: any) {
-      console.error(error)
-      toast.error(error?.message || 'Failed to import file!')
-    }
-  }
 
   const handleConfirmSyncToSap = async (formData: SyncToSapForm) => {
     try {
@@ -332,11 +238,11 @@ export default function ItemTable({ items }: ItemTableProps) {
     }
   }
 
-  const handleConfirmSyncFromSap = async () => {
+  const handleConfirmSyncFromSap = async (cardType: string) => {
     try {
       setShowSyncFromSapConfirmation(false)
 
-      const response = await syncFromSapData.executeAsync()
+      const response = await syncFromSapData.executeAsync({ cardType })
       const result = response?.data
 
       if (result?.error) {
@@ -346,20 +252,16 @@ export default function ItemTable({ items }: ItemTableProps) {
 
       toast.success(result?.message)
       router.refresh()
-      syncMeta.execute({ code: 'item' })
+      syncMeta.execute({ code: 'customer' })
     } catch (error: any) {
       console.error(error)
-      toast.error(error?.message || 'Failed to sync items from SAP!', { duration: 10000 })
+      toast.error(error?.message || 'Failed to sync customers from SAP!', { duration: 10000 })
     }
   }
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader
-        title='Inventory'
-        description='Manage and track your inventory effectively'
-        isLoading={syncToSapData.isExecuting || syncFromSapData.isExecuting}
-      >
+      <PageHeader title='Customers' description='Manage and track your customers effectively' isLoading={false}>
         {selectedRowKeys.length > 0 && (
           <Item location='after' locateInMenu='auto' widget='dxButton'>
             <Tooltip
@@ -372,7 +274,7 @@ export default function ItemTable({ items }: ItemTableProps) {
             <LoadingButton
               id='sync-items-to-sap'
               icon='upload'
-              isLoading={syncToSapData.isExecuting}
+              isLoading={false}
               text={`${selectedRowKeys.length} : Sync To SAP`}
               type='default'
               loadingText='Syncing'
@@ -396,7 +298,7 @@ export default function ItemTable({ items }: ItemTableProps) {
             <LoadingButton
               id='sync-from-sap-to-portal'
               icon='refresh'
-              isLoading={syncFromSapData.isExecuting}
+              isLoading={false}
               type='default'
               text='Sync From SAP'
               loadingText={syncMeta.isLoading ? 'Depedecy loading' : 'Syncing'}
@@ -409,11 +311,10 @@ export default function ItemTable({ items }: ItemTableProps) {
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
-          isLoading={isLoading || importData.isExecuting || syncToSapData.isExecuting || syncFromSapData.isExecuting}
+          isLoading={isLoading}
           isEnableImport
-          onImport={handleImport}
-          addButton={{ text: 'Add Inventory', onClick: () => router.push('/inventory/add') }}
-          customs={{ exportToExcel }}
+          //   onImport={handleImport}
+          addButton={{ text: 'Add Customer', onClick: () => router.push('/customers/add') }}
         />
 
         {stats && stats.progress && isLoading ? <ProgressBar min={0} max={100} showStatus={false} value={stats.progress} /> : null}
@@ -422,7 +323,7 @@ export default function ItemTable({ items }: ItemTableProps) {
       <PageContentWrapper className='h-[calc(100%_-_92px)]'>
         <CommonDataGrid
           dataGridRef={dataGridRef}
-          data={items}
+          data={bps}
           storageKey={DATAGRID_STORAGE_KEY}
           keyExpr='code'
           isSelectionEnable
@@ -431,10 +332,26 @@ export default function ItemTable({ items }: ItemTableProps) {
           callbacks={{ onSelectionChanged: handleOnSelectionChange }}
         >
           <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
-          <Column dataField='thumbnail' minWidth={140} caption='Thumbnail' cellRender={thumbnailCellRender} />
-          <Column dataField='manufacturer' dataType='string' caption='Manufacturer' />
-          <Column dataField='manufacturerPartNumber' dataType='string' caption='MFG P/N' />
-          <Column dataField='description' dataType='string' caption='Description' />
+          <Column dataField='CardCode' dataType='string' caption='Code' />
+          <Column dataField='CardName' dataType='string' caption='Name' />
+          <Column
+            dataField='CardType'
+            dataType='string'
+            caption='Type'
+            calculateDisplayValue={(rowData) => BUSINESS_PARTNER_MAP?.[rowData.CardType] || 'Lead'}
+          />
+          <Column dataField='GroupName' dataType='string' caption='Group' />
+          <Column dataField='CurrName' dataType='string' caption='Currency' />
+          <Column dataField='PymntGroup' dataType='string' caption='Payment Term' />
+          <Column dataField='AccountTypeName' dataType='string' caption='Account Type' />
+          <Column
+            dataField='AccountBalance'
+            dataType='number'
+            caption='Account Balance'
+            alignment='left'
+            format={DEFAULT_CURRENCY_FORMAT}
+          />
+          <Column dataField='Checks' dataType='number' caption='Checks' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
           <Column dataField='syncStatus' dataType='string' caption='Sync Status' cssClass='capitalize' />
           <Column
             dataField='isActive'
@@ -442,7 +359,6 @@ export default function ItemTable({ items }: ItemTableProps) {
             caption='Status'
             calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
           />
-          <Column dataField='notes' dataType='string' caption='Notes' />
 
           <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
             <DataGridButton
@@ -493,23 +409,23 @@ export default function ItemTable({ items }: ItemTableProps) {
       <AlertDialog
         isOpen={showDeleteConfirmation}
         title='Are you sure?'
-        description={`Are you sure you want to delete this inventory item named "${rowData?.description}"?`}
-        onConfirm={() => handleConfirmDelete(rowData?.code)}
+        description={`Are you sure you want to delete this customer named "${rowData?.CardName}"?`}
+        onConfirm={() => handleConfirmDelete(rowData?.code, rowData?.CardType)}
         onCancel={() => setShowDeleteConfirmation(false)}
       />
 
       <AlertDialog
         isOpen={showRestoreConfirmation}
         title='Are you sure?'
-        description={`Are you sure you want to restore this inventory item named "${rowData?.description}"?`}
-        onConfirm={() => handleConfirmRestore(rowData?.code)}
+        description={`Are you sure you want to restore this customer named "${rowData?.CardName}"?`}
+        onConfirm={() => handleConfirmRestore(rowData?.code, rowData?.CardType)}
         onCancel={() => setShowRestoreConfirmation(false)}
       />
 
       <AlertDialog
         isOpen={showSyncToSapConfirmation}
         title='Are you sure?'
-        description={`Are you sure you want to sync this item${itemsToSync.length > 1 ? 's' : ''} to SAP?`}
+        description={`Are you sure you want to sync this customer${bpsToSync.length > 1 ? 's' : ''} to SAP?`}
         onConfirm={() => handleConfirmSyncToSap(form.getValues())}
         onCancel={() => setShowSyncToSapConfirmation(false)}
       />
@@ -518,27 +434,9 @@ export default function ItemTable({ items }: ItemTableProps) {
         isOpen={showSyncFromSapConfirmation}
         title='Are you sure?'
         description='Are you sure you want to sync from SAP?'
-        onConfirm={() => handleConfirmSyncFromSap()}
+        onConfirm={() => handleConfirmSyncFromSap('C')}
         onCancel={() => setShowSyncFromSapConfirmation(false)}
       />
-
-      <ImportSyncErrorDataGrid
-        isOpen={showImportError}
-        setIsOpen={setShowImportError}
-        data={importErrors}
-        dataGridRef={importErrorDataGridRef}
-      />
-
-      <ImportSyncErrorDataGrid
-        title='Sync Error'
-        description='There was an error encountered while syncing.'
-        isOpen={showSyncError}
-        setIsOpen={setShowSyncError}
-        data={syncErrors}
-        dataGridRef={syncErrorDataGridRef}
-      >
-        <Column dataField='code' dataType='string' caption='Id' alignment='center' />
-      </ImportSyncErrorDataGrid>
     </div>
   )
 }

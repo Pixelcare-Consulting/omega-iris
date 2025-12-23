@@ -2,7 +2,7 @@ import { Workbook } from 'exceljs'
 import { saveAs } from 'file-saver-es'
 import { exportDataGrid } from 'devextreme-react/common/export/excel'
 import { format } from 'date-fns'
-import dxDataGrid from 'devextreme/ui/data_grid'
+import dxDataGrid, { Column, dxDataGridColumn, dxDataGridRowObject, Row } from 'devextreme/ui/data_grid'
 import { DataGridTypes } from 'devextreme-react/cjs/data-grid'
 
 //* devextreme helpers functions
@@ -27,7 +27,46 @@ export function exportToExcel(fileName: string, component?: dxDataGrid<any, any>
 
 export function handleOnRowPrepared(e: DataGridTypes.RowPreparedEvent) {
   const rowType = e.rowType
-  if (rowType === 'data') e.rowElement.classList.add('cursor-pointer')
+  const data = e.data
+
+  if (rowType === 'data') {
+    e.rowElement.classList.add('cursor-pointer')
+
+    if (data?.deletedAt && data?.deletedBy) {
+      e.rowElement.style.textDecoration = 'line-through'
+      e.rowElement.style.textDecorationColor = 'red'
+      e.rowElement.style.textDecorationThickness = '2px'
+      e.rowElement.style.opacity = '0.6'
+      e.rowElement.title = 'This record has been deleted'
+    }
+  }
+}
+
+export function handleOnCellPrepared(e: DataGridTypes.CellPreparedEvent) {
+  const column = e.column as any
+  const data = e.data
+  const cellElement = e.cellElement
+  const checkbox = (cellElement?.querySelector('.dx-select-checkbox') as HTMLInputElement) || null
+  const rowType = e.rowType
+
+  if (rowType === 'data') {
+    //* condition when column type is selection
+    if (column?.type === 'selection') {
+      if (data?.deletedAt || data?.deletedBy) {
+        if (checkbox) checkbox.style.display = 'none' //* hide checkbox if row has deletedAt or deletedBy
+      }
+    }
+  }
+}
+
+export function hideActionButton(isHide: boolean) {
+  if (isHide) return false
+  return true
+}
+
+export function showActionButton(isShow: boolean) {
+  if (isShow) return true
+  return false
 }
 
 export function handleOnAdaptiveDetailRowPreparing(e: DataGridTypes.AdaptiveDetailRowPreparingEvent) {

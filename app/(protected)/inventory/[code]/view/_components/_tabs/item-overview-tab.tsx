@@ -10,6 +10,7 @@ import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
 import { formatNumber } from 'devextreme/localization'
 import { DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
 import Separator from '@/components/separator'
+import { titleCase } from '@/utils'
 
 type ItemOverviewTabProps = {
   item: NonNullable<Awaited<ReturnType<typeof getItemByCode>>>
@@ -45,6 +46,12 @@ export default function ItemOverviewTab({ item }: ItemOverviewTabProps) {
           <ReadOnlyField className='col-span-12 md:col-span-6' title='Status' value={item?.isActive ? 'Active' : 'Inactive'} />
 
           <ReadOnlyField className='col-span-12' title='Notes' value={item?.notes || ''} />
+
+          <ReadOnlyField
+            className='col-span-12 md:col-span-6 lg:col-span-4'
+            title='Sync Status'
+            value={item?.syncStatus ? titleCase(item?.syncStatus) : ''}
+          />
         </div>
 
         <Separator className='col-span-12' />

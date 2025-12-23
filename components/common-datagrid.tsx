@@ -22,7 +22,7 @@ import DataGrid, {
 import React, { Ref } from 'react'
 
 import { DataGridStore } from '@/hooks/use-dx-datagrid'
-import { handleOnAdaptiveDetailRowPreparing, handleOnRowPrepared } from '@/utils/devextreme'
+import { handleOnAdaptiveDetailRowPreparing, handleOnCellPrepared, handleOnRowPrepared } from '@/utils/devextreme'
 import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES, DEFAULT_COLUMN_MIN_WIDTH } from '@/constants/devextreme'
 
 type DataGridCallbacks = {
@@ -74,6 +74,7 @@ export default function CommonDataGrid<T extends Record<string, any>>({
       onSelectionChanged={callbacks?.onSelectionChanged}
       onRowPrepared={handleOnRowPrepared}
       onRowUpdated={callbacks?.onRowUpdated}
+      onCellPrepared={handleOnCellPrepared}
       onAdaptiveDetailRowPreparing={handleOnAdaptiveDetailRowPreparing}
       wordWrapEnabled
       columnAutoWidth={false}

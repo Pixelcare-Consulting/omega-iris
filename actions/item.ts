@@ -2,7 +2,7 @@
 
 import z from 'zod'
 import { Prisma } from '@prisma/client'
-import { isAfter, isEqual, isSameDay, parse } from 'date-fns'
+import { isAfter, isSameDay, parse } from 'date-fns'
 
 import { paramsSchema } from '@/schema/common'
 import { itemFormSchema, syncToSapFormSchema } from '@/schema/item'
@@ -12,15 +12,16 @@ import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import { safeParseFloat } from '@/utils'
 import { callSapServiceLayerApi } from './sap-service-layer'
 import { SAP_BASE_URL } from '@/constants/sap'
-import { getItemMaster } from './item-master'
 import { importFormSchema } from '@/schema/import'
+import logger from '@/utils/logger'
+import { safeParseInt } from '@/utils'
 
 const COMMON_ITEM_ORDER_BY = { code: 'asc' } satisfies Prisma.ItemOrderByWithRelationInput
 
 export async function getItems(excludeCodes?: number[] | null) {
   try {
     const result = await db.item.findMany({
-      where: { deletedAt: null, deletedBy: null, ...(excludeCodes?.length ? { code: { notIn: excludeCodes } } : {}) },
+      where: { ...(excludeCodes?.length ? { code: { notIn: excludeCodes } } : {}) },
       orderBy: COMMON_ITEM_ORDER_BY,
     })
 
@@ -73,7 +74,7 @@ export const upsertItem = action
     try {
       const existingItem = await db.item.findFirst({
         where: {
-          manufacturerPartNumber: data.manufacturerPartNumber,
+          OR: [{ manufacturerPartNumber: data.manufacturerPartNumber }, { ItemCode: data.ItemCode }],
           ...(code && code !== -1 && { code: { not: code } }),
         },
       })
@@ -280,6 +281,68 @@ export const deleteItem = action
     }
   })
 
+export const restoreItem = action
+  .use(authenticationMiddleware)
+  .schema(paramsSchema)
+  .action(async ({ parsedInput: data }) => {
+    try {
+      const item = await db.item.findUnique({ where: { code: data.code } })
+
+      if (!item) return { error: true, status: 404, message: 'Item not found!', action: 'RESTORE_ITEM' }
+
+      await db.item.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+
+      return { status: 200, message: 'Item retored successfully!', action: 'RESTORE_ITEM' }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'RESTORE_ITEM',
+      }
+    }
+  })
+
+//* SAP Related functions
+
+const PER_PAGE = 500
+
+export async function getItemMaster() {
+  try {
+    const totalCount = await callSapServiceLayerApi({ url: `${SAP_BASE_URL}/b1s/v1/Items/$count?$filter=U_Portal_Sync eq 'Y'` })
+    const totalPage = Math.ceil(safeParseInt(totalCount) / PER_PAGE)
+
+    const requestsPromises = []
+
+    for (let i = 0; i <= totalPage; i++) {
+      const skip = i * PER_PAGE //* offset
+
+      //* create request
+      const request = callSapServiceLayerApi({
+        url: `${SAP_BASE_URL}/b1s/v1/$crossjoin(Items,ItemGroups,Manufacturers)?$expand=Items($select=ItemCode,ItemName,ItemsGroupCode,Manufacturer,ManageBatchNumbers,PurchaseItemsPerUnit,U_MPN,U_MSL,CreateDate,UpdateDate,U_Portal_Sync),ItemGroups($select=Number,GroupName),Manufacturers($select=Code,ManufacturerName)&$filter=Items/ItemsGroupCode eq ItemGroups/Number and Items/Manufacturer eq Manufacturers/Code and Items/U_Portal_Sync eq 'Y'&$top=${PER_PAGE}&$skip=${skip}&$orderby=ItemCode asc`,
+        headers: { Prefer: `odata.maxpagesize=${PER_PAGE}` },
+      })
+
+      //* push request to the requestsPromises array
+      requestsPromises.push(request)
+    }
+
+    //* fetch all item master from sap in parallel
+    const itemMaster = await Promise.all(requestsPromises)
+
+    return itemMaster
+      .flatMap((res) => res?.value || [])
+      .filter(Boolean)
+      .sort((a, b) => a?.Items.ItemCode - b?.Items.ItemCode)
+  } catch (error) {
+    console.log({ error })
+    logger.error(error, 'Failed to fetch item master from SAP')
+    return []
+  }
+}
+
 export const syncToSap = action
   .use(authenticationMiddleware)
   .schema(syncToSapFormSchema)
@@ -299,32 +362,32 @@ export const syncToSap = action
         const rowNumber = i + 1
 
         //* check required fields
-        if (!row?.['ItemCode']) errors.push({ field: 'MFG_P/N', message: 'Missing required fields' })
+        if (!row?.ItemCode) errors.push({ field: 'MFG_P/N', message: 'Missing required fields' })
 
-        if (!row?.['ItemsGroupCode']) errors.push({ field: 'Group', message: 'Missing required fields' })
+        if (!row?.ItemsGroupCode) errors.push({ field: 'Group', message: 'Missing required fields' })
 
-        if (!row?.['Manufacturer']) errors.push({ field: 'Manufacturer', message: 'Missing required fields' })
+        if (!row?.Manufacturer) errors.push({ field: 'Manufacturer', message: 'Missing required fields' })
 
-        if (!row?.['ItemName']) errors.push({ field: 'Description', message: 'Missing required fields' })
+        if (!row?.ItemName) errors.push({ field: 'Description', message: 'Missing required fields' })
 
         //* if errors array is not empty, then update/push to ImportSyncError
         if (errors.length > 0) {
-          importSyncErrors.push({ rowNumber, entries: errors, row, code: row?.['code'] })
+          importSyncErrors.push({ rowNumber, entries: errors, row, code: row?.code })
           continue
         }
 
         const toCreate = {
-          ItemCode: row['ItemCode'],
-          Manufacturer: row['Manufacturer'],
-          ItemsGroupCode: row['ItemsGroupCode'],
-          ItemName: row['ItemName'],
+          ItemCode: row?.ItemCode,
+          Manufacturer: row?.Manufacturer,
+          ItemsGroupCode: row?.ItemsGroupCode,
+          ItemName: row?.ItemName,
           U_Portal_Sync: 'Y',
         }
 
         //* push the batch item to the sapBatch array
         sapBatch.push({
           rowNumber,
-          code: row['code'],
+          code: row?.code,
           promise: callSapServiceLayerApi({ url: `${SAP_BASE_URL}/b1s/v1/Items`, method: 'post', data: toCreate }),
           row,
         })
@@ -405,7 +468,7 @@ export const syncFromSap = action.use(authenticationMiddleware).action(async ({ 
 
   try {
     //* fetch all item master from sap & last sync date
-    const data = await Promise.allSettled([getItemMaster(), db.syncMeta.findUnique({ where: { code: 'item' } })])
+    const data = await Promise.allSettled([getItemMaster(), db.syncMeta.findUnique({ where: { code: SYNC_META_CODE } })])
 
     const itemMaster = data[0].status === 'fulfilled' ? data[0]?.value || [] : []
     const lastSyncDate = data[1].status === 'fulfilled' ? data[1]?.value?.lastSyncAt || new Date('01/01/2020') : new Date('01/01/2020')
@@ -482,7 +545,7 @@ export const syncFromSap = action.use(authenticationMiddleware).action(async ({ 
       await tx.syncMeta.upsert({
         where: { code: SYNC_META_CODE },
         create: { code: SYNC_META_CODE, description: 'Last item master synced date', lastSyncAt: new Date() },
-        update: { code: SYNC_META_CODE, description: 'Last synced date', lastSyncAt: new Date() },
+        update: { code: SYNC_META_CODE, description: 'Last item master synced date', lastSyncAt: new Date() },
       })
     })
 

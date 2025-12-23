@@ -96,6 +96,39 @@ model Account {
     @@id([provider, providerAccountId])
 }
 
+model BusinessPartner {
+    id       String  @id @default(cuid())
+    code     Int     @unique @default(autoincrement())
+    isActive Boolean @default(true)
+
+    //* sap fields
+    CardCode   String   @unique
+    CardName   String
+    CardType   String
+    CntctPrsn  String?
+    CurrName   String?
+    CurrCode   String?
+    GroupCode  Int?
+    GroupName  String?
+    GroupNum   Int?
+    PymntGroup String?
+    Phone1     String?
+    ShipToDef  String?
+    BillToDef  String?
+    AcctType   String?
+    Balance    Decimal? @default(0)
+    ChecksBal  Decimal? @default(0)
+
+    syncStatus String @default("pending") //* pending, synced 
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+}
+
 model Item {
     id                     String  @id @default(cuid())
     code                   Int     @unique @default(autoincrement())
