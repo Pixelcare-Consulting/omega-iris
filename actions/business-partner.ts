@@ -315,8 +315,6 @@ export const syncToSap = action
           U_Portal_Sync: 'Y',
         }
 
-        console.log({ toCreate })
-
         sapBatch.push({
           rowNumber,
           code: row?.code,
