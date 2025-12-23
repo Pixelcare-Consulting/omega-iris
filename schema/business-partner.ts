@@ -26,6 +26,13 @@ export const BUSINESS_PARTNER_STD_API_GROUP_TYPE_MAP: Record<string, string> = {
   S: 'bbpgt_VendorGroup',
 }
 
+export const BUSINESS_PARTNER_TYPE_OF_BUSINESS_MAP: Record<string, string> = {
+  C: 'Company',
+  P: 'Private',
+  G: 'Government',
+  E: 'Employee',
+}
+
 export const businessPartnerFormSchema = z.object({
   code: z.coerce.number(),
   isActive: z.boolean(),
@@ -52,6 +59,7 @@ export const businessPartnerFormSchema = z.object({
   ShipToDef: z.string().nullish(),
   BillToDef: z.string().nullish(),
   AcctType: z.string().nullish(),
+  CmpPrivate: z.string().nullish(),
   Balance: z.coerce.number().nullish(),
   ChecksBal: z.coerce.number().nullish(),
 })
@@ -68,6 +76,7 @@ export const syncToSapFormSchema = z.object({
       GroupNum: z.coerce.number().nullish(),
       Phone1: z.string().nullish(),
       AcctType: z.string().nullish(),
+      CmpPrivate: z.string().nullish(),
       Balance: z.coerce.number().nullish(),
       ChecksBal: z.coerce.number().nullish(),
     })

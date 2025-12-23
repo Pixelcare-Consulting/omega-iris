@@ -116,6 +116,7 @@ model BusinessPartner {
     ShipToDef  String?
     BillToDef  String?
     AcctType   String?
+    CmpPrivate String?
     Balance    Decimal? @default(0)
     ChecksBal  Decimal? @default(0)
 
@@ -127,6 +128,50 @@ model BusinessPartner {
     createdBy String?
     updatedBy String?
     deletedBy String?
+
+    Addresses Address[]
+}
+
+model Address {
+    CardCode             String
+    AddressName          String  @unique
+    AddrType             String?
+    Street               String?
+    Address2             String?
+    Address3             String?
+    Block                String?
+    City                 String?
+    ZipCode              String?
+    County               String?
+    State                String?
+    Country              String?
+    StreetNo             String?
+    BuildingFloorRoom    String?
+    GlobalLocationNumber String?
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    businessPartner BusinessPartner @relation(fields: [CardCode], references: [CardCode], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([CardCode, AddressName])
+}
+
+model Contact {
+    CardCode    String
+    ContactName String  @unique
+    FirstName   String?
+    LastName    String?
+    Title       String?
+    Position    String?
+    Phone1      String?
+    Phone2      String?
+    MobilePhone String?
+    Email       String?
 }
 
 model Item {
