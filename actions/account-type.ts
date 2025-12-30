@@ -6,7 +6,7 @@ import { SAP_BASE_URL } from '@/constants/sap'
 
 export async function getAccountTypes() {
   try {
-    return await callSapServiceLayerApi({
+    return callSapServiceLayerApi({
       url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query19')/List`,
       headers: { Prefer: 'odata.maxpagesize=999' },
     })

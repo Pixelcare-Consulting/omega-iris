@@ -14,7 +14,7 @@ const COMMON_PROJECT_GROUP_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectGr
 
 export async function getPgs() {
   try {
-    return await db.projectGroup.findMany({
+    return db.projectGroup.findMany({
       where: { deletedAt: null, deletedBy: null },
       orderBy: COMMON_PROJECT_GROUP_ORDER_BY,
     })
@@ -31,7 +31,7 @@ export async function getPgByCode(code: number) {
   if (!code) return null
 
   try {
-    return await db.projectGroup.findUnique({ where: { code } })
+    return db.projectGroup.findUnique({ where: { code } })
   } catch (err) {
     return null
   }

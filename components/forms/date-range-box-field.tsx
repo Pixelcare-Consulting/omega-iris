@@ -1,6 +1,6 @@
 'use client'
 
-import { Control, Controller, FieldPath, FieldValues } from 'react-hook-form'
+import { Control, Controller, FieldPath, FieldValues, get } from 'react-hook-form'
 import DateRangeBox, { IDateRangeBoxOptions } from 'devextreme-react/date-range-box'
 
 import { FormExtendedProps } from '@/types/form'
@@ -40,8 +40,9 @@ export default function DateRangeBoxField<T extends FieldValues>({
       control={control}
       name={name}
       render={({ field, formState: { errors } }) => {
-        const isValid = !Boolean(errors?.[name])
-        const errorMessages = errors?.[name] as Record<string, any>[] | React.ReactNode[]
+        const fieldError = get(errors, name)
+        const isValid = !fieldError
+        const errorMessages = fieldError?.message as Record<string, any>[] | React.ReactNode[]
 
         return (
           <FormItem {...extendedProps?.formItem}>

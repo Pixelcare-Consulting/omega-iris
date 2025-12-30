@@ -22,7 +22,7 @@ const COMMON_PROJECT_INDIVIDUAL_ORDER_BY = { code: 'asc' } satisfies Prisma.Proj
 
 export async function getPis() {
   try {
-    return await db.projectIndividual.findMany({
+    return db.projectIndividual.findMany({
       where: { deletedAt: null, deletedBy: null },
       include: COMMON_PROJECT_INDIVIDUAL_INCLUDE,
       orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY,
@@ -41,7 +41,7 @@ export async function getPisByGroupCode(groupCode: number) {
   if (!groupCode) return []
 
   try {
-    return await db.projectIndividual.findMany({
+    return db.projectIndividual.findMany({
       where: { deletedAt: null, deletedBy: null, projectGroup: { code: groupCode } },
       include: COMMON_PROJECT_INDIVIDUAL_INCLUDE,
       orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY,
@@ -86,7 +86,7 @@ export async function getPisByBpUserCode(userCode?: number | null) {
 
     const projectIndividualCustomers = await db.projectIndividualCustomer.findMany({
       where: { userCode },
-      orderBy: { code: 'asc' },
+      orderBy: { user: { code: 'asc' } },
       select: { projectIndividual: true },
     })
 

@@ -41,7 +41,7 @@ export const getItemsClient = action
   .use(authenticationMiddleware)
   .schema(z.object({ excludeCodes: z.array(z.coerce.number()).nullish() }))
   .action(async ({ parsedInput: data }) => {
-    return await getItems(data.excludeCodes)
+    return getItems(data.excludeCodes)
   })
 
 export async function getItemByCode(code: number) {

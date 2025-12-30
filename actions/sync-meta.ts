@@ -9,7 +9,7 @@ export async function getSyncMetaByCode(code: string) {
   if (!code) return null
 
   try {
-    return await db.syncMeta.findUnique({ where: { code } })
+    return db.syncMeta.findUnique({ where: { code } })
   } catch (error) {
     console.error(error)
     return null

@@ -201,8 +201,6 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
       Phone1: row?.Phone1 ?? null,
       AcctType: row?.AcctType ?? null,
       CmpPrivate: row?.CmpPrivate ?? null,
-      Balance: row?.Balance ?? 0,
-      ChecksBal: row?.ChecksBal ?? 0,
     }))
 
     if (notAllowData.length > 0) e.component.deselectRows(notAllowData.map((row) => row.code))

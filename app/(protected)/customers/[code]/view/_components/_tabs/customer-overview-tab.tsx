@@ -66,18 +66,6 @@ export default function CustomerOverviewTab({ customer }: CustomerOverviewTabPro
 
         <Separator className='col-span-12' />
 
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Account Balance'
-          value={formatNumber(customer?.Balance, DEFAULT_CURRENCY_FORMAT)}
-        />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Checks'
-          value={formatNumber(customer?.ChecksBal, DEFAULT_CURRENCY_FORMAT)}
-        />
-
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Phone 1' value={customer?.Phone1 || ''} />
 
         <Separator className='col-span-12' />

@@ -81,6 +81,11 @@ type CallSapServiceLayerApiParams = {
 }
 
 export async function callSapServiceLayerApi(config: CallSapServiceLayerApiParams): Promise<any> {
+  if (process.env.SAP_SECURITY_STRICT === 'false') {
+    logger.warn(`PASS THROUGH MODE: ${config.url}`)
+    return null
+  }
+
   try {
     //* create agent
     const agent = new https.Agent({ rejectUnauthorized: false })
