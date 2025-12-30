@@ -12,7 +12,7 @@ export async function getWoStatusUpdatesByWoCode(workOrderCode?: number | null) 
   if (!workOrderCode) return []
 
   try {
-    return await db.workOrderStatusUpdate.findMany({
+    return db.workOrderStatusUpdate.findMany({
       where: { workOrderCode },
       orderBy: COMMON_WORK_ORDER_UPDATE_STATUS_ORDER_BY,
     })

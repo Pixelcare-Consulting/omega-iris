@@ -15,7 +15,7 @@ export async function getPiCustomersByProjectCode(projectCode?: number | null) {
   if (!projectCode) return []
 
   try {
-    return await db.projectIndividualCustomer.findMany({
+    return db.projectIndividualCustomer.findMany({
       where: { projectIndividualCode: projectCode },
       include: COMMON_PI_CUSTOMER_INCLUDE,
       orderBy: COMMON_PI_CUSTOMER_ORDER_BY,

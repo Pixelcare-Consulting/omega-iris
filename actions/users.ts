@@ -20,7 +20,7 @@ const COMMON_USER_ORDER_BY = { code: 'asc' } satisfies Prisma.UserOrderByWithRel
 
 export async function getUsers() {
   try {
-    return await db.user.findMany({
+    return db.user.findMany({
       where: { deletedAt: null, deletedBy: null },
       include: COMMON_USER_INCLUDE,
       orderBy: COMMON_USER_ORDER_BY,
@@ -37,7 +37,7 @@ export const getUsersClient = action.use(authenticationMiddleware).action(async 
 
 export async function getNonCustomerUsers() {
   try {
-    return await db.user.findMany({
+    return db.user.findMany({
       where: { role: { key: { not: 'business-partner' } }, deletedAt: null, deletedBy: null },
       include: COMMON_USER_INCLUDE,
       orderBy: COMMON_USER_ORDER_BY,
@@ -56,7 +56,7 @@ export async function getUserByEmail(email: string) {
   if (!email) return null
 
   try {
-    return await db.user.findUnique({ where: { email }, include: COMMON_USER_INCLUDE })
+    return db.user.findUnique({ where: { email }, include: COMMON_USER_INCLUDE })
   } catch (err) {
     return null
   }
@@ -66,7 +66,7 @@ export async function getUserByUsername(username: string) {
   if (!username) return null
 
   try {
-    return await db.user.findUnique({ where: { username }, include: COMMON_USER_INCLUDE })
+    return db.user.findUnique({ where: { username }, include: COMMON_USER_INCLUDE })
   } catch (err) {
     return null
   }
@@ -76,7 +76,7 @@ export async function getUserById(id: string) {
   if (!id) return null
 
   try {
-    return await db.user.findUnique({ where: { id }, include: COMMON_USER_INCLUDE })
+    return db.user.findUnique({ where: { id }, include: COMMON_USER_INCLUDE })
   } catch (err) {
     return null
   }
@@ -94,7 +94,7 @@ export async function getUserByCode(code: number) {
   if (!code) return null
 
   try {
-    return await db.user.findUnique({ where: { code }, include: COMMON_USER_INCLUDE })
+    return db.user.findUnique({ where: { code }, include: COMMON_USER_INCLUDE })
   } catch (err) {
     return null
   }
@@ -112,7 +112,7 @@ export async function getUsersByRoleKey(key: string) {
   if (!key) return []
 
   try {
-    return await db.user.findMany({
+    return db.user.findMany({
       where: { role: { key }, ...(key === 'business-partner' ? { NOT: [{ customerCode: null }, { customerCode: '' }] } : {}) },
       include: COMMON_USER_INCLUDE,
       orderBy: COMMON_USER_ORDER_BY,
@@ -133,7 +133,7 @@ export async function getAccountByUserId(id: string) {
   if (!id) return null
 
   try {
-    return await db.account.findFirst({ where: { userId: id } })
+    return db.account.findFirst({ where: { userId: id } })
   } catch (err) {
     return null
   }

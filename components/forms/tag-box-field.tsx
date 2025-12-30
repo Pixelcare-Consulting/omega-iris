@@ -1,6 +1,6 @@
 'use client'
 
-import { Control, Controller, ControllerRenderProps, FieldPath, FieldValues, Path } from 'react-hook-form'
+import { Control, Controller, ControllerRenderProps, FieldPath, FieldValues, get, Path } from 'react-hook-form'
 import TagBox, { ITagBoxOptions, TagBoxTypes } from 'devextreme-react/tag-box'
 import { Template } from 'devextreme-react/core/template'
 import { isEqual } from 'radash'
@@ -55,8 +55,9 @@ export default function TagBoxField<T extends FieldValues>({
       control={control}
       name={name}
       render={({ field, formState: { errors } }) => {
-        const isValid = !Boolean(errors?.[name])
-        const errorMessage = errors?.[name]?.message as React.ReactNode
+        const fieldError = get(errors, name)
+        const isValid = !fieldError
+        const errorMessage = fieldError?.message as React.ReactNode
 
         return (
           <FormItem {...extendedProps?.formItem}>

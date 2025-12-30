@@ -47,14 +47,14 @@ export const getProjecItemsClient = action
   .use(authenticationMiddleware)
   .schema(z.object({ projectCode: z.number() }))
   .action(async ({ parsedInput: data }) => {
-    return await getProjecItems(data.projectCode)
+    return getProjecItems(data.projectCode)
   })
 
 export async function getProjectItemByCode(code: number) {
   if (!code) return null
 
   try {
-    return await db.projectItem.findUnique({
+    return db.projectItem.findUnique({
       where: { code },
       include: COMMON_PROJECT_ITEM_INCLUDE,
     })

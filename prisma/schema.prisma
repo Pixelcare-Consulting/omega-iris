@@ -102,7 +102,7 @@ model BusinessPartner {
     isActive Boolean @default(true)
 
     //* sap fields
-    CardCode   String   @unique
+    CardCode   String  @unique
     CardName   String
     CardType   String
     CntctPrsn  String?
@@ -117,8 +117,6 @@ model BusinessPartner {
     BillToDef  String?
     AcctType   String?
     CmpPrivate String?
-    Balance    Decimal? @default(0)
-    ChecksBal  Decimal? @default(0)
 
     syncStatus String @default("pending") //* pending, synced 
 
@@ -129,24 +127,28 @@ model BusinessPartner {
     updatedBy String?
     deletedBy String?
 
-    Addresses Address[]
+    addresses Address[]
+    contacts  Contact[]
 }
 
 model Address {
+    id                   String  @id @default(cuid())
     CardCode             String
     AddressName          String  @unique
-    AddrType             String?
+    AddrType             String
     Street               String?
     Address2             String?
     Address3             String?
+    StreetNo             String?
+    BuildingFloorRoom    String?
     Block                String?
     City                 String?
     ZipCode              String?
     County               String?
-    State                String?
-    Country              String?
-    StreetNo             String?
-    BuildingFloorRoom    String?
+    CountryCode          String?
+    CountryName          String?
+    StateCode            String?
+    StateName            String?
     GlobalLocationNumber String?
 
     createdAt DateTime  @default(now())
@@ -158,10 +160,12 @@ model Address {
 
     businessPartner BusinessPartner @relation(fields: [CardCode], references: [CardCode], onUpdate: Cascade, onDelete: Cascade)
 
-    @@unique([CardCode, AddressName])
+    @@unique([CardCode, AddressName, AddrType])
+    @@index([CardCode])
 }
 
 model Contact {
+    id          String  @id @default(cuid())
     CardCode    String
     ContactName String  @unique
     FirstName   String?
@@ -172,6 +176,18 @@ model Contact {
     Phone2      String?
     MobilePhone String?
     Email       String?
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    businessPartner BusinessPartner @relation(fields: [CardCode], references: [CardCode], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([CardCode, ContactName])
+    @@index([CardCode])
 }
 
 model Item {
@@ -355,7 +371,6 @@ model ProjectItem {
 
 model ProjectIndividualCustomer {
     id                    String @id @default(cuid())
-    code                  Int    @unique @default(autoincrement())
     projectIndividualCode Int
     userCode              Int
 
@@ -376,7 +391,6 @@ model ProjectIndividualCustomer {
 
 model ProjectIndividualPic {
     id                    String @id @default(cuid())
-    code                  Int    @unique @default(autoincrement())
     projectIndividualCode Int
     userCode              Int
 

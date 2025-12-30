@@ -9,7 +9,7 @@ export async function getWoItemsByWoCode(workOrderCode?: number | null) {
   if (!workOrderCode) return []
 
   try {
-    return await db.workOrderItem.findMany({
+    return db.workOrderItem.findMany({
       where: { workOrderCode },
       include: { projectItem: { include: { item: true, warehouse: true, dateReceivedByUser: { select: { fname: true, lname: true } } } } },
     })

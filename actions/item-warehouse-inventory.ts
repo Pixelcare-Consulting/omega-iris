@@ -13,7 +13,7 @@ export async function getItemWarehouseInventoryByItemCode(itemCode?: number) {
   if (!itemCode) return []
 
   try {
-    return await db.itemWarehouseInventory.findMany({
+    return db.itemWarehouseInventory.findMany({
       where: { itemCode: itemCode },
       include: COMMON_ITEM_WAREHOUSE_INVENTORY_INCLUDE,
       orderBy: COMMON_ITEM_WAREHOUSE_INVENTORY_ORDER_BY,

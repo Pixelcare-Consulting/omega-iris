@@ -1,6 +1,6 @@
 'use client'
 
-import { Control, Controller, FieldPath, FieldValues } from 'react-hook-form'
+import { Control, Controller, FieldPath, FieldValues, get } from 'react-hook-form'
 import TextArea, { ITextAreaOptions } from 'devextreme-react/text-area'
 
 import { FormExtendedProps } from '@/types/form'
@@ -41,8 +41,9 @@ export default function TextAreaField<T extends FieldValues>({
       control={control}
       name={name}
       render={({ field, formState: { errors } }) => {
-        const isValid = !Boolean(errors?.[name])
-        const errorMessage = errors?.[name]?.message as React.ReactNode
+        const fieldError = get(errors, name)
+        const isValid = !fieldError
+        const errorMessage = fieldError?.message as React.ReactNode
 
         return (
           <FormItem {...extendedProps?.formItem}>

@@ -28,7 +28,7 @@ const COMMON_WORK_ORDER_ORDER_BY = { code: 'asc' } satisfies Prisma.WorkOrderOrd
 
 export async function getWorkOrders() {
   try {
-    return await db.workOrder.findMany({
+    return db.workOrder.findMany({
       where: { deletedAt: null, deletedBy: null },
       include: COMMON_WORK_ORDER_INCLUDE,
       orderBy: COMMON_WORK_ORDER_ORDER_BY,
@@ -43,7 +43,7 @@ export async function getWorkOrderByCode(code: number) {
   if (!code) return null
 
   try {
-    return await db.workOrder.findUnique({ where: { code }, include: COMMON_WORK_ORDER_INCLUDE })
+    return db.workOrder.findUnique({ where: { code }, include: COMMON_WORK_ORDER_INCLUDE })
   } catch (error) {
     console.error(error)
     return null

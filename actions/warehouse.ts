@@ -12,7 +12,7 @@ const COMMON_WAREHOUSE_ORDER_BY = { code: 'asc' } satisfies Prisma.WarehouseOrde
 
 export async function getWarehouses(isDefault?: boolean | null) {
   try {
-    return await db.warehouse.findMany({
+    return db.warehouse.findMany({
       where: { deletedAt: null, deletedBy: null, ...(isDefault ? { isDefault } : {}) },
       orderBy: COMMON_WAREHOUSE_ORDER_BY,
     })
@@ -33,7 +33,7 @@ export async function getWarehouseByCode(code: number) {
   if (!code) return null
 
   try {
-    return await db.warehouse.findUnique({ where: { code } })
+    return db.warehouse.findUnique({ where: { code } })
   } catch (err) {
     return null
   }

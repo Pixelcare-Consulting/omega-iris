@@ -1,6 +1,6 @@
 'use client'
 
-import { Control, Controller, FieldPath, FieldValues } from 'react-hook-form'
+import { Control, Controller, FieldPath, FieldValues, get } from 'react-hook-form'
 import Switch, { type ISwitchOptions } from 'devextreme-react/switch'
 
 import { FormExtendedProps } from '@/types/form'
@@ -39,7 +39,8 @@ export default function SwitchField<T extends FieldValues>({
       control={control}
       name={name}
       render={({ field, formState: { errors } }) => {
-        const isValid = !Boolean(errors?.[name])
+        const fieldError = get(errors, name)
+        const isValid = !fieldError
 
         switch (layout) {
           case 'wide':

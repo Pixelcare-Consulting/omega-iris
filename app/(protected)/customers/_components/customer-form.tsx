@@ -36,6 +36,11 @@ import { usePaymentTerms } from '@/hooks/safe-actions/payment-term'
 import { FormDebug } from '@/components/forms/form-debug'
 import { useAccountTypes } from '@/hooks/safe-actions/account-type'
 import { useBusinessTypes } from '@/hooks/safe-actions/business-type'
+import ReadOnlyFieldHeader from '@/components/read-only-field-header'
+import AddressForm from '../../_components/address-form'
+import ContactForm from '../../_components/contact-form'
+import { useContacts } from '@/hooks/safe-actions/contacts'
+import { useAddresses } from '@/hooks/safe-actions/address'
 
 type CustomerFormProps = { pageMetaData: PageMetadata; bp: Awaited<ReturnType<typeof getBpByCardCode>> }
 
@@ -46,13 +51,16 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
   const isCreate = code === 'add' || !bp
 
   const values = useMemo(() => {
-    if (bp) return bp
+    if (bp) return { ...bp, contacts: [], billingAddresses: [], shippingAddresses: [] }
 
     if (isCreate) {
       return {
         code: -1,
         isActive: true,
         syncStatus: 'pending',
+        contacts: [],
+        billingAddresses: [],
+        shippingAddresses: [],
 
         //* sap fields
         CardCode: null,
@@ -91,6 +99,9 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
 
   const { executeAsync, isExecuting } = useAction(upsertBp)
 
+  const addresses = useAddresses(bp?.CardCode ?? '')
+  const contacts = useContacts(bp?.CardCode ?? '')
+
   const bpGroups = useBpGroups()
   const currencies = useCurrencies()
   const paymentTerms = usePaymentTerms()
@@ -127,11 +138,13 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
 
       toast.success(result?.message)
 
-      if (result?.data && result?.data?.businessPartner && 'id' in result?.data?.businessPartner) {
+      if (result?.data && result?.data?.businessPartner && 'code' in result?.data?.businessPartner) {
         router.refresh()
 
         setTimeout(() => {
           router.push(`/customers/${result.data.businessPartner.code}`)
+          addresses.execute({ cardCode: bp?.CardCode ?? '' })
+          contacts.execute({ cardCode: bp?.CardCode ?? '' })
         }, 1500)
       }
     } catch (error) {
@@ -163,6 +176,11 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
       if (selectedPaymentTerm) form.setValue('PymntGroup', selectedPaymentTerm.PymntGroup)
     }
   }, [GroupNum, JSON.stringify(paymentTerms)])
+
+  //* causes error message to show up
+  useEffect(() => {
+    console.log({ errors: form.formState.errors })
+  }, [JSON.stringify(form.formState.errors)])
 
   return (
     <FormProvider {...form}>
@@ -309,28 +327,22 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
                 />
               </div>
 
-              <Separator className='col-span-12' />
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <NumberBoxField
-                  control={form.control}
-                  name='Balance'
-                  label='Account Balance'
-                  extendedProps={{ numberBoxOptions: { format: DEFAULT_CURRENCY_FORMAT } }}
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <NumberBoxField
-                  control={form.control}
-                  name='ChecksBal'
-                  label='Checks'
-                  extendedProps={{ numberBoxOptions: { format: DEFAULT_CURRENCY_FORMAT } }}
-                />
-              </div>
-
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                 <TextBoxField control={form.control} name='Phone1' label='Phone 1' />
+              </div>
+
+              <Separator className='col-span-12' />
+              <ReadOnlyFieldHeader className='col-span-12' title='Contacts' description='Customer contact details' />
+
+              <div className='col-span-12'>
+                <ContactForm bpContacts={contacts} />
+              </div>
+
+              <Separator className='col-span-12' />
+              <ReadOnlyFieldHeader className='col-span-12' title='Addresses' description='Customer billing & shipping address details' />
+
+              <div className='col-span-12'>
+                <AddressForm bpAddresses={addresses} />
               </div>
             </div>
           </ScrollView>

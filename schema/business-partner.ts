@@ -33,6 +33,50 @@ export const BUSINESS_PARTNER_TYPE_OF_BUSINESS_MAP: Record<string, string> = {
   E: 'Employee',
 }
 
+export const ADDRESS_TYPE_MAP: Record<string, string> = {
+  B: 'bo_BillTo',
+  S: 'bo_ShipTo',
+}
+
+export const bpAddressFormSchema = z.object({
+  id: z.string(),
+  CardCode: z.string().min(1, { message: 'Card Code is required' }),
+  AddressName: z.string().min(1, { message: 'Address Name is required' }),
+  AddrType: z.string().min(1, { message: 'Type is required' }),
+  Street: z.string().nullish(),
+  Address2: z.string().nullish(),
+  Address3: z.string().nullish(),
+  Block: z.string().nullish(),
+  City: z.string().nullish(),
+  ZipCode: z.string().nullish(),
+  County: z.string().nullish(),
+  CountryCode: z.string().nullish(),
+  CountryName: z.string().nullish(),
+  StateCode: z.string().nullish(),
+  StateName: z.string().nullish(),
+  StreetNo: z.string().nullish(),
+  BuildingFloorRoom: z.string().nullish(),
+  GlobalLocationNumber: z.string().nullish(),
+})
+
+export const bpAddressesFormSchema = z.array(bpAddressFormSchema).default([])
+
+export const bpContactFormSchema = z.object({
+  id: z.string(),
+  CardCode: z.string().min(1, { message: 'Card Code is required' }),
+  ContactName: z.string().min(1, { message: 'Contact Name is required' }),
+  FirstName: z.string().nullish(),
+  LastName: z.string().nullish(),
+  Title: z.string().nullish(),
+  Position: z.string().nullish(),
+  Phone1: z.string().nullish(),
+  Phone2: z.string().nullish(),
+  MobilePhone: z.string().nullish(),
+  Email: z.union([z.string().email().nullish(), z.literal('')]),
+})
+
+export const bpContactsFormSchema = z.array(bpContactFormSchema).default([])
+
 export const businessPartnerFormSchema = z.object({
   code: z.coerce.number(),
   isActive: z.boolean(),
@@ -60,8 +104,9 @@ export const businessPartnerFormSchema = z.object({
   BillToDef: z.string().nullish(),
   AcctType: z.string().nullish(),
   CmpPrivate: z.string().nullish(),
-  Balance: z.coerce.number().nullish(),
-  ChecksBal: z.coerce.number().nullish(),
+  contacts: z.array(bpContactFormSchema).default([]),
+  billingAddresses: bpAddressesFormSchema,
+  shippingAddresses: bpAddressesFormSchema,
 })
 
 export const syncToSapFormSchema = z.object({
@@ -77,8 +122,6 @@ export const syncToSapFormSchema = z.object({
       Phone1: z.string().nullish(),
       AcctType: z.string().nullish(),
       CmpPrivate: z.string().nullish(),
-      Balance: z.coerce.number().nullish(),
-      ChecksBal: z.coerce.number().nullish(),
     })
   ),
 
@@ -89,5 +132,7 @@ export const syncFromSapFormSchema = z.object({
   cardType: z.string(),
 })
 
+export type AddressForm = z.infer<typeof bpAddressFormSchema>
+export type ContactForm = z.infer<typeof bpContactFormSchema>
 export type BusinessPartnerForm = z.infer<typeof businessPartnerFormSchema>
 export type SyncToSapForm = z.infer<typeof syncToSapFormSchema>

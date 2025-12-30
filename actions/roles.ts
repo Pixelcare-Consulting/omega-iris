@@ -11,7 +11,7 @@ const COMMON_ROLE_ORDER_BY = { code: 'asc' } satisfies Prisma.RoleOrderByWithRel
 
 export async function getRoles() {
   try {
-    return await db.role.findMany({
+    return db.role.findMany({
       where: { deletedAt: null, deletedBy: null },
       orderBy: COMMON_ROLE_ORDER_BY,
     })
@@ -24,7 +24,7 @@ export async function getRolesByCode(code: number) {
   if (!code) return null
 
   try {
-    return await db.role.findUnique({ where: { code } })
+    return db.role.findUnique({ where: { code } })
   } catch (err) {
     return null
   }
