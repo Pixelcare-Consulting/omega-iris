@@ -11,7 +11,7 @@ import {
   businessPartnerFormSchema,
   syncFromSapFormSchema,
   syncToSapFormSchema,
-  ADDRESS_TYPE_MAP,
+  ADDRESS_TYPE_STD_API_MAP,
 } from '@/schema/business-partner'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
@@ -387,7 +387,7 @@ export const syncToSap = action
           Country: addr?.CountryCode || null,
           State: addr?.StateCode || null,
           BuildingFloorRoom: addr?.BuildingFloorRoom || null,
-          AddressType: ADDRESS_TYPE_MAP?.[addr?.AddrType] || 'bo_ShipTo',
+          AddressType: ADDRESS_TYPE_STD_API_MAP?.[addr?.AddrType] || 'bo_ShipTo',
           AddressName2: addr?.Address2 || null,
           AddressName3: addr?.Address3 || null,
           StreetNo: addr?.StreetNo || null,

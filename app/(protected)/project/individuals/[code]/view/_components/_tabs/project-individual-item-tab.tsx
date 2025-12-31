@@ -30,7 +30,6 @@ import { DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/deve
 import { ImportSyncError, Stats } from '@/types/common'
 import { parseExcelFile } from '@/utils/xlsx'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
-import { delay } from '@/utils'
 
 type ProjectIndividualItemTabProps = {
   projectCode: number
@@ -246,7 +245,6 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
 
         //* check if batch size is reached or last row
         if (batch.length === batchSize || isLastRow) {
-          await delay(2000)
           const response = await importData.executeAsync({
             data: batch,
             total: toImportData.length,
