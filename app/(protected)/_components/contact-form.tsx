@@ -165,14 +165,14 @@ export default function ContactForm({ bpContacts }: ContactFormProps) {
             <div className='flex gap-1'>
               <div>
                 <Tooltip
-                  target='#address-add-button'
+                  target='#contact-add-button'
                   contentRender={() => 'Add'}
                   showEvent='mouseenter'
                   hideEvent='mouseleave'
                   position='top'
                 />
                 <Button
-                  id='address-add-button'
+                  id='contact-add-button'
                   icon='add'
                   stylingMode='outlined'
                   type='default'
@@ -190,14 +190,14 @@ export default function ContactForm({ bpContacts }: ContactFormProps) {
               </div>
               <div>
                 <Tooltip
-                  target='#address-remove-button'
+                  target='#contact-remove-button'
                   contentRender={() => 'Remove'}
                   showEvent='mouseenter'
                   hideEvent='mouseleave'
                   position='top'
                 />
                 <Button
-                  id='address-remove-button'
+                  id='contact-remove-button'
                   icon='trash'
                   stylingMode='outlined'
                   type='default'
@@ -210,14 +210,14 @@ export default function ContactForm({ bpContacts }: ContactFormProps) {
             <div className='flex gap-1 border-l border-slate-200 pl-2'>
               <div>
                 <Tooltip
-                  target='#address-previous-button'
+                  target='#contact-previous-button'
                   contentRender={() => 'Previous'}
                   showEvent='mouseenter'
                   hideEvent='mouseleave'
                   position='top'
                 />
                 <Button
-                  id='address-previous-button'
+                  id='contact-previous-button'
                   icon='chevronprev'
                   stylingMode='contained'
                   type='default'
@@ -227,14 +227,14 @@ export default function ContactForm({ bpContacts }: ContactFormProps) {
               </div>
               <div>
                 <Tooltip
-                  target='#address-next-button'
+                  target='#contact-next-button'
                   contentRender={() => 'Next'}
                   showEvent='mouseenter'
                   hideEvent='mouseleave'
                   position='top'
                 />
                 <Button
-                  id='address-next-button'
+                  id='contact-next-button'
                   icon='chevronnext'
                   stylingMode='contained'
                   type='default'

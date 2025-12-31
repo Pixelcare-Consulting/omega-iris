@@ -30,6 +30,7 @@ export async function getMasterAddresses(cardCode: string) {
     return callSapServiceLayerApi({
       url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query6')/List`,
       headers: { Prefer: 'odata.maxpagesize=999' },
+      data: { ParamList: `CardCode='${cardCode}'` },
     })
   } catch (error) {
     console.error(error)
