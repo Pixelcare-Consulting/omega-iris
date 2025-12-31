@@ -300,23 +300,19 @@ export async function getBpMaster(cardType?: string) {
 
     //* if card type is C or L, then fetch all C and L, otherwise fetch only the selected e.g S
     if (cardType === 'C' || cardType === 'L') {
-      const ctypes = ['L', 'C']
+      for (let i = 0; i <= totalPage; i++) {
+        const skip = i * PER_PAGE //* offset
 
-      ctypes.forEach((cType) => {
-        for (let i = 0; i <= totalPage; i++) {
-          const skip = i * PER_PAGE //* offset
+        //* create request
+        const request = callSapServiceLayerApi({
+          url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query1')/List?&$skip=${skip}`,
+          headers: { Prefer: `odata.maxpagesize=${PER_PAGE}` },
+          data: { ParamList: "CardTypeFrom='C'&CardTypeTo='L'&CardCodeFrom=''&CardCodeTo=''" },
+        })
 
-          //* create request
-          const request = callSapServiceLayerApi({
-            url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query1')/List?&$skip=${skip}`,
-            headers: { Prefer: `odata.maxpagesize=${PER_PAGE}` },
-            data: { ParamList: `CardType='${cType}'` },
-          })
-
-          //* push request to the requestsPromises array
-          requestsPromises.push(request)
-        }
-      })
+        //* push request to the requestsPromises array
+        requestsPromises.push(request)
+      }
     } else {
       for (let i = 0; i <= totalPage; i++) {
         const skip = i * PER_PAGE //* offset
@@ -325,7 +321,7 @@ export async function getBpMaster(cardType?: string) {
         const request = callSapServiceLayerApi({
           url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query1')/List?&$skip=${skip}`,
           headers: { Prefer: `odata.maxpagesize=${PER_PAGE}` },
-          data: { ParamList: `CardType='${cardType}'` },
+          data: { ParamList: `CardTypeFrom='${cardType}'&CardTypeTo='${cardType}'&CardCodeFrom=''&CardCodeTo=''` },
         })
 
         //* push request to the requestsPromises array
@@ -568,8 +564,6 @@ export const syncFromSap = action
               Phone1: row?.Phone1 || null,
               AcctType: row?.U_OMEG_AcctType || null,
               CmpPrivate: row?.CmpPrivate || null,
-              Balance: row?.Balance || null,
-              ChecksBal: row?.ChecksBal || null,
             }
 
             return tx.businessPartner.upsert({
@@ -592,8 +586,8 @@ export const syncFromSap = action
       const contactMap = new Map<string, any[]>()
 
       allowedBps.forEach((bp, index) => {
-        addressMap.set(bp.CardCode, bpAddreses[index] ?? [])
-        contactMap.set(bp.CardCode, bpContacts[index] ?? [])
+        addressMap.set(bp.CardCode, bpAddreses[index]?.value ?? [])
+        contactMap.set(bp.CardCode, bpContacts[index]?.value ?? [])
       })
 
       const upsertAddresses = async (chunks: Record<string, any>[], tx: any) => {

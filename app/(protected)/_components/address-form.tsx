@@ -41,6 +41,8 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
 
   const billingCountryCode = useWatch({ control: mainForm.control, name: `billingAddresses.${billingIndex}.CountryCode` })
   const shippingCountryCode = useWatch({ control: mainForm.control, name: `shippingAddresses.${shippingIndex}.CountryCode` })
+  const billingStateCode = useWatch({ control: mainForm.control, name: `billingAddresses.${billingIndex}.StateCode` })
+  const shippingStateCode = useWatch({ control: mainForm.control, name: `shippingAddresses.${shippingIndex}.StateCode` })
 
   const billingCountries = useCountries()
   const shippingCountries = useCountries()
@@ -222,19 +224,47 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
 
   //* set  billing Addresses
   useEffect(() => {
-    if (!cardCode) return
-
-    if (billingAddresses.length < 1) handleAddAddress('B')
+    if (!cardCode || billingAddresses.length < 1) handleAddAddress('B')
     else billingAddrsFieldArray.replace(billingAddresses)
   }, [cardCode, JSON.stringify(billingAddresses)])
 
   //* set  shipping Addressses
   useEffect(() => {
-    if (!cardCode) return
-
-    if (shippingAddresses.length < 1) handleAddAddress('S')
+    if (!cardCode || shippingAddresses.length < 1) handleAddAddress('S')
     else shippingAddrsFieldArray.replace(shippingAddresses)
   }, [cardCode, JSON.stringify(shippingAddresses)])
+
+  //* set billing CountryName when billing CountryCode is changed
+  useEffect(() => {
+    if (billingCountryCode && !billingCountries.isLoading && billingCountries.data?.length > 0) {
+      const selectedCountry = billingCountries.data.find((c: any) => c.Code === billingCountryCode)
+      if (selectedCountry) mainForm.setValue(`billingAddresses.${billingIndex}.CountryName`, selectedCountry.Name)
+    }
+  }, [billingCountryCode, JSON.stringify(billingCountries), billingIndex])
+
+  //* set shipping CountryName when shipping CountryCode is changed
+  useEffect(() => {
+    if (shippingCountryCode && !shippingCountries.isLoading && shippingCountries.data?.length > 0) {
+      const selectedCountry = shippingCountries.data.find((c: any) => c.Code === shippingCountryCode)
+      if (selectedCountry) mainForm.setValue(`shippingAddresses.${shippingIndex}.CountryName`, selectedCountry.Name)
+    }
+  }, [shippingCountryCode, JSON.stringify(shippingCountries), shippingIndex])
+
+  //* set billing StateName when billing StateCode is changed
+  useEffect(() => {
+    if (billingStateCode && !billingStates.isLoading && billingStates.data?.length > 0) {
+      const selectedState = billingStates.data.find((s: any) => s.Code === billingStateCode)
+      if (selectedState) mainForm.setValue(`billingAddresses.${billingIndex}.StateName`, selectedState.Name)
+    }
+  }, [billingStateCode, JSON.stringify(billingStates), billingIndex])
+
+  //* set shipping StateName when shipping StateCode is changed
+  useEffect(() => {
+    if (shippingStateCode && !shippingStates.isLoading && shippingStates.data?.length > 0) {
+      const selectedState = shippingStates.data.find((s: any) => s.Code === shippingStateCode)
+      if (selectedState) mainForm.setValue(`shippingAddresses.${shippingIndex}.StateName`, selectedState.Name)
+    }
+  }, [shippingStateCode, JSON.stringify(shippingStates), shippingIndex])
 
   if (bpAddresses.isLoading)
     return (
@@ -441,6 +471,10 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
                   valueExpr='Code'
                   displayExpr='Name'
                   searchExpr={['Name', 'Code']}
+                  callback={() => {
+                    mainForm.setValue(`billingAddresses.${billingIndex}.StateCode`, null)
+                    mainForm.setValue(`billingAddresses.${billingIndex}.StateName`, null)
+                  }}
                 />
               </div>
 
@@ -678,6 +712,10 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
                   valueExpr='Code'
                   displayExpr='Name'
                   searchExpr={['Name', 'Code']}
+                  callback={() => {
+                    mainForm.setValue(`shippingAddresses.${billingIndex}.StateCode`, null)
+                    mainForm.setValue(`shippingAddresses.${billingIndex}.StateName`, null)
+                  }}
                 />
               </div>
 
