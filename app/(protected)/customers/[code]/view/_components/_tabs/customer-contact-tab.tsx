@@ -66,7 +66,7 @@ export default function CustomerContactTab({ contacts }: CustomerContactTabProps
             caption='Full Name'
             calculateCellValue={(rowData) => `${rowData?.FirstName || ''}${rowData?.LastName ? ` ${rowData?.LastName}` : ''}`}
           />
-          <Column dataField='E_Mail' dataType='string' caption='Email' />
+          <Column dataField='Email' dataType='string' caption='Email' />
           <Column dataField='Title' dataType='string' caption='Title' />
           <Column dataField='Position' dataType='string' caption='Position' />
           <Column dataField='Phone1' dataType='string' caption='Tel 1' />
