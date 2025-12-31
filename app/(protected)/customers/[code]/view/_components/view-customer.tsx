@@ -10,6 +10,10 @@ import { getBpByCode } from '@/actions/business-partner'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import CustomerOverviewTab from './_tabs/customer-overview-tab'
+import CustomerContactTab from './_tabs/customer-contact-tab'
+import { useContacts } from '@/hooks/safe-actions/contacts'
+import { useAddresses } from '@/hooks/safe-actions/address'
+import CustomerAddressTab from './_tabs/customer-address-tab'
 
 type ViewCustomerProps = {
   customer: NonNullable<Awaited<ReturnType<typeof getBpByCode>>>
@@ -17,6 +21,9 @@ type ViewCustomerProps = {
 
 export default function ViewCustomer({ customer }: ViewCustomerProps) {
   const router = useRouter()
+
+  const contacts = useContacts(customer?.CardCode)
+  const addresses = useAddresses(customer?.CardCode)
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
@@ -54,6 +61,14 @@ export default function ViewCustomer({ customer }: ViewCustomerProps) {
         <TabPanel width='100%' height='100%' animationEnabled tabsPosition='top' defaultSelectedIndex={0}>
           <TabPanelITem title='Overview'>
             <CustomerOverviewTab customer={customer} />
+          </TabPanelITem>
+
+          <TabPanelITem title='Contacts'>
+            <CustomerContactTab contacts={contacts} />
+          </TabPanelITem>
+
+          <TabPanelITem title='Addresses'>
+            <CustomerAddressTab addresses={addresses} />
           </TabPanelITem>
         </TabPanel>
       </PageContentWrapper>

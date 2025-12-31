@@ -5,9 +5,7 @@ import { toast } from 'sonner'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
-import dxDataGrid from 'devextreme/ui/data_grid'
 import { format } from 'date-fns'
-import { parseExcelFile } from '@/utils/xlsx'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import { ImportSyncError, Stats } from '@/types/common'
 import { useForm, useWatch } from 'react-hook-form'
@@ -344,8 +342,6 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
           <Column dataField='CurrName' dataType='string' caption='Currency' />
           <Column dataField='PymntGroup' dataType='string' caption='Payment Term' />
           <Column dataField='AcctType' dataType='string' caption='Account Type' />
-          <Column dataField='Balance' dataType='number' caption='Account Balance' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
-          <Column dataField='ChecksBal' dataType='number' caption='Checks' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
           <Column dataField='syncStatus' dataType='string' caption='Sync Status' cssClass='capitalize' />
           <Column
             dataField='isActive'

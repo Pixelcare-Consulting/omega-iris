@@ -14,6 +14,18 @@ export const BUSINESS_PARTNER_TYPE_MAP: Record<string, (typeof BUSINESS_PARTNER_
   S: 'Supplier',
 }
 
+export const BUSINESS_PARTNER_TYPE_OF_BUSINESS_MAP: Record<string, string> = {
+  C: 'Company',
+  P: 'Private',
+  G: 'Government',
+  E: 'Employee',
+}
+
+export const ADDRESS_TYPE_MAP: Record<string, string> = {
+  B: 'Billing',
+  S: 'Shipping',
+}
+
 export const BUSINESS_PARTNER_STD_API_VALUES_MAP: Record<string, string> = {
   L: 'cLid',
   C: 'cCustomer',
@@ -26,14 +38,7 @@ export const BUSINESS_PARTNER_STD_API_GROUP_TYPE_MAP: Record<string, string> = {
   S: 'bbpgt_VendorGroup',
 }
 
-export const BUSINESS_PARTNER_TYPE_OF_BUSINESS_MAP: Record<string, string> = {
-  C: 'Company',
-  P: 'Private',
-  G: 'Government',
-  E: 'Employee',
-}
-
-export const ADDRESS_TYPE_MAP: Record<string, string> = {
+export const ADDRESS_TYPE_STD_API_MAP: Record<string, string> = {
   B: 'bo_BillTo',
   S: 'bo_ShipTo',
 }
