@@ -33,6 +33,7 @@ import useDebug from '@/hooks/use-debug'
 import { useWoItemsByWoCode } from '@/hooks/safe-actions/work-order-item'
 import { safeParseFloat } from '@/utils'
 import { FormDebug } from '@/components/forms/form-debug'
+import { useAddresses } from '@/hooks/safe-actions/address'
 
 type WorkOrderFormProps = {
   pageMetaData: PageMetadata
@@ -56,7 +57,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
         status: '1',
         isInternal: true,
         billingAddrCode: null,
-        deliveryAddrCode: null,
+        shippingAddrCode: null,
         comments: null,
 
         //* sap fields
@@ -79,6 +80,8 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
   const projectCode = useWatch({ control: form.control, name: 'projectIndividualCode' })
   const userCode = useWatch({ control: form.control, name: 'userCode' })
   const status = useWatch({ control: form.control, name: 'status' })
+  const billingAddrCode = useWatch({ control: form.control, name: 'billingAddrCode' })
+  const shippingAddrCode = useWatch({ control: form.control, name: 'shippingAddrCode' })
 
   const { executeAsync, isExecuting } = useAction(upsertWorkOrder)
   const projects = usePis()
@@ -90,8 +93,46 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
   const selectedStatus = useMemo(() => WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === status)?.label, [status])
   const selectedProject = useMemo(() => projects.data.find((p) => p.code === projectCode), [JSON.stringify(projects), projectCode])
 
-  const billingAddress = '' //TODO: should fetch address based on the addesses of the selected customer from SAP
-  const deliveryAddress = '' //TODO: should fetch address based on the addesses of the selected customer from SAP
+  const addresses = useAddresses(customer?.data?.customerCode ?? '')
+
+  const getAddrOptions = (addresses: ReturnType<typeof useAddresses>['data']) => {
+    if (!addresses || addresses.length < 1) return []
+
+    return addresses.map((addr) => {
+      const description = [
+        addr.Street,
+        addr.Address2,
+        addr.Address3,
+        addr.StreetNo,
+        addr.BuildingFloorRoom,
+        addr.Block,
+        addr.City,
+        addr.ZipCode,
+        addr.County,
+        addr.CountryName,
+        addr.StateName,
+        addr.GlobalLocationNumber,
+      ]
+        .filter(Boolean)
+        .join(', ')
+
+      return {
+        label: addr.AddressName,
+        value: addr.id,
+        description,
+      }
+    })
+  }
+
+  const billingAddresses = useMemo(() => {
+    if (addresses.isLoading || addresses.data.length < 1) return []
+    return addresses.data.filter((a) => a.AddrType === 'B')
+  }, [JSON.stringify(addresses)])
+
+  const shippingAddresses = useMemo(() => {
+    if (addresses.isLoading || addresses.data.length < 1) return []
+    return addresses.data.filter((a) => a.AddrType === 'S')
+  }, [JSON.stringify(addresses)])
 
   const piCustomersOptions = useMemo(() => {
     if (piCustomers.isLoading || piCustomers.data.length < 1) return []
@@ -132,6 +173,22 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
       toast.error('Something went wrong! Please try again later.')
     }
   }
+
+  //* auto select first billing address when billing address dont have value
+  useEffect(() => {
+    if (!billingAddrCode && billingAddresses.length > 0) {
+      const firstBillingAddress = billingAddresses[0]
+      if (firstBillingAddress) form.setValue('billingAddrCode', firstBillingAddress.id)
+    }
+  }, [JSON.stringify(billingAddresses), billingAddrCode, isCreate])
+
+  //* auto select first shipping address when shipping address dont have value
+  useEffect(() => {
+    if (!shippingAddrCode && shippingAddresses.length > 0) {
+      const firstShippingAddress = shippingAddresses[0]
+      if (firstShippingAddress) form.setValue('shippingAddrCode', firstShippingAddress.id)
+    }
+  }, [JSON.stringify(shippingAddresses), shippingAddrCode, isCreate])
 
   return (
     <FormProvider {...form}>
@@ -254,25 +311,46 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
               <div className='col-span-12 md:col-span-6'>
                 <SelectBoxField
-                  data={[]}
+                  data={getAddrOptions(billingAddresses)}
+                  isLoading={addresses.isLoading}
                   control={form.control}
                   name='billingAddrCode'
                   label='Billing Address'
-                  valueExpr=''
-                  displayExpr=''
-                  searchExpr={['']}
+                  valueExpr='value'
+                  displayExpr='label'
+                  searchExpr={['label', 'description']}
+                  extendedProps={{
+                    selectBoxOptions: {
+                      itemRender: (params) => {
+                        return commonItemRender({
+                          title: params?.label,
+                          description: params?.description,
+                        })
+                      },
+                    },
+                  }}
                 />
               </div>
 
               <div className='col-span-12 md:col-span-6'>
                 <SelectBoxField
-                  data={[]}
+                  data={getAddrOptions(shippingAddresses)}
                   control={form.control}
-                  name='deliveryAddrCode'
+                  name='shippingAddrCode'
                   label='Delivery Address'
-                  valueExpr=''
-                  displayExpr=''
-                  searchExpr={['']}
+                  valueExpr='value'
+                  displayExpr='label'
+                  searchExpr={['label', 'description']}
+                  extendedProps={{
+                    selectBoxOptions: {
+                      itemRender: (params) => {
+                        return commonItemRender({
+                          title: params?.label,
+                          description: params?.description,
+                        })
+                      },
+                    },
+                  }}
                 />
               </div>
 

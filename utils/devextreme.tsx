@@ -127,7 +127,7 @@ export function commonItemRender({
 }: {
   title: string
   description?: string
-  value: string | number
+  value?: string | number
   valuePrefix?: string
   otherItems?: React.ReactNode
 }) {
@@ -170,9 +170,14 @@ export function commonItemRender({
         {otherItems}
       </div>
 
-      <div style={{ width: '20%', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', columnGap: 4 }} title={String(value)}>
-        <div className='text-xs font-semibold'>{valuePrefix ? `${valuePrefix}${value}` : value}</div>
-      </div>
+      {value && (
+        <div
+          style={{ width: '20%', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', columnGap: 4 }}
+          title={String(value)}
+        >
+          <div className='text-xs font-semibold'>{valuePrefix ? `${valuePrefix}${value}` : value}</div>
+        </div>
+      )}
     </div>
   )
 }

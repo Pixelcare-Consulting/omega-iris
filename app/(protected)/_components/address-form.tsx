@@ -25,6 +25,7 @@ type AddressFormProps = {
 }
 
 export default function AddressForm({ bpAddresses }: AddressFormProps) {
+  const isLoaded = useRef(false)
   const mainForm = useFormContext<BusinessPartnerForm>()
 
   const cardCode = useWatch({ control: mainForm.control, name: 'CardCode' })
@@ -101,7 +102,6 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
   const handleAddAddress = (type: string) => {
     const baseAddress = {
       id: 'add',
-      CardCode: cardCode,
       AddressName: '',
       Street: '',
       Address2: '',
@@ -222,17 +222,70 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
     }
   }
 
+  //* set 1 billing & shipping address when create
+  useEffect(() => {
+    if (!cardCode && !isLoaded.current) {
+      billingAddrsFieldArray.replace([
+        {
+          id: 'add',
+          AddrType: 'B',
+          AddressName: '',
+          Street: '',
+          Address2: '',
+          Address3: '',
+          StreetNo: '',
+          BuildingFloorRoom: '',
+          Block: '',
+          City: '',
+          ZipCode: '',
+          County: '',
+          CountryCode: '',
+          CountryName: '',
+          StateCode: '',
+          StateName: '',
+          GlobalLocationNumber: '',
+        },
+      ])
+
+      shippingAddrsFieldArray.replace([
+        {
+          id: 'add',
+          AddrType: 'S',
+          AddressName: '',
+          Street: '',
+          Address2: '',
+          Address3: '',
+          StreetNo: '',
+          BuildingFloorRoom: '',
+          Block: '',
+          City: '',
+          ZipCode: '',
+          County: '',
+          CountryCode: '',
+          CountryName: '',
+          StateCode: '',
+          StateName: '',
+          GlobalLocationNumber: '',
+        },
+      ])
+
+      isLoaded.current = true
+    }
+
+    return () => {
+      isLoaded.current = false
+    }
+  }, [cardCode])
+
   //* set  billing Addresses
   useEffect(() => {
-    if (!cardCode || billingAddresses.length < 1) handleAddAddress('B')
-    else billingAddrsFieldArray.replace(billingAddresses)
-  }, [cardCode, JSON.stringify(billingAddresses)])
+    if (billingAddresses.length > 0) billingAddrsFieldArray.replace(billingAddresses)
+  }, [JSON.stringify(billingAddresses)])
 
   //* set  shipping Addressses
   useEffect(() => {
-    if (!cardCode || shippingAddresses.length < 1) handleAddAddress('S')
-    else shippingAddrsFieldArray.replace(shippingAddresses)
-  }, [cardCode, JSON.stringify(shippingAddresses)])
+    if (shippingAddresses.length > 0) shippingAddrsFieldArray.replace(shippingAddresses)
+  }, [JSON.stringify(shippingAddresses)])
 
   //* set billing CountryName when billing CountryCode is changed
   useEffect(() => {
@@ -496,7 +549,7 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
                   key={billingIndex}
                   control={mainForm.control}
                   name={`billingAddresses.${billingIndex}.GlobalLocationNumber`}
-                  label='Glboal Location Number (GLN)'
+                  label='Global Location Number (GLN)'
                 />
               </div>
 

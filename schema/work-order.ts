@@ -43,7 +43,7 @@ export const workOrderFormSchema = z.object({
   status: z.string().min(1, { message: 'Status is required' }),
   isInternal: z.boolean(),
   billingAddrCode: z.string().nullish(),
-  deliveryAddrCode: z.string().nullish(),
+  shippingAddrCode: z.string().nullish(),
   comments: z.string().nullish(),
 
   //* work order items

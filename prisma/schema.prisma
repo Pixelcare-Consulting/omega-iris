@@ -134,7 +134,7 @@ model BusinessPartner {
 model Address {
     id                   String  @id @default(cuid())
     CardCode             String
-    AddressName          String  @unique
+    AddressName          String
     AddrType             String
     Street               String?
     Address2             String?
@@ -167,7 +167,7 @@ model Address {
 model Contact {
     id          String  @id @default(cuid())
     CardCode    String
-    ContactName String  @unique
+    ContactName String
     FirstName   String?
     LastName    String?
     Title       String?
@@ -417,7 +417,7 @@ model WorkOrder {
     status                String
     isInternal            Boolean @default(false)
     billingAddrCode       String?
-    deliveryAddrCode      String?
+    shippingAddrCode      String?
     comments              String?
     salesOrderCode        Int?
     purchaseOrderCode     Int?

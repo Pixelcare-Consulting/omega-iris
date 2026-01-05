@@ -11,6 +11,7 @@ import { formatNumber } from 'devextreme/localization'
 import { DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
 import Separator from '@/components/separator'
 import { BUSINESS_PARTNER_TYPE_MAP, BUSINESS_PARTNER_TYPE_OF_BUSINESS_MAP } from '@/schema/business-partner'
+import { titleCase } from '@/utils'
 
 type CustomerOverviewTabProps = {
   customer: NonNullable<Awaited<ReturnType<typeof getBpByCode>>>
@@ -62,6 +63,12 @@ export default function CustomerOverviewTab({ customer }: CustomerOverviewTabPro
           className='col-span-12 md:col-span-6 lg:col-span-3'
           title='Status'
           value={customer?.isActive ? 'Active' : 'Inactive'}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-4'
+          title='Sync Status'
+          value={customer?.syncStatus ? titleCase(customer?.syncStatus) : ''}
         />
 
         <Separator className='col-span-12' />
