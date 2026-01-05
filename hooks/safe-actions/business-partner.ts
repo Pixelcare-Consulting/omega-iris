@@ -3,11 +3,11 @@ import { useAction } from 'next-safe-action/hooks'
 
 import { getBpsClient } from '@/actions/business-partner'
 
-export function useBps(cardType: string, excludeCodes?: number[] | null, dependencies?: any[]) {
+export function useBps(cardType: string | string[], isSynced?: boolean | null, excludeCodes?: number[] | null, dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getBpsClient)
 
   useEffect(() => {
-    execute({ cardType, excludeCodes })
+    execute({ cardType, isSynced, excludeCodes })
   }, [JSON.stringify(cardType), JSON.stringify(excludeCodes), ...(dependencies || [])])
 
   return {

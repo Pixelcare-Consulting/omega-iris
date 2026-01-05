@@ -25,12 +25,13 @@ import { getContacts, getMasterContacts } from './contact'
 
 const COMMON_BUSINESS_PARTNER_ORDER_BY = { CardCode: 'asc' } satisfies Prisma.BusinessPartnerOrderByWithRelationInput
 
-export async function getBps(cardType: string | string[], excludeCodes?: number[] | null) {
+export async function getBps(cardType: string | string[], isSynced?: boolean | null, excludeCodes?: number[] | null) {
   try {
     return db.businessPartner.findMany({
       where: {
         ...(typeof cardType === 'string' ? { CardType: cardType } : { CardType: { in: cardType } }),
         ...(excludeCodes?.length ? { code: { notIn: excludeCodes } } : {}),
+        ...(isSynced ? { syncStatus: 'synced' } : {}),
       },
       orderBy: COMMON_BUSINESS_PARTNER_ORDER_BY,
     })
@@ -42,9 +43,15 @@ export async function getBps(cardType: string | string[], excludeCodes?: number[
 
 export const getBpsClient = action
   .use(authenticationMiddleware)
-  .schema(z.object({ cardType: z.union([z.string(), z.array(z.string())]), excludeCodes: z.array(z.coerce.number()).nullish() }))
+  .schema(
+    z.object({
+      cardType: z.union([z.string(), z.array(z.string())]),
+      isSynced: z.boolean().nullish(),
+      excludeCodes: z.array(z.coerce.number()).nullish(),
+    })
+  )
   .action(async ({ parsedInput: data }) => {
-    return getBps(data.cardType, data.excludeCodes)
+    return getBps(data.cardType, data.isSynced, data.excludeCodes)
   })
 
 export async function getBpByCode(code: number) {
@@ -99,7 +106,7 @@ export const upsertBp = action
           const bp = await db.businessPartner.update({
             where: { code },
             data: { ...data, syncStatus: data?.syncStatus ?? 'pending', updatedBy: userId },
-            include: { addresses: true, contacts: true },
+            select: { CardCode: true, addresses: true, contacts: true, code: true },
           })
 
           const currentBillingAddresses = bp.addresses.filter((a) => a.AddrType === 'B').map((a) => a.id)
@@ -126,8 +133,8 @@ export const upsertBp = action
             for (const { id, ...c } of contacts) {
               await tx.contact.upsert({
                 where: { id },
-                create: { ...c, createdBy: userId, updatedBy: userId },
-                update: { ...c, updatedBy: userId },
+                create: { ...c, CardCode: bp.CardCode, createdBy: userId, updatedBy: userId },
+                update: { ...c, CardCode: bp.CardCode, updatedBy: userId },
               })
             }
           }
@@ -139,11 +146,13 @@ export const upsertBp = action
                 where: { id, AddrType: 'B' },
                 create: {
                   ...ba,
+                  CardCode: bp.CardCode,
                   createdBy: userId,
                   updatedBy: userId,
                 },
                 update: {
                   ...ba,
+                  CardCode: bp.CardCode,
                   updatedBy: userId,
                 },
               })
@@ -157,11 +166,13 @@ export const upsertBp = action
                 where: { id, AddrType: 'S' },
                 create: {
                   ...sa,
+                  CardCode: bp.CardCode,
                   createdBy: userId,
                   updatedBy: userId,
                 },
                 update: {
                   ...sa,
+                  CardCode: bp.CardCode,
                   updatedBy: userId,
                 },
               })
@@ -191,13 +202,68 @@ export const upsertBp = action
       }
 
       //* create bp
-      const newBp = await db.businessPartner.create({
-        data: {
-          ...data,
-          syncStatus: data?.syncStatus ?? 'pending',
-          createdBy: userId,
-          updatedBy: userId,
-        },
+      const newBp = await db.$transaction(async (tx) => {
+        const bp = await tx.businessPartner.create({
+          data: {
+            ...data,
+            syncStatus: data?.syncStatus ?? 'pending',
+            createdBy: userId,
+            updatedBy: userId,
+          },
+        })
+
+        //* upsert contacts in sequence
+        if (contacts.length > 0) {
+          for (const { id, ...c } of contacts) {
+            await tx.contact.upsert({
+              where: { id },
+              create: { ...c, CardCode: bp.CardCode, createdBy: userId, updatedBy: userId },
+              update: { ...c, CardCode: bp.CardCode, updatedBy: userId },
+            })
+          }
+        }
+
+        //* upsert billing addresses in sequence
+        if (billingAddresses.length > 0) {
+          for (const { id, ...ba } of billingAddresses) {
+            await tx.address.upsert({
+              where: { id, AddrType: 'B' },
+              create: {
+                ...ba,
+                CardCode: bp.CardCode,
+                createdBy: userId,
+                updatedBy: userId,
+              },
+              update: {
+                ...ba,
+                CardCode: bp.CardCode,
+                updatedBy: userId,
+              },
+            })
+          }
+        }
+
+        //* upsert shipping addresses in sequence
+        if (shippingAddresses.length > 0) {
+          for (const { id, ...sa } of shippingAddresses) {
+            await tx.address.upsert({
+              where: { id, AddrType: 'S' },
+              create: {
+                ...sa,
+                CardCode: bp.CardCode,
+                createdBy: userId,
+                updatedBy: userId,
+              },
+              update: {
+                ...sa,
+                CardCode: bp.CardCode,
+                updatedBy: userId,
+              },
+            })
+          }
+        }
+
+        return bp
       })
 
       return {
@@ -539,10 +605,8 @@ export const syncFromSap = action
           return isCreateDateSameDay || isUpdateDateSameDay || isCreateDateAfter || isUpdateDateAfter
         }) || []
 
-      const getBpUpsertPromises = (values: Record<string, any>[], tx: any) => {
-        //* filtered bps by U_Portal_Sync === Y
-        return values
-          .filter((row: any) => row?.U_Portal_Sync === 'Y')
+      const getBpUpsertPromises = (chunks: Record<string, any>[], tx: any) => {
+        return chunks
           .map((row: any) => {
             if (!row?.['CardCode']) return null
 
@@ -620,15 +684,21 @@ export const syncFromSap = action
           if (bpAddressesData.length > 0) {
             for (const addr of bpAddressesData) {
               await tx.address.upsert({
-                where: { CardCode: bp.CardCode, AddressName: addr?.AddressName || '', AddrType: addr?.AddrType },
-                create: {
-                  ...addr,
-                  createdBy: userId,
-                  updatedBy: userId,
-                },
-                update: {
-                  ...addr,
-                  updatedBy: userId,
+                where: {
+                  CardCode_AddressName_AddrType: {
+                    CardCode: bp.CardCode,
+                    AddressName: addr?.AddressName || '',
+                    AddrType: addr?.AddrType,
+                  },
+                  create: {
+                    ...addr,
+                    createdBy: userId,
+                    updatedBy: userId,
+                  },
+                  update: {
+                    ...addr,
+                    updatedBy: userId,
+                  },
                 },
               })
             }
@@ -659,7 +729,12 @@ export const syncFromSap = action
           if (bpContactsData.length > 0) {
             for (const contact of bpContactsData) {
               await tx.contact.upsert({
-                where: { CardCode: bp.CardCode, ContactName: contact?.ContactName || '' },
+                where: {
+                  CardCode_ContactName: {
+                    CardCode: bp.CardCode,
+                    ContactName: contact?.ContactName || '',
+                  },
+                },
                 create: {
                   ...contact,
                   createdBy: userId,

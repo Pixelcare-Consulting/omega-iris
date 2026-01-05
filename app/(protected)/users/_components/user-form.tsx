@@ -24,6 +24,8 @@ import SelectBoxField from '@/components/forms/select-box-field'
 import { PageMetadata } from '@/types/common'
 import Separator from '@/components/separator'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
+import { useBps } from '@/hooks/safe-actions/business-partner'
+import { commonItemRender } from '@/utils/devextreme'
 
 type UserFormProps = { pageMetaData: PageMetadata; user: Awaited<ReturnType<typeof getUserByCode>> }
 
@@ -69,6 +71,9 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
   const roleKey = useWatch({ control: form.control, name: 'roleKey' })
 
   const { executeAsync, isExecuting } = useAction(upsertUser)
+
+  const customers = useBps('C', true)
+  const suppliers = useBps('S', true)
   const roles = useRoles()
 
   const handleOnSubmit = async (formData: UserForm) => {
@@ -113,6 +118,10 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
       form.clearErrors(['newPassword', 'newConfirmPassword'])
     }
   }, [oldPassword])
+
+  useEffect(() => {
+    console.log({ customers })
+  }, [JSON.stringify(customers)])
 
   return (
     <FormProvider {...form}>
@@ -246,18 +255,52 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                   <Separator className='col-span-12' />
                   <ReadOnlyFieldHeader className='col-span-12 mb-2' title='SAP Details' description='User SAP information' />
 
-                  <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                    <TextBoxField
+                  <div className='col-span-12 md:col-span-6'>
+                    <SelectBoxField
+                      data={customers.data}
+                      isLoading={customers.isLoading}
                       control={form.control}
                       name='customerCode'
                       label='Customer Code'
-                      description='SAP customer code'
-                      isRequired
+                      valueExpr='CardCode'
+                      displayExpr='CardName'
+                      searchExpr={['CardName', 'CardCode', 'GroupName']}
+                      extendedProps={{
+                        selectBoxOptions: {
+                          itemRender: (params) => {
+                            return commonItemRender({
+                              title: params?.CardName,
+                              description: params?.GroupName,
+                              value: params?.CardCode,
+                            })
+                          },
+                        },
+                      }}
                     />
                   </div>
 
-                  <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                    <TextBoxField control={form.control} name='supplierCode' label='Supplier Code' description='SAP supplier code' />
+                  <div className='col-span-12 md:col-span-6'>
+                    <SelectBoxField
+                      data={suppliers.data}
+                      isLoading={suppliers.isLoading}
+                      control={form.control}
+                      name='supplierCode'
+                      label='Supplier Code'
+                      valueExpr='CardCode'
+                      displayExpr='CardName'
+                      searchExpr={['CardName', 'CardCode', 'GroupName']}
+                      extendedProps={{
+                        selectBoxOptions: {
+                          itemRender: (params) => {
+                            return commonItemRender({
+                              title: params?.CardName,
+                              description: params?.GroupName,
+                              value: params?.CardCode,
+                            })
+                          },
+                        },
+                      }}
+                    />
                   </div>
                 </>
               )}

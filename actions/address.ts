@@ -8,6 +8,8 @@ import { db } from '@/utils/db'
 import { SAP_BASE_URL } from '@/constants/sap'
 
 export async function getAddresses(cardCode: string) {
+  if (!cardCode) return []
+
   try {
     return db.address.findMany({ where: { CardCode: cardCode } })
   } catch (error) {

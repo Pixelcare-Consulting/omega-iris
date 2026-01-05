@@ -45,7 +45,7 @@ export const ADDRESS_TYPE_STD_API_MAP: Record<string, string> = {
 
 export const bpAddressFormSchema = z.object({
   id: z.string(),
-  CardCode: z.string().min(1, { message: 'Card Code is required' }),
+  CardCode: z.string().nullish(),
   AddressName: z.string().min(1, { message: 'Address Name is required' }),
   AddrType: z.string().min(1, { message: 'Type is required' }),
   Street: z.string().nullish(),
@@ -68,7 +68,7 @@ export const bpAddressesFormSchema = z.array(bpAddressFormSchema).default([])
 
 export const bpContactFormSchema = z.object({
   id: z.string(),
-  CardCode: z.string().min(1, { message: 'Card Code is required' }),
+  CardCode: z.string().nullish(),
   ContactName: z.string().min(1, { message: 'Contact Name is required' }),
   FirstName: z.string().nullish(),
   LastName: z.string().nullish(),

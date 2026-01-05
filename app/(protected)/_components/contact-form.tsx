@@ -2,24 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFieldArray, useFormContext, useWatch } from 'react-hook-form'
-import TabPanel, { Item as TabPanelITem } from 'devextreme-react/tab-panel'
 import Button from 'devextreme-react/button'
 import Tooltip from 'devextreme-react/tooltip'
 
-import {
-  bpAddressesFormSchema,
-  bpContactsFormSchema,
-  BusinessPartnerForm,
-  businessPartnerFormSchema,
-  type ContactForm,
-  type AddressForm,
-} from '@/schema/business-partner'
+import { bpContactsFormSchema, BusinessPartnerForm } from '@/schema/business-partner'
 import TextBoxField from '@/components/forms/text-box-field'
 import { Badge } from '@/components/badge'
-import TextAreaField from '@/components/forms/text-area-field'
-import { useStates } from '@/hooks/safe-actions/state'
-import { useCountries } from '@/hooks/safe-actions/country'
-import SelectBoxField from '@/components/forms/select-box-field'
 import AlertDialog from '@/components/alert-dialog'
 import { toast } from 'sonner'
 import { FormDebug } from '@/components/forms/form-debug'
@@ -69,7 +57,6 @@ export default function ContactForm({ bpContacts }: ContactFormProps) {
   const handleAddContact = () => {
     const baseContact = {
       id: 'add',
-      CardCode: cardCode,
       ContactName: '',
       FirstName: '',
       LastName: '',
