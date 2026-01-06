@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import DataGrid, {
   Column,
   DataGridRef,
@@ -16,6 +16,7 @@ import DataGrid, {
   Button as DataGridButton,
   DataGridTypes,
   ColumnFixing,
+  CustomRule,
 } from 'devextreme-react/data-grid'
 import Button from 'devextreme-react/button'
 import Tooltip from 'devextreme-react/tooltip'
@@ -36,7 +37,8 @@ import AlertDialog from '@/components/alert-dialog'
 import { getWorkOrderByCode } from '@/actions/work-order'
 import { useWoItemsByWoCode } from '@/hooks/safe-actions/work-order-item'
 import FormMessage from '@/components/forms/form-message'
-import { safeParseFloat } from '@/utils'
+import { cn, safeParseFloat, safeParseInt } from '@/utils'
+import { subtract } from 'mathjs'
 
 type WorkOrderLineItemsFormProps = {
   workOrder: Awaited<ReturnType<typeof getWorkOrderByCode>>
@@ -68,6 +70,8 @@ export default function WorkOrderLineItemTable({
   const warehouses = useWarehouses()
   const users = useUsers()
 
+  const workOrderStatus = useMemo(() => safeParseInt(workOrder?.status), [JSON.stringify(workOrder)])
+
   const handleAdd = useCallback(() => {
     setRowData(null)
     setIsOpen(true)
@@ -78,7 +82,7 @@ export default function WorkOrderLineItemTable({
       const data = e.row?.data
       if (!data) return
       setIsOpen(true)
-      setRowData(data)
+      setRowData({ ...data, maxQty: data?.availableToOrder })
     },
     [setIsOpen, setRowData]
   )
@@ -88,7 +92,7 @@ export default function WorkOrderLineItemTable({
       const data = e.row?.data
       if (!data) return
       setShowConfirmation(true)
-      setRowData(data)
+      setRowData({ ...data, maxQty: data?.availableToOrder })
     },
     [setShowConfirmation, setRowData]
   )
@@ -126,7 +130,11 @@ export default function WorkOrderLineItemTable({
 
       if (rowIndex !== -1) {
         updatedRows[rowIndex] = e.data //* update rows
-        const updatedLineItems = updatedRows.map(({ projectItemCode, qty }) => ({ projectItemCode, qty }))
+        const updatedLineItems = updatedRows.map(({ projectItemCode, qty, availableToOrder }) => ({
+          projectItemCode,
+          qty,
+          maxQty: availableToOrder,
+        }))
 
         form.setValue('lineItems', updatedLineItems) //* update line items
         setWorkOrderItemsDataSource(updatedRows) //* update local datasource state
@@ -147,8 +155,9 @@ export default function WorkOrderLineItemTable({
           if (!pItem || !itemMaster) return null
 
           const qty = safeParseFloat(woItem.qty)
+          const availableToOrder = subtract(safeParseFloat(pItem?.totalStock), safeParseFloat(pItem?.stockIn))
 
-          return { projectItemCode: pItem?.code, qty }
+          return { projectItemCode: pItem?.code, qty, maxQty: availableToOrder }
         })
         .filter((item) => item !== null)
 
@@ -171,7 +180,8 @@ export default function WorkOrderLineItemTable({
           const cost = safeParseFloat(pItem?.cost)
           const qty = safeParseFloat(li?.qty)
           const availableToOrder = safeParseFloat(pItem?.availableToOrder)
-          const inProcess = safeParseFloat(pItem?.inProcess)
+          const stockIn = safeParseFloat(pItem?.stockIn)
+          const stockOut = safeParseFloat(pItem?.stockOut)
           const totalStock = safeParseFloat(pItem?.totalStock)
 
           const warehouse = pItem?.warehouse
@@ -193,7 +203,8 @@ export default function WorkOrderLineItemTable({
             packagingType: pItem?.packagingType || '',
             spq: pItem?.spq || '',
             availableToOrder,
-            inProcess,
+            stockIn,
+            stockOut,
             totalStock,
             cost,
             qty,
@@ -251,18 +262,46 @@ export default function WorkOrderLineItemTable({
           <Column dataField='manufacturerPartNumber' dataType='string' caption='MFG P/N' allowEditing={false} />
           <Column dataField='description' dataType='string' caption='Description' allowEditing={false} />
           <Column
-            dataField='totalStock'
+            dataField='availableToOrder'
             dataType='number'
-            caption='Total Stock'
+            caption='Available To Order'
             alignment='left'
             format={DEFAULT_NUMBER_FORMAT}
             allowEditing={false}
           />
-          <Column dataField='qty' dataType='number' caption='Quantity' format={DEFAULT_NUMBER_FORMAT} alignment='left' />
+          <Column
+            dataField='qty'
+            dataType='number'
+            caption={`Quantity${workOrderStatus >= 4 ? ' (Locked)' : ''}`}
+            format={DEFAULT_NUMBER_FORMAT}
+            alignment='left'
+            allowEditing={workOrderStatus >= 4 ? false : true}
+            cssClass={cn(workOrderStatus >= 4 ? '!bg-slate-100' : '')}
+          >
+            <CustomRule
+              validationCallback={(e) => {
+                const data = e?.data
+                return data?.qty >= 1 && data?.qty <= data?.availableToOrder
+              }}
+              message='Quantity must be greater than 1 and less than or equal to the available to order'
+            />
+          </Column>
 
           <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
-            <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' hint='Edit' />
-            <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' hint='Delete' />
+            <DataGridButton
+              icon='edit'
+              onClick={handleEdit}
+              cssClass='!text-lg'
+              hint='Edit'
+              visible={workOrderStatus >= 4 ? false : true}
+            />
+            <DataGridButton
+              icon='trash'
+              onClick={handleDelete}
+              cssClass='!text-lg !text-red-500'
+              hint='Delete'
+              visible={workOrderStatus >= 4 ? false : true}
+            />
           </Column>
 
           <LoadPanel enabled={isLoading || workOrderItems.isLoading} shadingColor='rgb(241, 245, 249)' showIndicator showPane shading />

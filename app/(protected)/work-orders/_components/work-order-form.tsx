@@ -14,7 +14,6 @@ import { useAction } from 'next-safe-action/hooks'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { WORK_ORDER_STATUS_OPTIONS, type WorkOrderForm, workOrderFormSchema } from '@/schema/work-order'
-import TextBoxField from '@/components/forms/text-box-field'
 import LoadingButton from '@/components/loading-button'
 import { getWorkOrderByCode, upsertWorkOrder } from '@/actions/work-order'
 import { PageMetadata } from '@/types/common'
@@ -34,6 +33,7 @@ import { useWoItemsByWoCode } from '@/hooks/safe-actions/work-order-item'
 import { safeParseFloat } from '@/utils'
 import { FormDebug } from '@/components/forms/form-debug'
 import { useAddresses } from '@/hooks/safe-actions/address'
+import { useSalesOrderByWorkOrderCode } from '@/hooks/safe-actions/sales-order'
 
 type WorkOrderFormProps = {
   pageMetaData: PageMetadata
@@ -88,7 +88,8 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
   const workOrderItems = useWoItemsByWoCode(workOrder?.code)
 
   const piCustomers = usePiCustomerByProjectCode(projectCode)
-  const customer = useUserByCode(userCode) //TODO: use this customer data to get the customerCode and use it to fetch the address from SAP
+  const customer = useUserByCode(userCode)
+  const salesOrder = useSalesOrderByWorkOrderCode(workOrder?.code)
 
   const selectedStatus = useMemo(() => WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === status)?.label, [status])
   const selectedProject = useMemo(() => projects.data.find((p) => p.code === projectCode), [JSON.stringify(projects), projectCode])
@@ -302,9 +303,12 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
               <Separator className='col-span-12' />
               <ReadOnlyFieldHeader className='col-span-12 mb-1' title='SAP Fields' description='SAP related fields' />
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField control={form.control} name='salesOrderCode' label='Sales Order Code' />
-              </div>
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-3'
+                title='Sales Order Code'
+                value={salesOrder.data?.DocNum || ''}
+                isLoading={salesOrder.isLoading}
+              />
 
               <Separator className='col-span-12' />
               <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Address Details' description='Billing & delivery address details' />

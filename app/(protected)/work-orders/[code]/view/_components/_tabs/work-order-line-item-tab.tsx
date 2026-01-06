@@ -1,6 +1,6 @@
 'use client'
 
-import { Column, DataGridTypes, DataGridRef, Button as DataGridButton, Editing } from 'devextreme-react/data-grid'
+import { Column, DataGridTypes, DataGridRef, Button as DataGridButton, Editing, CustomRule } from 'devextreme-react/data-grid'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Toolbar from 'devextreme-react/toolbar'
 import Popup from 'devextreme-react/popup'
@@ -12,11 +12,12 @@ import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapp
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import CommonDataGrid from '@/components/common-datagrid'
+import { subtract } from 'mathjs'
 
 import { useWoItemsByWoCode } from '@/hooks/safe-actions/work-order-item'
 import AlertDialog from '@/components/alert-dialog'
 import { deleteWorkOrderLineItem, getWorkOrderByCode, upsertWorkOrderLineItem } from '@/actions/work-order'
-import { safeParseFloat } from '@/utils'
+import { cn, safeParseFloat, safeParseInt } from '@/utils'
 import { DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import WorkOrderLineItemForm from '../work-order-line-item-form'
 import { WorkOrderItemForm } from '@/schema/work-order'
@@ -50,6 +51,8 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
   const warehouses = useWarehouses()
   const users = useUsers()
 
+  const workOrderStatus = useMemo(() => safeParseInt(workOrder?.status), [JSON.stringify(workOrder)])
+
   const woItems = useMemo(() => {
     if (workOrderItems.isLoading || workOrderItems.data.length < 1) return []
 
@@ -63,8 +66,9 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
 
         const cost = safeParseFloat(pItem?.cost)
         const qty = safeParseFloat(woItem?.qty)
-        const availableToOrder = safeParseFloat(pItem?.availableToOrder)
-        const inProcess = safeParseFloat(pItem?.inProcess)
+        const availableToOrder = subtract(safeParseFloat(pItem?.totalStock), safeParseFloat(pItem?.stockIn))
+        const stockIn = safeParseFloat(pItem?.stockIn)
+        const stockOut = safeParseFloat(pItem?.stockOut)
         const totalStock = safeParseFloat(pItem?.totalStock)
 
         const warehouse = pItem?.warehouse
@@ -88,7 +92,8 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
           packagingType: pItem?.packagingType || '',
           spq: pItem?.spq || '',
           availableToOrder,
-          inProcess,
+          stockIn,
+          stockOut,
           totalStock,
           cost,
           qty,
@@ -123,7 +128,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
     (e: DataGridTypes.ColumnButtonClickEvent) => {
       const data = e.row?.data
       if (!data) return
-      setRowData(data)
+      setRowData({ ...data, maxQty: data?.availableToOrder })
       setIsViewMode(true)
     },
     [setRowData, setIsViewMode]
@@ -134,7 +139,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
       const data = e.row?.data
       if (!data) return
       setIsOpen(true)
-      setRowData(data)
+      setRowData({ ...data, maxQty: data?.availableToOrder })
     },
     [setIsOpen, setRowData]
   )
@@ -144,7 +149,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
       const data = e.row?.data
       if (!data) return
       setShowConfirmation(true)
-      setRowData(data)
+      setRowData({ ...data, maxQty: data?.availableToOrder })
     },
     [setShowConfirmation, setRowData]
   )
@@ -189,7 +194,13 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
       const updatedData = e.data
       const workOrderCode = workOrder.code
 
-      const formData = { workOrderCode, projectItemCode: updatedData.projectItemCode, qty: updatedData.qty, operation: 'update' as const }
+      const formData = {
+        workOrderCode,
+        projectItemCode: updatedData.projectItemCode,
+        qty: updatedData.qty,
+        maxQty: updatedData?.availableToOrder,
+        operation: 'update' as const,
+      }
 
       try {
         const response = await upsertWorkOrderLineItemClient.executeAsync(formData)
@@ -249,20 +260,50 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
               <Column dataField='manufacturer' dataType='string' caption='Manufacturer' allowEditing={false} />
               <Column dataField='manufacturerPartNumber' dataType='string' caption='MFG P/N' allowEditing={false} />
               <Column dataField='description' dataType='string' caption='Description' allowEditing={false} />
+
               <Column
-                dataField='totalStock'
+                dataField='availableToOrder'
                 dataType='number'
-                caption='Total Stock'
+                caption='Available To Order'
                 alignment='left'
                 format={DEFAULT_NUMBER_FORMAT}
                 allowEditing={false}
               />
-              <Column dataField='qty' dataType='number' caption='Quantity' format={DEFAULT_NUMBER_FORMAT} alignment='left' />
+
+              <Column
+                dataField='qty'
+                dataType='number'
+                caption={`Quantity${workOrderStatus >= 4 ? ' (Locked)' : ''}`}
+                format={DEFAULT_NUMBER_FORMAT}
+                alignment='left'
+                allowEditing={workOrderStatus >= 4 ? false : true}
+                cssClass={cn(workOrderStatus >= 4 ? '!bg-slate-100' : '')}
+              >
+                <CustomRule
+                  validationCallback={(e) => {
+                    const data = e?.data
+                    return data?.qty >= 1 && data?.qty <= data?.availableToOrder
+                  }}
+                  message='Quantity must be greater than 1 and less than or equal to the available to order'
+                />
+              </Column>
 
               <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
                 <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
-                <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' hint='Edit' />
-                <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' hint='Delete' />
+                <DataGridButton
+                  icon='edit'
+                  onClick={handleEdit}
+                  cssClass='!text-lg'
+                  hint='Edit'
+                  visible={workOrderStatus >= 4 ? false : true}
+                />
+                <DataGridButton
+                  icon='trash'
+                  onClick={handleDelete}
+                  cssClass='!text-lg !text-red-500'
+                  hint='Delete'
+                  visible={workOrderStatus >= 4 ? false : true}
+                />
               </Column>
 
               <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />

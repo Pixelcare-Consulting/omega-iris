@@ -9,6 +9,7 @@ import { useRouter } from 'nextjs-toploader/app'
 import { Dispatch, SetStateAction, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
+import { subtract } from 'mathjs'
 
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
@@ -24,7 +25,7 @@ import useItems from '@/hooks/safe-actions/item'
 import ReadOnlyField from '@/components/read-only-field'
 import { formatNumber } from 'devextreme/localization'
 import { DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
-import { safeParseFloat } from '@/utils'
+import { safeParseFloat, safeParseInt } from '@/utils'
 import ProjectIndividualItemWarehouseInventory from './project-individual-item-warehouse-inventory'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import { useItemWarehouseInventory } from '@/hooks/safe-actions/item-warehouse-inventory'
@@ -78,8 +79,8 @@ export default function ProjectItemForm({
         packagingType: null,
         spq: null,
         cost: 0,
-        availableToOrder: 0,
-        inProcess: 0,
+        stockIn: 0,
+        stockOut: 0,
         totalStock: 0,
         dateReceived: null,
         dateReceivedBy: null,
@@ -102,7 +103,14 @@ export default function ProjectItemForm({
   const warehouseCode = useWatch({ control: form.control, name: 'warehouseCode' })
   const itemCode = useWatch({ control: form.control, name: 'itemCode' })
 
+  const totalStock = useWatch({ control: form.control, name: 'totalStock' })
+  const stockIn = useWatch({ control: form.control, name: 'stockIn' })
+
   const { executeAsync, isExecuting } = useAction(upsertProjectItem)
+
+  const availableToOrder = useMemo(() => {
+    return subtract(safeParseFloat(totalStock), safeParseFloat(stockIn))
+  }, [JSON.stringify(totalStock), JSON.stringify(stockIn)])
 
   const selectedBaseItem = useMemo(() => {
     if (itemMasters.isLoading || itemMasters.data.length < 1) return null
@@ -327,21 +335,27 @@ export default function ProjectItemForm({
                 />
               </div>
 
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-3'
+                title='Available To Order'
+                value={formatNumber(availableToOrder, DEFAULT_NUMBER_FORMAT)}
+              />
+
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                 <NumberBoxField
                   control={form.control}
-                  name='availableToOrder'
-                  label='Available To Order'
-                  extendedProps={{ numberBoxOptions: { format: DEFAULT_NUMBER_FORMAT } }}
+                  name='stockIn'
+                  label='Stock-In (In Process)'
+                  extendedProps={{ numberBoxOptions: { format: DEFAULT_NUMBER_FORMAT, disabled: true } }}
                 />
               </div>
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                 <NumberBoxField
                   control={form.control}
-                  name='inProcess'
-                  label='In Process'
-                  extendedProps={{ numberBoxOptions: { format: DEFAULT_NUMBER_FORMAT } }}
+                  name='stockIn'
+                  label='Stock-Out (Delivered)'
+                  extendedProps={{ numberBoxOptions: { format: DEFAULT_NUMBER_FORMAT, disabled: true } }}
                 />
               </div>
 

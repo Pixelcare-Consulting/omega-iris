@@ -222,9 +222,10 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             showTitle={false}
             onHiding={() => setShowUpdateStatusForm(false)}
             width={undefined}
+            maxWidth={650}
             height={410}
           >
-            <WorkOrderUpdateStatusForm onClose={handleCloseUpdateStatusForm} />
+            <WorkOrderUpdateStatusForm selectedRowKeys={selectedRowKeys} onClose={handleCloseUpdateStatusForm} />
           </Popup>
 
           <AlertDialog

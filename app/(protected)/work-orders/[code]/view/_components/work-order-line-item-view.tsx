@@ -102,8 +102,14 @@ export default function WorkOrderLineItemView({ data, onClose }: WorkOrderLineIt
 
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='In Process'
-          value={formatNumber(safeParseFloat(data?.inProcess), DEFAULT_NUMBER_FORMAT)}
+          title='Stock-In (In Process)'
+          value={formatNumber(safeParseFloat(data?.stockIn), DEFAULT_NUMBER_FORMAT)}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Stock-Out (Delivered)'
+          value={formatNumber(safeParseFloat(data?.stockOut), DEFAULT_NUMBER_FORMAT)}
         />
 
         <ReadOnlyField

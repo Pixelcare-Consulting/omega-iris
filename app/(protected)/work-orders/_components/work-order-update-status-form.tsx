@@ -20,10 +20,11 @@ import TextAreaField from '@/components/forms/text-area-field'
 import { useRouter } from 'next/navigation'
 
 type WorkOrderUpdateStatusFormProps = {
+  selectedRowKeys: number[]
   onClose?: () => void
 }
 
-export default function WorkOrderUpdateStatusForm({ onClose }: WorkOrderUpdateStatusFormProps) {
+export default function WorkOrderUpdateStatusForm({ selectedRowKeys, onClose }: WorkOrderUpdateStatusFormProps) {
   const router = useRouter()
 
   const form = useFormContext<WorkOrderStatusUpdateForm>()
@@ -86,7 +87,11 @@ export default function WorkOrderUpdateStatusForm({ onClose }: WorkOrderUpdateSt
             {/* <FormDebug form={form} /> */}
 
             <div className='grid h-full grid-cols-12 gap-5'>
-              <Alert className='col-span-12' variant='default' message='Selected work orders with the same status will be ignored!' />
+              <Alert
+                className='col-span-12'
+                variant='default'
+                message={`Selected work orders with the same status or status is higher than the selected status will be ignored! Work order that will be updated: ${selectedRowKeys.join(', ')}`}
+              />
 
               <ReadOnlyField className='col-span-12 md:col-span-6' title='Date & Time' value={format(new Date(), 'MM/dd/yyyy hh:mm a')} />
 
