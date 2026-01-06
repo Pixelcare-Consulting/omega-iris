@@ -15,6 +15,8 @@ import { useWoItemsByWoCode } from '@/hooks/safe-actions/work-order-item'
 import WorkOrderLineItemTab from './_tabs/work-order-line-item-tab'
 import { useWoStatusUpdatesByWoCode } from '@/hooks/safe-actions/work-order-status-update'
 import WorkOrderStatusUpdateTab from './_tabs/work-order-status-update-tab'
+import { useSalesOrderByWorkOrderCode } from '@/hooks/safe-actions/sales-order'
+import { useAddressById } from '@/hooks/safe-actions/address'
 
 type ViewWorkOrderProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
@@ -25,6 +27,9 @@ export default function ViewWorkOrder({ workOrder }: ViewWorkOrderProps) {
 
   const workOrderItems = useWoItemsByWoCode(workOrder?.code)
   const workOrderStatusUpdates = useWoStatusUpdatesByWoCode(workOrder?.code)
+  const salesOrder = useSalesOrderByWorkOrderCode(workOrder?.code)
+  const billingAddress = useAddressById(workOrder?.billingAddrCode ?? '')
+  const shippingAddress = useAddressById(workOrder?.shippingAddrCode ?? '')
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
@@ -59,7 +64,12 @@ export default function ViewWorkOrder({ workOrder }: ViewWorkOrderProps) {
       <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
         <TabPanel width='100%' height='100%' animationEnabled tabsPosition='top' defaultSelectedIndex={0}>
           <TabPanelITem title='Overview'>
-            <WorkOrderOverviewTab workOrder={workOrder} />
+            <WorkOrderOverviewTab
+              workOrder={workOrder}
+              salesOrder={salesOrder}
+              billingAddress={billingAddress}
+              shippingAddress={shippingAddress}
+            />
           </TabPanelITem>
 
           <TabPanelITem title='Line Items'>

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useAction } from 'next-safe-action/hooks'
 
-import { getAddressesClient, getMasterAddressesClient } from '@/actions/address'
+import { getAddressesClient, getMasterAddressesClient, getAddressByIdClient } from '@/actions/address'
 
 export function useAddresses(cardCode: string, dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getAddressesClient)
@@ -15,6 +15,22 @@ export function useAddresses(cardCode: string, dependencies?: any[]) {
     executeAsync,
     isLoading,
     data: result.data ?? [],
+    error: { serverError: result.serverError, validationError: result.validationErrors },
+  }
+}
+
+export function useAddressById(id: string, dependencies?: any[]) {
+  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getAddressByIdClient)
+
+  useEffect(() => {
+    execute({ id })
+  }, [id, ...(dependencies || [])])
+
+  return {
+    execute,
+    executeAsync,
+    isLoading,
+    data: result.data ?? null,
     error: { serverError: result.serverError, validationError: result.validationErrors },
   }
 }
