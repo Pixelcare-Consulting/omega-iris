@@ -11,14 +11,50 @@ import { formatNumber } from 'devextreme/localization'
 import { DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
 import { WORK_ORDER_STATUS_OPTIONS } from '@/schema/work-order'
 import Separator from '@/components/separator'
+import { useSalesOrderByWorkOrderCode } from '@/hooks/safe-actions/sales-order'
+import { useAddressById } from '@/hooks/safe-actions/address'
 
 type WorkOrderOverviewTabProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
+  salesOrder: ReturnType<typeof useSalesOrderByWorkOrderCode>
+  billingAddress: ReturnType<typeof useAddressById>
+  shippingAddress: ReturnType<typeof useAddressById>
 }
 
-export default function WorkOrderOverviewTab({ workOrder }: WorkOrderOverviewTabProps) {
+export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAddress, shippingAddress }: WorkOrderOverviewTabProps) {
   const fullName = workOrder.user ? `${workOrder?.user?.fname}${workOrder?.user?.lname ? ` ${workOrder?.user?.lname}` : ''}` : ''
   const status = WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === workOrder.status)?.label
+
+  const getAddressValue = (address: ReturnType<typeof useAddressById>['data']) => {
+    if (!address) return ''
+
+    const description = [
+      address?.Street,
+      address?.Address2,
+      address?.Address3,
+      address?.StreetNo,
+      address?.BuildingFloorRoom,
+      address?.Block,
+      address?.City,
+      address?.ZipCode,
+      address?.County,
+      address?.CountryName,
+      address?.StateName,
+      address?.GlobalLocationNumber,
+    ]
+      .filter(Boolean)
+      .join(', ')
+
+    return {
+      label: address.AddressName,
+      value: address.id,
+      description,
+      address,
+    }
+  }
+
+  const billingAddressValue = getAddressValue(billingAddress.data)
+  const shippingAddressValue = getAddressValue(shippingAddress.data)
 
   return (
     <ScrollView>
@@ -66,7 +102,12 @@ export default function WorkOrderOverviewTab({ workOrder }: WorkOrderOverviewTab
         <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='SAP Fields' description='SAP related fields' />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Sales Order Code' value={workOrder.salesOrderCode} />
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Sales Order Code'
+          value={salesOrder?.data?.DocNum || ''}
+          isLoading={salesOrder.isLoading}
+        />
 
         <ReadOnlyFieldHeader className='col-span-12' title='Owner' description='Work order owner details' />
 
@@ -89,9 +130,23 @@ export default function WorkOrderOverviewTab({ workOrder }: WorkOrderOverviewTab
         <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='Address Details' description='Billing & delivery address details' />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6' title='Billing Address' value={''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6' title='Billing Address' isLoading={billingAddress.isLoading}>
+          {billingAddressValue && (
+            <div className='flex flex-col gap-2'>
+              <div>{billingAddressValue.label}</div>
+              <div>{billingAddressValue.description}</div>
+            </div>
+          )}
+        </ReadOnlyField>
 
-        <ReadOnlyField className='col-span-12 md:col-span-6' title='Delivery Address' value={''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6' title='Delivery Address'>
+          {shippingAddressValue && (
+            <div className='flex flex-col gap-2'>
+              <div>{shippingAddressValue.label}</div>
+              <div>{shippingAddressValue.description}</div>
+            </div>
+          )}
+        </ReadOnlyField>
 
         <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='Record Meta data' description='Work order record meta data' />

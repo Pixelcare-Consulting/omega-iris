@@ -18,11 +18,29 @@ export async function getAddresses(cardCode: string) {
   }
 }
 
+export async function getAddressById(id: string) {
+  if (!id) return null
+
+  try {
+    return db.address.findUnique({ where: { id } })
+  } catch (error) {
+    console.error(error)
+    return null
+  }
+}
+
 export const getAddressesClient = action
   .use(authenticationMiddleware)
   .schema(z.object({ cardCode: z.string() }))
   .action(async ({ parsedInput }) => {
     return getAddresses(parsedInput.cardCode)
+  })
+
+export const getAddressByIdClient = action
+  .use(authenticationMiddleware)
+  .schema(z.object({ id: z.string() }))
+  .action(async ({ parsedInput }) => {
+    return getAddressById(parsedInput.id)
   })
 
 export async function getMasterAddresses(cardCode: string) {

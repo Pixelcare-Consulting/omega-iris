@@ -101,18 +101,18 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
     return addresses.map((addr) => {
       const description = [
-        addr.Street,
-        addr.Address2,
-        addr.Address3,
-        addr.StreetNo,
-        addr.BuildingFloorRoom,
-        addr.Block,
-        addr.City,
-        addr.ZipCode,
-        addr.County,
-        addr.CountryName,
-        addr.StateName,
-        addr.GlobalLocationNumber,
+        addr?.Street,
+        addr?.Address2,
+        addr?.Address3,
+        addr?.StreetNo,
+        addr?.BuildingFloorRoom,
+        addr?.Block,
+        addr?.City,
+        addr?.ZipCode,
+        addr?.County,
+        addr?.CountryName,
+        addr?.StateName,
+        addr?.GlobalLocationNumber,
       ]
         .filter(Boolean)
         .join(', ')
