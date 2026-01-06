@@ -2,6 +2,8 @@
 
 import z from 'zod'
 import { Prisma } from '@prisma/client'
+import { isValid, parse } from 'date-fns'
+import { subtract } from 'mathjs'
 
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
@@ -10,7 +12,6 @@ import { paramsSchema } from '@/schema/common'
 import { safeParseFloat, safeParseInt } from '@/utils'
 import { importFormSchema } from '@/schema/import'
 import { ImportSyncErrorEntry } from '@/types/common'
-import { isValid, parse } from 'date-fns'
 
 const COMMON_PROJECT_ITEM_INCLUDE = {
   item: true,
@@ -33,8 +34,9 @@ export async function getProjecItems(projectCode: number) {
     return result.map((item) => ({
       ...item,
       cost: safeParseFloat(item.cost),
-      availableToOrder: safeParseFloat(item.availableToOrder),
-      inProcess: safeParseFloat(item.inProcess),
+      availableToOrder: subtract(safeParseFloat(item.totalStock), safeParseFloat(item.stockIn)),
+      stockIn: safeParseInt(item.stockIn),
+      stockOut: safeParseFloat(item.stockOut),
       totalStock: safeParseFloat(item.totalStock),
     }))
   } catch (error) {
@@ -197,8 +199,6 @@ export const importProjectItems = action
           packagingType: row?.['Packaging_Type'] || null,
           spq: row?.['SPQ'] || null,
           cost: safeParseFloat(row?.['Cost']),
-          availableToOrder: safeParseFloat(row?.['Available_To_Order']),
-          inProcess: safeParseFloat(row?.['In_Process_Pending']),
           totalStock: safeParseFloat(row?.['Total_Stock']),
           notes: row?.['Notes'] || null,
           siteLocation: row?.['Site_Location'] || null,

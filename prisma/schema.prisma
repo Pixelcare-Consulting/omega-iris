@@ -332,24 +332,24 @@ model ProjectItem {
     itemCode              Int
     projectIndividualCode Int
 
-    warehouseCode    Int?
-    partNumber       String?
-    dateCode         String?
-    countryOfOrigin  String?
-    lotCode          String?
-    palletNo         String?
-    packagingType    String?
-    spq              String?
-    dateReceived     DateTime?
-    dateReceivedBy   Int?
-    cost             Decimal?  @default(0)
-    availableToOrder Decimal?  @default(0)
-    inProcess        Decimal?  @default(0)
-    totalStock       Decimal?  @default(0)
-    siteLocation     String?
-    subLocation2     String?
-    subLocation3     String?
-    notes            String?
+    warehouseCode   Int?
+    partNumber      String?
+    dateCode        String?
+    countryOfOrigin String?
+    lotCode         String?
+    palletNo        String?
+    packagingType   String?
+    spq             String?
+    dateReceived    DateTime?
+    dateReceivedBy  Int?
+    cost            Decimal?  @default(0)
+    stockIn         Decimal?  @default(0)
+    stockOut        Decimal?  @default(0)
+    totalStock      Decimal?  @default(0) //* initial total stock
+    siteLocation    String?
+    subLocation2    String?
+    subLocation3    String?
+    notes           String?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt

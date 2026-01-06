@@ -1,6 +1,6 @@
 'use client'
 
-import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
+import { Column, DataGridTypes, DataGridRef, Button as DataGridButton, Summary, TotalItem, GroupItem } from 'devextreme-react/data-grid'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import Toolbar from 'devextreme-react/toolbar'
@@ -285,6 +285,50 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
     }
   }
 
+  const renderCommonSummaryIItems = () => {
+    return (
+      <>
+        <GroupItem
+          column='availableToOrder'
+          summaryType='sum'
+          displayFormat='{0}'
+          valueFormat={DEFAULT_NUMBER_FORMAT}
+          showInGroupFooter={false}
+          alignByColumn={true}
+        />
+        <GroupItem
+          column='stockIn'
+          summaryType='sum'
+          displayFormat='{0}'
+          valueFormat={DEFAULT_NUMBER_FORMAT}
+          showInGroupFooter={false}
+          alignByColumn={true}
+        />
+        <GroupItem
+          column='stockOut'
+          summaryType='sum'
+          displayFormat='{0}'
+          valueFormat={DEFAULT_NUMBER_FORMAT}
+          showInGroupFooter={false}
+          alignByColumn={true}
+        />
+        <GroupItem
+          column='totalStock'
+          summaryType='sum'
+          displayFormat='{0}'
+          valueFormat={DEFAULT_NUMBER_FORMAT}
+          showInGroupFooter={false}
+          alignByColumn={true}
+        />
+
+        <TotalItem column='availableToOrder' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+        <TotalItem column='stockIn' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+        <TotalItem column='stockOut' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+        <TotalItem column='totalStock' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+      </>
+    )
+  }
+
   //* show loading
   useEffect(() => {
     if (dataGridRef.current) {
@@ -351,9 +395,42 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
                 alignment='left'
                 format={DEFAULT_NUMBER_FORMAT}
               />
-              <Column dataField='inProcess' dataType='number' caption='In Process' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
+              <Column
+                dataField='stockIn'
+                dataType='number'
+                caption='Stock-In (In Process)'
+                alignment='left'
+                format={DEFAULT_NUMBER_FORMAT}
+              />
+              <Column
+                dataField='stockOut'
+                dataType='number'
+                caption='Stock-Out (Delivered)'
+                alignment='left'
+                format={DEFAULT_NUMBER_FORMAT}
+              />
               <Column dataField='totalStock' dataType='number' caption='Total Stock' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
               <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
+
+              <Summary>
+                <GroupItem
+                  column='item.manufacturerPartNumber'
+                  summaryType='count'
+                  displayFormat='{0} item'
+                  valueFormat={DEFAULT_NUMBER_FORMAT}
+                />
+                {renderCommonSummaryIItems()}
+              </Summary>
+
+              <Summary>
+                <GroupItem column='item.manufacturer' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+                {renderCommonSummaryIItems()}
+              </Summary>
+
+              <Summary>
+                <GroupItem column='partNumber' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+                {renderCommonSummaryIItems()}
+              </Summary>
 
               <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
                 <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />

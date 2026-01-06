@@ -31,6 +31,7 @@ import ReadOnlyField from '@/components/read-only-field'
 import { Badge } from '@/components/badge'
 import { upsertWorkOrderLineItem } from '@/actions/work-order'
 import { useWoItemsByWoCode } from '@/hooks/safe-actions/work-order-item'
+import { FormDebug } from '@/components/forms/form-debug'
 
 type WorkOrderLineItemFormProps = {
   workOrderCode: number
@@ -59,7 +60,7 @@ export default function WorkOrderLineItemForm({
   const values = useMemo(() => {
     if (lineItem) return { ...lineItem, workOrderCode, operation: 'update' as const }
 
-    if (isCreate) return { workOrderCode, operation: 'create' as const, projectItemCode: 0, qty: 0 }
+    if (isCreate) return { workOrderCode, operation: 'create' as const, projectItemCode: 0, qty: 0, maxQty: 0 }
 
     return undefined
   }, [isCreate, JSON.stringify(lineItem)])
@@ -73,6 +74,7 @@ export default function WorkOrderLineItemForm({
   const { executeAsync, isExecuting } = useAction(upsertWorkOrderLineItem)
 
   const projectItemCode = useWatch({ control: form.control, name: 'projectItemCode' })
+  const maxQty = useWatch({ control: form.control, name: 'maxQty' })
 
   const projectItemsOptions = useMemo(() => {
     if (projectItems.isLoading || projectItems.data.length < 1) return []
@@ -227,6 +229,7 @@ export default function WorkOrderLineItemForm({
                   displayExpr='description'
                   searchExpr={['description', 'manufacturerPartNumber', 'code']}
                   description={projectName ? `Select from the items of the project "${projectName}"` : undefined}
+                  callback={(args) => form.setValue('maxQty', args?.item?.availableToOrder)}
                   extendedProps={{
                     selectBoxOptions: {
                       itemRender: (params) => {
@@ -252,6 +255,7 @@ export default function WorkOrderLineItemForm({
                   label='Quantity'
                   isRequired
                   extendedProps={{ numberBoxOptions: { format: DEFAULT_NUMBER_FORMAT } }}
+                  description={`Must be greater than 1 and less than or equal to ${maxQty}`}
                 />
               </div>
 
@@ -307,8 +311,14 @@ export default function WorkOrderLineItemForm({
 
               <ReadOnlyField
                 className='col-span-12 md:col-span-6 lg:col-span-4'
-                title='In Process'
-                value={formatNumber(safeParseFloat(selectedProjectItem?.inProcess), DEFAULT_NUMBER_FORMAT)}
+                title='Stock-In (In Process)'
+                value={formatNumber(safeParseFloat(selectedProjectItem?.stockIn), DEFAULT_NUMBER_FORMAT)}
+              />
+
+              <ReadOnlyField
+                className='col-span-12 md:col-span-6 lg:col-span-4'
+                title='Stock-Out (Delivered)'
+                value={formatNumber(safeParseFloat(selectedProjectItem?.stockOut), DEFAULT_NUMBER_FORMAT)}
               />
 
               <ReadOnlyField

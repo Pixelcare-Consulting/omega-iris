@@ -22,14 +22,35 @@ export const WORK_ORDER_STATUS_OPTIONS: { label: (typeof WORK_ORDER_STATUS)[numb
   { label: 'Deleted', value: '8' },
 ]
 
-export const workOrderItemFormSchema = z.object({
-  projectItemCode: z.coerce.number().min(1, { message: 'Item is required' }),
-  qty: z.coerce.number().refine((val) => val > 0, { message: 'Quantity is required' }),
-})
+export const workOrderItemFormSchema = z
+  .object({
+    projectItemCode: z.coerce.number().min(1, { message: 'Item is required' }),
+    qty: z.coerce.number().refine((val) => val > 0, { message: 'Quantity is required' }),
+    maxQty: z.coerce.number(),
+  })
+  .refine(
+    (formData) => {
+      if (formData.projectItemCode === 0) return true
+      return formData.qty <= formData.maxQty
+    },
+    {
+      path: ['qty'],
+      message: 'Quantity cannot be greater than the available to order',
+    }
+  )
 
-export const upsertWorkOrderLineItemFormSchema = workOrderItemFormSchema.merge(
-  z.object({ operation: z.enum(['create', 'update']), workOrderCode: z.coerce.number() })
-)
+export const upsertWorkOrderLineItemFormSchema = workOrderItemFormSchema._def.schema
+  .merge(z.object({ operation: z.enum(['create', 'update']), workOrderCode: z.coerce.number() }))
+  .refine(
+    (formData) => {
+      if (formData.projectItemCode === 0) return true
+      return formData.qty <= formData.maxQty
+    },
+    {
+      path: ['qty'],
+      message: 'Quantity cannot be greater than the available to order',
+    }
+  )
 
 export const deleteWorkOrderLineItemFormSchema = z.object({
   workOrderCode: z.coerce.number(),

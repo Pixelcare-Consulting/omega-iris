@@ -12,6 +12,7 @@ import {
 } from '@/schema/work-order'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
+import { safeParseInt } from '@/utils'
 
 const COMMON_WORK_ORDER_INCLUDE = {
   projectIndividual: {
@@ -50,6 +51,164 @@ export async function getWorkOrderByCode(code: number) {
   }
 }
 
+type CreditStockParams = {
+  tx: Prisma.TransactionClient
+  workOrderCode: number
+  prevStatus: string | null
+  currStatus: string
+}
+
+export async function creditStock(params: CreditStockParams) {
+  try {
+    const { tx, workOrderCode, prevStatus, currStatus } = params
+
+    const oldStatus = safeParseInt(prevStatus)
+    const newStatus = safeParseInt(currStatus)
+
+    //* check status
+    if (!newStatus) {
+      return {
+        error: true,
+        status: 400,
+        message: 'Failed to credit stock due to invalid status!',
+        action: 'CREDIT_STOCK',
+      }
+    }
+
+    //* check work order code
+    if (!workOrderCode) {
+      return {
+        error: true,
+        status: 400,
+        message: 'Failed to credit stock due to missing work order code!',
+        action: 'CREDIT_STOCK',
+      }
+    }
+
+    const existingWorkOrder = await tx.workOrder.findUnique({
+      where: { code: workOrderCode },
+      include: { workOrderItems: { include: { projectItem: true } } },
+    })
+
+    // //* check work order exist
+    if (!existingWorkOrder) {
+      return {
+        error: true,
+        status: 404,
+        message: 'Failed to credit stock due to missing work order!',
+        action: 'CREDIT_STOCK',
+      }
+    }
+
+    //* check line items exist
+    if (existingWorkOrder.workOrderItems.length < 1) {
+      return {
+        error: true,
+        status: 400,
+        message: 'Failed to credit stock due to missing work order items!',
+        action: 'CREDIT_STOCK',
+      }
+    }
+
+    //* credit stock base on status:
+    //? 1 - Open (stock-in - in process)
+    //? 2 - Pending (stock-in - in process)
+    //? 3 - In Process (stock-in - in process)
+    //? 4 - Verified (stock-in - in process)
+    //? 5 - Partial Delivery (stock-out - delivered)
+    //? 6 - Delivered (stock-out - delivered)
+    //? 7 - Cancelled - do nothing
+    //? 8 - Deleted - do nothing
+
+    const lineItems = existingWorkOrder.workOrderItems
+
+    //* only credit stocks-in only when new status is 'Verified'
+    if (oldStatus >= 1 && oldStatus <= 3 && newStatus === 4) {
+      //* credit stock
+      await Promise.all(
+        lineItems.map((li) => {
+          const pItem = li.projectItem
+          const qty = safeParseInt(li.qty)
+
+          return tx.projectItem.update({
+            where: { code: pItem.code },
+            data: { stockIn: { increment: qty } },
+          })
+        })
+      )
+    }
+
+    //* if has old status and new status is between or equal 'Open' and 'In Process', then do nothing
+    if (oldStatus >= 1 && oldStatus <= 3 && newStatus >= 1 && newStatus <= 3) return
+
+    //* if old status is between or equal 'Open' and 'Verified' and new status is = 'Partial Delivery' or 'Delivered', then credit stock
+    if (oldStatus >= 1 && oldStatus <= 4 && newStatus >= 5 && newStatus <= 6) {
+      //* credit stock
+      await Promise.all(
+        lineItems.map((li) => {
+          const pItem = li.projectItem
+          const qty = safeParseInt(li.qty)
+
+          return tx.projectItem.update({
+            where: { code: pItem.code },
+            data: {
+              stockIn: { decrement: qty },
+              stockOut: { increment: qty },
+              totalStock: { decrement: qty },
+            },
+          })
+        })
+      )
+    }
+
+    //* rollback on Cancelled / Deleted
+    if (newStatus === 7 || newStatus === 8) {
+      //* if 'Verified' and then cancel or delete, then rollback stock
+      if (oldStatus === 4) {
+        await Promise.all(
+          lineItems.map((li) => {
+            const pItem = li.projectItem
+            const qty = safeParseInt(li.qty)
+
+            return tx.projectItem.update({
+              where: { code: pItem.code },
+              data: { stockIn: { decrement: qty } },
+            })
+          })
+        )
+        return
+      }
+
+      //* if oldStatus is between or equal 'Partial Delivery' and 'Delivered' and then cancel or delete, then rollback stock
+      if (oldStatus >= 5 && oldStatus <= 6) {
+        await Promise.all(
+          lineItems.map((li) => {
+            const pItem = li.projectItem
+            const qty = safeParseInt(li.qty)
+
+            return tx.projectItem.update({
+              where: { code: pItem.code },
+              data: {
+                stockOut: { decrement: qty },
+                totalStock: { increment: qty },
+              },
+            })
+          })
+        )
+      }
+    }
+  } catch (error) {
+    console.error(error)
+
+    return {
+      error: true,
+      status: 500,
+      message: error instanceof Error ? error.message : 'Something went wrong!',
+      action: 'CREDIT_STOCK',
+    }
+  }
+}
+
 export const upsertWorkOrder = action
   .use(authenticationMiddleware)
   .schema(workOrderFormSchema)
@@ -57,7 +216,7 @@ export const upsertWorkOrder = action
     const { code, lineItems, ...data } = parsedInput
     const { userId } = ctx
 
-    const woItems = lineItems
+    const woItems = lineItems.map(({ maxQty, ...li }) => li)
 
     try {
       if (code !== -1) {
@@ -112,7 +271,7 @@ export const upsertWorkOrderLineItem = action
   .use(authenticationMiddleware)
   .schema(upsertWorkOrderLineItemFormSchema)
   .action(async ({ parsedInput }) => {
-    const { workOrderCode, projectItemCode, operation, ...data } = parsedInput
+    const { workOrderCode, projectItemCode, operation, maxQty, ...data } = parsedInput
 
     try {
       //* update work order line item
@@ -155,11 +314,6 @@ export const upsertWorkOrderLineItem = action
 
 export const deleteWorkOrderLineItem = action.schema(deleteWorkOrderLineItemFormSchema).action(async ({ parsedInput: data }) => {
   try {
-    console.log({
-      workOrderCode: data.workOrderCode,
-      projectItemCode: data.projectItemCode,
-    })
-
     const workOrderLineItem = await db.workOrderItem.findUnique({
       where: { workOrderCode_projectItemCode: { workOrderCode: data.workOrderCode, projectItemCode: data.projectItemCode } },
     })
@@ -202,14 +356,14 @@ export const updateWorkeOrderStatus = action
         return { error: true, status: 422, message: 'Failed to process request!', action: 'UPDATE_WORK_ORDER_STATUS' }
       }
 
+      //* get work orders that have changed status, and the next (current status) should be greater than the previous status, not allowed to go back to the previous status
+      const changedWorkOrders = workOrders.filter((wo) => wo.prevStatus !== currentStatus).filter((wo) => currentStatus > wo.prevStatus)
+
       const updatedWorkOrders = await db.$transaction(async (tx) => {
         //* update work orders then create work order status updates
         const result = await Promise.all(
-          workOrders
+          changedWorkOrders
             .map((wo) => {
-              //*  return null if prevStatus is same as currentStatus
-              if (wo.prevStatus === currentStatus) return null
-
               return tx.workOrder.update({
                 where: { code: wo.code },
                 data: {
@@ -227,6 +381,11 @@ export const updateWorkeOrderStatus = action
               })
             })
             .filter((update) => update !== null)
+        )
+
+        //* credit stock`
+        await Promise.all(
+          changedWorkOrders.map((wo) => creditStock({ tx, workOrderCode: wo.code, prevStatus: wo.prevStatus, currStatus: currentStatus }))
         )
 
         return result
