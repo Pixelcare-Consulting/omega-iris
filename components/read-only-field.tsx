@@ -27,7 +27,7 @@ export default function ReadOnlyField({ className, title, value, isLoading, desc
               </div>
             )}
 
-            {children ?? null}
+            {(!isLoading && children) ?? null}
           </div>
         </div>
       </div>

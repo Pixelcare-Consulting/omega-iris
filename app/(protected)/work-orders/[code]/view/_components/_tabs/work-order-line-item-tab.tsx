@@ -1,6 +1,16 @@
 'use client'
 
-import { Column, DataGridTypes, DataGridRef, Button as DataGridButton, Editing, CustomRule } from 'devextreme-react/data-grid'
+import {
+  Column,
+  DataGridTypes,
+  DataGridRef,
+  Button as DataGridButton,
+  Editing,
+  CustomRule,
+  GroupItem,
+  TotalItem,
+  Summary,
+} from 'devextreme-react/data-grid'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Toolbar from 'devextreme-react/toolbar'
 import Popup from 'devextreme-react/popup'
@@ -222,6 +232,32 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
     [JSON.stringify(workOrderItems), JSON.stringify(workOrder.code)]
   )
 
+  const renderCommonSummaryIItems = () => {
+    return (
+      <>
+        <GroupItem
+          column='availableToOrder'
+          summaryType='sum'
+          displayFormat='{0}'
+          valueFormat={DEFAULT_NUMBER_FORMAT}
+          showInGroupFooter={false}
+          alignByColumn={true}
+        />
+        <GroupItem
+          column='qty'
+          summaryType='sum'
+          displayFormat='{0}'
+          valueFormat={DEFAULT_NUMBER_FORMAT}
+          showInGroupFooter={false}
+          alignByColumn={true}
+        />
+
+        <TotalItem column='availableToOrder' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+        <TotalItem column='qty' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+      </>
+    )
+  }
+
   //* show loading
   useEffect(() => {
     if (dataGridRef.current) {
@@ -305,6 +341,26 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
                   visible={workOrderStatus >= 4 ? false : true}
                 />
               </Column>
+
+              <Summary>
+                <GroupItem column='partNumber' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+                {renderCommonSummaryIItems()}
+              </Summary>
+
+              <Summary>
+                <GroupItem column='manufacturer' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+                {renderCommonSummaryIItems()}
+              </Summary>
+
+              <Summary>
+                <GroupItem
+                  column='manufacturerPartNumber'
+                  summaryType='count'
+                  displayFormat='{0} item'
+                  valueFormat={DEFAULT_NUMBER_FORMAT}
+                />
+                {renderCommonSummaryIItems()}
+              </Summary>
 
               <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
             </CommonDataGrid>

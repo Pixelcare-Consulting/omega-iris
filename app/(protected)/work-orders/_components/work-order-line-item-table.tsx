@@ -17,6 +17,9 @@ import DataGrid, {
   DataGridTypes,
   ColumnFixing,
   CustomRule,
+  GroupItem,
+  TotalItem,
+  Summary,
 } from 'devextreme-react/data-grid'
 import Button from 'devextreme-react/button'
 import Tooltip from 'devextreme-react/tooltip'
@@ -303,6 +306,11 @@ export default function WorkOrderLineItemTable({
               visible={workOrderStatus >= 4 ? false : true}
             />
           </Column>
+
+          <Summary>
+            <TotalItem column='availableToOrder' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+            <TotalItem column='qty' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+          </Summary>
 
           <LoadPanel enabled={isLoading || workOrderItems.isLoading} shadingColor='rgb(241, 245, 249)' showIndicator showPane shading />
           <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />

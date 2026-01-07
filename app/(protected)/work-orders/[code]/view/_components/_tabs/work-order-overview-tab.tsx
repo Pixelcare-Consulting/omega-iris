@@ -107,7 +107,9 @@ export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAdd
           title='Sales Order Code'
           value={salesOrder?.data?.DocNum || ''}
           isLoading={salesOrder.isLoading}
-        />
+        >
+          {salesOrder?.data?.DocNum && <Copy value={salesOrder?.data?.DocNum || ''} />}
+        </ReadOnlyField>
 
         <ReadOnlyFieldHeader className='col-span-12' title='Owner' description='Work order owner details' />
 

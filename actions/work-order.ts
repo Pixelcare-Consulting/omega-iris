@@ -141,8 +141,8 @@ export async function creditStock(params: CreditStockParams) {
     //* if has old status and new status is between or equal 'Open' and 'In Process', then do nothing
     if (oldStatus >= 1 && oldStatus <= 3 && newStatus >= 1 && newStatus <= 3) return
 
-    //* if old status is between or equal 'Open' and 'Verified' and new status is = 'Partial Delivery' or 'Delivered', then credit stock
-    if (oldStatus >= 1 && oldStatus <= 4 && newStatus >= 5 && newStatus <= 6) {
+    //* if old status is 'Verified' and new status is = 'Partial Delivery' or 'Delivered', then credit stock
+    if (oldStatus === 4 && newStatus >= 5 && newStatus <= 6) {
       //* credit stock
       await Promise.all(
         lineItems.map((li) => {
