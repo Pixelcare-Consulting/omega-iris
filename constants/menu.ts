@@ -37,13 +37,6 @@ export const navigation: NavItem[] = [
         selected: false,
         expanded: false,
       },
-      {
-        id: '2_2',
-        text: 'Permissions',
-        path: '/security/permissions',
-        selected: false,
-        expanded: false,
-      },
     ],
   },
   {

@@ -55,7 +55,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
         projectIndividualCode: 0,
         userCode: 0,
         status: '1',
-        isInternal: true,
+        isInternal: false,
         billingAddrCode: null,
         shippingAddrCode: null,
         comments: null,
