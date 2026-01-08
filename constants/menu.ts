@@ -1,3 +1,6 @@
+import { AnyAbility } from '@casl/ability'
+import { v4 as uuidv4 } from 'uuid'
+
 export type NavItem = {
   id: string
   text: string
@@ -6,119 +9,180 @@ export type NavItem = {
   selected?: boolean
   expanded?: boolean
   items?: NavItem[]
+  actions?: string | string[]
+  subjects?: string | string[]
 }
 
 export const navigation: NavItem[] = [
   {
-    id: '0',
+    id: uuidv4(),
     text: 'Dashboard',
     icon: 'mediumiconslayout',
     path: '/dashboard',
     selected: false,
+    actions: 'view',
+    subjects: 'p-dashboard',
   },
   {
-    id: '1',
+    id: uuidv4(),
     text: 'Users',
     icon: 'user',
     path: '/users',
     selected: false,
     expanded: false,
+    actions: 'view',
+    subjects: 'p-users',
   },
   {
-    id: '2',
-    text: 'Security',
-    icon: 'lock',
+    id: uuidv4(),
+    text: 'Roles',
+    icon: 'group',
+    path: '/roles',
     selected: false,
-    items: [
-      {
-        id: '2_1',
-        text: 'Roles',
-        path: '/security/roles',
-        selected: false,
-        expanded: false,
-      },
-    ],
+    expanded: false,
+    actions: 'view',
+    subjects: 'p-roles',
   },
   {
-    id: '3',
+    id: uuidv4(),
     text: 'Settings',
     icon: 'optionsgear',
     path: '/settings',
     selected: false,
     expanded: false,
+    actions: 'view',
+    subjects: 'p-settings',
   },
   {
-    id: '4',
+    id: uuidv4(),
     text: 'Customers',
     icon: 'group',
     path: '/customers',
     selected: false,
     expanded: false,
+    actions: 'view',
+    subjects: 'p-customers',
   },
   {
-    id: '5',
+    id: uuidv4(),
     text: 'Projects',
     icon: 'folder',
     selected: false,
     expanded: false,
+    actions: 'view',
+    subjects: ['p-projects-groups', 'p-projects-individuals'],
     items: [
       {
-        id: '5_2',
+        id: uuidv4(),
         text: 'Groups',
         path: '/project/groups',
         selected: false,
         expanded: false,
+        actions: 'view',
+        subjects: 'p-projects-groups',
       },
       {
-        id: '5_1',
+        id: uuidv4(),
         text: 'Individuals',
         path: '/project/individuals',
         selected: false,
         expanded: false,
+        actions: 'view',
+        subjects: 'p-projects-individuals',
       },
     ],
   },
+  // {
+  //   id: uuidv4(),
+  //   text: 'Warehouses',
+  //   icon: 'home',
+  //   path: '/warehouses',
+  //   selected: false,
+  //   expanded: false,
+  //   actions: 'view',
+  //   subjects: 'p-warehouses',
+  // },
   {
-    id: '6',
-    text: 'Warehouses',
-    icon: 'home',
-    path: '/warehouses',
-    selected: false,
-    expanded: false,
-  },
-  {
-    id: '7',
+    id: uuidv4(),
     text: 'Inventory',
     icon: 'packagebox',
     path: '/inventory',
     selected: false,
     expanded: false,
+    actions: 'view',
+    subjects: 'p-inventory',
   },
   {
-    id: '8',
+    id: uuidv4(),
     text: 'Work Orders',
     icon: 'cardcontent',
     path: '/work-orders',
     selected: false,
     expanded: false,
+    actions: 'view',
+    subjects: 'p-work-orders',
   },
   {
-    id: '9',
+    id: uuidv4(),
     text: 'Reporting',
     icon: 'datausage',
     path: '/reporting',
     selected: false,
     expanded: false,
+    actions: 'view',
+    subjects: 'p-reporting',
   },
   // {
-  //   id: '10',
+  //   id: uuidv4(),
   //   text: 'Logs',
   //   icon: 'ordersbox',
   //   path: '/logs',
   //   selected: false,
   //   expanded: false,
+  //   actions: 'view',
+  //   subjects: 'p-logs',
   // },
 ]
+
+export function findNavByPath(navItems: NavItem[], path: string): NavItem | null {
+  for (const item of navItems) {
+    //* direct match
+    if (item.path && path.startsWith(item.path)) return item
+
+    //* search children
+    if (item.items?.length) {
+      const found = findNavByPath(item.items, path)
+      if (found) return found
+    }
+  }
+
+  return null
+}
+
+export function filterNavigationByAbility(items: NavItem[], ability: AnyAbility): NavItem[] {
+  return items
+    .map((item) => {
+      const actions = Array.isArray(item.actions) ? item.actions : [item.actions]
+      const subjects = Array.isArray(item.subjects) ? item.subjects : [item.subjects]
+
+      //* check permission for current item
+      const canViewItem = actions.some((act) => subjects.some((sub) => ability.can(act, sub)))
+
+      //* filter children recursively
+      const filteredChildren = item.items ? filterNavigationByAbility(item.items, ability) : []
+
+      //* show item if user can view it, OR if it has at least 1 visible child
+      if (!canViewItem && filteredChildren.length === 0) {
+        return null
+      }
+
+      return {
+        ...item,
+        items: filteredChildren.length ? filteredChildren : undefined,
+      }
+    })
+    .filter(Boolean) as NavItem[]
+}
 
 export function markSelectedAndExpand(items: NavItem[], path: string): NavItem[] {
   return items.map((item) => {

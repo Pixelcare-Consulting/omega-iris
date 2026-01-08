@@ -80,9 +80,9 @@ export default function ViewWorkOrder({ workOrder }: ViewWorkOrderProps) {
             <WorkOrderStatusUpdateTab statusUpdates={workOrderStatusUpdates} />
           </TabPanelITem>
 
-          <TabPanelITem title='Sales Order'>
+          {/* <TabPanelITem title='Sales Order'>
             <UnderDevelopment className='h-[60vh]' />
-          </TabPanelITem>
+          </TabPanelITem> */}
         </TabPanel>
       </PageContentWrapper>
     </div>

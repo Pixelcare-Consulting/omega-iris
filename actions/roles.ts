@@ -38,7 +38,7 @@ export const upsertRole = action
   .use(authenticationMiddleware)
   .schema(roleFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, ...data } = parsedInput
+    const { code, permissions, ...data } = parsedInput
     const { userId } = ctx
 
     try {
@@ -49,12 +49,20 @@ export const upsertRole = action
 
       //*  update role
       if (code && code !== -1) {
-        const [updatedRole] = await db.$transaction([
+        const updatedRole = await db.$transaction(async (tx) => {
           //* update role
-          db.role.update({ where: { code }, data: { ...data, updatedBy: userId } }),
+          const role = await tx.role.update({ where: { code }, data: { ...data, updatedBy: userId } })
 
-          //TODO: role permissions
-        ])
+          //* delete the existing role permissions records
+          await tx.rolePermission.deleteMany({ where: { roleId: role.id } })
+
+          //* create new role permissions
+          await tx.rolePermission.createMany({
+            data: permissions.filter((p) => p.actions.length > 0).map((p) => ({ roleId: role.id, permissionId: p.id, actions: p.actions })),
+          })
+
+          return role
+        })
 
         return {
           status: 200,
@@ -65,7 +73,18 @@ export const upsertRole = action
       }
 
       //* create role
-      const newRole = await db.role.create({ data: { ...data, createdBy: userId, updatedBy: userId } })
+      const newRole = await db.role.create({
+        data: {
+          ...data,
+          createdBy: userId,
+          updatedBy: userId,
+          rolePermissions: {
+            createMany: {
+              data: permissions.filter((p) => p.actions.length > 0).map((p) => ({ permissionId: p.id, actions: p.actions })),
+            },
+          },
+        },
+      })
 
       return { status: 200, message: 'Role created successfully!', action: 'UPSERT_ROLE', data: { role: newRole } }
     } catch (error) {

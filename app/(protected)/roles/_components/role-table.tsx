@@ -48,13 +48,13 @@ export default function RoleTable({ roles }: RoleTableProps) {
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const data = e.row?.data
     if (!data) return
-    router.push(`/security/roles/${data?.code}/view`)
+    router.push(`/roles/${data?.code}/view`)
   }, [])
 
   const handleEdit = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const code = e.row?.data?.code
     if (!code) return
-    router.push(`/security/roles/${code}`)
+    router.push(`/roles/${code}`)
   }, [])
 
   const handleDelete = useCallback(
@@ -101,7 +101,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
-          addButton={{ text: 'Add Role', onClick: () => router.push('/security/roles/add') }}
+          addButton={{ text: 'Add Role', onClick: () => router.push('/roles/add') }}
         />
       </PageHeader>
 

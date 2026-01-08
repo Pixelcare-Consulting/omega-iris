@@ -30,7 +30,7 @@ export default function ViewRole({ role }: ViewRolesProps) {
             icon='arrowleft'
             stylingMode='outlined'
             type='default'
-            onClick={() => router.push('/security/roles')}
+            onClick={() => router.push('/roles')}
           />
         </Item>
 
@@ -38,14 +38,14 @@ export default function ViewRole({ role }: ViewRolesProps) {
           location='after'
           locateInMenu='always'
           widget='dxButton'
-          options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/security/roles/add`) }}
+          options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/roles/add`) }}
         />
 
         <Item
           location='after'
           locateInMenu='always'
           widget='dxButton'
-          options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/security/roles/${role.code}`) }}
+          options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/roles/${role.code}`) }}
         />
       </PageHeader>
 

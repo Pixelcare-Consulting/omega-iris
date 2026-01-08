@@ -17,6 +17,18 @@ type AuthenticateSapServiceLayerResponse = {
 }
 
 export async function authenticateSapServiceLayer(credentials: SapCredentials): Promise<AuthenticateSapServiceLayerResponse> {
+  if (process.env.SAP_SECURITY_STRICT === 'false') {
+    logger.warn(`PASS THROUGH MODE: Authenticate with SAP Service Layer`)
+
+    return {
+      error: true,
+      status: 500,
+      message: 'PASS THROUGH MOD: SAP Authentication failed!',
+      action: 'AUTH_SAP_SERVICE_LAYER',
+      data: { sapSession: null },
+    }
+  }
+
   try {
     //* clean the base URL and construct the login endpoint, remove trailing slash
     const baseUrl = credentials.baseUrl.replace(/\/+$/, '')

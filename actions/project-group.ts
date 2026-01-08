@@ -19,6 +19,7 @@ export async function getPgs() {
       orderBy: COMMON_PROJECT_GROUP_ORDER_BY,
     })
   } catch (error) {
+    console.error(error)
     return []
   }
 }
@@ -32,7 +33,8 @@ export async function getPgByCode(code: number) {
 
   try {
     return db.projectGroup.findUnique({ where: { code } })
-  } catch (err) {
+  } catch (error) {
+    console.error(error)
     return null
   }
 }

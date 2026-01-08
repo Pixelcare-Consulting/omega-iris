@@ -1,5 +1,5 @@
 import { getRoles } from '@/actions/roles'
-import ContentContainer from '../../_components/content-container'
+import ContentContainer from '../_components/content-container'
 import RoleTable from './_components/role-table'
 
 export default async function RolesPage() {
