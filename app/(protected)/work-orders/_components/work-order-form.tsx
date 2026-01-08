@@ -34,6 +34,7 @@ import { safeParseFloat } from '@/utils'
 import { FormDebug } from '@/components/forms/form-debug'
 import { useAddresses } from '@/hooks/safe-actions/address'
 import { useSalesOrderByWorkOrderCode } from '@/hooks/safe-actions/sales-order'
+import CanView from '@/components/acl/can-view'
 
 type WorkOrderFormProps = {
   pageMetaData: PageMetadata
@@ -200,28 +201,42 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <LoadingButton text='Save' type='default' stylingMode='contained' useSubmitBehavior icon='save' isLoading={isExecuting} />
+            <LoadingButton
+              text='Save'
+              type='default'
+              stylingMode='contained'
+              useSubmitBehavior
+              icon='save'
+              isLoading={isExecuting}
+              disabled={
+                CanView({ isReturnBoolean: true, subject: 'p-work-orders', action: !workOrder ? ['create'] : ['edit'] }) ? false : true
+              }
+            />
           </Item>
 
           {workOrder && (
             <>
-              <Item
-                location='after'
-                locateInMenu='always'
-                widget='dxButton'
-                options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/work-orders/add`) }}
-              />
+              <CanView subject='p-work-orders' action='create'>
+                <Item
+                  location='after'
+                  locateInMenu='always'
+                  widget='dxButton'
+                  options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/work-orders/add`) }}
+                />
+              </CanView>
 
-              <Item
-                location='after'
-                locateInMenu='always'
-                widget='dxButton'
-                options={{
-                  text: 'View',
-                  icon: 'eyeopen',
-                  onClick: () => router.push(`/work-orders/${workOrder.code}/view`),
-                }}
-              />
+              <CanView subject='p-work-orders' action='view'>
+                <Item
+                  location='after'
+                  locateInMenu='always'
+                  widget='dxButton'
+                  options={{
+                    text: 'View',
+                    icon: 'eyeopen',
+                    onClick: () => router.push(`/work-orders/${workOrder.code}/view`),
+                  }}
+                />
+              </CanView>
             </>
           )}
         </PageHeader>

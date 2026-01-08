@@ -2,21 +2,24 @@
 
 import Drawer from 'devextreme-react/drawer'
 import { Template } from 'devextreme-react/core/template'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { TreeView, TreeViewRef, TreeViewTypes } from 'devextreme-react/tree-view'
 import { useRouter } from 'nextjs-toploader/app'
 
 import { cn } from '@/utils'
 import { useMediaQuery } from '@/hooks/use-media-query'
-import { markSelectedAndExpand, navigation } from '@/constants/menu'
+import { filterNavigationByAbility, markSelectedAndExpand, navigation } from '@/constants/menu'
 import { usePathname } from 'next/navigation'
 import { DxEvent, PointerInteractionEvent } from 'devextreme/events'
+import { AbilityContext } from '@/components/acl/can'
 
 type SidebarProps = { isOpen: boolean; setIsOpen: React.Dispatch<React.SetStateAction<boolean>>; children: React.ReactNode }
 
 export default function Sidebar({ isOpen, setIsOpen, children }: SidebarProps) {
   const path = usePathname()
   const router = useRouter()
+
+  const ability = useContext(AbilityContext)
 
   const treeViewRef = useRef<TreeViewRef>(null)
   const autoCloseWhenSmall = useRef<boolean>(false)
@@ -73,11 +76,15 @@ export default function Sidebar({ isOpen, setIsOpen, children }: SidebarProps) {
     if (!isOpen && treeViewRef.current) collapseAllItems()
   }, [treeViewRef, isOpen])
 
-  //* set initial selected item
+  //* set initial selected item, filter navigation by ability
   useEffect(() => {
-    const updatedItems = markSelectedAndExpand(navigation, path)
+    if (!ability) return
+
+    const filteredNav = filterNavigationByAbility(navigation, ability)
+    const updatedItems = markSelectedAndExpand(filteredNav, path)
+
     setItems(updatedItems)
-  }, [path])
+  }, [ability, path])
 
   return (
     <Drawer

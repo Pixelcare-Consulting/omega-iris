@@ -21,6 +21,7 @@ import { getPgByCode, upsertPg } from '@/actions/project-group'
 import { PageMetadata } from '@/types/common'
 import SwitchField from '@/components/forms/switch-field'
 import TextAreaField from '@/components/forms/text-area-field'
+import CanView from '@/components/acl/can-view'
 
 type ProjectGroupFormProps = { pageMetaData: PageMetadata; projectGroup: Awaited<ReturnType<typeof getPgByCode>> }
 
@@ -87,24 +88,40 @@ export default function ProjectGroupForm({ pageMetaData, projectGroup }: Project
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <LoadingButton text='Save' type='default' stylingMode='contained' useSubmitBehavior icon='save' isLoading={isExecuting} />
+            <LoadingButton
+              text='Save'
+              type='default'
+              stylingMode='contained'
+              useSubmitBehavior
+              icon='save'
+              isLoading={isExecuting}
+              disabled={
+                CanView({ isReturnBoolean: true, subject: 'p-projects-groups', action: !projectGroup ? ['create'] : ['edit'] })
+                  ? false
+                  : true
+              }
+            />
           </Item>
 
           {projectGroup && (
             <>
-              <Item
-                location='after'
-                locateInMenu='always'
-                widget='dxButton'
-                options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/project/groups/add`) }}
-              />
+              <CanView subject='p-projects-groups' action='create'>
+                <Item
+                  location='after'
+                  locateInMenu='always'
+                  widget='dxButton'
+                  options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/project/groups/add`) }}
+                />
+              </CanView>
 
-              <Item
-                location='after'
-                locateInMenu='always'
-                widget='dxButton'
-                options={{ text: 'View', icon: 'eyeopen', onClick: () => router.push(`/project/groups/${projectGroup.code}/view`) }}
-              />
+              <CanView subject='p-projects-groups' action='view'>
+                <Item
+                  location='after'
+                  locateInMenu='always'
+                  widget='dxButton'
+                  options={{ text: 'View', icon: 'eyeopen', onClick: () => router.push(`/project/groups/${projectGroup.code}/view`) }}
+                />
+              </CanView>
             </>
           )}
         </PageHeader>

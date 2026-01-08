@@ -17,6 +17,7 @@ import { useWoStatusUpdatesByWoCode } from '@/hooks/safe-actions/work-order-stat
 import WorkOrderStatusUpdateTab from './_tabs/work-order-status-update-tab'
 import { useSalesOrderByWorkOrderCode } from '@/hooks/safe-actions/sales-order'
 import { useAddressById } from '@/hooks/safe-actions/address'
+import CanView from '@/components/acl/can-view'
 
 type ViewWorkOrderProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
@@ -46,19 +47,23 @@ export default function ViewWorkOrder({ workOrder }: ViewWorkOrderProps) {
           />
         </Item>
 
-        <Item
-          location='after'
-          locateInMenu='always'
-          widget='dxButton'
-          options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/work-orders/add`) }}
-        />
+        <CanView subject='p-work-orders' action='create'>
+          <Item
+            location='after'
+            locateInMenu='always'
+            widget='dxButton'
+            options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/work-orders/add`) }}
+          />
+        </CanView>
 
-        <Item
-          location='after'
-          locateInMenu='always'
-          widget='dxButton'
-          options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/work-orders/${workOrder.code}`) }}
-        />
+        <CanView subject='p-work-orders' action='edit'>
+          <Item
+            location='after'
+            locateInMenu='always'
+            widget='dxButton'
+            options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/work-orders/${workOrder.code}`) }}
+          />
+        </CanView>
       </PageHeader>
 
       <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
@@ -80,9 +85,9 @@ export default function ViewWorkOrder({ workOrder }: ViewWorkOrderProps) {
             <WorkOrderStatusUpdateTab statusUpdates={workOrderStatusUpdates} />
           </TabPanelITem>
 
-          <TabPanelITem title='Sales Order'>
+          {/* <TabPanelITem title='Sales Order'>
             <UnderDevelopment className='h-[60vh]' />
-          </TabPanelITem>
+          </TabPanelITem> */}
         </TabPanel>
       </PageContentWrapper>
     </div>

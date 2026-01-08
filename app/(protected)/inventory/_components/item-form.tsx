@@ -34,6 +34,7 @@ import { useManufacturers } from '@/hooks/safe-actions/manufacturer'
 import { commonItemRender } from '@/utils/devextreme'
 import ReadOnlyField from '@/components/read-only-field'
 import { titleCase } from '@/utils'
+import CanView from '@/components/acl/can-view'
 
 type ItemFormProps = { pageMetaData: PageMetadata; item: Awaited<ReturnType<typeof getItemByCode>> }
 
@@ -196,28 +197,40 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <LoadingButton text='Save' type='default' stylingMode='contained' useSubmitBehavior icon='save' isLoading={isExecuting} />
+            <LoadingButton
+              text='Save'
+              type='default'
+              stylingMode='contained'
+              useSubmitBehavior
+              icon='save'
+              isLoading={isExecuting}
+              disabled={CanView({ isReturnBoolean: true, subject: 'p-inventory', action: !item ? ['create'] : ['edit'] }) ? false : true}
+            />
           </Item>
 
           {item && (
             <>
-              <Item
-                location='after'
-                locateInMenu='always'
-                widget='dxButton'
-                options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/inventory/add`) }}
-              />
+              <CanView subject='p-inventory' action='create'>
+                <Item
+                  location='after'
+                  locateInMenu='always'
+                  widget='dxButton'
+                  options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/inventory/add`) }}
+                />
+              </CanView>
 
-              <Item
-                location='after'
-                locateInMenu='always'
-                widget='dxButton'
-                options={{
-                  text: 'View',
-                  icon: 'eyeopen',
-                  onClick: () => router.push(`/inventory/${item.code}/view`),
-                }}
-              />
+              <CanView subject='p-inventory' action='view'>
+                <Item
+                  location='after'
+                  locateInMenu='always'
+                  widget='dxButton'
+                  options={{
+                    text: 'View',
+                    icon: 'eyeopen',
+                    onClick: () => router.push(`/inventory/${item.code}/view`),
+                  }}
+                />
+              </CanView>
             </>
           )}
         </PageHeader>

@@ -1,41 +1,37 @@
 'use client'
 
-import { deleteUser, getUsers, restoreUser } from '@/actions/users'
+import { deleleteRole, getRoles, restoreRole } from '@/actions/roles'
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
 import { useCallback, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
-import { format, isValid } from 'date-fns'
 
-import PageHeader from '../../_components/page-header'
-import PageContentWrapper from '../../_components/page-content-wrapper'
-import { createRandomUser } from '@/utils/faker'
+import PageHeader from '@/app/(protected)/_components/page-header'
+import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
-import CommonPageHeaderToolbarItems from '../../_components/common-page-header-toolbar-item'
+import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import AlertDialog from '@/components/alert-dialog'
 import CommonDataGrid from '@/components/common-datagrid'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 
-type UserTableProps = { users: Awaited<ReturnType<typeof getUsers>> }
-type DataSource = Awaited<ReturnType<typeof getUsers>>
+type RoleTableProps = { roles: Awaited<ReturnType<typeof getRoles>> }
+type DataSource = Awaited<ReturnType<typeof getRoles>>
 
-const RANDOM_USERS = Array.from({ length: 100 }).map(() => createRandomUser())
-
-export default function UserTable({ users }: UserTableProps) {
+export default function RoleTable({ roles }: RoleTableProps) {
   const router = useRouter()
 
-  const DATAGRID_STORAGE_KEY = 'dx-datagrid-user'
-  const DATAGRID_UNIQUE_KEY = 'users'
+  const DATAGRID_STORAGE_KEY = 'dx-datagrid-role'
+  const DATAGRID_UNIQUE_KEY = 'roles'
 
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
   const dataGridRef = useRef<DataGridRef | null>(null)
 
-  const deleteUserData = useAction(deleteUser)
-  const restoreUserData = useAction(restoreUser)
+  const deleteRoleData = useAction(deleleteRole)
+  const restoreRoleData = useAction(restoreRole)
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',
@@ -53,23 +49,16 @@ export default function UserTable({ users }: UserTableProps) {
     'setShowColumnChooser',
   ])
 
-  const lastSigninCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
-    const data = e.data as DataSource[number]
-    const lastSignin = data?.lastSignin
-    if (!lastSignin || !isValid(lastSignin)) return ''
-    return format(lastSignin, 'MM-dd-yyyy hh:mm a')
-  }, [])
-
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const data = e.row?.data
     if (!data) return
-    router.push(`/users/${data?.code}/view`)
+    router.push(`/roles/${data?.code}/view`)
   }, [])
 
   const handleEdit = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const code = e.row?.data?.code
     if (!code) return
-    router.push(`/users/${code}`)
+    router.push(`/roles/${code}`)
   }, [])
 
   const handleDelete = useCallback(
@@ -92,17 +81,17 @@ export default function UserTable({ users }: UserTableProps) {
     [setShowRestoreConfirmation, setRowData]
   )
 
-  const handleConfirmDelete = (code?: number) => {
+  const handleConfirm = (code?: number) => {
     if (!code) return
 
     setShowDeleteConfirmation(false)
 
-    toast.promise(deleteUserData.executeAsync({ code }), {
-      loading: 'Deleting user...',
+    toast.promise(deleteRoleData.executeAsync({ code }), {
+      loading: 'Deleting role...',
       success: (response) => {
         const result = response?.data
 
-        if (!response || !result) throw { message: 'Failed to delete user!', unExpectedError: true }
+        if (!response || !result) throw { message: 'Failed to delete role!', unExpectedError: true }
 
         if (!result.error) {
           setTimeout(() => {
@@ -125,12 +114,12 @@ export default function UserTable({ users }: UserTableProps) {
 
     setShowRestoreConfirmation(false)
 
-    toast.promise(restoreUserData.executeAsync({ code }), {
-      loading: 'Restoring user...',
+    toast.promise(restoreRoleData.executeAsync({ code }), {
+      loading: 'Restoring role...',
       success: (response) => {
         const result = response?.data
 
-        if (!response || !result) throw { message: 'Failed to restore user!', unExpectedError: true }
+        if (!response || !result) throw { message: 'Failed to restore role!', unExpectedError: true }
 
         if (!result.error) {
           setTimeout(() => {
@@ -150,38 +139,24 @@ export default function UserTable({ users }: UserTableProps) {
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Users' description='Manage and track your users effectively'>
+      <PageHeader title='Roles' description='Manage and track your roles effectively'>
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
-          addButton={{ text: 'Add User', onClick: () => router.push('/users/add'), subjects: 'p-users', actions: 'create' }}
+          addButton={{ text: 'Add Role', onClick: () => router.push('/roles/add'), subjects: 'p-roles', actions: 'create' }}
         />
       </PageHeader>
 
       <PageContentWrapper className='h-[calc(100%_-_92px)]'>
-        <CommonDataGrid dataGridRef={dataGridRef} data={users} storageKey={DATAGRID_STORAGE_KEY} dataGridStore={dataGridStore}>
-          <Column dataField='code' minWidth={100} dataType='string' caption='ID' sortOrder='asc' />
-          <Column dataField='username' dataType='string' />
-          <Column
-            dataField='fullName'
-            dataType='string'
-            caption='Full Name'
-            calculateCellValue={(rowData) => `${rowData.fname} ${rowData.lname}`}
-          />
-          <Column dataField='email' dataType='string' caption='Email Address' />
-          <Column dataField='role.name' dataType='string' caption='Role' />
-          <Column
-            dataField='isActive'
-            dataType='string'
-            caption='Status'
-            calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
-          />
-          <Column dataField='location' dataType='string' />
-          <Column dataField='lastIpAddress' dataType='string' caption='Last IP Address' />
-          <Column dataField='lastSignin' dataType='string' caption='Last Signin' cellRender={lastSigninCellRender} />
+        <CommonDataGrid dataGridRef={dataGridRef} data={roles} storageKey={DATAGRID_STORAGE_KEY} dataGridStore={dataGridStore}>
+          <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
+          <Column dataField='name' dataType='string' />
+          <Column dataField='description' dataType='string' />
+          <Column dataField='createdAt' dataType='datetime' caption='Created At' />
+          <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
           <Column type='buttons' fixed fixedPosition='right' minWidth={140} caption='Actions'>
-            <CanView subject='p-users' action='view'>
+            <CanView subject='p-roles' action='view'>
               <DataGridButton
                 icon='eyeopen'
                 onClick={handleView}
@@ -194,7 +169,7 @@ export default function UserTable({ users }: UserTableProps) {
               />
             </CanView>
 
-            <CanView subject='p-users' action='edit'>
+            <CanView subject='p-roles' action='edit'>
               <DataGridButton
                 icon='edit'
                 onClick={handleEdit}
@@ -207,7 +182,7 @@ export default function UserTable({ users }: UserTableProps) {
               />
             </CanView>
 
-            <CanView subject='p-users' action='delete'>
+            <CanView subject='p-roles' action='delete'>
               <DataGridButton
                 icon='trash'
                 onClick={handleDelete}
@@ -220,7 +195,7 @@ export default function UserTable({ users }: UserTableProps) {
               />
             </CanView>
 
-            <CanView subject='p-users' action='restore'>
+            <CanView subject='p-roles' action='restore'>
               <DataGridButton
                 icon='undo'
                 onClick={handleRestore}
@@ -239,15 +214,15 @@ export default function UserTable({ users }: UserTableProps) {
       <AlertDialog
         isOpen={showDeleteConfirmation}
         title='Are you sure?'
-        description={`Are you sure you want to delete this user named "${rowData?.fname} ${rowData?.lname}"?`}
-        onConfirm={() => handleConfirmDelete(rowData?.code)}
+        description={`Are you sure you want to delete this role named "${rowData?.name}"?`}
+        onConfirm={() => handleConfirm(rowData?.code)}
         onCancel={() => setShowDeleteConfirmation(false)}
       />
 
       <AlertDialog
         isOpen={showRestoreConfirmation}
         title='Are you sure?'
-        description={`Are you sure you want to restore this user item named  "${rowData?.fname} ${rowData?.lname}"?`}
+        description={`Are you sure you want to restore this role named "${rowData?.name}"?`}
         onConfirm={() => handleConfirmRestore(rowData?.code)}
         onCancel={() => setShowRestoreConfirmation(false)}
       />

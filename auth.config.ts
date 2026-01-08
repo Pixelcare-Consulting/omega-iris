@@ -8,7 +8,7 @@ import { db } from './utils/db'
 export default {
   providers: [
     Credentials({
-      authorize: async (credentials, request) => {
+      authorize: async (credentials) => {
         try {
           const validatedFields = signinFormSchema.safeParse(credentials)
 

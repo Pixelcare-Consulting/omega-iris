@@ -15,6 +15,7 @@ import ProjectIndividualCustomerTab from './_tabs/project-individual-customer-ta
 import ProjectIndividualPicTab from './_tabs/project-individual-pic-tab'
 import ProjectIndividualItemTab from './_tabs/project-individual-item-tab'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
+import CanView from '@/components/acl/can-view'
 
 type ViewProjectIndividualProps = {
   projectIndividual: NonNullable<Awaited<ReturnType<typeof getPiByCode>>>
@@ -42,19 +43,23 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
           />
         </Item>
 
-        <Item
-          location='after'
-          locateInMenu='always'
-          widget='dxButton'
-          options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/project/individuals/add`) }}
-        />
+        <CanView subject='p-projects-individuals' action='create'>
+          <Item
+            location='after'
+            locateInMenu='always'
+            widget='dxButton'
+            options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/project/individuals/add`) }}
+          />
+        </CanView>
 
-        <Item
-          location='after'
-          locateInMenu='always'
-          widget='dxButton'
-          options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/project/individuals/${projectIndividual.code}`) }}
-        />
+        <CanView subject='p-projects-individuals' action='edit'>
+          <Item
+            location='after'
+            locateInMenu='always'
+            widget='dxButton'
+            options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/project/individuals/${projectIndividual.code}`) }}
+          />
+        </CanView>
       </PageHeader>
 
       <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>

@@ -26,6 +26,7 @@ import Separator from '@/components/separator'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import { useBps } from '@/hooks/safe-actions/business-partner'
 import { commonItemRender } from '@/utils/devextreme'
+import CanView from '@/components/acl/can-view'
 
 type UserFormProps = { pageMetaData: PageMetadata; user: Awaited<ReturnType<typeof getUserByCode>> }
 
@@ -132,24 +133,36 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <LoadingButton text='Save' type='default' stylingMode='contained' useSubmitBehavior icon='save' isLoading={isExecuting} />
+            <LoadingButton
+              text='Save'
+              type='default'
+              stylingMode='contained'
+              useSubmitBehavior
+              icon='save'
+              isLoading={isExecuting}
+              disabled={CanView({ isReturnBoolean: true, subject: 'p-users', action: !user ? ['create'] : ['edit'] }) ? false : true}
+            />
           </Item>
 
           {user && (
             <>
-              <Item
-                location='after'
-                locateInMenu='always'
-                widget='dxButton'
-                options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/users/add`) }}
-              />
+              <CanView subject='p-users' action='create'>
+                <Item
+                  location='after'
+                  locateInMenu='always'
+                  widget='dxButton'
+                  options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/users/add`) }}
+                />
+              </CanView>
 
-              <Item
-                location='after'
-                locateInMenu='always'
-                widget='dxButton'
-                options={{ text: 'View', icon: 'eyeopen', onClick: () => router.push(`/users/${user.code}/view`) }}
-              />
+              <CanView subject='p-users' action='view'>
+                <Item
+                  location='after'
+                  locateInMenu='always'
+                  widget='dxButton'
+                  options={{ text: 'View', icon: 'eyeopen', onClick: () => router.push(`/users/${user.code}/view`) }}
+                />
+              </CanView>
             </>
           )}
         </PageHeader>

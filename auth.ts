@@ -62,7 +62,13 @@ export const callbacks: NextAuthConfig['callbacks'] = {
           emailVerified: true,
           isActive: true,
           isOnline: true,
-          role: true,
+          role: {
+            include: {
+              rolePermissions: {
+                include: { permission: true },
+              },
+            },
+          },
         },
       })
 
@@ -110,7 +116,11 @@ export const callbacks: NextAuthConfig['callbacks'] = {
         roleKey: role.key,
         roleCode: role.code,
         roleName: role.name,
-        rolePermissions: [],
+        rolePermissions: role.rolePermissions.map((rp) => ({
+          id: rp.permissionId,
+          code: rp.permission.code,
+          actions: rp.actions,
+        })),
         isActive,
         isOnline,
         isOAuth: !!existingAccount,

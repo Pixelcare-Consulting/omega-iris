@@ -27,6 +27,7 @@ import LoadingButton from '@/components/loading-button'
 import { useSyncMeta } from '@/hooks/safe-actions/sync-meta'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
+import CanView from '@/components/acl/can-view'
 
 type CustomerTableProps = { bps: Awaited<ReturnType<typeof getBps>> }
 type DataSource = Awaited<ReturnType<typeof getBps>>
@@ -261,49 +262,53 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
         isLoading={syncToSapData.isExecuting || syncFromSapData.isExecuting}
       >
         {selectedRowKeys.length > 0 && (
-          <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <Tooltip
-              target='#sync-items-to-sap'
-              contentRender={() => 'Sync To SAP'}
-              showEvent='mouseenter'
-              hideEvent='mouseleave'
-              position='top'
-            />
-            <LoadingButton
-              id='sync-items-to-sap'
-              icon='upload'
-              isLoading={syncToSapData.isExecuting}
-              text={`${selectedRowKeys.length} : Sync To SAP`}
-              type='default'
-              loadingText='Syncing'
-              stylingMode='outlined'
-              onClick={() => setShowSyncToSapConfirmation(true)}
-            />
-          </Item>
-        )}
-
-        {selectedRowKeys.length < 1 && (
-          <Item location='after' locateInMenu='auto' widget='dxButton'>
-            {!syncMeta.isLoading && (
+          <CanView subject='p-customers' action='sync to sap'>
+            <Item location='after' locateInMenu='auto' widget='dxButton'>
               <Tooltip
-                target='#sync-from-sap-to-portal'
-                contentRender={() => `Last Sync: ${format(syncMeta.data?.lastSyncAt || new Date('01/01/2020'), 'PP, hh:mm a')}`}
+                target='#sync-items-to-sap'
+                contentRender={() => 'Sync To SAP'}
                 showEvent='mouseenter'
                 hideEvent='mouseleave'
                 position='top'
               />
-            )}
-            <LoadingButton
-              id='sync-from-sap-to-portal'
-              icon='refresh'
-              isLoading={syncFromSapData.isExecuting}
-              type='default'
-              text='Sync From SAP'
-              loadingText={syncMeta.isLoading ? 'Depedecy loading' : 'Syncing'}
-              stylingMode='outlined'
-              onClick={() => setShowSyncFromSapConfirmation(true)}
-            />
-          </Item>
+              <LoadingButton
+                id='sync-items-to-sap'
+                icon='upload'
+                isLoading={syncToSapData.isExecuting}
+                text={`${selectedRowKeys.length} : Sync To SAP`}
+                type='default'
+                loadingText='Syncing'
+                stylingMode='outlined'
+                onClick={() => setShowSyncToSapConfirmation(true)}
+              />
+            </Item>
+          </CanView>
+        )}
+
+        {selectedRowKeys.length < 1 && (
+          <CanView subject='p-customers' action='sync from sap'>
+            <Item location='after' locateInMenu='auto' widget='dxButton'>
+              {!syncMeta.isLoading && (
+                <Tooltip
+                  target='#sync-from-sap-to-portal'
+                  contentRender={() => `Last Sync: ${format(syncMeta.data?.lastSyncAt || new Date('01/01/2020'), 'PP, hh:mm a')}`}
+                  showEvent='mouseenter'
+                  hideEvent='mouseleave'
+                  position='top'
+                />
+              )}
+              <LoadingButton
+                id='sync-from-sap-to-portal'
+                icon='refresh'
+                isLoading={syncFromSapData.isExecuting}
+                type='default'
+                text='Sync From SAP'
+                loadingText={syncMeta.isLoading ? 'Depedecy loading' : 'Syncing'}
+                stylingMode='outlined'
+                onClick={() => setShowSyncFromSapConfirmation(true)}
+              />
+            </Item>
+          </CanView>
         )}
 
         <CommonPageHeaderToolbarItems
@@ -312,7 +317,9 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
           isLoading={isLoading || syncToSapData.isExecuting || syncFromSapData.isExecuting}
           isEnableImport
           //   onImport={handleImport}
-          addButton={{ text: 'Add Customer', onClick: () => router.push('/customers/add') }}
+          addButton={{ text: 'Add Customer', onClick: () => router.push('/customers/add'), subjects: 'p-customers', actions: 'create' }}
+          importOptions={{ subjects: 'p-customers', actions: 'import' }}
+          exportOptions={{ subjects: 'p-customers', actions: 'export' }}
         />
 
         {stats && stats.progress && isLoading ? <ProgressBar min={0} max={100} showStatus={false} value={stats.progress} /> : null}
@@ -351,47 +358,54 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
           />
 
           <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
-            <DataGridButton
-              icon='eyeopen'
-              onClick={handleView}
-              cssClass='!text-lg'
-              hint='View'
-              visible={(opt) => {
-                const data = opt?.row?.data
-                return hideActionButton(data?.deletedAt || data?.deletedBy)
-              }}
-            />
-            <DataGridButton
-              icon='edit'
-              onClick={handleEdit}
-              cssClass='!text-lg'
-              hint='Edit'
-              visible={(opt) => {
-                const data = opt?.row?.data
-                return hideActionButton(data?.deletedAt || data?.deletedBy || data?.syncStatus === 'synced')
-              }}
-            />
-            <DataGridButton
-              icon='trash'
-              onClick={handleDelete}
-              cssClass='!text-lg !text-red-500'
-              hint='Delete'
-              visible={(opt) => {
-                const data = opt?.row?.data
-                return hideActionButton(data?.deletedAt || data?.deletedBy || data?.syncStatus === 'synced')
-              }}
-            />
-
-            <DataGridButton
-              icon='undo'
-              onClick={handleRestore}
-              cssClass='!text-lg !text-blue-500'
-              hint='Restore'
-              visible={(opt) => {
-                const data = opt?.row?.data
-                return showActionButton(data?.deletedAt || data?.deletedBy)
-              }}
-            />
+            <CanView subject='p-customers' action='view'>
+              <DataGridButton
+                icon='eyeopen'
+                onClick={handleView}
+                cssClass='!text-lg'
+                hint='View'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
+            <CanView subject='p-customers' action='edit'>
+              <DataGridButton
+                icon='edit'
+                onClick={handleEdit}
+                cssClass='!text-lg'
+                hint='Edit'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return hideActionButton(data?.deletedAt || data?.deletedBy || data?.syncStatus === 'synced')
+                }}
+              />
+            </CanView>
+            <CanView subject='p-customers' action='delete'>
+              <DataGridButton
+                icon='trash'
+                onClick={handleDelete}
+                cssClass='!text-lg !text-red-500'
+                hint='Delete'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return hideActionButton(data?.deletedAt || data?.deletedBy || data?.syncStatus === 'synced')
+                }}
+              />
+            </CanView>
+            <CanView subject='p-customers' action='restore'>
+              <DataGridButton
+                icon='undo'
+                onClick={handleRestore}
+                cssClass='!text-lg !text-blue-500'
+                hint='Restore'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return showActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
           </Column>
         </CommonDataGrid>
       </PageContentWrapper>

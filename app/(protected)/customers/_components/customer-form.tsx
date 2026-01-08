@@ -41,6 +41,7 @@ import AddressForm from '../../_components/address-form'
 import ContactForm from '../../_components/contact-form'
 import { useContacts } from '@/hooks/safe-actions/contacts'
 import { useAddresses } from '@/hooks/safe-actions/address'
+import CanView from '@/components/acl/can-view'
 
 type CustomerFormProps = { pageMetaData: PageMetadata; bp: Awaited<ReturnType<typeof getBpByCardCode>> }
 
@@ -191,28 +192,40 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <LoadingButton text='Save' type='default' stylingMode='contained' useSubmitBehavior icon='save' isLoading={isExecuting} />
+            <LoadingButton
+              text='Save'
+              type='default'
+              stylingMode='contained'
+              useSubmitBehavior
+              icon='save'
+              isLoading={isExecuting}
+              disabled={CanView({ isReturnBoolean: true, subject: 'p-customers', action: !bp ? ['create'] : ['edit'] }) ? false : true}
+            />
           </Item>
 
           {bp && (
             <>
-              <Item
-                location='after'
-                locateInMenu='always'
-                widget='dxButton'
-                options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/customers/add`) }}
-              />
+              <CanView subject='p-customers' action='create'>
+                <Item
+                  location='after'
+                  locateInMenu='always'
+                  widget='dxButton'
+                  options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/customers/add`) }}
+                />
+              </CanView>
 
-              <Item
-                location='after'
-                locateInMenu='always'
-                widget='dxButton'
-                options={{
-                  text: 'View',
-                  icon: 'eyeopen',
-                  onClick: () => router.push(`/customers/${bp.code}/view`),
-                }}
-              />
+              <CanView subject='p-customers' action='view'>
+                <Item
+                  location='after'
+                  locateInMenu='always'
+                  widget='dxButton'
+                  options={{
+                    text: 'View',
+                    icon: 'eyeopen',
+                    onClick: () => router.push(`/customers/${bp.code}/view`),
+                  }}
+                />
+              </CanView>
             </>
           )}
         </PageHeader>

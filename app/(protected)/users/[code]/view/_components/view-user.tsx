@@ -12,6 +12,7 @@ import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import UserOverviewTab from './_tabs/user-overview-tab'
 import UnderDevelopment from '@/app/under-development'
+import CanView from '@/components/acl/can-view'
 
 type ViewUserProps = {
   user: NonNullable<Awaited<ReturnType<typeof getUserByCode>>>
@@ -35,19 +36,23 @@ export default function ViewUser({ user }: ViewUserProps) {
           />
         </Item>
 
-        <Item
-          location='after'
-          locateInMenu='always'
-          widget='dxButton'
-          options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/users/add`) }}
-        />
+        <CanView subject='p-users' action='create'>
+          <Item
+            location='after'
+            locateInMenu='always'
+            widget='dxButton'
+            options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/users/add`) }}
+          />
+        </CanView>
 
-        <Item
-          location='after'
-          locateInMenu='always'
-          widget='dxButton'
-          options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/users/${user.code}`) }}
-        />
+        <CanView subject='p-users' action='edit'>
+          <Item
+            location='after'
+            locateInMenu='always'
+            widget='dxButton'
+            options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/users/${user.code}`) }}
+          />
+        </CanView>
       </PageHeader>
 
       <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>

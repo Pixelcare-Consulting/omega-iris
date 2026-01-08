@@ -11,7 +11,7 @@ import { Item } from 'devextreme-react/toolbar'
 import Tooltip from 'devextreme-react/tooltip'
 import Popup from 'devextreme-react/popup'
 
-import { deleteWorkOrder, getWorkOrders } from '@/actions/work-order'
+import { deleteWorkOrder, getWorkOrders, restoreWorkOrder } from '@/actions/work-order'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -21,6 +21,8 @@ import CommonDataGrid from '@/components/common-datagrid'
 import { WORK_ORDER_STATUS_OPTIONS, workOrderStatusUpdateFormSchema } from '@/schema/work-order'
 import LoadingButton from '@/components/loading-button'
 import WorkOrderUpdateStatusForm from './work-order-update-status-form'
+import CanView from '@/components/acl/can-view'
+import { hideActionButton, showActionButton } from '@/utils/devextreme'
 
 type WorkOrderTableProps = { workOrders: Awaited<ReturnType<typeof getWorkOrders>> }
 type DataSource = Awaited<ReturnType<typeof getWorkOrders>>
@@ -41,13 +43,15 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     resolver: zodResolver(workOrderStatusUpdateFormSchema),
   })
 
-  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
+  const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false)
   const [showUpdateStatusForm, setShowUpdateStatusForm] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
 
   const dataGridRef = useRef<DataGridRef | null>(null)
 
-  const { executeAsync, isExecuting } = useAction(deleteWorkOrder)
+  const deleteWorkOrderData = useAction(deleteWorkOrder)
+  const restoreWorkOrderData = useAction(restoreWorkOrder)
 
   const workOrderToUpdate = useWatch({ control: form.control, name: 'workOrders' }) || []
 
@@ -89,18 +93,28 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     (e: DataGridTypes.ColumnButtonClickEvent) => {
       const data = e.row?.data
       if (!data) return
-      setShowConfirmation(true)
+      setShowDeleteConfirmation(true)
       setRowData(data)
     },
-    [setShowConfirmation, setRowData]
+    [setShowDeleteConfirmation, setRowData]
+  )
+
+  const handleRestore = useCallback(
+    (e: DataGridTypes.ColumnButtonClickEvent) => {
+      const data = e.row?.data
+      if (!data) return
+      setShowRestoreConfirmation(true)
+      setRowData(data)
+    },
+    [setShowRestoreConfirmation, setRowData]
   )
 
   const handleConfirm = useCallback((code?: number) => {
     if (!code) return
 
-    setShowConfirmation(false)
+    setShowDeleteConfirmation(false)
 
-    toast.promise(executeAsync({ code }), {
+    toast.promise(deleteWorkOrderData.executeAsync({ code }), {
       loading: 'Deleting work orders...',
       success: (response) => {
         const result = response?.data
@@ -122,6 +136,34 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
       },
     })
   }, [])
+
+  const handleConfirmRestore = (code?: number) => {
+    if (!code) return
+
+    setShowRestoreConfirmation(false)
+
+    toast.promise(restoreWorkOrderData.executeAsync({ code }), {
+      loading: 'Restoring work order...',
+      success: (response) => {
+        const result = response?.data
+
+        if (!response || !result) throw { message: 'Failed to restore work order!', unExpectedError: true }
+
+        if (!result.error) {
+          setTimeout(() => {
+            router.refresh()
+          }, 1500)
+
+          return result.message
+        }
+
+        throw { message: result.message, expectedError: true }
+      },
+      error: (err: Error & { expectedError: boolean }) => {
+        return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
+      },
+    })
+  }
 
   const handleOnSelectionChange = useCallback((e: DataGridTypes.SelectionChangedEvent) => {
     const selectedRowsData = e.selectedRowsData
@@ -158,7 +200,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
               <LoadingButton
                 id='update-status'
                 icon='rename'
-                isLoading={isExecuting}
+                isLoading={deleteWorkOrderData.isExecuting || restoreWorkOrderData.isExecuting}
                 text={`${selectedRowKeys.length} : Update Status`}
                 type='default'
                 stylingMode='outlined'
@@ -171,7 +213,12 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
             dataGridRef={dataGridRef}
             isEnableImport
-            addButton={{ text: 'Add Work Order', onClick: () => router.push('/work-orders/add') }}
+            addButton={{
+              text: 'Add Work Order',
+              onClick: () => router.push('/work-orders/add'),
+              subjects: 'p-work-orders',
+              actions: 'create',
+            }}
           />
         </PageHeader>
 
@@ -210,9 +257,57 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             <Column dataField='user.email' dataType='string' caption='Owner Email' />
 
             <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
-              <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
-              <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' hint='Edit' />
-              <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' hint='Delete' />
+              <CanView subject='p-work-orders' action='view'>
+                <DataGridButton
+                  icon='eyeopen'
+                  onClick={handleView}
+                  cssClass='!text-lg'
+                  hint='View'
+                  visible={(opt) => {
+                    const data = opt?.row?.data
+                    return hideActionButton(data?.deletedAt || data?.deletedBy)
+                  }}
+                />
+              </CanView>
+
+              <CanView subject='p-work-orders' action='edit'>
+                <DataGridButton
+                  icon='edit'
+                  onClick={handleEdit}
+                  cssClass='!text-lg'
+                  hint='Edit'
+                  visible={(opt) => {
+                    const data = opt?.row?.data
+                    return hideActionButton(data?.deletedAt || data?.deletedBy)
+                  }}
+                />
+              </CanView>
+
+              <CanView subject='p-work-orders' action='delete'>
+                <DataGridButton
+                  icon='trash'
+                  onClick={handleDelete}
+                  cssClass='!text-lg !text-red-500'
+                  hint='Delete'
+                  visible={(opt) => {
+                    const data = opt?.row?.data
+                    return hideActionButton(data?.deletedAt || data?.deletedBy)
+                  }}
+                />
+              </CanView>
+
+              <CanView subject='p-work-orders' action='restore'>
+                <DataGridButton
+                  icon='undo'
+                  onClick={handleRestore}
+                  cssClass='!text-lg !text-blue-500'
+                  hint='Restore'
+                  visible={(opt) => {
+                    const data = opt?.row?.data
+                    return showActionButton(data?.deletedAt || data?.deletedBy)
+                  }}
+                />
+              </CanView>
             </Column>
           </CommonDataGrid>
 
@@ -229,11 +324,19 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
           </Popup>
 
           <AlertDialog
-            isOpen={showConfirmation}
+            isOpen={showDeleteConfirmation}
             title='Are you sure?'
             description={`Are you sure you want to delete this work order with id "${rowData?.code}"?`}
             onConfirm={() => handleConfirm(rowData?.code)}
-            onCancel={() => setShowConfirmation(false)}
+            onCancel={() => setShowDeleteConfirmation(false)}
+          />
+
+          <AlertDialog
+            isOpen={showRestoreConfirmation}
+            title='Are you sure?'
+            description={`Are you sure you want to restore this work order with id "${rowData?.code}"?`}
+            onConfirm={() => handleConfirmRestore(rowData?.code)}
+            onCancel={() => setShowRestoreConfirmation(false)}
           />
         </PageContentWrapper>
       </FormProvider>

@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import { SessionProvider } from 'next-auth/react'
 import PanelLayout from './_components/panel-layout'
+import ACLGuardProvider from '@/components/providers/acl-guard-provider'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,7 +10,9 @@ export default async function ProtectedRouteLayout({ children }: { children: Rea
 
   return (
     <SessionProvider session={session}>
-      <PanelLayout user={session?.user}>{children}</PanelLayout>
+      <ACLGuardProvider session={session}>
+        <PanelLayout user={session?.user}>{children}</PanelLayout>
+      </ACLGuardProvider>
     </SessionProvider>
   )
 }

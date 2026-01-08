@@ -56,7 +56,40 @@ model Role {
     updatedBy String?
     deletedBy String?
 
-    users User[]
+    users           User[]
+    rolePermissions RolePermission[]
+}
+
+model Permission {
+    id             String   @id @default(uuid())
+    code           String   @unique
+    name           String
+    description    String?  @default("")
+    isParent       Boolean  @default(false)
+    parentId       String?
+    allowedActions String[] //* default actions 'view', 'create', 'edit', 'delete
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    parent          Permission?      @relation(name: "Permission-Permission", fields: [parentId], references: [id])
+    children        Permission[]     @relation("Permission-Permission")
+    rolePermissions RolePermission[]
+}
+
+model RolePermission {
+    roleId       String
+    permissionId String
+    actions      String[] @default([])
+
+    role       Role       @relation(fields: [roleId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+    permission Permission @relation(fields: [permissionId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([roleId, permissionId])
 }
 
 model Profile {
