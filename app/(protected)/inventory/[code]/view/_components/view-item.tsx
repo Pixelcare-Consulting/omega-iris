@@ -10,6 +10,7 @@ import { getItemByCode } from '@/actions/item'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import ItemOverviewTab from './_tabs/item-overview-tab'
+import CanView from '@/components/acl/can-view'
 
 type ViewItemProps = {
   item: NonNullable<Awaited<ReturnType<typeof getItemByCode>>>
@@ -33,20 +34,24 @@ export default function ViewItem({ item }: ViewItemProps) {
           />
         </Item>
 
-        <Item
-          location='after'
-          locateInMenu='always'
-          widget='dxButton'
-          options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/inventory/add`) }}
-        />
-
-        {item.syncStatus === 'pending' && (
+        <CanView subject='p-inventory' action='create'>
           <Item
             location='after'
             locateInMenu='always'
             widget='dxButton'
-            options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/inventory/${item.code}`) }}
+            options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/inventory/add`) }}
           />
+        </CanView>
+
+        {item.syncStatus === 'pending' && (
+          <CanView subject='p-inventory' action='edit'>
+            <Item
+              location='after'
+              locateInMenu='always'
+              widget='dxButton'
+              options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/inventory/${item.code}`) }}
+            />
+          </CanView>
         )}
       </PageHeader>
 

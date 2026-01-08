@@ -26,6 +26,7 @@ import TagBoxField from '@/components/forms/tag-box-field'
 import TextAreaField from '@/components/forms/text-area-field'
 import { commonItemRender, userItemRender } from '@/utils/devextreme'
 import SwitchField from '@/components/forms/switch-field'
+import CanView from '@/components/acl/can-view'
 
 type ProjectIndividualFormProps = { pageMetaData: PageMetadata; projectIndividual: Awaited<ReturnType<typeof getPiByCode>> }
 
@@ -99,28 +100,44 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <LoadingButton text='Save' type='default' stylingMode='contained' useSubmitBehavior icon='save' isLoading={isExecuting} />
+            <LoadingButton
+              text='Save'
+              type='default'
+              stylingMode='contained'
+              useSubmitBehavior
+              icon='save'
+              isLoading={isExecuting}
+              disabled={
+                CanView({ isReturnBoolean: true, subject: 'p-projects-individuals', action: !projectIndividual ? ['create'] : ['edit'] })
+                  ? false
+                  : true
+              }
+            />
           </Item>
 
           {projectIndividual && (
             <>
-              <Item
-                location='after'
-                locateInMenu='always'
-                widget='dxButton'
-                options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/project/individuals/add`) }}
-              />
+              <CanView subject='p-projects-individuals' action='create'>
+                <Item
+                  location='after'
+                  locateInMenu='always'
+                  widget='dxButton'
+                  options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/project/individuals/add`) }}
+                />
+              </CanView>
 
-              <Item
-                location='after'
-                locateInMenu='always'
-                widget='dxButton'
-                options={{
-                  text: 'View',
-                  icon: 'eyeopen',
-                  onClick: () => router.push(`/project/individuals/${projectIndividual.code}/view`),
-                }}
-              />
+              <CanView subject='p-projects-individuals' action='view'>
+                <Item
+                  location='after'
+                  locateInMenu='always'
+                  widget='dxButton'
+                  options={{
+                    text: 'View',
+                    icon: 'eyeopen',
+                    onClick: () => router.push(`/project/individuals/${projectIndividual.code}/view`),
+                  }}
+                />
+              </CanView>
             </>
           )}
         </PageHeader>

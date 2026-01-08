@@ -30,7 +30,6 @@ const COMMON_WORK_ORDER_ORDER_BY = { code: 'asc' } satisfies Prisma.WorkOrderOrd
 export async function getWorkOrders() {
   try {
     return db.workOrder.findMany({
-      where: { deletedAt: null, deletedBy: null },
       include: COMMON_WORK_ORDER_INCLUDE,
       orderBy: COMMON_WORK_ORDER_ORDER_BY,
     })
@@ -429,6 +428,32 @@ export const deleteWorkOrder = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'DELETE_WORK_ORDER',
+      }
+    }
+  })
+
+export const restoreWorkOrder = action
+  .use(authenticationMiddleware)
+  .schema(paramsSchema)
+  .action(async ({ parsedInput: data }) => {
+    try {
+      const workOrder = await db.workOrder.findUnique({ where: { code: data.code } })
+
+      if (!workOrder) {
+        return { error: true, status: 404, message: 'Work order not found!', action: 'RESTORE_WORK_ORDER' }
+      }
+
+      await db.workOrder.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+
+      return { status: 200, message: 'Work order retored successfully!', action: 'RESTORE_WORK_ORDER' }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'RESTORE_WORK_ORDER',
       }
     }
   })

@@ -9,8 +9,8 @@ export type NavItem = {
   selected?: boolean
   expanded?: boolean
   items?: NavItem[]
-  actions?: string | string[]
   subjects?: string | string[]
+  actions?: string | string[]
 }
 
 export const navigation: NavItem[] = [
@@ -20,8 +20,8 @@ export const navigation: NavItem[] = [
     icon: 'mediumiconslayout',
     path: '/dashboard',
     selected: false,
-    actions: 'view',
     subjects: 'p-dashboard',
+    actions: 'view',
   },
   {
     id: uuidv4(),
@@ -30,8 +30,8 @@ export const navigation: NavItem[] = [
     path: '/users',
     selected: false,
     expanded: false,
-    actions: 'view',
     subjects: 'p-users',
+    actions: 'view',
   },
   {
     id: uuidv4(),
@@ -40,8 +40,8 @@ export const navigation: NavItem[] = [
     path: '/roles',
     selected: false,
     expanded: false,
-    actions: 'view',
     subjects: 'p-roles',
+    actions: 'view',
   },
   {
     id: uuidv4(),
@@ -50,8 +50,8 @@ export const navigation: NavItem[] = [
     path: '/settings',
     selected: false,
     expanded: false,
-    actions: 'view',
     subjects: 'p-settings',
+    actions: 'view',
   },
   {
     id: uuidv4(),
@@ -60,8 +60,8 @@ export const navigation: NavItem[] = [
     path: '/customers',
     selected: false,
     expanded: false,
-    actions: 'view',
     subjects: 'p-customers',
+    actions: 'view',
   },
   {
     id: uuidv4(),
@@ -69,8 +69,8 @@ export const navigation: NavItem[] = [
     icon: 'folder',
     selected: false,
     expanded: false,
-    actions: 'view',
     subjects: ['p-projects-groups', 'p-projects-individuals'],
+    actions: 'view',
     items: [
       {
         id: uuidv4(),
@@ -78,8 +78,8 @@ export const navigation: NavItem[] = [
         path: '/project/groups',
         selected: false,
         expanded: false,
-        actions: 'view',
         subjects: 'p-projects-groups',
+        actions: 'view',
       },
       {
         id: uuidv4(),
@@ -87,8 +87,8 @@ export const navigation: NavItem[] = [
         path: '/project/individuals',
         selected: false,
         expanded: false,
-        actions: 'view',
         subjects: 'p-projects-individuals',
+        actions: 'view',
       },
     ],
   },
@@ -99,8 +99,8 @@ export const navigation: NavItem[] = [
   //   path: '/warehouses',
   //   selected: false,
   //   expanded: false,
-  //   actions: 'view',
   //   subjects: 'p-warehouses',
+  //   actions: 'view',
   // },
   {
     id: uuidv4(),
@@ -109,8 +109,8 @@ export const navigation: NavItem[] = [
     path: '/inventory',
     selected: false,
     expanded: false,
-    actions: 'view',
     subjects: 'p-inventory',
+    actions: 'view',
   },
   {
     id: uuidv4(),
@@ -119,8 +119,8 @@ export const navigation: NavItem[] = [
     path: '/work-orders',
     selected: false,
     expanded: false,
-    actions: 'view',
     subjects: 'p-work-orders',
+    actions: 'view',
   },
   {
     id: uuidv4(),
@@ -129,8 +129,8 @@ export const navigation: NavItem[] = [
     path: '/reporting',
     selected: false,
     expanded: false,
-    actions: 'view',
     subjects: 'p-reporting',
+    actions: 'view',
   },
   // {
   //   id: uuidv4(),
@@ -139,8 +139,8 @@ export const navigation: NavItem[] = [
   //   path: '/logs',
   //   selected: false,
   //   expanded: false,
-  //   actions: 'view',
   //   subjects: 'p-logs',
+  //   actions: 'view',
   // },
 ]
 

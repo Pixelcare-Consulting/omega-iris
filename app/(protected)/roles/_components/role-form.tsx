@@ -27,6 +27,8 @@ import { usePermissions } from '@/hooks/safe-actions/permission'
 import { useRolePermissions } from '@/hooks/safe-actions/role-permission'
 import { Icons } from '@/components/icons'
 import { titleCase } from '@/utils'
+import CanView from '@/components/acl/can-view'
+import can from '@/components/acl/can'
 
 type RoleFormProps = { pageMetaData: PageMetadata; role: Awaited<ReturnType<typeof getRolesByCode>> }
 
@@ -112,14 +114,13 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
 
     if (!permissionsFormData || permissionsFormData.length === 0) return false
 
-    return permissionsFormData.every((currP) => {
-      const permission = pdata.find((p) => p.id === currP.id)
-      const allowedActions = permission?.allowedActions || []
-      const currActions = currP?.actions || []
+    return pdata.every((currP) => {
+      const allowedActions = currP?.allowedActions || []
+      const permission = permissionsFormData.find((p) => p.id === currP.id)
+      const currActions = permission?.actions || []
 
       if (!permission) return false
       if (!currActions || currActions.length === 0) return false
-
       return allowedActions.every((a) => currActions.includes(a))
     })
   }, [JSON.stringify(permissionsFormData), JSON.stringify(permissions)])
@@ -163,20 +164,16 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
   const toggleSelectAll = () => {
     const pdata = permissions.data.filter((p) => !p.isParent)
 
-    if (!permissionsFormData || permissionsFormData.length === 0) return
-
-    //* de select all
+    //* do select all
     if (isSelectedAll) {
-      console.log('aa')
-      const newPermissions = permissionsFormData.map((p) => ({ ...p, actions: [] }))
+      const newPermissions = pdata.map((p) => ({ ...p, actions: [] }))
       form.setValue('permissions', newPermissions)
       return
     }
 
     //* select all
-    const newPermissions = permissionsFormData.map((currP) => {
-      const permission = pdata.find((pp) => pp.id === currP.id)
-      const allowedActions = permission?.allowedActions || []
+    const newPermissions = pdata.map((currP) => {
+      const allowedActions = currP.allowedActions || []
       return { ...currP, actions: allowedActions }
     })
     form.setValue('permissions', newPermissions)
@@ -236,24 +233,36 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <LoadingButton text='Save' type='default' stylingMode='contained' useSubmitBehavior icon='save' isLoading={isExecuting} />
+            <LoadingButton
+              text='Save'
+              type='default'
+              stylingMode='contained'
+              useSubmitBehavior
+              icon='save'
+              isLoading={isExecuting}
+              disabled={CanView({ isReturnBoolean: true, subject: 'p-roles', action: !role ? ['create'] : ['edit'] }) ? false : true}
+            />
           </Item>
 
           {role && (
             <>
-              <Item
-                location='after'
-                locateInMenu='always'
-                widget='dxButton'
-                options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/roles/add`) }}
-              />
+              <CanView subject='p-users' action='create'>
+                <Item
+                  location='after'
+                  locateInMenu='always'
+                  widget='dxButton'
+                  options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/roles/add`) }}
+                />
+              </CanView>
 
-              <Item
-                location='after'
-                locateInMenu='always'
-                widget='dxButton'
-                options={{ text: 'View', icon: 'eyeopen', onClick: () => router.push(`/roles/${role.code}/view`) }}
-              />
+              <CanView subject='p-users' action='view'>
+                <Item
+                  location='after'
+                  locateInMenu='always'
+                  widget='dxButton'
+                  options={{ text: 'View', icon: 'eyeopen', onClick: () => router.push(`/roles/${role.code}/view`) }}
+                />
+              </CanView>
             </>
           )}
         </PageHeader>
@@ -329,7 +338,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
                                     <p className='-mt-0.5 text-xs text-slate-400'>{pChild.description}</p>
                                   </div>
 
-                                  <div className='col-span-8 flex items-center justify-end gap-4'>
+                                  <div className='col-span-8 flex flex-wrap items-center justify-end gap-4'>
                                     {pChild.allowedActions.map((action, i) => (
                                       <CheckBox
                                         key={`${p.id}-${pChild.id}-${i}`}
@@ -353,7 +362,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
                             <p className='-mt-0.5 text-xs text-slate-400'>{p.description}</p>
                           </div>
 
-                          <div className='col-span-8 flex items-center justify-end gap-4'>
+                          <div className='col-span-8 flex flex-wrap items-center justify-end gap-4'>
                             {p.allowedActions.map((action, i) => (
                               <CheckBox
                                 key={`${p.id}-${i}`}

@@ -14,6 +14,7 @@ import CustomerContactTab from './_tabs/customer-contact-tab'
 import { useContacts } from '@/hooks/safe-actions/contacts'
 import { useAddresses } from '@/hooks/safe-actions/address'
 import CustomerAddressTab from './_tabs/customer-address-tab'
+import CanView from '@/components/acl/can-view'
 
 type ViewCustomerProps = {
   customer: NonNullable<Awaited<ReturnType<typeof getBpByCode>>>
@@ -40,20 +41,24 @@ export default function ViewCustomer({ customer }: ViewCustomerProps) {
           />
         </Item>
 
-        <Item
-          location='after'
-          locateInMenu='always'
-          widget='dxButton'
-          options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/customers/add`) }}
-        />
-
-        {customer.syncStatus === 'pending' && (
+        <CanView subject='p-customers' action='create'>
           <Item
             location='after'
             locateInMenu='always'
             widget='dxButton'
-            options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/customers/${customer.code}`) }}
+            options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/customers/add`) }}
           />
+        </CanView>
+
+        {customer.syncStatus === 'pending' && (
+          <CanView subject='p-customers' action='edit'>
+            <Item
+              location='after'
+              locateInMenu='always'
+              widget='dxButton'
+              options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/customers/${customer.code}`) }}
+            />
+          </CanView>
         )}
       </PageHeader>
 

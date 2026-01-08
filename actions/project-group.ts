@@ -15,7 +15,6 @@ const COMMON_PROJECT_GROUP_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectGr
 export async function getPgs() {
   try {
     return db.projectGroup.findMany({
-      where: { deletedAt: null, deletedBy: null },
       orderBy: COMMON_PROJECT_GROUP_ORDER_BY,
     })
   } catch (error) {
@@ -100,6 +99,30 @@ export const deleletePg = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'DELETE_PROJECT_GROUP',
+      }
+    }
+  })
+
+export const restorePg = action
+  .use(authenticationMiddleware)
+  .schema(paramsSchema)
+  .action(async ({ parsedInput: data }) => {
+    try {
+      const projectGroup = await db.projectGroup.findUnique({ where: { code: data.code } })
+
+      if (!projectGroup) return { error: true, status: 404, message: 'Project group not found!', action: 'RESTORE_PROJECT_GROUP' }
+
+      await db.projectGroup.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+
+      return { status: 200, message: 'Project group retored successfully!', action: 'RESTORE_PROJECT_GROUP' }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'RESTORE_PROJECT_GROUP',
       }
     }
   })

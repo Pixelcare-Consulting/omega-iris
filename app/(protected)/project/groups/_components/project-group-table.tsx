@@ -1,6 +1,6 @@
 'use client'
 
-import { deleletePg, getPgs, importPgs } from '@/actions/project-group'
+import { deleletePg, getPgs, importPgs, restorePg } from '@/actions/project-group'
 import DataGrid, {
   Column,
   DataGridTypes,
@@ -28,6 +28,8 @@ import CommonDataGrid from '@/components/common-datagrid'
 import { parseExcelFile } from '@/utils/xlsx'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import { ImportSyncError, Stats } from '@/types/common'
+import CanView from '@/components/acl/can-view'
+import { hideActionButton, showActionButton } from '@/utils/devextreme'
 
 type ProjectGroupTableProps = { projectGroups: Awaited<ReturnType<typeof getPgs>> }
 type DataSource = Awaited<ReturnType<typeof getPgs>>
@@ -41,7 +43,8 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
   const [isLoading, setIsLoading] = useState(false)
   const [stats, setStats] = useState<Stats>({ total: 0, completed: 0, progress: 0, errors: [], status: 'processing' })
 
-  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
+  const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false)
   const [showImportError, setShowImportError] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
   const [importErrors, setImportErrors] = useState<ImportSyncError[]>([])
@@ -49,7 +52,8 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
   const dataGridRef = useRef<DataGridRef | null>(null)
   const importErrorDataGridRef = useRef<DataGridRef | null>(null)
 
-  const { executeAsync } = useAction(deleletePg)
+  const deleletePgData = useAction(deleletePg)
+  const restorePgData = useAction(restorePg)
   const importData = useAction(importPgs)
 
   const dataGridStore = useDataGridStore([
@@ -84,18 +88,28 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
     (e: DataGridTypes.ColumnButtonClickEvent) => {
       const data = e.row?.data
       if (!data) return
-      setShowConfirmation(true)
+      setShowDeleteConfirmation(true)
       setRowData(data)
     },
-    [setShowConfirmation, setRowData]
+    [setShowDeleteConfirmation, setRowData]
+  )
+
+  const handleRestore = useCallback(
+    (e: DataGridTypes.ColumnButtonClickEvent) => {
+      const data = e.row?.data
+      if (!data) return
+      setShowRestoreConfirmation(true)
+      setRowData(data)
+    },
+    [setShowRestoreConfirmation, setRowData]
   )
 
   const handleConfirm = useCallback((code?: number) => {
     if (!code) return
 
-    setShowConfirmation(false)
+    setShowDeleteConfirmation(false)
 
-    toast.promise(executeAsync({ code }), {
+    toast.promise(deleletePgData.executeAsync({ code }), {
       loading: 'Deleting project group...',
       success: (response) => {
         const result = response?.data
@@ -117,6 +131,34 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
       },
     })
   }, [])
+
+  const handleConfirmRestore = (code?: number) => {
+    if (!code) return
+
+    setShowRestoreConfirmation(false)
+
+    toast.promise(restorePgData.executeAsync({ code }), {
+      loading: 'Restoring project group...',
+      success: (response) => {
+        const result = response?.data
+
+        if (!response || !result) throw { message: 'Failed to restore project group!', unExpectedError: true }
+
+        if (!result.error) {
+          setTimeout(() => {
+            router.refresh()
+          }, 1500)
+
+          return result.message
+        }
+
+        throw { message: result.message, expectedError: true }
+      },
+      error: (err: Error & { expectedError: boolean }) => {
+        return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
+      },
+    })
+  }
 
   const handleImport: (...args: any[]) => void = async (args) => {
     const { file } = args
@@ -186,7 +228,14 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
           isLoading={isLoading || importData.isExecuting}
           isEnableImport
           onImport={handleImport}
-          addButton={{ text: 'Add Project Group', onClick: () => router.push('/project/groups/add') }}
+          addButton={{
+            text: 'Add Project Group',
+            onClick: () => router.push('/project/groups/add'),
+            subjects: 'p-projects-groups',
+            actions: 'create',
+          }}
+          importOptions={{ subjects: 'p-projects-groups', actions: 'import' }}
+          exportOptions={{ subjects: 'p-projects-groups', actions: 'export' }}
         />
 
         {stats && stats.progress && isLoading ? <ProgressBar min={0} max={100} showStatus={false} value={stats.progress} /> : null}
@@ -207,19 +256,67 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
           <Column type='buttons' fixed fixedPosition='right' minWidth={140} caption='Actions'>
-            <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
-            <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' hint='Edit' />
-            <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' hint='Delete' />
+            <CanView subject='p-projects-groups' action='view'>
+              <DataGridButton
+                icon='eyeopen'
+                onClick={handleView}
+                cssClass='!text-lg'
+                hint='View'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
+
+            <CanView subject='p-projects-groups' action='edit'>
+              <DataGridButton
+                icon='edit'
+                onClick={handleEdit}
+                cssClass='!text-lg'
+                hint='Edit'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
+
+            <CanView subject='p-projects-groups' action='delete'>
+              <DataGridButton
+                icon='trash'
+                onClick={handleDelete}
+                cssClass='!text-lg !text-red-500'
+                hint='Delete'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
+
+            <CanView subject='p-projects-groups' action='restore'>
+              <DataGridButton
+                icon='undo'
+                onClick={handleRestore}
+                cssClass='!text-lg !text-blue-500'
+                hint='Restore'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return showActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
           </Column>
         </CommonDataGrid>
       </PageContentWrapper>
 
       <AlertDialog
-        isOpen={showConfirmation}
+        isOpen={showDeleteConfirmation}
         title='Are you sure?'
         description={`Are you sure you want to delete this project group named "${rowData?.name}"?`}
         onConfirm={() => handleConfirm(rowData?.code)}
-        onCancel={() => setShowConfirmation(false)}
+        onCancel={() => setShowDeleteConfirmation(false)}
       />
 
       <ImportSyncErrorDataGrid
@@ -227,6 +324,14 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
         setIsOpen={setShowImportError}
         data={importErrors}
         dataGridRef={importErrorDataGridRef}
+      />
+
+      <AlertDialog
+        isOpen={showRestoreConfirmation}
+        title='Are you sure?'
+        description={`Are you sure you want to restore this project group named "${rowData?.name}"?`}
+        onConfirm={() => handleConfirmRestore(rowData?.code)}
+        onCancel={() => setShowRestoreConfirmation(false)}
       />
     </div>
   )

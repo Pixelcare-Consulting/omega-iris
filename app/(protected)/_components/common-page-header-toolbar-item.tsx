@@ -13,14 +13,17 @@ import { toast } from 'sonner'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import TextBox, { TextBoxRef } from 'devextreme-react/text-box'
 import { exportToExcel } from '@/utils/devextreme'
+import CanView from '@/components/acl/can-view'
 
 type CommonPageHeaderToolbarItemsProps = {
   dataGridUniqueKey: string
   dataGridRef: MutableRefObject<DataGridRef<any, any> | null>
   isLoading?: boolean
   isEnableImport?: boolean
+  importOptions?: { subjects?: string | string[]; actions?: string | string[] }
+  exportOptions?: { subjects?: string | string[]; actions?: string | string[] }
   onImport?: (...args: any[]) => void
-  addButton?: { text: string; onClick: () => void }
+  addButton?: { text: string; onClick: () => void; subjects?: string | string[]; actions?: string | string[] }
   customs?: { exportToExcel?: (...args: any[]) => void }
 }
 
@@ -29,6 +32,8 @@ export default function CommonPageHeaderToolbarItems({
   dataGridRef,
   isLoading,
   isEnableImport,
+  importOptions,
+  exportOptions,
   onImport,
   addButton,
   customs,
@@ -186,16 +191,18 @@ export default function CommonPageHeaderToolbarItems({
       )}
 
       {addButton && (
-        <Item location='after' widget='dxButton'>
-          <Tooltip
-            target='#add-button'
-            contentRender={() => `${addButton.text}`}
-            showEvent='mouseenter'
-            hideEvent='mouseleave'
-            position='top'
-          />
-          <Button id='add-button' icon='add' type='default' stylingMode='contained' disabled={isLoading} onClick={addButton.onClick} />
-        </Item>
+        <CanView subject={addButton?.subjects ?? 'all'} action={addButton?.actions ?? 'manage'}>
+          <Item location='after' widget='dxButton'>
+            <Tooltip
+              target='#add-button'
+              contentRender={() => `${addButton.text}`}
+              showEvent='mouseenter'
+              hideEvent='mouseleave'
+              position='top'
+            />
+            <Button id='add-button' icon='add' type='default' stylingMode='contained' disabled={isLoading} onClick={addButton.onClick} />
+          </Item>
+        </CanView>
       )}
 
       <Item location='after' widget='dxButton'>
@@ -249,33 +256,37 @@ export default function CommonPageHeaderToolbarItems({
       </Item>
 
       {isEnableImport && (
-        <Item location='after' widget='dxMenu'>
-          <Tooltip target='#import-data' contentRender={() => 'Import'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />
-          <Button id='import-data' icon='import' disabled={isLoading} onClick={() => fileInputRef.current?.click()} />
-        </Item>
+        <CanView subject={importOptions?.subjects ?? 'all'} action={importOptions?.actions ?? 'manage'}>
+          <Item location='after' widget='dxMenu'>
+            <Tooltip target='#import-data' contentRender={() => 'Import'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />
+            <Button id='import-data' icon='import' disabled={isLoading} onClick={() => fileInputRef.current?.click()} />
+          </Item>
+        </CanView>
       )}
 
-      <Item location='after' widget='dxMenu'>
-        <Tooltip
-          target='#export-data-to-file-menu'
-          contentRender={() => 'Export'}
-          showEvent='mouseenter'
-          hideEvent='mouseleave'
-          position='top'
-        />
-        <Menu
-          id='export-data-to-file-menu'
-          dataSource={exportToExcelMenuItems}
-          showFirstSubmenuMode='onClick'
-          hideSubmenuOnMouseLeave
-          disabled={isLoading}
-          onItemClick={menuItemOnItemClick}
-          elementAttr={{
-            //* style like button
-            class: 'dx-button dx-button-mode-contained dx-button-normal dx-button-has-text dx-button-has-icon [&_.dx-icon]:!mr-0',
-          }}
-        />
-      </Item>
+      <CanView subject={exportOptions?.subjects ?? 'all'} action={exportOptions?.actions ?? 'manage'}>
+        <Item location='after' widget='dxMenu'>
+          <Tooltip
+            target='#export-data-to-file-menu'
+            contentRender={() => 'Export'}
+            showEvent='mouseenter'
+            hideEvent='mouseleave'
+            position='top'
+          />
+          <Menu
+            id='export-data-to-file-menu'
+            dataSource={exportToExcelMenuItems}
+            showFirstSubmenuMode='onClick'
+            hideSubmenuOnMouseLeave
+            disabled={isLoading}
+            onItemClick={menuItemOnItemClick}
+            elementAttr={{
+              //* style like button
+              class: 'dx-button dx-button-mode-contained dx-button-normal dx-button-has-text dx-button-has-icon [&_.dx-icon]:!mr-0',
+            }}
+          />
+        </Item>
+      </CanView>
 
       <Item
         location='after'

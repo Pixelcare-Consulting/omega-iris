@@ -12,7 +12,6 @@ const COMMON_ROLE_ORDER_BY = { code: 'asc' } satisfies Prisma.RoleOrderByWithRel
 export async function getRoles() {
   try {
     return db.role.findMany({
-      where: { deletedAt: null, deletedBy: null },
       orderBy: COMMON_ROLE_ORDER_BY,
     })
   } catch (error) {
@@ -119,6 +118,30 @@ export const deleleteRole = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'DELETE_ROLE',
+      }
+    }
+  })
+
+export const restoreRole = action
+  .use(authenticationMiddleware)
+  .schema(paramsSchema)
+  .action(async ({ parsedInput: data }) => {
+    try {
+      const role = await db.role.findUnique({ where: { code: data.code } })
+
+      if (!role) return { error: true, status: 404, message: 'Role not found!', action: 'RESTORE_ROLE' }
+
+      await db.role.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+
+      return { status: 200, message: 'Role retored successfully!', action: 'RESTORE_ROLE' }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'RESTORE_ROLE',
       }
     }
   })

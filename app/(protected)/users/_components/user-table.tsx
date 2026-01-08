@@ -1,6 +1,6 @@
 'use client'
 
-import { deleteUser, getUsers } from '@/actions/users'
+import { deleteUser, getUsers, restoreUser } from '@/actions/users'
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
 import { useCallback, useRef, useState } from 'react'
@@ -15,6 +15,8 @@ import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '../../_components/common-page-header-toolbar-item'
 import AlertDialog from '@/components/alert-dialog'
 import CommonDataGrid from '@/components/common-datagrid'
+import CanView from '@/components/acl/can-view'
+import { hideActionButton, showActionButton } from '@/utils/devextreme'
 
 type UserTableProps = { users: Awaited<ReturnType<typeof getUsers>> }
 type DataSource = Awaited<ReturnType<typeof getUsers>>
@@ -27,11 +29,13 @@ export default function UserTable({ users }: UserTableProps) {
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-user'
   const DATAGRID_UNIQUE_KEY = 'users'
 
-  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
+  const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
   const dataGridRef = useRef<DataGridRef | null>(null)
 
-  const { executeAsync } = useAction(deleteUser)
+  const deleteUserData = useAction(deleteUser)
+  const restoreUserData = useAction(restoreUser)
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',
@@ -72,18 +76,28 @@ export default function UserTable({ users }: UserTableProps) {
     (e: DataGridTypes.ColumnButtonClickEvent) => {
       const data = e.row?.data
       if (!data) return
-      setShowConfirmation(true)
+      setShowDeleteConfirmation(true)
       setRowData(data)
     },
-    [setShowConfirmation, setRowData]
+    [setShowDeleteConfirmation, setRowData]
   )
 
-  const handleConfirm = useCallback((code?: number) => {
+  const handleRestore = useCallback(
+    (e: DataGridTypes.ColumnButtonClickEvent) => {
+      const data = e.row?.data
+      if (!data) return
+      setShowRestoreConfirmation(true)
+      setRowData(data)
+    },
+    [setShowRestoreConfirmation, setRowData]
+  )
+
+  const handleConfirmDelete = (code?: number) => {
     if (!code) return
 
-    setShowConfirmation(false)
+    setShowDeleteConfirmation(false)
 
-    toast.promise(executeAsync({ code }), {
+    toast.promise(deleteUserData.executeAsync({ code }), {
       loading: 'Deleting user...',
       success: (response) => {
         const result = response?.data
@@ -104,7 +118,35 @@ export default function UserTable({ users }: UserTableProps) {
         return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
       },
     })
-  }, [])
+  }
+
+  const handleConfirmRestore = (code?: number) => {
+    if (!code) return
+
+    setShowRestoreConfirmation(false)
+
+    toast.promise(restoreUserData.executeAsync({ code }), {
+      loading: 'Restoring user...',
+      success: (response) => {
+        const result = response?.data
+
+        if (!response || !result) throw { message: 'Failed to restore user!', unExpectedError: true }
+
+        if (!result.error) {
+          setTimeout(() => {
+            router.refresh()
+          }, 1500)
+
+          return result.message
+        }
+
+        throw { message: result.message, expectedError: true }
+      },
+      error: (err: Error & { expectedError: boolean }) => {
+        return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
+      },
+    })
+  }
 
   return (
     <div className='h-full w-full space-y-5'>
@@ -112,7 +154,7 @@ export default function UserTable({ users }: UserTableProps) {
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
-          addButton={{ text: 'Add User', onClick: () => router.push('/users/add') }}
+          addButton={{ text: 'Add User', onClick: () => router.push('/users/add'), subjects: 'p-users', actions: 'create' }}
         />
       </PageHeader>
 
@@ -139,19 +181,75 @@ export default function UserTable({ users }: UserTableProps) {
           <Column dataField='lastSignin' dataType='string' caption='Last Signin' cellRender={lastSigninCellRender} />
 
           <Column type='buttons' fixed fixedPosition='right' minWidth={140} caption='Actions'>
-            <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
-            <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' hint='Edit' />
-            <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' hint='Delete' />
+            <CanView subject='p-users' action='view'>
+              <DataGridButton
+                icon='eyeopen'
+                onClick={handleView}
+                cssClass='!text-lg'
+                hint='View'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
+
+            <CanView subject='p-users' action='edit'>
+              <DataGridButton
+                icon='edit'
+                onClick={handleEdit}
+                cssClass='!text-lg'
+                hint='Edit'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
+
+            <CanView subject='p-users' action='delete'>
+              <DataGridButton
+                icon='trash'
+                onClick={handleDelete}
+                cssClass='!text-lg !text-red-500'
+                hint='Delete'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
+
+            <CanView subject='p-users' action='restore'>
+              <DataGridButton
+                icon='undo'
+                onClick={handleRestore}
+                cssClass='!text-lg !text-blue-500'
+                hint='Restore'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return showActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
           </Column>
         </CommonDataGrid>
       </PageContentWrapper>
 
       <AlertDialog
-        isOpen={showConfirmation}
+        isOpen={showDeleteConfirmation}
         title='Are you sure?'
         description={`Are you sure you want to delete this user named "${rowData?.fname} ${rowData?.lname}"?`}
-        onConfirm={() => handleConfirm(rowData?.code)}
-        onCancel={() => setShowConfirmation(false)}
+        onConfirm={() => handleConfirmDelete(rowData?.code)}
+        onCancel={() => setShowDeleteConfirmation(false)}
+      />
+
+      <AlertDialog
+        isOpen={showRestoreConfirmation}
+        title='Are you sure?'
+        description={`Are you sure you want to restore this user item named  "${rowData?.fname} ${rowData?.lname}"?`}
+        onConfirm={() => handleConfirmRestore(rowData?.code)}
+        onCancel={() => setShowRestoreConfirmation(false)}
       />
     </div>
   )

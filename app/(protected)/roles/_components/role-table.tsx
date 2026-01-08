@@ -1,6 +1,6 @@
 'use client'
 
-import { deleleteRole, getRoles } from '@/actions/roles'
+import { deleleteRole, getRoles, restoreRole } from '@/actions/roles'
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
 import { useCallback, useRef, useState } from 'react'
@@ -13,6 +13,8 @@ import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import AlertDialog from '@/components/alert-dialog'
 import CommonDataGrid from '@/components/common-datagrid'
+import CanView from '@/components/acl/can-view'
+import { hideActionButton, showActionButton } from '@/utils/devextreme'
 
 type RoleTableProps = { roles: Awaited<ReturnType<typeof getRoles>> }
 type DataSource = Awaited<ReturnType<typeof getRoles>>
@@ -23,11 +25,13 @@ export default function RoleTable({ roles }: RoleTableProps) {
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-role'
   const DATAGRID_UNIQUE_KEY = 'roles'
 
-  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
+  const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
   const dataGridRef = useRef<DataGridRef | null>(null)
 
-  const { executeAsync } = useAction(deleleteRole)
+  const deleteRoleData = useAction(deleleteRole)
+  const restoreRoleData = useAction(restoreRole)
 
   const dataGridStore = useDataGridStore([
     'showFilterRow',
@@ -61,18 +65,28 @@ export default function RoleTable({ roles }: RoleTableProps) {
     (e: DataGridTypes.ColumnButtonClickEvent) => {
       const data = e.row?.data
       if (!data) return
-      setShowConfirmation(true)
+      setShowDeleteConfirmation(true)
       setRowData(data)
     },
-    [setShowConfirmation, setRowData]
+    [setShowDeleteConfirmation, setRowData]
   )
 
-  const handleConfirm = useCallback((code?: number) => {
+  const handleRestore = useCallback(
+    (e: DataGridTypes.ColumnButtonClickEvent) => {
+      const data = e.row?.data
+      if (!data) return
+      setShowRestoreConfirmation(true)
+      setRowData(data)
+    },
+    [setShowRestoreConfirmation, setRowData]
+  )
+
+  const handleConfirm = (code?: number) => {
     if (!code) return
 
-    setShowConfirmation(false)
+    setShowDeleteConfirmation(false)
 
-    toast.promise(executeAsync({ code }), {
+    toast.promise(deleteRoleData.executeAsync({ code }), {
       loading: 'Deleting role...',
       success: (response) => {
         const result = response?.data
@@ -93,7 +107,35 @@ export default function RoleTable({ roles }: RoleTableProps) {
         return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
       },
     })
-  }, [])
+  }
+
+  const handleConfirmRestore = (code?: number) => {
+    if (!code) return
+
+    setShowRestoreConfirmation(false)
+
+    toast.promise(restoreRoleData.executeAsync({ code }), {
+      loading: 'Restoring role...',
+      success: (response) => {
+        const result = response?.data
+
+        if (!response || !result) throw { message: 'Failed to restore role!', unExpectedError: true }
+
+        if (!result.error) {
+          setTimeout(() => {
+            router.refresh()
+          }, 1500)
+
+          return result.message
+        }
+
+        throw { message: result.message, expectedError: true }
+      },
+      error: (err: Error & { expectedError: boolean }) => {
+        return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
+      },
+    })
+  }
 
   return (
     <div className='h-full w-full space-y-5'>
@@ -101,7 +143,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
-          addButton={{ text: 'Add Role', onClick: () => router.push('/roles/add') }}
+          addButton={{ text: 'Add Role', onClick: () => router.push('/roles/add'), subjects: 'p-roles', actions: 'create' }}
         />
       </PageHeader>
 
@@ -114,19 +156,75 @@ export default function RoleTable({ roles }: RoleTableProps) {
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
           <Column type='buttons' fixed fixedPosition='right' minWidth={140} caption='Actions'>
-            <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
-            <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' hint='Edit' />
-            <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' hint='Delete' />
+            <CanView subject='p-roles' action='view'>
+              <DataGridButton
+                icon='eyeopen'
+                onClick={handleView}
+                cssClass='!text-lg'
+                hint='View'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
+
+            <CanView subject='p-roles' action='edit'>
+              <DataGridButton
+                icon='edit'
+                onClick={handleEdit}
+                cssClass='!text-lg'
+                hint='Edit'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
+
+            <CanView subject='p-roles' action='delete'>
+              <DataGridButton
+                icon='trash'
+                onClick={handleDelete}
+                cssClass='!text-lg !text-red-500'
+                hint='Delete'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
+
+            <CanView subject='p-roles' action='restore'>
+              <DataGridButton
+                icon='undo'
+                onClick={handleRestore}
+                cssClass='!text-lg !text-blue-500'
+                hint='Restore'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return showActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
           </Column>
         </CommonDataGrid>
       </PageContentWrapper>
 
       <AlertDialog
-        isOpen={showConfirmation}
+        isOpen={showDeleteConfirmation}
         title='Are you sure?'
         description={`Are you sure you want to delete this role named "${rowData?.name}"?`}
         onConfirm={() => handleConfirm(rowData?.code)}
-        onCancel={() => setShowConfirmation(false)}
+        onCancel={() => setShowDeleteConfirmation(false)}
+      />
+
+      <AlertDialog
+        isOpen={showRestoreConfirmation}
+        title='Are you sure?'
+        description={`Are you sure you want to restore this role named "${rowData?.name}"?`}
+        onConfirm={() => handleConfirmRestore(rowData?.code)}
+        onCancel={() => setShowRestoreConfirmation(false)}
       />
     </div>
   )

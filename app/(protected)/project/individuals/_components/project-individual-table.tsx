@@ -1,6 +1,6 @@
 'use client'
 
-import { deleletePi, getPis, importPis } from '@/actions/project-individual'
+import { deleletePi, getPis, importPis, restorePi } from '@/actions/project-individual'
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
 import { useCallback, useRef, useState } from 'react'
@@ -17,6 +17,8 @@ import CommonDataGrid from '@/components/common-datagrid'
 import { parseExcelFile } from '@/utils/xlsx'
 import { ImportSyncError, Stats } from '@/types/common'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
+import CanView from '@/components/acl/can-view'
+import { hideActionButton, showActionButton } from '@/utils/devextreme'
 
 type ProjectIndividualTableProps = { projectIndividuals: Awaited<ReturnType<typeof getPis>> }
 type DataSource = Awaited<ReturnType<typeof getPis>>
@@ -30,7 +32,8 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
   const [isLoading, setIsLoading] = useState(false)
   const [stats, setStats] = useState<Stats>({ total: 0, completed: 0, progress: 0, errors: [], status: 'processing' })
 
-  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
+  const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false)
   const [showImportError, setShowImportError] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
   const [importErrors, setImportErrors] = useState<ImportSyncError[]>([])
@@ -38,7 +41,8 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
   const dataGridRef = useRef<DataGridRef | null>(null)
   const importErrorDataGridRef = useRef<DataGridRef | null>(null)
 
-  const { executeAsync } = useAction(deleletePi)
+  const deleletePiData = useAction(deleletePi)
+  const restorePiData = useAction(restorePi)
   const importData = useAction(importPis)
 
   const dataGridStore = useDataGridStore([
@@ -73,18 +77,28 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
     (e: DataGridTypes.ColumnButtonClickEvent) => {
       const data = e.row?.data
       if (!data) return
-      setShowConfirmation(true)
+      setShowDeleteConfirmation(true)
       setRowData(data)
     },
-    [setShowConfirmation, setRowData]
+    [setShowDeleteConfirmation, setRowData]
+  )
+
+  const handleRestore = useCallback(
+    (e: DataGridTypes.ColumnButtonClickEvent) => {
+      const data = e.row?.data
+      if (!data) return
+      setShowRestoreConfirmation(true)
+      setRowData(data)
+    },
+    [setShowRestoreConfirmation, setRowData]
   )
 
   const handleConfirm = useCallback((code?: number) => {
     if (!code) return
 
-    setShowConfirmation(false)
+    setShowDeleteConfirmation(false)
 
-    toast.promise(executeAsync({ code }), {
+    toast.promise(deleletePiData.executeAsync({ code }), {
       loading: 'Deleting project individual...',
       success: (response) => {
         const result = response?.data
@@ -106,6 +120,34 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
       },
     })
   }, [])
+
+  const handleConfirmRestore = (code?: number) => {
+    if (!code) return
+
+    setShowRestoreConfirmation(false)
+
+    toast.promise(restorePiData.executeAsync({ code }), {
+      loading: 'Restoring project individual...',
+      success: (response) => {
+        const result = response?.data
+
+        if (!response || !result) throw { message: 'Failed to restore project individual!', unExpectedError: true }
+
+        if (!result.error) {
+          setTimeout(() => {
+            router.refresh()
+          }, 1500)
+
+          return result.message
+        }
+
+        throw { message: result.message, expectedError: true }
+      },
+      error: (err: Error & { expectedError: boolean }) => {
+        return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
+      },
+    })
+  }
 
   const handleImport: (...args: any[]) => void = async (args) => {
     const { file } = args
@@ -175,7 +217,14 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
           isLoading={isLoading || importData.isExecuting}
           isEnableImport
           onImport={handleImport}
-          addButton={{ text: 'Add Project Individual', onClick: () => router.push('/project/individuals/add') }}
+          addButton={{
+            text: 'Add Project Individual',
+            onClick: () => router.push('/project/individuals/add'),
+            subjects: 'p-projects-individuals',
+            actions: 'create',
+          }}
+          importOptions={{ subjects: 'p-projects-individuals', actions: 'import' }}
+          exportOptions={{ subjects: 'p-projects-individuals', actions: 'export' }}
         />
 
         {stats && stats.progress && isLoading ? <ProgressBar min={0} max={100} showStatus={false} value={stats.progress} /> : null}
@@ -197,19 +246,67 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
           <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
-            <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
-            <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' hint='Edit' />
-            <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' hint='Delete' />
+            <CanView subject='p-projects-individuals' action='view'>
+              <DataGridButton
+                icon='eyeopen'
+                onClick={handleView}
+                cssClass='!text-lg'
+                hint='View'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
+
+            <CanView subject='p-projects-individuals' action='edit'>
+              <DataGridButton
+                icon='edit'
+                onClick={handleEdit}
+                cssClass='!text-lg'
+                hint='Edit'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
+
+            <CanView subject='p-projects-individuals' action='delete'>
+              <DataGridButton
+                icon='trash'
+                onClick={handleDelete}
+                cssClass='!text-lg !text-red-500'
+                hint='Delete'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
+
+            <CanView subject='p-projects-individuals' action='restore'>
+              <DataGridButton
+                icon='undo'
+                onClick={handleRestore}
+                cssClass='!text-lg !text-blue-500'
+                hint='Restore'
+                visible={(opt) => {
+                  const data = opt?.row?.data
+                  return showActionButton(data?.deletedAt || data?.deletedBy)
+                }}
+              />
+            </CanView>
           </Column>
         </CommonDataGrid>
       </PageContentWrapper>
 
       <AlertDialog
-        isOpen={showConfirmation}
+        isOpen={showDeleteConfirmation}
         title='Are you sure?'
         description={`Are you sure you want to delete this project individual named "${rowData?.name}"?`}
         onConfirm={() => handleConfirm(rowData?.code)}
-        onCancel={() => setShowConfirmation(false)}
+        onCancel={() => setShowDeleteConfirmation(false)}
       />
 
       <ImportSyncErrorDataGrid
@@ -217,6 +314,14 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
         setIsOpen={setShowImportError}
         data={importErrors}
         dataGridRef={importErrorDataGridRef}
+      />
+
+      <AlertDialog
+        isOpen={showRestoreConfirmation}
+        title='Are you sure?'
+        description={`Are you sure you want to restore this project individual named "${rowData?.name}"?`}
+        onConfirm={() => handleConfirmRestore(rowData?.code)}
+        onCancel={() => setShowRestoreConfirmation(false)}
       />
     </div>
   )

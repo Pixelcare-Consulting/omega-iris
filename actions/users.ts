@@ -21,7 +21,6 @@ const COMMON_USER_ORDER_BY = { code: 'asc' } satisfies Prisma.UserOrderByWithRel
 export async function getUsers() {
   try {
     return db.user.findMany({
-      where: { deletedAt: null, deletedBy: null },
       include: COMMON_USER_INCLUDE,
       orderBy: COMMON_USER_ORDER_BY,
     })
@@ -352,6 +351,30 @@ export const deleteUser = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'DELETE_USER',
+      }
+    }
+  })
+
+export const restoreUser = action
+  .use(authenticationMiddleware)
+  .schema(paramsSchema)
+  .action(async ({ parsedInput: data }) => {
+    try {
+      const user = await db.user.findUnique({ where: { code: data.code } })
+
+      if (!user) return { error: true, status: 404, message: 'User not found!', action: 'RESTORE_USER' }
+
+      await db.user.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+
+      return { status: 200, message: 'User retored successfully!', action: 'RESTORE_USER' }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'RESTORE_USER',
       }
     }
   })

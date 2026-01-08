@@ -9,8 +9,9 @@ import TabPanel, { Item as TabPanelITem } from 'devextreme-react/tab-panel'
 import { getRolesByCode } from '@/actions/roles'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
-import RolesOverviewTab from '../_tabs/role-overview-tab'
+import RolesOverviewTab from './_tabs/role-overview-tab'
 import UnderDevelopment from '@/app/under-development'
+import CanView from '@/components/acl/can-view'
 
 type ViewRolesProps = {
   role: NonNullable<Awaited<ReturnType<typeof getRolesByCode>>>
@@ -34,19 +35,23 @@ export default function ViewRole({ role }: ViewRolesProps) {
           />
         </Item>
 
-        <Item
-          location='after'
-          locateInMenu='always'
-          widget='dxButton'
-          options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/roles/add`) }}
-        />
+        <CanView subject='p-roles' action='create'>
+          <Item
+            location='after'
+            locateInMenu='always'
+            widget='dxButton'
+            options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/roles/add`) }}
+          />
+        </CanView>
 
-        <Item
-          location='after'
-          locateInMenu='always'
-          widget='dxButton'
-          options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/roles/${role.code}`) }}
-        />
+        <CanView subject='p-roles' action='edit'>
+          <Item
+            location='after'
+            locateInMenu='always'
+            widget='dxButton'
+            options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/roles/${role.code}`) }}
+          />
+        </CanView>
       </PageHeader>
 
       <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>

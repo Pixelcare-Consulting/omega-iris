@@ -13,6 +13,7 @@ import ProjectGroupOverviewTab from './_tabs/project-group-overview-tab'
 import UnderDevelopment from '@/app/under-development'
 import { usePisByGroupCode } from '@/hooks/safe-actions/project-individual'
 import ProjectGroupProjectsTab from './_tabs/project-group-projects-tab'
+import CanView from '@/components/acl/can-view'
 
 type ViewProjectGroupProps = {
   projectGroup: NonNullable<Awaited<ReturnType<typeof getPgByCode>>>
@@ -38,19 +39,23 @@ export default function ViewProjectGroup({ projectGroup }: ViewProjectGroupProps
           />
         </Item>
 
-        <Item
-          location='after'
-          locateInMenu='always'
-          widget='dxButton'
-          options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/project/groups/add`) }}
-        />
+        <CanView subject='p-projects-groups' action='create'>
+          <Item
+            location='after'
+            locateInMenu='always'
+            widget='dxButton'
+            options={{ text: 'Add', icon: 'add', onClick: () => router.push(`/project/groups/add`) }}
+          />
+        </CanView>
 
-        <Item
-          location='after'
-          locateInMenu='always'
-          widget='dxButton'
-          options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/project/groups/${projectGroup.code}`) }}
-        />
+        <CanView subject='p-projects-groups' action='edit'>
+          <Item
+            location='after'
+            locateInMenu='always'
+            widget='dxButton'
+            options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/project/groups/${projectGroup.code}`) }}
+          />
+        </CanView>
       </PageHeader>
 
       <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
