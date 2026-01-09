@@ -10,6 +10,7 @@ import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapp
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import CommonDataGrid from '@/components/common-datagrid'
+import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 
 type ProjectGroupProjectTableProps = {
   groupCode: number
@@ -24,21 +25,7 @@ export default function ProjectGroupProjectTable({ projects }: ProjectGroupProje
 
   const dataGridRef = useRef<DataGridRef | null>(null)
 
-  const dataGridStore = useDataGridStore([
-    'showFilterRow',
-    'setShowFilterRow',
-    'showHeaderFilter',
-    'setShowHeaderFilter',
-    'showFilterBuilderPanel',
-    'setShowFilterBuilderPanel',
-    'showGroupPanel',
-    'setShowGroupPanel',
-    'enableStateStoring',
-    'columnHidingEnabled',
-    'setColumnHidingEnabled',
-    'showColumnChooser',
-    'setShowColumnChooser',
-  ])
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   const handleView = useCallback((e: DataGridTypes.RowClickEvent) => {
     const rowType = e.rowType

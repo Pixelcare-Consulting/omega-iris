@@ -23,6 +23,7 @@ import LoadingButton from '@/components/loading-button'
 import WorkOrderUpdateStatusForm from './work-order-update-status-form'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
+import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 
 type WorkOrderTableProps = { workOrders: Awaited<ReturnType<typeof getWorkOrders>> }
 type DataSource = Awaited<ReturnType<typeof getWorkOrders>>
@@ -60,21 +61,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     return workOrderToUpdate.map((wo) => wo.code)
   }, [JSON.stringify(workOrderToUpdate)])
 
-  const dataGridStore = useDataGridStore([
-    'showFilterRow',
-    'setShowFilterRow',
-    'showHeaderFilter',
-    'setShowHeaderFilter',
-    'showFilterBuilderPanel',
-    'setShowFilterBuilderPanel',
-    'showGroupPanel',
-    'setShowGroupPanel',
-    'enableStateStoring',
-    'columnHidingEnabled',
-    'setColumnHidingEnabled',
-    'showColumnChooser',
-    'setShowColumnChooser',
-  ])
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const data = e.row?.data

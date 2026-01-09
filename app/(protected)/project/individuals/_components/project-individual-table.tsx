@@ -19,6 +19,7 @@ import { ImportSyncError, Stats } from '@/types/common'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
+import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 
 type ProjectIndividualTableProps = { projectIndividuals: Awaited<ReturnType<typeof getPis>> }
 type DataSource = Awaited<ReturnType<typeof getPis>>
@@ -45,21 +46,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
   const restorePiData = useAction(restorePi)
   const importData = useAction(importPis)
 
-  const dataGridStore = useDataGridStore([
-    'showFilterRow',
-    'setShowFilterRow',
-    'showHeaderFilter',
-    'setShowHeaderFilter',
-    'showFilterBuilderPanel',
-    'setShowFilterBuilderPanel',
-    'showGroupPanel',
-    'setShowGroupPanel',
-    'enableStateStoring',
-    'columnHidingEnabled',
-    'setColumnHidingEnabled',
-    'showColumnChooser',
-    'setShowColumnChooser',
-  ])
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const data = e.row?.data

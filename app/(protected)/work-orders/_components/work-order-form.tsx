@@ -302,13 +302,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
               <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Status' value={selectedStatus || ''} />
 
               <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <SwitchField
-                  control={form.control}
-                  name='isInternal'
-                  label='Internal'
-                  description='Is this an internal work order?'
-                  extendedProps={{ switchOptions: { disabled: isCreate } }}
-                />
+                <SwitchField control={form.control} name='isInternal' label='Internal' description='Is this an internal work order?' />
               </div>
 
               <div className='col-span-12'>

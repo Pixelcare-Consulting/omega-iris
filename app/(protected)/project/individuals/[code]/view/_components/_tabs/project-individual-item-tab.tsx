@@ -26,7 +26,7 @@ import ProjectIndividualItemView from '../project-individual-item-view'
 import useUsers from '@/hooks/safe-actions/user'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import useItems from '@/hooks/safe-actions/item'
-import { DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
+import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { ImportSyncError, Stats } from '@/types/common'
 import { parseExcelFile } from '@/utils/xlsx'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
@@ -63,21 +63,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
   const { executeAsync } = useAction(deleteProjectItem)
   const importData = useAction(importProjectItems)
 
-  const dataGridStore = useDataGridStore([
-    'showFilterRow',
-    'setShowFilterRow',
-    'showHeaderFilter',
-    'setShowHeaderFilter',
-    'showFilterBuilderPanel',
-    'setShowFilterBuilderPanel',
-    'showGroupPanel',
-    'setShowGroupPanel',
-    'enableStateStoring',
-    'columnHidingEnabled',
-    'setColumnHidingEnabled',
-    'showColumnChooser',
-    'setShowColumnChooser',
-  ])
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   const thumbnailCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
     const data = e.data as DataSource[number]

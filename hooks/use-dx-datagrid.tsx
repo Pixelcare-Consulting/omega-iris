@@ -16,6 +16,10 @@ export type DataGridStore = {
   setColumnHidingEnabled: (value: boolean) => void
   showColumnChooser: boolean
   setShowColumnChooser: (value: boolean) => void
+  showRowLines: boolean
+  setShowRowLines: (value: boolean) => void
+  showColumnLines: boolean
+  setShowColumnLines: (value: boolean) => void
 }
 
 const dataGridStore = createWithEqualityFn<DataGridStore>((set) => ({
@@ -27,12 +31,16 @@ const dataGridStore = createWithEqualityFn<DataGridStore>((set) => ({
   setShowFilterBuilderPanel: (value) => set({ showFilterBuilderPanel: value }),
   showGroupPanel: false,
   setShowGroupPanel: (value) => set({ showGroupPanel: value }),
-  enableStateStoring: false,
+  enableStateStoring: true,
   setEnableStateStoring: (value) => set({ enableStateStoring: value }),
   columnHidingEnabled: false,
   setColumnHidingEnabled: (value) => set({ columnHidingEnabled: value }),
   showColumnChooser: false,
   setShowColumnChooser: (value) => set({ showColumnChooser: value }),
+  showRowLines: false,
+  setShowRowLines: (value) => set({ showRowLines: value }),
+  showColumnLines: false,
+  setShowColumnLines: (value) => set({ showColumnLines: value }),
 }))
 
 export const useDataGridStore = createStoreWithSelectors(dataGridStore)

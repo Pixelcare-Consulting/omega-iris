@@ -28,7 +28,7 @@ import { useWoItemsByWoCode } from '@/hooks/safe-actions/work-order-item'
 import AlertDialog from '@/components/alert-dialog'
 import { deleteWorkOrderLineItem, getWorkOrderByCode, upsertWorkOrderLineItem } from '@/actions/work-order'
 import { cn, safeParseFloat, safeParseInt } from '@/utils'
-import { DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
+import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import WorkOrderLineItemForm from '../work-order-line-item-form'
 import { WorkOrderItemForm } from '@/schema/work-order'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
@@ -113,21 +113,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
       .filter((item) => item !== null)
   }, [JSON.stringify(workOrderItems)])
 
-  const dataGridStore = useDataGridStore([
-    'showFilterRow',
-    'setShowFilterRow',
-    'showHeaderFilter',
-    'setShowHeaderFilter',
-    'showFilterBuilderPanel',
-    'setShowFilterBuilderPanel',
-    'showGroupPanel',
-    'setShowGroupPanel',
-    'enableStateStoring',
-    'columnHidingEnabled',
-    'setColumnHidingEnabled',
-    'showColumnChooser',
-    'setShowColumnChooser',
-  ])
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   const handleAdd = useCallback(() => {
     setRowData(null)

@@ -14,6 +14,7 @@ import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import TextBox, { TextBoxRef } from 'devextreme-react/text-box'
 import { exportToExcel } from '@/utils/devextreme'
 import CanView from '@/components/acl/can-view'
+import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 
 type CommonPageHeaderToolbarItemsProps = {
   dataGridUniqueKey: string
@@ -41,21 +42,7 @@ export default function CommonPageHeaderToolbarItems({
   const searchTextBoxRef = useRef<TextBoxRef | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  const dataGridStore = useDataGridStore([
-    'showFilterRow',
-    'setShowFilterRow',
-    'showHeaderFilter',
-    'setShowHeaderFilter',
-    'showFilterBuilderPanel',
-    'setShowFilterBuilderPanel',
-    'showGroupPanel',
-    'setShowGroupPanel',
-    'enableStateStoring',
-    'columnHidingEnabled',
-    'setColumnHidingEnabled',
-    'showColumnChooser',
-    'setShowColumnChooser',
-  ])
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   const exportToExcelMenuItems = useMemo((): MenuTypes.Item[] => {
     return [
@@ -328,11 +315,42 @@ export default function CommonPageHeaderToolbarItems({
           //* should be declared this way to avoid to resolve issue with toolbar item with locateInMenu='always' for button
           text: 'Toggle Auto Column Hiding',
           icon: 'pinleft',
-          stylingMode: 'text',
           disabled: isLoading,
           onClick: () => dataGridStore.setColumnHidingEnabled(!dataGridStore.columnHidingEnabled),
           elementAttr: {
             class: dataGridStore.columnHidingEnabled ? '[&_.dx-icon]:!text-primary [&_.dx-button-text]:text-primary' : '',
+          },
+        }}
+      />
+
+      <Item
+        location='after'
+        widget='dxButton'
+        locateInMenu='always'
+        options={{
+          //* should be declared this way to avoid to resolve issue with toolbar item with locateInMenu='always' for button
+          text: 'Toggle Row Lines',
+          icon: 'rowfield',
+          disabled: isLoading,
+          onClick: () => dataGridStore.setShowRowLines(!dataGridStore.showRowLines),
+          elementAttr: {
+            class: dataGridStore.showRowLines ? '[&_.dx-icon]:!text-primary [&_.dx-button-text]:text-primary' : '',
+          },
+        }}
+      />
+
+      <Item
+        location='after'
+        widget='dxButton'
+        locateInMenu='always'
+        options={{
+          //* should be declared this way to avoid to resolve issue with toolbar item with locateInMenu='always' for button
+          text: 'Toggle Column Lines',
+          icon: 'columnfield',
+          disabled: isLoading,
+          onClick: () => dataGridStore.setShowColumnLines(!dataGridStore.showColumnLines),
+          elementAttr: {
+            class: dataGridStore.showColumnLines ? '[&_.dx-icon]:!text-primary [&_.dx-button-text]:text-primary' : '',
           },
         }}
       />

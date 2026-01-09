@@ -30,6 +30,7 @@ import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import { ImportSyncError, Stats } from '@/types/common'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
+import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 
 type ProjectGroupTableProps = { projectGroups: Awaited<ReturnType<typeof getPgs>> }
 type DataSource = Awaited<ReturnType<typeof getPgs>>
@@ -56,21 +57,7 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
   const restorePgData = useAction(restorePg)
   const importData = useAction(importPgs)
 
-  const dataGridStore = useDataGridStore([
-    'showFilterRow',
-    'setShowFilterRow',
-    'showHeaderFilter',
-    'setShowHeaderFilter',
-    'showFilterBuilderPanel',
-    'setShowFilterBuilderPanel',
-    'showGroupPanel',
-    'setShowGroupPanel',
-    'enableStateStoring',
-    'columnHidingEnabled',
-    'setColumnHidingEnabled',
-    'showColumnChooser',
-    'setShowColumnChooser',
-  ])
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const data = e.row?.data

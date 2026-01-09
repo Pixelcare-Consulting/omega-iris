@@ -13,6 +13,7 @@ import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import AlertDialog from '@/components/alert-dialog'
 import CommonDataGrid from '@/components/common-datagrid'
+import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 
 type WarehousesTableProps = { warehouses: Awaited<ReturnType<typeof getWarehouses>> }
 type DataSource = Awaited<ReturnType<typeof getWarehouses>>
@@ -29,21 +30,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
 
   const { executeAsync } = useAction(deleleteWarehouse)
 
-  const dataGridStore = useDataGridStore([
-    'showFilterRow',
-    'setShowFilterRow',
-    'showHeaderFilter',
-    'setShowHeaderFilter',
-    'showFilterBuilderPanel',
-    'setShowFilterBuilderPanel',
-    'showGroupPanel',
-    'setShowGroupPanel',
-    'enableStateStoring',
-    'columnHidingEnabled',
-    'setColumnHidingEnabled',
-    'showColumnChooser',
-    'setShowColumnChooser',
-  ])
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const data = e.row?.data
