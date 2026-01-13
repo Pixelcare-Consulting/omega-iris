@@ -7,6 +7,7 @@ const badgeVariants = cva('inline-flex items-center rounded-md px-2 py-1 text-ce
     variant: {
       default: 'bg-primary text-white ring-primary/10',
       'soft-default': 'bg-primary-foreground text-primary ring-primary/10',
+      black: 'bg-black text-white ring-black/10',
       slate: 'bg-slate-500 text-slate-50 ring-slate-500/10',
       gray: 'bg-gray-500 text-gray-50 ring-gray-500/10',
       zinc: 'bg-zinc-500 text-zinc-50 ring-zinc-500/10',

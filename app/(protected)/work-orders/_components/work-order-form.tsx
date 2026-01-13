@@ -35,6 +35,7 @@ import { FormDebug } from '@/components/forms/form-debug'
 import { useAddresses } from '@/hooks/safe-actions/address'
 import { useSalesOrderByWorkOrderCode } from '@/hooks/safe-actions/sales-order'
 import CanView from '@/components/acl/can-view'
+import { useSession } from 'next-auth/react'
 
 type WorkOrderFormProps = {
   pageMetaData: PageMetadata
@@ -42,6 +43,7 @@ type WorkOrderFormProps = {
 }
 
 export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderFormProps) {
+  const { data: session } = useSession()
   const router = useRouter()
   const { code } = useParams() as { code: string }
 
@@ -55,7 +57,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
         code: -1,
         projectIndividualCode: 0,
         userCode: 0,
-        status: '1',
+        status: session?.user.roleKey === 'business-partner' ? '2' : '1',
         isInternal: false,
         billingAddrCode: null,
         shippingAddrCode: null,
@@ -70,7 +72,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
     }
 
     return undefined
-  }, [isCreate, JSON.stringify(workOrder)])
+  }, [isCreate, JSON.stringify(workOrder), JSON.stringify(session)])
 
   const form = useForm({
     mode: 'onChange',
@@ -257,7 +259,10 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                   displayExpr='name'
                   searchExpr={['code', 'name']}
                   isRequired
-                  callback={() => form.resetField('userCode')}
+                  callback={(args) => {
+                    form.setValue('userCode', 0)
+                    form.setValue('lineItems', [])
+                  }}
                   extendedProps={{
                     selectBoxOptions: {
                       itemRender: (params) => {
@@ -302,13 +307,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
               <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Status' value={selectedStatus || ''} />
 
               <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <SwitchField
-                  control={form.control}
-                  name='isInternal'
-                  label='Internal'
-                  description='Is this an internal work order?'
-                  extendedProps={{ switchOptions: { disabled: isCreate } }}
-                />
+                <SwitchField control={form.control} name='isInternal' label='Internal' description='Is this an internal work order?' />
               </div>
 
               <div className='col-span-12'>

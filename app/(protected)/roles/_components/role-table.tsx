@@ -15,6 +15,7 @@ import AlertDialog from '@/components/alert-dialog'
 import CommonDataGrid from '@/components/common-datagrid'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
+import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 
 type RoleTableProps = { roles: Awaited<ReturnType<typeof getRoles>> }
 type DataSource = Awaited<ReturnType<typeof getRoles>>
@@ -33,21 +34,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
   const deleteRoleData = useAction(deleleteRole)
   const restoreRoleData = useAction(restoreRole)
 
-  const dataGridStore = useDataGridStore([
-    'showFilterRow',
-    'setShowFilterRow',
-    'showHeaderFilter',
-    'setShowHeaderFilter',
-    'showFilterBuilderPanel',
-    'setShowFilterBuilderPanel',
-    'showGroupPanel',
-    'setShowGroupPanel',
-    'enableStateStoring',
-    'columnHidingEnabled',
-    'setColumnHidingEnabled',
-    'showColumnChooser',
-    'setShowColumnChooser',
-  ])
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const data = e.row?.data

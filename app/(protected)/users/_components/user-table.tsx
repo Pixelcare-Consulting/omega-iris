@@ -17,6 +17,7 @@ import AlertDialog from '@/components/alert-dialog'
 import CommonDataGrid from '@/components/common-datagrid'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
+import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 
 type UserTableProps = { users: Awaited<ReturnType<typeof getUsers>> }
 type DataSource = Awaited<ReturnType<typeof getUsers>>
@@ -37,21 +38,7 @@ export default function UserTable({ users }: UserTableProps) {
   const deleteUserData = useAction(deleteUser)
   const restoreUserData = useAction(restoreUser)
 
-  const dataGridStore = useDataGridStore([
-    'showFilterRow',
-    'setShowFilterRow',
-    'showHeaderFilter',
-    'setShowHeaderFilter',
-    'showFilterBuilderPanel',
-    'setShowFilterBuilderPanel',
-    'showGroupPanel',
-    'setShowGroupPanel',
-    'enableStateStoring',
-    'columnHidingEnabled',
-    'setColumnHidingEnabled',
-    'showColumnChooser',
-    'setShowColumnChooser',
-  ])
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   const lastSigninCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
     const data = e.data as DataSource[number]

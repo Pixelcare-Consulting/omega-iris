@@ -226,9 +226,9 @@ model Contact {
 model Item {
     id                     String  @id @default(cuid())
     code                   Int     @unique @default(autoincrement())
-    manufacturerPartNumber String  @unique
-    manufacturer           String?
-    description            String?
+    manufacturerPartNumber String  @unique //* redundant need to be remove because we already have a field equivalent to this from SAP
+    manufacturer           String? //* redundant need to be remove because we already have a field equivalent to this from SAP
+    description            String? //* redundant need to be remove because we already have a field equivalent to this from SAP
     thumbnail              String?
     notes                  String?
     isActive               Boolean @default(true)
@@ -378,7 +378,7 @@ model ProjectItem {
     cost            Decimal?  @default(0)
     stockIn         Decimal?  @default(0)
     stockOut        Decimal?  @default(0)
-    totalStock      Decimal?  @default(0) //* initial total stock
+    totalStock      Decimal?  @default(0)
     siteLocation    String?
     subLocation2    String?
     subLocation3    String?
@@ -492,6 +492,7 @@ model WorkOrderItem {
     workOrderCode   Int
     projectItemCode Int
     qty             Decimal? @default(0)
+    isDelivered     Boolean  @default(false)
 
     workOrder   WorkOrder   @relation(fields: [workOrderCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     projectItem ProjectItem @relation(fields: [projectItemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)

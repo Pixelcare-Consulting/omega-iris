@@ -55,11 +55,12 @@ type CreditStockParams = {
   workOrderCode: number
   prevStatus: string | null
   currStatus: string
+  deliveredProjectItems: number[]
 }
 
 export async function creditStock(params: CreditStockParams) {
   try {
-    const { tx, workOrderCode, prevStatus, currStatus } = params
+    const { tx, workOrderCode, prevStatus, currStatus, deliveredProjectItems } = params
 
     const oldStatus = safeParseInt(prevStatus)
     const newStatus = safeParseInt(currStatus)
@@ -121,8 +122,11 @@ export async function creditStock(params: CreditStockParams) {
 
     const lineItems = existingWorkOrder.workOrderItems
 
-    //* only credit stocks-in only when new status is 'Verified'
-    if (oldStatus >= 1 && oldStatus <= 3 && newStatus === 4) {
+    //TODO: if work order create qty credited to stock-in and qty will be locked
+
+    //* only credit stocks-in only when new status is 'Open' or 'Pending' and old status === 0,
+    //*  means after work order is created by admin - default to 'Open' or by customer - default to 'Pending'
+    if (oldStatus === 0 && (newStatus === 1 || newStatus === 2)) {
       //* credit stock
       await Promise.all(
         lineItems.map((li) => {
@@ -135,16 +139,38 @@ export async function creditStock(params: CreditStockParams) {
           })
         })
       )
+
+      return
     }
 
-    //* if has old status and new status is between or equal 'Open' and 'In Process', then do nothing
-    if (oldStatus >= 1 && oldStatus <= 3 && newStatus >= 1 && newStatus <= 3) return
+    //* if has old status and new status is between or equal 'Open' and 'Verified', then do nothing
+    if (oldStatus !== 0 && oldStatus >= 1 && oldStatus <= 4 && newStatus >= 1 && newStatus <= 4) return
 
-    //* if old status is 'Verified' and new status is = 'Partial Delivery' or 'Delivered', then credit stock
-    if (oldStatus === 4 && newStatus >= 5 && newStatus <= 6) {
-      //* credit stock
+    //* if old status is 'Verified' and current status is 'Partial Delivery,
+    //* then credit qty of the items that has beed mark as delivered to stock-in and debit total stock accordingly
+    //* once item is already marked as delivered, will not be included
+    if ((oldStatus === 4 || oldStatus === 5) && newStatus === 5) {
+      //* process only the line items that has isDelivered = false and included in deliveredProjectItems
+      const lineItemsToProcess = lineItems.filter((li) => !li.isDelivered && deliveredProjectItems.includes(li.projectItem.code))
+
+      //* update isDelivered to true of work order items
       await Promise.all(
-        lineItems.map((li) => {
+        lineItemsToProcess.map((li) => {
+          return tx.workOrderItem.update({
+            where: {
+              workOrderCode_projectItemCode: {
+                workOrderCode: li.workOrderCode,
+                projectItemCode: li.projectItemCode,
+              },
+            },
+            data: { isDelivered: true },
+          })
+        })
+      )
+
+      //* debit stock-in & credit stock-out and debit total stock
+      await Promise.all(
+        lineItemsToProcess.map((li) => {
           const pItem = li.projectItem
           const qty = safeParseInt(li.qty)
 
@@ -158,12 +184,57 @@ export async function creditStock(params: CreditStockParams) {
           })
         })
       )
+
+      return
+    }
+
+    //* if old status is 'Verified' and new status is = 'Delivered'
+    //* then credit qty of the items that isDelivered = false to stock-in and debit stock-in & total stock accordingly
+    //* once item is already marked as delivered, will not be included
+    if ((oldStatus === 4 || oldStatus === 5) && newStatus === 6) {
+      //* process only the line items that has isDelivered = false
+      //? deliveredProjectItems is not being used here
+      const lineItemsToProcess = lineItems.filter((li) => !li.isDelivered)
+
+      //* update isDelivered to true of work order items
+      await Promise.all(
+        lineItemsToProcess.map((li) => {
+          return tx.workOrderItem.update({
+            where: {
+              workOrderCode_projectItemCode: {
+                workOrderCode: li.workOrderCode,
+                projectItemCode: li.projectItemCode,
+              },
+            },
+            data: { isDelivered: true },
+          })
+        })
+      )
+
+      //* credit stock-in & debit stock-out & total stock
+      await Promise.all(
+        lineItemsToProcess.map((li) => {
+          const pItem = li.projectItem
+          const qty = safeParseInt(li.qty)
+
+          return tx.projectItem.update({
+            where: { code: pItem.code },
+            data: {
+              stockIn: { decrement: qty },
+              stockOut: { increment: qty },
+              totalStock: { decrement: qty },
+            },
+          })
+        })
+      )
+
+      return
     }
 
     //* rollback on Cancelled / Deleted
     if (newStatus === 7 || newStatus === 8) {
-      //* if 'Verified' and then cancel or delete, then rollback stock
-      if (oldStatus === 4) {
+      //* if between or equal to 'Open' and 'Verified' and then cancel or delete, then rollback stock
+      if (oldStatus >= 1 && oldStatus <= 4) {
         await Promise.all(
           lineItems.map((li) => {
             const pItem = li.projectItem
@@ -175,13 +246,32 @@ export async function creditStock(params: CreditStockParams) {
             })
           })
         )
+
         return
       }
 
       //* if oldStatus is between or equal 'Partial Delivery' and 'Delivered' and then cancel or delete, then rollback stock
+      //* only process line items that has isDelivered = true
       if (oldStatus >= 5 && oldStatus <= 6) {
+        const lineItemsToProcess = lineItems.filter((li) => li.isDelivered)
+
+        //* update isDelivered to false of work order items
         await Promise.all(
-          lineItems.map((li) => {
+          lineItemsToProcess.map((li) => {
+            return tx.workOrderItem.update({
+              where: {
+                workOrderCode_projectItemCode: {
+                  workOrderCode: li.workOrderCode,
+                  projectItemCode: li.projectItemCode,
+                },
+              },
+              data: { isDelivered: false },
+            })
+          })
+        )
+
+        await Promise.all(
+          lineItemsToProcess.map((li) => {
             const pItem = li.projectItem
             const qty = safeParseInt(li.qty)
 
@@ -238,14 +328,28 @@ export const upsertWorkOrder = action
         }
       }
 
-      //* create new work order
-      const newWorkOrder = await db.workOrder.create({
-        data: {
-          ...data,
-          createdBy: userId,
-          updatedBy: userId,
-          workOrderItems: { createMany: { data: woItems } },
-        },
+      const newWorkOrder = await db.$transaction(async (tx) => {
+        //* create new work order
+        const wo = await db.workOrder.create({
+          data: {
+            ...data,
+            createdBy: userId,
+            updatedBy: userId,
+            workOrderItems: { createMany: { data: woItems } },
+          },
+        })
+
+        //* credit stock-in upon successful creation of work order
+        //* it should be status = 'Open' or 'Pending' for it to be credited
+        await creditStock({
+          tx,
+          workOrderCode: wo.code,
+          prevStatus: null,
+          currStatus: wo.status,
+          deliveredProjectItems: [],
+        })
+
+        return wo
       })
 
       return {
@@ -356,7 +460,10 @@ export const updateWorkeOrderStatus = action
       }
 
       //* get work orders that have changed status, and the next (current status) should be greater than the previous status, not allowed to go back to the previous status
-      const changedWorkOrders = workOrders.filter((wo) => wo.prevStatus !== currentStatus).filter((wo) => currentStatus > wo.prevStatus)
+      //* add if '5' still allow to update status to '5' - means partial delivery
+      const changedWorkOrders = workOrders
+        .filter((wo) => currentStatus == '5' || wo.prevStatus !== currentStatus)
+        .filter((wo) => currentStatus == '5' || currentStatus > wo.prevStatus)
 
       const updatedWorkOrders = await db.$transaction(async (tx) => {
         //* update work orders then create work order status updates
@@ -384,7 +491,15 @@ export const updateWorkeOrderStatus = action
 
         //* credit stock`
         await Promise.all(
-          changedWorkOrders.map((wo) => creditStock({ tx, workOrderCode: wo.code, prevStatus: wo.prevStatus, currStatus: currentStatus }))
+          changedWorkOrders.map((wo) =>
+            creditStock({
+              tx,
+              workOrderCode: wo.code,
+              prevStatus: wo.prevStatus,
+              currStatus: currentStatus,
+              deliveredProjectItems: wo.deliveredProjectItems,
+            })
+          )
         )
 
         return result

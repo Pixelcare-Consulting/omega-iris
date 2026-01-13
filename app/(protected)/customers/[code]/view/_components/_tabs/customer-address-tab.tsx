@@ -10,6 +10,7 @@ import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-p
 import CommonDataGrid from '@/components/common-datagrid'
 import { useAddresses } from '@/hooks/safe-actions/address'
 import { ADDRESS_TYPE_MAP } from '@/schema/business-partner'
+import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 
 type CustomerAddressTabProps = {
   addresses: Awaited<ReturnType<typeof useAddresses>>
@@ -21,21 +22,7 @@ export default function CustomerAddressTab({ addresses }: CustomerAddressTabProp
 
   const dataGridRef = useRef<DataGridRef | null>(null)
 
-  const dataGridStore = useDataGridStore([
-    'showFilterRow',
-    'setShowFilterRow',
-    'showHeaderFilter',
-    'setShowHeaderFilter',
-    'showFilterBuilderPanel',
-    'setShowFilterBuilderPanel',
-    'showGroupPanel',
-    'setShowGroupPanel',
-    'enableStateStoring',
-    'columnHidingEnabled',
-    'setColumnHidingEnabled',
-    'showColumnChooser',
-    'setShowColumnChooser',
-  ])
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   //* show loading
   useEffect(() => {

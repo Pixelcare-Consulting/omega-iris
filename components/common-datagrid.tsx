@@ -65,6 +65,8 @@ export default function CommonDataGrid<T extends Record<string, any>>({
       dataSource={data}
       keyExpr={keyExpr}
       showBorders
+      showRowLines={dataGridStore.showRowLines}
+      showColumnLines={dataGridStore.showColumnLines}
       columnHidingEnabled={dataGridStore.columnHidingEnabled}
       hoverStateEnabled
       allowColumnReordering

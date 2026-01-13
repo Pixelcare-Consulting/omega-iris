@@ -26,7 +26,7 @@ import { BUSINESS_PARTNER_TYPE_MAP, SyncToSapForm, syncToSapFormSchema } from '@
 import LoadingButton from '@/components/loading-button'
 import { useSyncMeta } from '@/hooks/safe-actions/sync-meta'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
-import { DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
+import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
 import CanView from '@/components/acl/can-view'
 
 type CustomerTableProps = { bps: Awaited<ReturnType<typeof getBps>> }
@@ -76,21 +76,7 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
   const syncToSapData = useAction(syncToSap)
   const syncFromSapData = useAction(syncFromSap)
 
-  const dataGridStore = useDataGridStore([
-    'showFilterRow',
-    'setShowFilterRow',
-    'showHeaderFilter',
-    'setShowHeaderFilter',
-    'showFilterBuilderPanel',
-    'setShowFilterBuilderPanel',
-    'showGroupPanel',
-    'setShowGroupPanel',
-    'enableStateStoring',
-    'columnHidingEnabled',
-    'setColumnHidingEnabled',
-    'showColumnChooser',
-    'setShowColumnChooser',
-  ])
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const data = e.row?.data

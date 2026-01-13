@@ -32,6 +32,7 @@ import LoadingButton from '@/components/loading-button'
 import { useSyncMeta } from '@/hooks/safe-actions/sync-meta'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import CanView from '@/components/acl/can-view'
+import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 
 type ItemTableProps = { items: Awaited<ReturnType<typeof getItems>> }
 type DataSource = Awaited<ReturnType<typeof getItems>>
@@ -81,21 +82,7 @@ export default function ItemTable({ items }: ItemTableProps) {
   const syncFromSapData = useAction(syncFromSap)
   const syncMeta = useSyncMeta('item')
 
-  const dataGridStore = useDataGridStore([
-    'showFilterRow',
-    'setShowFilterRow',
-    'showHeaderFilter',
-    'setShowHeaderFilter',
-    'showFilterBuilderPanel',
-    'setShowFilterBuilderPanel',
-    'showGroupPanel',
-    'setShowGroupPanel',
-    'enableStateStoring',
-    'columnHidingEnabled',
-    'setColumnHidingEnabled',
-    'showColumnChooser',
-    'setShowColumnChooser',
-  ])
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   const thumbnailCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
     const data = e.data as DataSource[number]

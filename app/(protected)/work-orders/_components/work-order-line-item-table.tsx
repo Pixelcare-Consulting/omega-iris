@@ -24,6 +24,7 @@ import DataGrid, {
 import Button from 'devextreme-react/button'
 import Tooltip from 'devextreme-react/tooltip'
 import Popup from 'devextreme-react/popup'
+import CheckBox from 'devextreme-react//check-box'
 
 import { useFormContext, useWatch } from 'react-hook-form'
 import Separator from '@/components/separator'
@@ -42,6 +43,7 @@ import { useWoItemsByWoCode } from '@/hooks/safe-actions/work-order-item'
 import FormMessage from '@/components/forms/form-message'
 import { cn, safeParseFloat, safeParseInt } from '@/utils'
 import { subtract } from 'mathjs'
+import { FormDebug } from '@/components/forms/form-debug'
 
 type WorkOrderLineItemsFormProps = {
   workOrder: Awaited<ReturnType<typeof getWorkOrderByCode>>
@@ -133,10 +135,11 @@ export default function WorkOrderLineItemTable({
 
       if (rowIndex !== -1) {
         updatedRows[rowIndex] = e.data //* update rows
-        const updatedLineItems = updatedRows.map(({ projectItemCode, qty, availableToOrder }) => ({
+        const updatedLineItems = updatedRows.map(({ projectItemCode, qty, availableToOrder, isDelivered }) => ({
           projectItemCode,
           qty,
           maxQty: availableToOrder,
+          isDelivered,
         }))
 
         form.setValue('lineItems', updatedLineItems) //* update line items
@@ -146,7 +149,7 @@ export default function WorkOrderLineItemTable({
     [JSON.stringify(workOrderItemsDataSource)]
   )
 
-  //* set local state work order items data source when work order data exist
+  //* set line items when work order data exist
   useEffect(() => {
     if (workOrder && workOrderItems.data.length > 0) {
       const lineItemValue = workOrderItems.data
@@ -160,14 +163,14 @@ export default function WorkOrderLineItemTable({
           const qty = safeParseFloat(woItem.qty)
           const availableToOrder = subtract(safeParseFloat(pItem?.totalStock), safeParseFloat(pItem?.stockIn))
 
-          return { projectItemCode: pItem?.code, qty, maxQty: availableToOrder }
+          return { projectItemCode: pItem?.code, qty, maxQty: availableToOrder, isDelivered: woItem.isDelivered }
         })
         .filter((item) => item !== null)
 
       setTimeout(() => {
         form.setValue('lineItems', lineItemValue)
       }, 500)
-    }
+    } else form.setValue('lineItems', [])
   }, [JSON.stringify(workOrder), JSON.stringify(workOrderItems)])
 
   //* set local state work order items data source when line items has been updated
@@ -211,12 +214,13 @@ export default function WorkOrderLineItemTable({
             totalStock,
             cost,
             qty,
+            isDelivered: li?.isDelivered,
           }
         })
         .filter((item) => item !== null)
 
       setWorkOrderItemsDataSource(woItems)
-    }
+    } else setWorkOrderItemsDataSource([])
   }, [JSON.stringify(lineItems), JSON.stringify(projectItems), JSON.stringify(workOrderItems)])
 
   //* show loading
@@ -240,17 +244,15 @@ export default function WorkOrderLineItemTable({
         )}
       </div>
 
+      {/* <FormDebug form={form} keys={['lineItems']} /> */}
+
       <div className='col-span-12'>
-        {/* //TODO: add feature to select row/s to be a part of the line items for the work order creation.  */}
-        {/* //TODO: In the work order automatically put those selected item, based from the projectItemCodes passed from the query e.g projectItemCodes=1,2,3,4 */}
         <DataGrid
           ref={dataGridRef}
           dataSource={workOrderItemsDataSource}
           keyExpr='projectItemCode'
           showBorders
           hoverStateEnabled
-          allowColumnReordering
-          allowColumnResizing
           width='100%'
           height='100%'
           onRowPrepared={handleOnRowPrepared}
@@ -260,6 +262,16 @@ export default function WorkOrderLineItemTable({
           onRowUpdated={handleOnRowUpdated}
         >
           <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' sortOrder='asc' allowEditing={false} />
+          <Column
+            dataField='isDelivered'
+            dataType='string'
+            minWidth={120}
+            caption='Delivered'
+            calculateCellValue={(rowData) => (rowData?.isDelivered ? 'Yes' : 'No')}
+            cellRender={(cell) => (cell?.data?.isDelivered ? 'Yes' : 'No')}
+            allowEditing={false}
+            alignment='left'
+          />
           <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
           <Column dataField='manufacturer' dataType='string' caption='Manufacturer' allowEditing={false} />
           <Column dataField='manufacturerPartNumber' dataType='string' caption='MFG P/N' allowEditing={false} />
@@ -270,16 +282,15 @@ export default function WorkOrderLineItemTable({
             caption='Available To Order'
             alignment='left'
             format={DEFAULT_NUMBER_FORMAT}
-            allowEditing={false}
           />
           <Column
             dataField='qty'
             dataType='number'
-            caption={`Quantity${workOrderStatus >= 4 ? ' (Locked)' : ''}`}
+            caption={`Quantity${workOrderStatus >= 1 ? ' (Locked)' : ''}`}
             format={DEFAULT_NUMBER_FORMAT}
             alignment='left'
-            allowEditing={workOrderStatus >= 4 ? false : true}
-            cssClass={cn(workOrderStatus >= 4 ? '!bg-slate-100' : '')}
+            allowEditing={workOrderStatus >= 1 ? false : true}
+            cssClass={cn(workOrderStatus >= 1 ? '!bg-slate-100' : '')}
           >
             <CustomRule
               validationCallback={(e) => {
@@ -296,14 +307,14 @@ export default function WorkOrderLineItemTable({
               onClick={handleEdit}
               cssClass='!text-lg'
               hint='Edit'
-              visible={workOrderStatus >= 4 ? false : true}
+              visible={workOrderStatus >= 1 ? false : true}
             />
             <DataGridButton
               icon='trash'
               onClick={handleDelete}
               cssClass='!text-lg !text-red-500'
               hint='Delete'
-              visible={workOrderStatus >= 4 ? false : true}
+              visible={workOrderStatus >= 1 ? false : true}
             />
           </Column>
 
@@ -328,7 +339,14 @@ export default function WorkOrderLineItemTable({
                 hideEvent='mouseleave'
                 position='top'
               />
-              <Button id='add-button' icon='add' type='default' stylingMode='contained' onClick={handleAdd} disabled={!projectCode} />
+              <Button
+                id='add-button'
+                icon='add'
+                type='default'
+                stylingMode='contained'
+                onClick={handleAdd}
+                disabled={!projectCode || workOrderStatus >= 1 ? true : false}
+              />
             </Item>
 
             <Item cssClass='[&_.dx-datagrid-search-panel]:!ml-0' name='searchPanel' location='after' />

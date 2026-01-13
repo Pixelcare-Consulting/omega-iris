@@ -23,6 +23,7 @@ import LoadingButton from '@/components/loading-button'
 import WorkOrderUpdateStatusForm from './work-order-update-status-form'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
+import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 
 type WorkOrderTableProps = { workOrders: Awaited<ReturnType<typeof getWorkOrders>> }
 type DataSource = Awaited<ReturnType<typeof getWorkOrders>>
@@ -48,6 +49,8 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
   const [showUpdateStatusForm, setShowUpdateStatusForm] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
 
+  const [currentStatus, setCurrentStatus] = useState<string | undefined>()
+
   const dataGridRef = useRef<DataGridRef | null>(null)
 
   const deleteWorkOrderData = useAction(deleteWorkOrder)
@@ -60,21 +63,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     return workOrderToUpdate.map((wo) => wo.code)
   }, [JSON.stringify(workOrderToUpdate)])
 
-  const dataGridStore = useDataGridStore([
-    'showFilterRow',
-    'setShowFilterRow',
-    'showHeaderFilter',
-    'setShowHeaderFilter',
-    'showFilterBuilderPanel',
-    'setShowFilterBuilderPanel',
-    'showGroupPanel',
-    'setShowGroupPanel',
-    'enableStateStoring',
-    'columnHidingEnabled',
-    'setColumnHidingEnabled',
-    'showColumnChooser',
-    'setShowColumnChooser',
-  ])
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const data = e.row?.data
@@ -171,9 +160,8 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     const values = selectedRowsData.map((srData) => ({
       code: srData.code,
       prevStatus: srData.status,
+      deliveredProjectItems: [],
     }))
-
-    console.log({ values })
 
     form.setValue('workOrders', values)
   }, [])
@@ -317,10 +305,14 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             showTitle={false}
             onHiding={() => setShowUpdateStatusForm(false)}
             width={undefined}
-            maxWidth={650}
-            height={410}
+            maxWidth={1200}
+            height={currentStatus !== '5' ? 410 : 700}
           >
-            <WorkOrderUpdateStatusForm selectedRowKeys={selectedRowKeys} onClose={handleCloseUpdateStatusForm} />
+            <WorkOrderUpdateStatusForm
+              selectedRowKeys={selectedRowKeys}
+              onClose={handleCloseUpdateStatusForm}
+              setCurrentStatus={setCurrentStatus}
+            />
           </Popup>
 
           <AlertDialog

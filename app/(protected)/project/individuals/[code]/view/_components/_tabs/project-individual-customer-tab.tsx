@@ -20,6 +20,7 @@ import { ProjectIndividualCustomerForm, projectIndividualCustomerFormSchema } fr
 import { updatePiCustomers } from '@/actions/project-individual'
 import LoadingButton from '@/components/loading-button'
 import CommonDataGrid from '@/components/common-datagrid'
+import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 
 type ProjectIndividualCustomerTabProps = {
   projectCode: number
@@ -46,21 +47,7 @@ export default function ProjectIndividualCustomerTab({ projectCode, customers, u
 
   const dataGridRef = useRef<DataGridRef | null>(null)
 
-  const dataGridStore = useDataGridStore([
-    'showFilterRow',
-    'setShowFilterRow',
-    'showHeaderFilter',
-    'setShowHeaderFilter',
-    'showFilterBuilderPanel',
-    'setShowFilterBuilderPanel',
-    'showGroupPanel',
-    'setShowGroupPanel',
-    'enableStateStoring',
-    'columnHidingEnabled',
-    'setColumnHidingEnabled',
-    'showColumnChooser',
-    'setShowColumnChooser',
-  ])
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   const lastSigninCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
     const data = e.data as DataSource[number]

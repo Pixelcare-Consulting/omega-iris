@@ -27,6 +27,7 @@ export const workOrderItemFormSchema = z
     projectItemCode: z.coerce.number().min(1, { message: 'Item is required' }),
     qty: z.coerce.number().refine((val) => val > 0, { message: 'Quantity is required' }),
     maxQty: z.coerce.number(),
+    isDelivered: z.boolean(),
   })
   .refine(
     (formData) => {
@@ -80,6 +81,7 @@ export const workOrderStatusUpdateFormSchema = z.object({
     z.object({
       code: z.coerce.number().min(1, { message: 'Work order code is required' }),
       prevStatus: z.string().min(1, { message: 'Previous status is required' }),
+      deliveredProjectItems: z.array(z.coerce.number()).default([]),
     })
   ),
   currentStatus: z.string().min(1, { message: 'Status is required' }),
