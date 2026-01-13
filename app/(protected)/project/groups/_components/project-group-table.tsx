@@ -202,6 +202,7 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
       setIsLoading(false)
     } catch (error: any) {
       console.error(error)
+      setIsLoading(false)
       toast.error(error?.message || 'Failed to import file')
     }
   }

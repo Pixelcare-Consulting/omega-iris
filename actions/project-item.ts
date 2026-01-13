@@ -9,7 +9,7 @@ import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { projectItemFormSchema } from '@/schema/project-item'
 import { paramsSchema } from '@/schema/common'
-import { safeParseFloat, safeParseInt } from '@/utils'
+import { delay, safeParseFloat, safeParseInt } from '@/utils'
 import { importFormSchema } from '@/schema/import'
 import { ImportSyncErrorEntry } from '@/types/common'
 
@@ -168,7 +168,7 @@ export const importProjectItems = action
         )
 
         //* check required fields
-        if (!row?.['MFG_P/N']) errors.push({ field: 'MFG_P/N', message: 'Missing required fields' })
+        if (!row?.['MFG_P/N']) errors.push({ field: 'MFG_P/N', message: 'Missing required field' })
 
         //* check if project code is provided
         if (!projectCode) errors.push({ field: 'Project Code', message: 'Project code not found' })

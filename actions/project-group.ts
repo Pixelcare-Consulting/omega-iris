@@ -142,7 +142,7 @@ export const importPgs = action
         const row = data[i]
 
         //* check required fields
-        if (!row?.['Name']) errors.push({ field: 'Name', message: 'Missing required fields' })
+        if (!row?.['Name']) errors.push({ field: 'Name', message: 'Missing required field' })
 
         //* if errors array is not empty, then update/push to stats.error
         if (errors.length > 0) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import DataGrid, {
   Column,
   DataGridRef,
@@ -44,6 +44,10 @@ import FormMessage from '@/components/forms/form-message'
 import { cn, safeParseFloat, safeParseInt } from '@/utils'
 import { subtract } from 'mathjs'
 import { FormDebug } from '@/components/forms/form-debug'
+import { Icons } from '@/components/icons'
+import { parseExcelFile } from '@/utils/xlsx'
+import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
+import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 
 type WorkOrderLineItemsFormProps = {
   workOrder: Awaited<ReturnType<typeof getWorkOrderByCode>>
@@ -61,11 +65,16 @@ export default function WorkOrderLineItemTable({
   isLoading,
 }: WorkOrderLineItemsFormProps) {
   const dataGridRef = useRef<DataGridRef | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const importErrorDataGridRef = useRef<DataGridRef | null>(null)
 
   const form = useFormContext<WorkOrderForm>()
 
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
+  const [showImportError, setShowImportError] = useState(false)
+  const [importErrors, setImportErrors] = useState<ImportSyncError[]>([])
   const [rowData, setRowData] = useState<(Record<string, any> & WorkOrderItemForm) | null>(null)
   const [workOrderItemsDataSource, setWorkOrderItemsDataSource] = useState<Record<string, any>[]>([])
 
@@ -149,6 +158,116 @@ export default function WorkOrderLineItemTable({
     [JSON.stringify(workOrderItemsDataSource)]
   )
 
+  const handleImport = async (file: File) => {
+    setIsImporting(true)
+    setImportErrors([])
+
+    const fileInput = fileInputRef?.current as any
+
+    try {
+      //* batching will not be implemented
+      const headers: string[] = ['ID', 'Quantity']
+
+      //* parse excel file
+      const parseData = await parseExcelFile({ file, header: headers })
+      const toImportData = parseData.map((row, i) => ({ rowNumber: i + 2, ...row })) as Record<string, any>[]
+
+      const toBeCreatedLineItems: WorkOrderItemForm[] = []
+      const importSyncErrors: ImportSyncError[] = []
+
+      //* process import
+      for (let i = 0; i < toImportData.length; i++) {
+        const errors: ImportSyncErrorEntry[] = []
+        const row = toImportData[i]
+        const rowNumber = i + 1
+        const pItem = projectItems.data.find((pi) => pi.code == row?.['ID'])
+
+        //* check required fields
+        if (!row?.['ID']) errors.push({ field: 'ID', message: 'Missing required field' })
+
+        if (!row?.['Quantity']) errors.push({ field: 'Quantity', message: 'Missing required field' })
+
+        //* check if project item exists
+        if (!pItem) errors.push({ field: 'ID', message: 'Item does not exist' })
+
+        //* check if item is already selected
+        if (toBeCreatedLineItems.find((li) => li.projectItemCode == row?.['ID'])) {
+          errors.push({ field: 'ID', message: 'Item already selected' })
+        }
+
+        //* check if item is out of stock
+        if (!pItem?.totalStock) errors.push({ field: 'ID', message: 'Item is out of stock' })
+
+        //* check if quantity is a number
+        if (!row?.['Quantity'].match(/^[1-9]\d*$/)) errors.push({ field: 'Quantity', message: 'Invalid quantity' })
+
+        //* check if quantity exceed the available to order, and item should not be out of stock
+        if (pItem?.totalStock && pItem?.totalStock > 0 && pItem?.availableToOrder && row?.['Quantity'] > pItem?.availableToOrder) {
+          errors.push({ field: 'Quantity', message: 'Quantity exceeds the available to order' })
+        }
+
+        //* if errors array is not empty continue
+        if (errors.length > 0) {
+          console.log({ errors })
+          importSyncErrors.push({ rowNumber, entries: errors, row, code: row?.code })
+          continue
+        }
+
+        //* reshape data
+        const toCreate: WorkOrderItemForm = {
+          projectItemCode: safeParseInt(row?.['ID']),
+          qty: safeParseInt(row?.['Quantity']),
+          maxQty: safeParseInt(pItem?.availableToOrder),
+          isDelivered: false,
+        }
+
+        //* add to be created line items
+        toBeCreatedLineItems.push(toCreate)
+      }
+
+      //* commit import
+      form.setValue('lineItems', toBeCreatedLineItems)
+
+      if (importSyncErrors.length > 0) {
+        setShowImportError(true)
+        setImportErrors(importSyncErrors)
+      }
+
+      setIsImporting(false)
+      if (fileInput) fileInput.value = ''
+    } catch (error: any) {
+      console.error(error)
+
+      setIsImporting(false)
+      if (fileInput) fileInput.value = ''
+
+      toast.error(error?.message || 'Failed to import file!')
+    }
+  }
+
+  const handleFileUpload = useCallback(
+    async (e: ChangeEvent<HTMLInputElement>) => {
+      //* importing only support xlsx file, only 1 file at a time
+      const file = e.target.files?.[0]
+
+      //* check if file exist, if not throw error
+      if (!file) {
+        toast.error('File not found!')
+        return
+      }
+
+      //* check if file is xlsx or xls, if not throw error;
+      if (!file.name.match(/\.(xlsx|xls)$/)) {
+        toast.error('Only .xlsx or .xls file is supported!')
+        return
+      }
+
+      //* process import
+      await handleImport(file)
+    },
+    [JSON.stringify(projectItems)]
+  )
+
   //* set line items when work order data exist
   useEffect(() => {
     if (workOrder && workOrderItems.data.length > 0) {
@@ -226,10 +345,16 @@ export default function WorkOrderLineItemTable({
   //* show loading
   useEffect(() => {
     if (dataGridRef.current) {
-      if (isLoading || workOrderItems.isLoading) dataGridRef.current.instance().beginCustomLoading('Loading data...')
-      else dataGridRef.current.instance().endCustomLoading()
+      if (isImporting) {
+        dataGridRef.current.instance().beginCustomLoading('Importing...')
+        return
+      }
+
+      if (isLoading || workOrderItems.isLoading || projectItems.isLoading) {
+        dataGridRef.current.instance().beginCustomLoading('Loading data...')
+      } else dataGridRef.current.instance().endCustomLoading()
     }
-  }, [isLoading, dataGridRef.current, JSON.stringify(workOrderItems)])
+  }, [isLoading, dataGridRef.current, JSON.stringify(workOrderItems), JSON.stringify(projectItems), isImporting])
 
   return (
     <>
@@ -323,7 +448,13 @@ export default function WorkOrderLineItemTable({
             <TotalItem column='qty' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
           </Summary>
 
-          <LoadPanel enabled={isLoading || workOrderItems.isLoading} shadingColor='rgb(241, 245, 249)' showIndicator showPane shading />
+          <LoadPanel
+            enabled={isLoading || workOrderItems.isLoading || projectItems.isLoading || isImporting}
+            shadingColor='rgb(241, 245, 249)'
+            showIndicator
+            showPane
+            shading
+          />
           <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
           <SearchPanel visible highlightCaseSensitive={false} />
           <Sorting mode='multiple' />
@@ -331,6 +462,8 @@ export default function WorkOrderLineItemTable({
           <ColumnFixing enabled />
 
           <Toolbar>
+            <Item location='before' name='searchPanel' cssClass='[&>.dx-toolbar-item-content>.dx-datagrid-search-panel]:ml-0' />
+
             <Item location='after' widget='dxButton'>
               <Tooltip
                 target='#add-button'
@@ -349,7 +482,28 @@ export default function WorkOrderLineItemTable({
               />
             </Item>
 
-            <Item cssClass='[&_.dx-datagrid-search-panel]:!ml-0' name='searchPanel' location='after' />
+            <Item location='after' widget='dxButton'>
+              <Tooltip
+                target='#import-line-items'
+                contentRender={() => 'Import'}
+                showEvent='mouseenter'
+                hideEvent='mouseleave'
+                position='top'
+              />
+
+              <Button
+                id='import-line-items'
+                icon='import'
+                disabled={
+                  !projectCode || workOrderStatus >= 1
+                    ? true
+                    : false || isLoading || workOrderItems.isLoading || projectItems.isLoading || isImporting
+                }
+                onClick={() => fileInputRef.current?.click()}
+              />
+            </Item>
+
+            <Item location='after' render={() => <input type='file' className='hidden' ref={fileInputRef} onChange={handleFileUpload} />} />
           </Toolbar>
 
           <Pager visible allowedPageSizes={DATAGRID_PAGE_SIZES} showInfo displayMode='full' showPageSizeSelector showNavigationButtons />
@@ -367,6 +521,13 @@ export default function WorkOrderLineItemTable({
             warehouses={warehouses}
           />
         </Popup>
+
+        <ImportSyncErrorDataGrid
+          isOpen={showImportError}
+          setIsOpen={setShowImportError}
+          data={importErrors}
+          dataGridRef={importErrorDataGridRef}
+        />
 
         <AlertDialog
           isOpen={showConfirmation}
