@@ -24,7 +24,7 @@ type CommonPageHeaderToolbarItemsProps = {
   importOptions?: { subjects?: string | string[]; actions?: string | string[] }
   exportOptions?: { subjects?: string | string[]; actions?: string | string[] }
   onImport?: (...args: any[]) => void
-  addButton?: { text: string; onClick: () => void; subjects?: string | string[]; actions?: string | string[] }
+  addButton?: { text: string; onClick: () => void; subjects?: string | string[]; actions?: string | string[]; disabled?: boolean }
   customs?: { exportToExcel?: (...args: any[]) => void }
 }
 
@@ -187,7 +187,14 @@ export default function CommonPageHeaderToolbarItems({
               hideEvent='mouseleave'
               position='top'
             />
-            <Button id='add-button' icon='add' type='default' stylingMode='contained' disabled={isLoading} onClick={addButton.onClick} />
+            <Button
+              id='add-button'
+              icon='add'
+              type='default'
+              stylingMode='contained'
+              disabled={isLoading || addButton.disabled}
+              onClick={addButton.onClick}
+            />
           </Item>
         </CanView>
       )}

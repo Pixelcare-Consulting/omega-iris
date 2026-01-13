@@ -81,7 +81,8 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
         const stockOut = safeParseFloat(pItem?.stockOut)
         const totalStock = safeParseFloat(pItem?.totalStock)
 
-        const warehouse = pItem?.warehouse
+        // const warehouse = pItem?.warehouse
+        const warehouse = {} as any
         const dateReceivedBy = pItem?.dateReceivedByUser ? `${pItem.dateReceivedByUser.fname}${pItem.dateReceivedByUser.lname ? ` ${pItem.dateReceivedByUser.lname}` : ''}` : '' // prettier-ignore
 
         return {
@@ -95,7 +96,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
           lotCode: pItem?.lotCode || '',
           palletNo: pItem?.palletNo || '',
           warehouseName: warehouse?.name || '',
-          warehouseCode: warehouse?.code,
+          warehouseCode: warehouse?.code || '',
           warehouseDescription: warehouse?.description || '',
           dateReceived: pItem?.dateReceived,
           dateReceivedBy,
@@ -108,6 +109,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
           cost,
           qty,
           item: itemMaster,
+          isDelivered: woItem?.isDelivered,
         }
       })
       .filter((item) => item !== null)
@@ -196,6 +198,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
         qty: updatedData.qty,
         maxQty: updatedData?.availableToOrder,
         operation: 'update' as const,
+        isDelivered: updatedData.isDelivered,
       }
 
       try {
@@ -263,6 +266,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
               addButton={{
                 text: 'Add Line Item',
                 onClick: handleAdd,
+                disabled: workOrderStatus >= 1 ? true : false,
               }}
             />
           </Toolbar>
@@ -278,6 +282,16 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
               callbacks={{ onRowUpdated: handleOnRowUpdated }}
             >
               <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' sortOrder='asc' allowEditing={false} />
+              <Column
+                dataField='isDelivered'
+                dataType='string'
+                minWidth={120}
+                caption='Delivered'
+                calculateCellValue={(rowData) => (rowData?.isDelivered ? 'Yes' : 'No')}
+                cellRender={(cell) => (cell?.data?.isDelivered ? 'Yes' : 'No')}
+                allowEditing={false}
+                alignment='left'
+              />
               <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
               <Column dataField='manufacturer' dataType='string' caption='Manufacturer' allowEditing={false} />
               <Column dataField='manufacturerPartNumber' dataType='string' caption='MFG P/N' allowEditing={false} />
@@ -295,11 +309,11 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
               <Column
                 dataField='qty'
                 dataType='number'
-                caption={`Quantity${workOrderStatus >= 4 ? ' (Locked)' : ''}`}
+                caption={`Quantity${workOrderStatus >= 1 ? ' (Locked)' : ''}`}
                 format={DEFAULT_NUMBER_FORMAT}
                 alignment='left'
-                allowEditing={workOrderStatus >= 4 ? false : true}
-                cssClass={cn(workOrderStatus >= 4 ? '!bg-slate-100' : '')}
+                allowEditing={workOrderStatus >= 1 ? false : true}
+                cssClass={cn(workOrderStatus >= 1 ? '!bg-slate-100' : '')}
               >
                 <CustomRule
                   validationCallback={(e) => {
@@ -317,14 +331,14 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
                   onClick={handleEdit}
                   cssClass='!text-lg'
                   hint='Edit'
-                  visible={workOrderStatus >= 4 ? false : true}
+                  visible={workOrderStatus >= 1 ? false : true}
                 />
                 <DataGridButton
                   icon='trash'
                   onClick={handleDelete}
                   cssClass='!text-lg !text-red-500'
                   hint='Delete'
-                  visible={workOrderStatus >= 4 ? false : true}
+                  visible={workOrderStatus >= 1 ? false : true}
                 />
               </Column>
 

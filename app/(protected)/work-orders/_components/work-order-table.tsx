@@ -49,6 +49,8 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
   const [showUpdateStatusForm, setShowUpdateStatusForm] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
 
+  const [currentStatus, setCurrentStatus] = useState<string | undefined>()
+
   const dataGridRef = useRef<DataGridRef | null>(null)
 
   const deleteWorkOrderData = useAction(deleteWorkOrder)
@@ -158,9 +160,8 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     const values = selectedRowsData.map((srData) => ({
       code: srData.code,
       prevStatus: srData.status,
+      deliveredProjectItems: [],
     }))
-
-    console.log({ values })
 
     form.setValue('workOrders', values)
   }, [])
@@ -304,10 +305,14 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             showTitle={false}
             onHiding={() => setShowUpdateStatusForm(false)}
             width={undefined}
-            maxWidth={650}
-            height={410}
+            maxWidth={1200}
+            height={currentStatus !== '5' ? 410 : 700}
           >
-            <WorkOrderUpdateStatusForm selectedRowKeys={selectedRowKeys} onClose={handleCloseUpdateStatusForm} />
+            <WorkOrderUpdateStatusForm
+              selectedRowKeys={selectedRowKeys}
+              onClose={handleCloseUpdateStatusForm}
+              setCurrentStatus={setCurrentStatus}
+            />
           </Popup>
 
           <AlertDialog

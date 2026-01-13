@@ -60,7 +60,7 @@ export default function WorkOrderLineItemForm({
   const values = useMemo(() => {
     if (lineItem) return { ...lineItem, workOrderCode, operation: 'update' as const }
 
-    if (isCreate) return { workOrderCode, operation: 'create' as const, projectItemCode: 0, qty: 0, maxQty: 0 }
+    if (isCreate) return { workOrderCode, operation: 'create' as const, projectItemCode: 0, qty: 0, maxQty: 0, isDelivered: false }
 
     return undefined
   }, [isCreate, JSON.stringify(lineItem)])
@@ -132,7 +132,6 @@ export default function WorkOrderLineItemForm({
 
   const handleOnSubmit = useCallback(
     async (formData: UpsertWorkOrderLineItemForm) => {
-      //* throw error if item is already selected
       if (formData.operation === 'create') {
         //* selected if item is already in the item list
         const isSelected = workOrderItems.data.find((li) => li.projectItemCode === formData.projectItemCode)
@@ -229,7 +228,12 @@ export default function WorkOrderLineItemForm({
                   displayExpr='description'
                   searchExpr={['description', 'manufacturerPartNumber', 'code']}
                   description={projectName ? `Select from the items of the project "${projectName}"` : undefined}
-                  callback={(args) => form.setValue('maxQty', args?.item?.availableToOrder)}
+                  callback={(args) => {
+                    form.setValue('maxQty', args?.item?.availableToOrder)
+                    if (!args?.item?.totalStock || args?.item?.totalStock <= 0) {
+                      setTimeout(() => form.setError('projectItemCode', { type: 'custom', message: 'Selected item is out of stock' }))
+                    }
+                  }}
                   extendedProps={{
                     selectBoxOptions: {
                       itemRender: (params) => {
@@ -238,9 +242,18 @@ export default function WorkOrderLineItemForm({
                           description: params?.description,
                           value: params?.code,
                           valuePrefix: '#',
-                          otherItems: workOrderItems?.data?.find((li) => li.projectItemCode === params?.code) ? (
-                            <Badge variant='red'>Selected</Badge>
-                          ) : null,
+                          otherItems: (
+                            <div className='flex flex-wrap items-center gap-1'>
+                              {params?.totalStock && params?.totalStock > 0 ? (
+                                <Badge variant='green'>In Stock</Badge>
+                              ) : (
+                                <Badge variant='black'>Out of Stock</Badge>
+                              )}
+                              {workOrderItems?.data?.find((li) => li.projectItemCode === params?.code) ? (
+                                <Badge variant='red'>Selected</Badge>
+                              ) : null}
+                            </div>
+                          ),
                         })
                       },
                     },
