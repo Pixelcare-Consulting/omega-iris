@@ -185,7 +185,7 @@ export const importItems = action
         const row = data[i]
 
         //* check required fields
-        if (!row?.['MFG_P/N']) errors.push({ field: 'MFG_P/N', message: 'Missing required fields' })
+        if (!row?.['MFG_P/N']) errors.push({ field: 'MFG_P/N', message: 'Missing required field' })
 
         //* check if manufacturer part number already exists
         if (existingMfgpns.includes(row?.['MFG_P/N']) || toBeCreatedMfgpns.includes(row?.['MFG_P/N'])) {
@@ -362,13 +362,13 @@ export const syncToSap = action
         const rowNumber = i + 1
 
         //* check required fields
-        if (!row?.ItemCode) errors.push({ field: 'MFG_P/N', message: 'Missing required fields' })
+        if (!row?.ItemCode) errors.push({ field: 'MFG_P/N', message: 'Missing required field' })
 
-        if (!row?.ItemsGroupCode) errors.push({ field: 'Group', message: 'Missing required fields' })
+        if (!row?.ItemsGroupCode) errors.push({ field: 'Group', message: 'Missing required field' })
 
-        if (!row?.Manufacturer) errors.push({ field: 'Manufacturer', message: 'Missing required fields' })
+        if (!row?.Manufacturer) errors.push({ field: 'Manufacturer', message: 'Missing required field' })
 
-        if (!row?.ItemName) errors.push({ field: 'Description', message: 'Missing required fields' })
+        if (!row?.ItemName) errors.push({ field: 'Description', message: 'Missing required field' })
 
         //* if errors array is not empty, then update/push to ImportSyncError
         if (errors.length > 0) {

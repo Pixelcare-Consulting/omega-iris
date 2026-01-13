@@ -168,10 +168,6 @@ export default function WorkOrderLineItemForm({ projectName, setIsOpen, onClose,
     if (!lineItem) resetForm()
   }, [JSON.stringify(lineItem)])
 
-  useEffect(() => {
-    console.log({ projectItems })
-  }, [JSON.stringify(projectItems)])
-
   return (
     <FormProvider {...form}>
       <div className='flex h-full w-full flex-col gap-3'>

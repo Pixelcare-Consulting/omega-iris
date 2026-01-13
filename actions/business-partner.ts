@@ -428,11 +428,11 @@ export const syncToSap = action
         const rowNumber = i + 1
 
         //* check required fields
-        if (!row?.CardCode) errors.push({ field: 'Code', message: 'Missing required fields' })
+        if (!row?.CardCode) errors.push({ field: 'Code', message: 'Missing required field' })
 
-        if (!row?.CardName) errors.push({ field: 'Name', message: 'Missing required fields' })
+        if (!row?.CardName) errors.push({ field: 'Name', message: 'Missing required field' })
 
-        if (!row?.CardType) errors.push({ field: 'Type', message: 'Missing required fields' })
+        if (!row?.CardType) errors.push({ field: 'Type', message: 'Missing required field' })
 
         //* if errors array is not empty, then update/push to ImportSyncError
         if (errors.length > 0) {

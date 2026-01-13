@@ -191,6 +191,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
       setIsLoading(false)
     } catch (error: any) {
       console.error(error)
+      setIsLoading(false)
       toast.error(error?.message || 'Failed to import file')
     }
   }

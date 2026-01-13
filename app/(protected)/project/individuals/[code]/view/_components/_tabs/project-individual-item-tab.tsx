@@ -267,6 +267,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
       setIsLoading(false)
     } catch (error: any) {
       console.error(error)
+      setIsLoading(false)
       toast.error(error?.message || 'Failed to import file')
     }
   }
