@@ -135,6 +135,10 @@ function WorkOrderLineItemsTobeDeliver({ workOrderCodes, showConfirmation, setSh
     }
   }, [JSON.stringify(woItems), JSON.stringify(workOrderCodes)])
 
+  useEffect(() => {
+    console.log({ currentWorkOrderLineItems })
+  }, [JSON.stringify(currentWorkOrderLineItems)])
+
   if (woItems.isLoading) {
     return (
       <div className='relative flex h-[200px] w-full items-center justify-center gap-2'>
@@ -161,6 +165,11 @@ function WorkOrderLineItemsTobeDeliver({ workOrderCodes, showConfirmation, setSh
           columnAutoWidth={false}
           columnMinWidth={DEFAULT_COLUMN_MIN_WIDTH}
           onRowUpdated={handleOnRowUpdated}
+          onEditorPreparing={(e) => {
+            if (e.parentType === 'dataRow' && e.dataField === 'delivered' && e.row?.data?.isDelivered) {
+              e.editorOptions.disabled = true
+            }
+          }}
         >
           <Column dataField='projectItem.code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' allowEditing={false} />
           <Column dataField='delivered' dataType='boolean' minWidth={100} caption='Delivered' allowEditing={true} />
