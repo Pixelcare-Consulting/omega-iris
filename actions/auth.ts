@@ -13,10 +13,27 @@ import { getClientInfo, getLocationFromIp } from './common'
 import logger from '@/utils/logger'
 import { cookies } from 'next/headers'
 import { getSapServiceLayerToken } from './sap-auth'
+import { buildAbilityFor } from '@/utils/acl'
 
 export async function getCurrentUser() {
   const session = await auth()
   return session?.user
+}
+
+export async function getCurrentUserAbility() {
+  const session = await auth()
+
+  if (!session?.user) return null
+  const { id, code, roleCode, roleKey, roleName, rolePermissions } = session.user
+
+  return {
+    userId: id,
+    userCode: code,
+    roleCode,
+    roleKey,
+    roleName,
+    ability: buildAbilityFor({ roleKey: roleKey, rolePermissions: roleKey === 'admin' ? [] : rolePermissions }),
+  }
 }
 
 async function cleanupSessionTokens() {

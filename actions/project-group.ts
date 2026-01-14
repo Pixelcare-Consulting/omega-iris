@@ -9,13 +9,42 @@ import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import { importFormSchema } from '@/schema/import'
+import { getCurrentUserAbility } from './auth'
 
 const COMMON_PROJECT_GROUP_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectGroupOrderByWithRelationInput
 
-export async function getPgs() {
+export async function getPgs(userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
+  if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
+
+  const { userId, userCode, ability } = userInfo
+
   try {
+    if (!ability) {
+      return db.projectGroup.findMany({
+        orderBy: COMMON_PROJECT_GROUP_ORDER_BY,
+      })
+    }
+
+    const viewAll = ability.can('view', 'p-projects-groups')
+    const viweOwned = ability.can('view (owner)', 'p-projects-groups')
+
     return db.projectGroup.findMany({
       orderBy: COMMON_PROJECT_GROUP_ORDER_BY,
+      where: viewAll
+        ? undefined
+        : viweOwned
+          ? {
+              OR: [
+                {
+                  projectIndividuals: { some: { projectIndividualCustomers: { some: { userCode } } } },
+                },
+                {
+                  projectIndividuals: { some: { projectIndividualPics: { some: { userCode } } } },
+                },
+                { createdBy: userId },
+              ],
+            }
+          : { code: -1 },
     })
   } catch (error) {
     console.error(error)
@@ -23,8 +52,8 @@ export async function getPgs() {
   }
 }
 
-export const getPgsClient = action.use(authenticationMiddleware).action(async () => {
-  return getPgs()
+export const getPgsClient = action.use(authenticationMiddleware).action(async ({ ctx }) => {
+  return getPgs(ctx)
 })
 
 export async function getPgByCode(code: number) {

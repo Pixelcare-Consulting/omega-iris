@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import { createMiddleware, createSafeActionClient } from 'next-safe-action'
 import { db } from './db'
+import { buildAbilityFor } from './acl'
 
 function handleServerError(error: Error) {
   console.error(error)
@@ -16,11 +17,39 @@ export const authenticationMiddleware = createMiddleware().define(async ({ next 
 
   if (!session || !session.user) throw { code: 401, message: 'Unauthorized!', action: 'AUTHENTICATION_MIDDLEWARE' }
 
-  const user = await db.user.findUnique({ where: { id: session.user.id }, include: { role: true } })
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    include: {
+      role: {
+        include: {
+          rolePermissions: { include: { permission: true } },
+        },
+      },
+    },
+  })
 
   if (!user) throw { code: 401, message: 'Unauthorized!', action: 'AUTHENTICATION_MIDDLEWARE' }
 
-  return next({ ctx: { userId: session.user.id, roleCode: user.role.code, roleKey: user.role.key, roleName: user.role.name } })
+  const { id, code, role } = user
+
+  const rolePermissions = role.rolePermissions.map((rp) => ({
+    id: rp.permissionId,
+    code: rp.permission.code,
+    actions: rp.actions,
+  }))
+
+  const ability = buildAbilityFor({ roleKey: role.key, rolePermissions })
+
+  return next({
+    ctx: {
+      userId: id,
+      userCode: code,
+      roleCode: role.code,
+      roleKey: role.key,
+      roleName: role.name,
+      ability,
+    },
+  })
 })
 
 //TODO: add authorization middle based on roles and permissions

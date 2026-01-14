@@ -245,7 +245,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             <Column dataField='user.email' dataType='string' caption='Owner Email' />
 
             <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
-              <CanView subject='p-work-orders' action='view'>
+              <CanView subject='p-work-orders' action={['view', 'view (owner)']}>
                 <DataGridButton
                   icon='eyeopen'
                   onClick={handleView}

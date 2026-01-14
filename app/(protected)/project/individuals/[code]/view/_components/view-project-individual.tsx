@@ -16,12 +16,14 @@ import ProjectIndividualPicTab from './_tabs/project-individual-pic-tab'
 import ProjectIndividualItemTab from './_tabs/project-individual-item-tab'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import CanView from '@/components/acl/can-view'
+import { useSession } from 'next-auth/react'
 
 type ViewProjectIndividualProps = {
   projectIndividual: NonNullable<Awaited<ReturnType<typeof getPiByCode>>>
 }
 
 export default function ViewProjectIndividual({ projectIndividual }: ViewProjectIndividualProps) {
+  const { data: session } = useSession()
   const router = useRouter()
 
   const customerUsers = useUsersByRoleKey('business-partner')
@@ -68,17 +70,21 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
             <ProjectIndividualOverviewTab projectIndividual={projectIndividual} />
           </TabPanelITem>
 
-          <TabPanelITem title='Customers'>
-            <ProjectIndividualCustomerTab
-              projectCode={projectIndividual.code}
-              customers={projectIndividual.customers}
-              users={customerUsers}
-            />
-          </TabPanelITem>
+          {session?.user.roleKey === 'admin' && (
+            <>
+              <TabPanelITem title='Customers'>
+                <ProjectIndividualCustomerTab
+                  projectCode={projectIndividual.code}
+                  customers={projectIndividual.customers}
+                  users={customerUsers}
+                />
+              </TabPanelITem>
 
-          <TabPanelITem title='P.I.Cs'>
-            <ProjectIndividualPicTab projectCode={projectIndividual.code} pics={projectIndividual.pics} users={nonCustomerUsers} />
-          </TabPanelITem>
+              <TabPanelITem title='P.I.Cs'>
+                <ProjectIndividualPicTab projectCode={projectIndividual.code} pics={projectIndividual.pics} users={nonCustomerUsers} />
+              </TabPanelITem>
+            </>
+          )}
 
           <TabPanelITem title='Inventory'>
             <ProjectIndividualItemTab projectCode={projectIndividual.code} projectName={projectIndividual.name} items={items} />

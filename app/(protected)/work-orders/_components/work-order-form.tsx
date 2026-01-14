@@ -44,6 +44,7 @@ type WorkOrderFormProps = {
 
 export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderFormProps) {
   const { data: session } = useSession()
+
   const router = useRouter()
   const { code } = useParams() as { code: string }
 
@@ -194,6 +195,11 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
     }
   }, [JSON.stringify(shippingAddresses), shippingAddrCode, isCreate])
 
+  //* set userCode (owner) automatically if user is business partner (customer)
+  useEffect(() => {
+    if (session?.user.roleKey === 'business-partner' && session.user) form.setValue('userCode', session?.user.code)
+  }, [JSON.stringify(session), userCode])
+
   return (
     <FormProvider {...form}>
       <form className='flex h-full w-full flex-col gap-5' onSubmit={form.handleSubmit(handleOnSubmit)}>
@@ -227,7 +233,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                 />
               </CanView>
 
-              <CanView subject='p-work-orders' action='view'>
+              <CanView subject='p-work-orders' action={['view', 'view (owner)']}>
                 <Item
                   location='after'
                   locateInMenu='always'
@@ -259,7 +265,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                   displayExpr='name'
                   searchExpr={['code', 'name']}
                   isRequired
-                  callback={(args) => {
+                  callback={() => {
                     form.setValue('userCode', 0)
                     form.setValue('lineItems', [])
                   }}
@@ -291,6 +297,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                   isRequired
                   extendedProps={{
                     selectBoxOptions: {
+                      disabled: session?.user.roleKey !== 'admin',
                       itemRender: (params) => {
                         return commonItemRender({
                           title: params?.fullName,

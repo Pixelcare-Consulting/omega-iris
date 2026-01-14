@@ -244,7 +244,7 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
           <Column type='buttons' fixed fixedPosition='right' minWidth={140} caption='Actions'>
-            <CanView subject='p-projects-groups' action='view'>
+            <CanView subject='p-projects-groups' action={['view', 'view (owner)']}>
               <DataGridButton
                 icon='eyeopen'
                 onClick={handleView}

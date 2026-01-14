@@ -13,6 +13,7 @@ import {
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { safeParseInt } from '@/utils'
+import { getCurrentUserAbility } from './auth'
 
 const COMMON_WORK_ORDER_INCLUDE = {
   projectIndividual: {
@@ -27,11 +28,30 @@ const COMMON_WORK_ORDER_INCLUDE = {
 
 const COMMON_WORK_ORDER_ORDER_BY = { code: 'asc' } satisfies Prisma.WorkOrderOrderByWithRelationInput
 
-export async function getWorkOrders() {
+export async function getWorkOrders(userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
+  if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
+
+  const { userId, userCode, ability } = userInfo
+
   try {
+    if (!ability) {
+      return db.workOrder.findMany({
+        include: COMMON_WORK_ORDER_INCLUDE,
+        orderBy: COMMON_WORK_ORDER_ORDER_BY,
+      })
+    }
+
+    const viewAll = ability.can('view', 'p-work-orders')
+    const viweOwned = ability.can('view (owner)', 'p-work-orders')
+
     return db.workOrder.findMany({
       include: COMMON_WORK_ORDER_INCLUDE,
       orderBy: COMMON_WORK_ORDER_ORDER_BY,
+      where: viewAll
+        ? undefined
+        : viweOwned
+          ? { OR: [{ userCode }, { projectIndividual: { projectIndividualPics: { some: { userCode } } } }, { createdBy: userId }] }
+          : { userCode: -1 },
     })
   } catch (error) {
     console.error(error)

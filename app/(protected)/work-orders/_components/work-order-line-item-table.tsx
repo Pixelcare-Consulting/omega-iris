@@ -24,7 +24,6 @@ import DataGrid, {
 import Button from 'devextreme-react/button'
 import Tooltip from 'devextreme-react/tooltip'
 import Popup from 'devextreme-react/popup'
-import CheckBox from 'devextreme-react//check-box'
 
 import { useFormContext, useWatch } from 'react-hook-form'
 import Separator from '@/components/separator'
