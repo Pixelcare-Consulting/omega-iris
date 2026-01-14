@@ -142,6 +142,7 @@ export default function UserTable({ users }: UserTableProps) {
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
           addButton={{ text: 'Add User', onClick: () => router.push('/users/add'), subjects: 'p-users', actions: 'create' }}
+          exportOptions={{ subjects: 'p-users', actions: 'export' }}
         />
       </PageHeader>
 

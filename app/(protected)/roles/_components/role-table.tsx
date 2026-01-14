@@ -131,6 +131,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
           addButton={{ text: 'Add Role', onClick: () => router.push('/roles/add'), subjects: 'p-roles', actions: 'create' }}
+          exportOptions={{ subjects: 'p-roles', actions: 'export' }}
         />
       </PageHeader>
 
