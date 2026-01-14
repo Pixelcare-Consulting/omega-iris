@@ -353,7 +353,7 @@ export default function ProjectItemForm({
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                 <NumberBoxField
                   control={form.control}
-                  name='stockIn'
+                  name='stockOut'
                   label='Stock-Out (Delivered)'
                   extendedProps={{ numberBoxOptions: { format: DEFAULT_NUMBER_FORMAT, disabled: true } }}
                 />

@@ -21,7 +21,7 @@ export const navigation: NavItem[] = [
     path: '/dashboard',
     selected: false,
     subjects: 'p-dashboard',
-    actions: 'view',
+    actions: ['view', 'view (owner)'],
   },
   {
     id: uuidv4(),
@@ -31,7 +31,7 @@ export const navigation: NavItem[] = [
     selected: false,
     expanded: false,
     subjects: 'p-users',
-    actions: 'view',
+    actions: ['view', 'view (owner)'],
   },
   {
     id: uuidv4(),
@@ -41,7 +41,7 @@ export const navigation: NavItem[] = [
     selected: false,
     expanded: false,
     subjects: 'p-roles',
-    actions: 'view',
+    actions: ['view', 'view (owner)'],
   },
   {
     id: uuidv4(),
@@ -51,7 +51,7 @@ export const navigation: NavItem[] = [
     selected: false,
     expanded: false,
     subjects: 'p-settings',
-    actions: 'view',
+    actions: ['view', 'view (owner)'],
   },
   {
     id: uuidv4(),
@@ -61,7 +61,7 @@ export const navigation: NavItem[] = [
     selected: false,
     expanded: false,
     subjects: 'p-customers',
-    actions: 'view',
+    actions: ['view', 'view (owner)'],
   },
   {
     id: uuidv4(),
@@ -70,7 +70,7 @@ export const navigation: NavItem[] = [
     selected: false,
     expanded: false,
     subjects: ['p-projects-groups', 'p-projects-individuals'],
-    actions: 'view',
+    actions: ['view', 'view (owner)'],
     items: [
       {
         id: uuidv4(),
@@ -79,7 +79,7 @@ export const navigation: NavItem[] = [
         selected: false,
         expanded: false,
         subjects: 'p-projects-groups',
-        actions: 'view',
+        actions: ['view', 'view (owner)'],
       },
       {
         id: uuidv4(),
@@ -88,7 +88,7 @@ export const navigation: NavItem[] = [
         selected: false,
         expanded: false,
         subjects: 'p-projects-individuals',
-        actions: 'view',
+        actions: ['view', 'view (owner)'],
       },
     ],
   },
@@ -110,7 +110,7 @@ export const navigation: NavItem[] = [
     selected: false,
     expanded: false,
     subjects: 'p-inventory',
-    actions: 'view',
+    actions: ['view', 'view (owner)'],
   },
   {
     id: uuidv4(),
@@ -120,7 +120,7 @@ export const navigation: NavItem[] = [
     selected: false,
     expanded: false,
     subjects: 'p-work-orders',
-    actions: 'view',
+    actions: ['view', 'view (owner)'],
   },
   {
     id: uuidv4(),
@@ -130,7 +130,7 @@ export const navigation: NavItem[] = [
     selected: false,
     expanded: false,
     subjects: 'p-reporting',
-    actions: 'view',
+    actions: ['view', 'view (owner)'],
   },
   // {
   //   id: uuidv4(),

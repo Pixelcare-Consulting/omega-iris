@@ -11,7 +11,7 @@ import {
   TotalItem,
   Summary,
 } from 'devextreme-react/data-grid'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import Toolbar from 'devextreme-react/toolbar'
 import Popup from 'devextreme-react/popup'
 import { useAction } from 'next-safe-action/hooks'
@@ -35,6 +35,8 @@ import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import useUsers from '@/hooks/safe-actions/user'
 import WorkOrderLineItemView from '../work-order-line-item-view'
+import CanView from '@/components/acl/can-view'
+import { AbilityContext } from '@/components/acl/can'
 
 type WorkOrderLineItemTabProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
@@ -46,6 +48,8 @@ type DataSource = Record<string, any> & WorkOrderItemForm
 export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: WorkOrderLineItemTabProps) {
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-work-order-item'
   const DATAGRID_UNIQUE_KEY = 'project-order-items'
+
+  const ability = useContext(AbilityContext)
 
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
@@ -192,6 +196,8 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
       const updatedData = e.data
       const workOrderCode = workOrder.code
 
+      if (ability.can('edit', 'p-work-orders')) return
+
       const formData = {
         workOrderCode,
         projectItemCode: updatedData.projectItemCode,
@@ -325,21 +331,29 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
               </Column>
 
               <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
-                <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
-                <DataGridButton
-                  icon='edit'
-                  onClick={handleEdit}
-                  cssClass='!text-lg'
-                  hint='Edit'
-                  visible={workOrderStatus >= 1 ? false : true}
-                />
-                <DataGridButton
-                  icon='trash'
-                  onClick={handleDelete}
-                  cssClass='!text-lg !text-red-500'
-                  hint='Delete'
-                  visible={workOrderStatus >= 1 ? false : true}
-                />
+                <CanView subject='p-work-orders' action={['view', 'view (owner)']}>
+                  <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
+                </CanView>
+
+                <CanView subject='p-work-orders' action='edit'>
+                  <DataGridButton
+                    icon='edit'
+                    onClick={handleEdit}
+                    cssClass='!text-lg'
+                    hint='Edit'
+                    visible={workOrderStatus >= 1 ? false : true}
+                  />
+                </CanView>
+
+                <CanView subject='p-work-orders' action='delete'>
+                  <DataGridButton
+                    icon='trash'
+                    onClick={handleDelete}
+                    cssClass='!text-lg !text-red-500'
+                    hint='Delete'
+                    visible={workOrderStatus >= 1 ? false : true}
+                  />
+                </CanView>
               </Column>
 
               <Summary>

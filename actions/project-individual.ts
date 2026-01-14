@@ -13,6 +13,7 @@ import { action, authenticationMiddleware } from '@/utils/safe-action'
 import z from 'zod'
 import { ImportSyncErrorEntry } from '@/types/common'
 import { importFormSchema } from '@/schema/import'
+import { getCurrentUserAbility } from './auth'
 
 const COMMON_PROJECT_INDIVIDUAL_INCLUDE = {
   projectGroup: { select: { code: true, name: true } },
@@ -20,11 +21,36 @@ const COMMON_PROJECT_INDIVIDUAL_INCLUDE = {
 
 const COMMON_PROJECT_INDIVIDUAL_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectIndividualOrderByWithRelationInput
 
-export async function getPis() {
+export async function getPis(userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
+  if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
+
+  const { userId, userCode, ability } = userInfo
+
   try {
+    if (!ability) {
+      return db.projectIndividual.findMany({
+        include: COMMON_PROJECT_INDIVIDUAL_INCLUDE,
+        orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY,
+      })
+    }
+
+    const viewAll = ability.can('view', 'p-projects-individuals')
+    const viweOwned = ability.can('view (owner)', 'p-projects-individuals')
+
     return db.projectIndividual.findMany({
       include: COMMON_PROJECT_INDIVIDUAL_INCLUDE,
       orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY,
+      where: viewAll
+        ? undefined
+        : viweOwned
+          ? {
+              OR: [
+                { projectIndividualCustomers: { some: { userCode } } },
+                { projectIndividualPics: { some: { userCode } } },
+                { createdBy: userId },
+              ],
+            }
+          : { code: -1 },
     })
   } catch (error) {
     console.error(error)
@@ -32,8 +58,8 @@ export async function getPis() {
   }
 }
 
-export const getPisClient = action.use(authenticationMiddleware).action(async () => {
-  return getPis()
+export const getPisClient = action.use(authenticationMiddleware).action(async ({ ctx }) => {
+  return getPis(ctx)
 })
 
 export async function getPisByGroupCode(groupCode: number) {

@@ -1,8 +1,8 @@
 'use client'
 
 import { getPisByGroupCode } from '@/actions/project-individual'
-import { Column, DataGridTypes, DataGridRef } from 'devextreme-react/data-grid'
-import { useCallback, useEffect, useRef } from 'react'
+import { Column, DataGridTypes, DataGridRef, Button } from 'devextreme-react/data-grid'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import Toolbar from 'devextreme-react/toolbar'
 
@@ -27,13 +27,11 @@ export default function ProjectGroupProjectTable({ projects }: ProjectGroupProje
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
-  const handleView = useCallback((e: DataGridTypes.RowClickEvent) => {
-    const rowType = e.rowType
-    if (rowType !== 'data') return
+  const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
+    const data = e.row?.data
+    if (!data) return
 
-    const code = e.data?.code
-    if (!code) return
-    router.push(`/project/individuals/${code}/view`)
+    router.push(`/project/individuals/${data.code}/view`)
   }, [])
 
   //* show loading
@@ -56,7 +54,6 @@ export default function ProjectGroupProjectTable({ projects }: ProjectGroupProje
           data={projects.data}
           isLoading={projects.isLoading}
           storageKey={DATAGRID_STORAGE_KEY}
-          callbacks={{ onRowClick: handleView }}
           dataGridStore={dataGridStore}
         >
           <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
@@ -70,6 +67,10 @@ export default function ProjectGroupProjectTable({ projects }: ProjectGroupProje
           />
           <Column dataField='createdAt' dataType='datetime' caption='Created At' />
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
+
+          <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
+            <Button icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
+          </Column>
         </CommonDataGrid>
       </PageContentWrapper>
     </>

@@ -105,6 +105,12 @@ export const callbacks: NextAuthConfig['callbacks'] = {
         } else token.sapSession = authCookies.data.sapSession
       }
 
+      const rolePermissions = role.rolePermissions.map((rp) => ({
+        id: rp.permissionId,
+        code: rp.permission.code,
+        actions: rp.actions,
+      }))
+
       token.user = {
         id,
         code,
@@ -116,11 +122,7 @@ export const callbacks: NextAuthConfig['callbacks'] = {
         roleKey: role.key,
         roleCode: role.code,
         roleName: role.name,
-        rolePermissions: role.rolePermissions.map((rp) => ({
-          id: rp.permissionId,
-          code: rp.permission.code,
-          actions: rp.actions,
-        })),
+        rolePermissions,
         isActive,
         isOnline,
         isOAuth: !!existingAccount,

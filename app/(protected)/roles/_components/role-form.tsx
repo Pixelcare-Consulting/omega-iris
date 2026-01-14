@@ -330,7 +330,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
                               <h1 className='text-sm font-semibold'>{p.name}</h1>
                             </div>
 
-                            <div className='col-span-12 flex flex-col'>
+                            <div className='col-span-12 flex flex-col divide-y'>
                               {p.children.map((pChild) => (
                                 <div key={`${p.id}-${pChild.id}`} className='col-span-12 grid grid-cols-12 p-2 hover:bg-slate-400/10'>
                                   <div className='col-span-4 flex flex-col justify-center'>
@@ -338,11 +338,12 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
                                     <p className='-mt-0.5 text-xs text-slate-400'>{pChild.description}</p>
                                   </div>
 
-                                  <div className='col-span-8 flex flex-wrap items-center justify-end gap-4'>
+                                  <div className='col-span-8 grid grid-cols-4 items-center gap-4'>
                                     {pChild.allowedActions.map((action, i) => (
                                       <CheckBox
+                                        className='text-xs capitalize'
                                         key={`${p.id}-${pChild.id}-${i}`}
-                                        text={titleCase(action)}
+                                        text={action}
                                         value={isActionSelected(pChild.id, action)}
                                         onValueChanged={() => toggleAction(pChild.id, action)}
                                       />
@@ -356,17 +357,18 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
                       }
 
                       return (
-                        <div key={p.id} className='text-s col-span-12 grid grid-cols-12 p-2 hover:bg-slate-400/10'>
+                        <div key={p.id} className='text-s b col-span-12 grid grid-cols-12 p-2 hover:bg-slate-400/10'>
                           <div className='col-span-4 flex flex-col justify-center'>
                             <h2 className='text-sm font-semibold'>{p.name}</h2>
                             <p className='-mt-0.5 text-xs text-slate-400'>{p.description}</p>
                           </div>
 
-                          <div className='col-span-8 flex flex-wrap items-center justify-end gap-4'>
+                          <div className='col-span-8 grid grid-cols-6 items-center gap-4'>
                             {p.allowedActions.map((action, i) => (
                               <CheckBox
+                                className='text-xs capitalize'
                                 key={`${p.id}-${i}`}
-                                text={titleCase(action)}
+                                text={action}
                                 value={isActionSelected(p.id, action)}
                                 onValueChanged={() => toggleAction(p.id, action)}
                               />

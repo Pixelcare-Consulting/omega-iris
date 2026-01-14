@@ -1,12 +1,12 @@
-"use client"
+'use client'
 
-import { useContext } from "react"
-import { AbilityContext } from "./can"
+import { useContext } from 'react'
+import { AbilityContext } from './can'
 
 type CanViewProps = {
   children?: React.ReactNode
-  action: string | string[]
-  subject: string | string[]
+  action?: string | string[]
+  subject?: string | string[]
   isReturnBoolean?: boolean
 }
 
@@ -24,7 +24,7 @@ export default function CanView({ children, action, subject, isReturnBoolean }: 
 
   if (isReturnBoolean) return canView
 
-  if (!canView || !children) return null
+  if ((!canView || !children) && action && subject) return null
 
   return <>{children}</>
 }

@@ -234,7 +234,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
           <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
-            <CanView subject='p-projects-individuals' action='view'>
+            <CanView subject='p-projects-individuals' action={['view', 'view (owner)']}>
               <DataGridButton
                 icon='eyeopen'
                 onClick={handleView}
