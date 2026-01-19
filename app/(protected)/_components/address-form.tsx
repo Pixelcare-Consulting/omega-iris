@@ -222,52 +222,56 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
     }
   }
 
-  //* set 1 billing & shipping address when create
+  //* set 1 billing & shipping address when create and not loaded
   useEffect(() => {
-    if (!cardCode && !isLoaded.current) {
-      billingAddrsFieldArray.replace([
-        {
-          id: 'add',
-          AddrType: 'B',
-          AddressName: '',
-          Street: '',
-          Address2: '',
-          Address3: '',
-          StreetNo: '',
-          BuildingFloorRoom: '',
-          Block: '',
-          City: '',
-          ZipCode: '',
-          County: '',
-          CountryCode: '',
-          CountryName: '',
-          StateCode: '',
-          StateName: '',
-          GlobalLocationNumber: '',
-        },
-      ])
+    if (!isLoaded.current) {
+      if (billingAddresses.length < 1) {
+        billingAddrsFieldArray.replace([
+          {
+            id: 'add',
+            AddrType: 'B',
+            AddressName: '',
+            Street: '',
+            Address2: '',
+            Address3: '',
+            StreetNo: '',
+            BuildingFloorRoom: '',
+            Block: '',
+            City: '',
+            ZipCode: '',
+            County: '',
+            CountryCode: '',
+            CountryName: '',
+            StateCode: '',
+            StateName: '',
+            GlobalLocationNumber: '',
+          },
+        ])
+      }
 
-      shippingAddrsFieldArray.replace([
-        {
-          id: 'add',
-          AddrType: 'S',
-          AddressName: '',
-          Street: '',
-          Address2: '',
-          Address3: '',
-          StreetNo: '',
-          BuildingFloorRoom: '',
-          Block: '',
-          City: '',
-          ZipCode: '',
-          County: '',
-          CountryCode: '',
-          CountryName: '',
-          StateCode: '',
-          StateName: '',
-          GlobalLocationNumber: '',
-        },
-      ])
+      if (shippingAddresses.length < 1) {
+        shippingAddrsFieldArray.replace([
+          {
+            id: 'add',
+            AddrType: 'S',
+            AddressName: '',
+            Street: '',
+            Address2: '',
+            Address3: '',
+            StreetNo: '',
+            BuildingFloorRoom: '',
+            Block: '',
+            City: '',
+            ZipCode: '',
+            County: '',
+            CountryCode: '',
+            CountryName: '',
+            StateCode: '',
+            StateName: '',
+            GlobalLocationNumber: '',
+          },
+        ])
+      }
 
       isLoaded.current = true
     }
@@ -275,7 +279,7 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
     return () => {
       isLoaded.current = false
     }
-  }, [cardCode])
+  }, [cardCode, JSON.stringify(billingAddresses), JSON.stringify(shippingAddresses)])
 
   //* set  billing Addresses
   useEffect(() => {

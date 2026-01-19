@@ -128,6 +128,7 @@ export const upsertItem = action
       const newItem = await db.item.create({
         data: {
           ...data,
+          ItemCode: data?.ItemCode.trim(),
           syncStatus: data?.syncStatus ?? 'pending',
           createdBy: userId,
           updatedBy: userId,
@@ -209,7 +210,7 @@ export const importItems = action
 
         //* reshape data
         const toCreate: Prisma.ItemCreateManyInput = {
-          ItemCode: row['MFG_P/N'],
+          ItemCode: row['MFG_P/N']?.trim(),
           FirmCode: manufacturer?.Code ? safeParseInt(manufacturer?.Code) : null,
           FirmName: manufacturer?.ManufacturerName || null,
           ItmsGrpCod: group?.Number ? safeParseInt(group?.Number) : null,

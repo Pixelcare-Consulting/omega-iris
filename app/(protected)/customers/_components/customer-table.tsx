@@ -225,7 +225,7 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
         'Currency',
         'Payment_Terms',
         'Active',
-        'Phone1',
+        'Phone_1',
       ]
       const batchSize = 100
 

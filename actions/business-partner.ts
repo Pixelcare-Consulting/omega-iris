@@ -208,6 +208,7 @@ export const upsertBp = action
         const bp = await tx.businessPartner.create({
           data: {
             ...data,
+            CardCode: data?.CardCode?.trim(),
             syncStatus: data?.syncStatus ?? 'pending',
             createdBy: userId,
             updatedBy: userId,
@@ -317,11 +318,11 @@ export const importBp = action
         const errors: ImportSyncErrorEntry[] = []
         const row = data[i]
 
-        const group = bpGroups?.filter((g: any) => g?.Type === bpGroupType)?.find((g: any) => g?.Code === row?.['Group'])
-        const currency = currencies?.find((c: any) => c?.CurrCode === row?.['Currency'])
-        const paymentTerm = paymentTerms?.find((pt: any) => pt?.GroupNum === row?.['Payment_Terms'])
-        const accountType = accountTypes?.find((at: any) => at?.Code === row?.['Account_Type'])
-        const businessType = businessTypes?.find((bt: any) => bt?.Code === row?.['Type_Of_Business'])
+        const group = bpGroups?.filter((g: any) => g?.Type === bpGroupType)?.find((g: any) => g?.Code == row?.['Group'])
+        const currency = currencies?.find((c: any) => c?.CurrCode == row?.['Currency'])
+        const paymentTerm = paymentTerms?.find((pt: any) => pt?.GroupNum == row?.['Payment_Terms'])
+        const accountType = accountTypes?.find((at: any) => at?.Code == row?.['Account_Type'])
+        const businessType = businessTypes?.find((bt: any) => bt?.Code == row?.['Type_Of_Business'])
 
         //* check required fields
         if (!row?.['Name']) errors.push({ field: 'Name', message: 'Missing required field' })
@@ -342,7 +343,7 @@ export const importBp = action
 
         //* reshape data
         const toCreate: Prisma.BusinessPartnerCreateManyInput = {
-          CardCode: row?.['Code'] ? row?.['Code'] : `BP-${Date.now()}`,
+          CardCode: row?.['Code'] ? row?.['Code']?.trim() : `BP-${Date.now()}`,
           CardName: row?.['Name'] || null,
           CardType: cardType,
           CurrName: currency?.CurrName || null,
@@ -726,6 +727,21 @@ export const syncFromSap = action
           return isCreateDateSameDay || isUpdateDateSameDay || isCreateDateAfter || isUpdateDateAfter
         }) || []
 
+      const allowedBps = filteredSapBpMasters.filter((row) => row?.U_Portal_Sync === 'Y')
+
+      const [bpAddreses, bpContacts] = await Promise.all([
+        Promise.all(allowedBps.map((bp) => getMasterAddresses(bp?.CardCode ?? ''))),
+        Promise.all(allowedBps.map((bp) => getMasterContacts(bp?.CardCode ?? ''))),
+      ])
+
+      const addressMap = new Map<string, any[]>()
+      const contactMap = new Map<string, any[]>()
+
+      allowedBps.forEach((bp, index) => {
+        addressMap.set(bp.CardCode, bpAddreses[index]?.value ?? [])
+        contactMap.set(bp.CardCode, bpContacts[index]?.value ?? [])
+      })
+
       const getBpUpsertPromises = (chunks: Record<string, any>[], tx: any) => {
         return chunks
           .map((row: any) => {
@@ -759,21 +775,6 @@ export const syncFromSap = action
           })
           .filter((row) => row !== null)
       }
-
-      const allowedBps = filteredSapBpMasters.filter((row) => row?.U_Portal_Sync === 'Y')
-
-      const [bpAddreses, bpContacts] = await Promise.all([
-        Promise.all(allowedBps.map((bp) => getMasterAddresses(bp?.CardCode ?? ''))),
-        Promise.all(allowedBps.map((bp) => getMasterContacts(bp?.CardCode ?? ''))),
-      ])
-
-      const addressMap = new Map<string, any[]>()
-      const contactMap = new Map<string, any[]>()
-
-      allowedBps.forEach((bp, index) => {
-        addressMap.set(bp.CardCode, bpAddreses[index]?.value ?? [])
-        contactMap.set(bp.CardCode, bpContacts[index]?.value ?? [])
-      })
 
       const upsertAddresses = async (chunks: Record<string, any>[], tx: any) => {
         for (const bp of chunks) {
@@ -811,15 +812,15 @@ export const syncFromSap = action
                     AddressName: addr?.AddressName || '',
                     AddrType: addr?.AddrType,
                   },
-                  create: {
-                    ...addr,
-                    createdBy: userId,
-                    updatedBy: userId,
-                  },
-                  update: {
-                    ...addr,
-                    updatedBy: userId,
-                  },
+                },
+                create: {
+                  ...addr,
+                  createdBy: userId,
+                  updatedBy: userId,
+                },
+                update: {
+                  ...addr,
+                  updatedBy: userId,
                 },
               })
             }
