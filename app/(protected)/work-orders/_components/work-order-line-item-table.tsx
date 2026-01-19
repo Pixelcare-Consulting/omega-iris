@@ -313,10 +313,10 @@ export default function WorkOrderLineItemTable({
 
           return {
             projectItemCode: pItem?.code,
-            manufacturerPartNumber: itemMaster?.manufacturerPartNumber || '',
-            manufacturer: itemMaster?.manufacturer || '',
+            ItemCode: itemMaster?.ItemCode || '',
+            FirmName: itemMaster?.FirmName || '',
+            ItemName: itemMaster?.ItemName || '',
             partNumber: pItem?.partNumber || '',
-            description: itemMaster?.description || '',
             dateCode: pItem?.dateCode || '',
             countryOfOrigin: pItem?.countryOfOrigin || '',
             lotCode: pItem?.lotCode || '',
@@ -397,9 +397,9 @@ export default function WorkOrderLineItemTable({
             alignment='left'
           />
           <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
-          <Column dataField='manufacturer' dataType='string' caption='Manufacturer' allowEditing={false} />
-          <Column dataField='manufacturerPartNumber' dataType='string' caption='MFG P/N' allowEditing={false} />
-          <Column dataField='description' dataType='string' caption='Description' allowEditing={false} />
+          <Column dataField='FirmName' dataType='string' caption='Manufacturer' allowEditing={false} />
+          <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
+          <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} />
           <Column
             dataField='availableToOrder'
             dataType='number'
@@ -531,7 +531,7 @@ export default function WorkOrderLineItemTable({
         <AlertDialog
           isOpen={showConfirmation}
           title='Are you sure?'
-          description={`Are you sure you want to delete this item with MFG P/N of "${rowData?.manufacturerPartNumber}" and has Id of "${rowData?.projectItemCode}"?`}
+          description={`Are you sure you want to delete this item with MFG P/N of "${rowData?.ItemName}" and has Id of "${rowData?.projectItemCode}"?`}
           onConfirm={handleConfirm}
           onCancel={() => setShowConfirmation(false)}
         />

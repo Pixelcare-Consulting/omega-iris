@@ -86,6 +86,7 @@ export const workOrderStatusUpdateFormSchema = z.object({
   ),
   currentStatus: z.string().min(1, { message: 'Status is required' }),
   comments: z.string().nullish(),
+  trackingNum: z.string().nullish(),
 })
 
 export type WorkOrderItemForm = z.infer<typeof workOrderItemFormSchema>

@@ -37,11 +37,11 @@ export default function ItemOverviewTab({ item }: ItemOverviewTabProps) {
             <Copy value={item.code} />
           </ReadOnlyField>
 
-          <ReadOnlyField className='col-span-12 md:col-span-6' title='Manufacturer' value={item?.manufacturer || ''} />
+          <ReadOnlyField className='col-span-12 md:col-span-6' title='Manufacturer' value={item?.FirmName || ''} />
 
-          <ReadOnlyField className='col-span-12 md:col-span-6' title='MFG P/N' value={item?.manufacturerPartNumber || ''} />
+          <ReadOnlyField className='col-span-12 md:col-span-6' title='MFG P/N' value={item?.ItemCode || ''} />
 
-          <ReadOnlyField className='col-span-12 md:col-span-6' title='Description ' value={item?.description || ''} />
+          <ReadOnlyField className='col-span-12 md:col-span-6' title='Description ' value={item?.ItemName || ''} />
 
           <ReadOnlyField className='col-span-12 md:col-span-6' title='Status' value={item?.isActive ? 'Active' : 'Inactive'} />
 

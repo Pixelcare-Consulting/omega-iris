@@ -218,14 +218,14 @@ export default function ProjectItemForm({
                     name='itemCode'
                     label='Item'
                     valueExpr='code'
-                    displayExpr='description'
-                    searchExpr={['description', 'manufacturerPartNumber']}
+                    displayExpr='ItemName'
+                    searchExpr={['ItemName', 'ItemCode']}
                     extendedProps={{
                       selectBoxOptions: {
                         itemRender: (params) => {
                           return commonItemRender({
-                            title: params?.manufacturerPartNumber,
-                            description: params?.description,
+                            title: params?.ItemCode,
+                            description: params?.ItemName,
                             value: params?.code,
                             valuePrefix: '#',
                           })
@@ -235,15 +235,11 @@ export default function ProjectItemForm({
                   />
                 </div>
 
-                <ReadOnlyField className='col-span-12 md:col-span-6' title='Manufacturer' value={selectedBaseItem?.manufacturer || ''} />
+                <ReadOnlyField className='col-span-12 md:col-span-6' title='Manufacturer' value={selectedBaseItem?.FirmName || ''} />
 
-                <ReadOnlyField
-                  className='col-span-12 md:col-span-6'
-                  title='MFG P/N'
-                  value={selectedBaseItem?.manufacturerPartNumber || ''}
-                />
+                <ReadOnlyField className='col-span-12 md:col-span-6' title='MFG P/N' value={selectedBaseItem?.ItemCode || ''} />
 
-                <ReadOnlyField className='col-span-12 md:col-span-6' title='Description ' value={selectedBaseItem?.description || ''} />
+                <ReadOnlyField className='col-span-12 md:col-span-6' title='Description ' value={selectedBaseItem?.ItemName || ''} />
 
                 <ReadOnlyField
                   className='col-span-12 md:col-span-6'

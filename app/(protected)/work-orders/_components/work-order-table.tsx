@@ -306,7 +306,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             onHiding={() => setShowUpdateStatusForm(false)}
             width={undefined}
             maxWidth={1200}
-            height={currentStatus !== '5' ? 410 : 700}
+            height={currentStatus !== '5' ? 410 : 750}
           >
             <WorkOrderUpdateStatusForm
               selectedRowKeys={selectedRowKeys}

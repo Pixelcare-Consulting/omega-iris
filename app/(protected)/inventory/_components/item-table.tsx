@@ -33,6 +33,8 @@ import { useSyncMeta } from '@/hooks/safe-actions/sync-meta'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import CanView from '@/components/acl/can-view'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
+import { useItemGroups } from '@/hooks/safe-actions/item-group'
+import { useManufacturers } from '@/hooks/safe-actions/manufacturer'
 
 type ItemTableProps = { items: Awaited<ReturnType<typeof getItems>> }
 type DataSource = Awaited<ReturnType<typeof getItems>>
@@ -81,6 +83,9 @@ export default function ItemTable({ items }: ItemTableProps) {
   const syncToSapData = useAction(syncToSap)
   const syncFromSapData = useAction(syncFromSap)
   const syncMeta = useSyncMeta('item')
+
+  const itemGroups = useItemGroups()
+  const manufacturers = useManufacturers()
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
@@ -241,7 +246,7 @@ export default function ItemTable({ items }: ItemTableProps) {
     setIsLoading(true)
 
     try {
-      const headers: string[] = ['MFG_P/N', 'Manufacturer', 'Description', 'Notes', 'Active']
+      const headers: string[] = ['MFG_P/N', 'Manufacturer', 'Description', 'Group', 'Notes', 'Active']
       const batchSize = 100
 
       //* parse excel file
@@ -261,7 +266,16 @@ export default function ItemTable({ items }: ItemTableProps) {
 
         //* check if batch size is reached or last row
         if (batch.length === batchSize || isLastRow) {
-          const response = await importData.executeAsync({ data: batch, total: toImportData.length, stats, isLastRow })
+          const response = await importData.executeAsync({
+            data: batch,
+            total: toImportData.length,
+            stats,
+            isLastRow,
+            metaData: {
+              itemGroups: itemGroups.data,
+              manufacturers: manufacturers.data,
+            },
+          })
           const result = response?.data
 
           if (result?.error) {
@@ -407,7 +421,7 @@ export default function ItemTable({ items }: ItemTableProps) {
           onImport={handleImport}
           addButton={{ text: 'Add Inventory', onClick: () => router.push('/inventory/add'), subjects: 'p-inventory', actions: 'create' }}
           customs={{ exportToExcel }}
-          importOptions={{ subjects: 'p-inventory', actions: 'import' }}
+          importOptions={{ subjects: 'p-inventory', actions: 'import', isLoading: itemGroups.isLoading || manufacturers.isLoading }}
           exportOptions={{ subjects: 'p-inventory', actions: 'export' }}
         />
 
@@ -427,9 +441,9 @@ export default function ItemTable({ items }: ItemTableProps) {
         >
           <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
           <Column dataField='thumbnail' minWidth={140} caption='Thumbnail' cellRender={thumbnailCellRender} />
-          <Column dataField='manufacturer' dataType='string' caption='Manufacturer' />
-          <Column dataField='manufacturerPartNumber' dataType='string' caption='MFG P/N' />
-          <Column dataField='description' dataType='string' caption='Description' />
+          <Column dataField='FirmName' dataType='string' caption='Manufacturer' />
+          <Column dataField='ItemCode' dataType='string' caption='MFG P/N' />
+          <Column dataField='ItemName' dataType='string' caption='Description' />
           <Column dataField='syncStatus' dataType='string' caption='Sync Status' cssClass='capitalize' />
           <Column
             dataField='isActive'
@@ -498,7 +512,7 @@ export default function ItemTable({ items }: ItemTableProps) {
       <AlertDialog
         isOpen={showDeleteConfirmation}
         title='Are you sure?'
-        description={`Are you sure you want to delete this inventory item named "${rowData?.description}"?`}
+        description={`Are you sure you want to delete this inventory item named "${rowData?.ItemName}"?`}
         onConfirm={() => handleConfirmDelete(rowData?.code)}
         onCancel={() => setShowDeleteConfirmation(false)}
       />
@@ -506,7 +520,7 @@ export default function ItemTable({ items }: ItemTableProps) {
       <AlertDialog
         isOpen={showRestoreConfirmation}
         title='Are you sure?'
-        description={`Are you sure you want to restore this inventory item named "${rowData?.description}"?`}
+        description={`Are you sure you want to restore this inventory item named "${rowData?.ItemName}"?`}
         onConfirm={() => handleConfirmRestore(rowData?.code)}
         onCancel={() => setShowRestoreConfirmation(false)}
       />

@@ -62,31 +62,22 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
             <Copy value={item.code} />
           </ReadOnlyField>
 
-          <ReadOnlyField className='col-span-12 md:col-span-6' title='Manufacturer' value={item?.manufacturer || ''} />
+          <ReadOnlyField className='col-span-12 md:col-span-6' title='MFG P/N' value={item?.ItemCode || ''} />
 
-          <ReadOnlyField className='col-span-12 md:col-span-6' title='MFG P/N' value={item?.manufacturerPartNumber || ''} />
+          <ReadOnlyField className='col-span-12 md:col-span-6' title='Description ' value={item?.ItemName || ''} />
 
-          <ReadOnlyField className='col-span-12 md:col-span-6' title='Description ' value={item?.description || ''} />
+          <ReadOnlyField className='col-span-12 md:col-span-6' title='Manufacturer Code' value={item?.FirmCode || ''} />
 
-          <ReadOnlyField className='col-span-12 md:col-span-6' title='Status' value={item?.isActive ? 'Active' : 'Inactive'} />
+          <ReadOnlyField className='col-span-12 md:col-span-6' title='Manufacturer Name' value={item?.FirmName || ''} />
+
+          <ReadOnlyField className='col-span-12 md:col-span-6' title='Group Code' value={item?.ItmsGrpCod || ''} />
+
+          <ReadOnlyField className='col-span-12 md:col-span-6' title='Group Name' value={item.ItmsGrpNam || ''} />
 
           <ReadOnlyField className='col-span-12' title='Notes' value={item?.notes || ''} />
+
+          <ReadOnlyField className='col-span-12 md:col-span-6' title='Status' value={item?.isActive ? 'Active' : 'Inactive'} />
         </div>
-
-        <Separator className='col-span-12' />
-        <ReadOnlyFieldHeader className='col-span-12' title='SAP Fields' description='SAP related fields' />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Code' value={item?.ItemCode || ''} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Manufacturer Code' value={item?.FirmCode || ''} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Manufacturer Name' value={item.FirmName || ''} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Description' value={item.ItemName || ''} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Group Code' value={item?.ItmsGrpCod || ''} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Group Name' value={item.ItmsGrpNam || ''} />
 
         {/* <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'

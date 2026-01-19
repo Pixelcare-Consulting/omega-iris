@@ -81,6 +81,7 @@ function StatusUpdateCard({ statusUpdate }: { statusUpdate: Awaited<ReturnType<t
           </span>
         </p>
         <p className='whitespace-pre-line text-slate-500'>Comment: {statusUpdate?.comments || 'N/A'}</p>
+        <p className='whitespace-pre-line text-slate-500'>Tracking Number: {statusUpdate?.trackingNum || 'N/A'}</p>
       </div>
     </div>
   )

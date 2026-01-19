@@ -174,9 +174,9 @@ function WorkOrderLineItemsTobeDeliver({ workOrderCodes, showConfirmation, setSh
           <Column dataField='projectItem.code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' allowEditing={false} />
           <Column dataField='delivered' dataType='boolean' minWidth={100} caption='Delivered' allowEditing={true} />
           <Column dataField='projectItem.partNumber' dataType='string' caption='Part Number' allowEditing={false} />
-          <Column dataField='projectItem.item.manufacturer' dataType='string' caption='Manufacturer' allowEditing={false} />
-          <Column dataField='projectItem.item.manufacturerPartNumber' dataType='string' caption='MFG P/N' allowEditing={false} />
-          <Column dataField='projectItem.item.description' dataType='string' caption='Description' allowEditing={false} />
+          <Column dataField='projectItem.item.FirmName' dataType='string' caption='Manufacturer' allowEditing={false} />
+          <Column dataField='projectItem.item.ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
+          <Column dataField='projectItem.item.ItemName' dataType='string' caption='Description' allowEditing={false} />
           <Column
             dataField='qty'
             dataType='number'
