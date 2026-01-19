@@ -74,7 +74,7 @@ export const upsertItem = action
     try {
       const existingItem = await db.item.findFirst({
         where: {
-          OR: [{ manufacturerPartNumber: data.manufacturerPartNumber }, { ItemCode: data.ItemCode }],
+          ItemCode: data.ItemCode,
           ...(code && code !== -1 && { code: { not: code } }),
         },
       })
@@ -166,8 +166,11 @@ export const importItems = action
   .use(authenticationMiddleware)
   .schema(importFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { data, total, stats, isLastRow } = parsedInput
+    const { data, total, stats, isLastRow, metaData } = parsedInput
     const { userId } = ctx
+
+    const itemGroups = metaData?.itemGroups || []
+    const manufacturers = metaData?.manufacturers || []
 
     const mfgpns = data?.map((row) => row?.['MFG_P/N'])?.filter(Boolean) || []
 
@@ -176,13 +179,16 @@ export const importItems = action
       const toBeCreatedMfgpns: string[] = [] //* contains toBeCreated inventory manufacturer part numbers
 
       //* get existing item manufacturer part numbers
-      const existingMfgpns = (
-        await db.item.findMany({ where: { manufacturerPartNumber: { in: mfgpns } }, select: { manufacturerPartNumber: true } })
-      ).map((inv) => inv.manufacturerPartNumber)
+      const existingMfgpns = (await db.item.findMany({ where: { ItemCode: { in: mfgpns } }, select: { ItemCode: true } })).map(
+        (inv) => inv.ItemCode
+      )
 
       for (let i = 0; i < data.length; i++) {
         const errors: ImportSyncErrorEntry[] = []
         const row = data[i]
+
+        const group = itemGroups.find((g: any) => g?.Number == row?.['Group'])
+        const manufacturer = manufacturers.find((m: any) => m?.Code == row?.['Manufacturer'])
 
         //* check required fields
         if (!row?.['MFG_P/N']) errors.push({ field: 'MFG_P/N', message: 'Missing required field' })
@@ -203,9 +209,12 @@ export const importItems = action
 
         //* reshape data
         const toCreate: Prisma.ItemCreateManyInput = {
-          manufacturerPartNumber: row['MFG_P/N'],
-          manufacturer: row?.['Manufacturer'] || null,
-          description: row?.['Description'] || null,
+          ItemCode: row['MFG_P/N'],
+          FirmCode: manufacturer?.Code ? safeParseInt(manufacturer?.Code) : null,
+          FirmName: manufacturer?.ManufacturerName || null,
+          ItmsGrpCod: group?.Number ? safeParseInt(group?.Number) : null,
+          ItmsGrpNam: group?.GroupName || null,
+          ItemName: row?.['Description'] || null,
           isActive: row?.['Active'] === '1' ? true : !row?.['Active'] ? undefined : false,
           createdBy: userId,
           updatedBy: userId,
@@ -508,18 +517,15 @@ export const syncFromSap = action.use(authenticationMiddleware).action(async ({ 
           const ItemGroup = row?.ItemGroups
           const Manufacturer = row?.Manufacturers
 
-          if (!item) return null
+          if (!item || !item?.ItemCode) return null
 
           const itemData = {
-            manufacturerPartNumber: item?.ItemCode,
-            manufacturer: Manufacturer?.ManufacturerName || '',
-            description: item?.ItemName || '',
             syncStatus: 'synced',
             createdBy: userId,
             updatedBy: userId,
 
             //* sap fields
-            ItemCode: item?.ItemCode || '',
+            ItemCode: item?.ItemCode,
             ItemName: item?.ItemName || '',
             ItmsGrpCod: ItemGroup?.Number || -1,
             ItmsGrpNam: ItemGroup?.GroupName || '',
@@ -528,7 +534,7 @@ export const syncFromSap = action.use(authenticationMiddleware).action(async ({ 
           }
 
           return tx.item.upsert({
-            where: { manufacturerPartNumber: itemData.manufacturerPartNumber }, //* if manufacturerPartNumber will be remove based it on the ItemCode
+            where: { ItemCode: itemData.ItemCode },
             create: itemData,
             update: itemData,
           })

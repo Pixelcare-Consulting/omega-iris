@@ -70,8 +70,8 @@ export default function WorkOrderLineItemForm({ projectName, setIsOpen, onClose,
 
       return {
         ...pi,
-        manufacturerPartNumber: baseItem.manufacturerPartNumber,
-        description: baseItem.description,
+        ItemCode: baseItem?.ItemCode,
+        ItemName: baseItem?.ItemName,
       }
     })
   }, [JSON.stringify(projectItems)])
@@ -205,8 +205,8 @@ export default function WorkOrderLineItemForm({ projectName, setIsOpen, onClose,
                   name='projectItemCode'
                   label='Item'
                   valueExpr='code'
-                  displayExpr='description'
-                  searchExpr={['description', 'manufacturerPartNumber', 'code']}
+                  displayExpr='ItemName'
+                  searchExpr={['ItemName', 'ItemCode', 'code']}
                   description={projectName ? `Select from the items of the project "${projectName}"` : undefined}
                   callback={(args) => {
                     form.setValue('maxQty', args?.item?.availableToOrder)
@@ -218,8 +218,8 @@ export default function WorkOrderLineItemForm({ projectName, setIsOpen, onClose,
                     selectBoxOptions: {
                       itemRender: (params) => {
                         return commonItemRender({
-                          title: params?.manufacturerPartNumber,
-                          description: params?.description,
+                          title: params?.ItemCode,
+                          description: params?.ItemName,
                           value: params?.code,
                           valuePrefix: '#',
                           otherItems: (

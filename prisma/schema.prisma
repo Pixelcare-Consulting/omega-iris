@@ -224,17 +224,15 @@ model Contact {
 }
 
 model Item {
-    id                     String  @id @default(cuid())
-    code                   Int     @unique @default(autoincrement())
-    manufacturerPartNumber String  @unique //* redundant need to be remove because we already have a field equivalent to this from SAP
-    manufacturer           String? //* redundant need to be remove because we already have a field equivalent to this from SAP
-    description            String? //* redundant need to be remove because we already have a field equivalent to this from SAP
-    thumbnail              String?
-    notes                  String?
-    isActive               Boolean @default(true)
+    //TODO: remove manufacturerPartNumber, manufacturer, description - instead use sap fields
+    id        String  @id @default(cuid())
+    code      Int     @unique @default(autoincrement())
+    thumbnail String?
+    notes     String?
+    isActive  Boolean @default(true)
 
     //* sap fields
-    ItemCode   String?
+    ItemCode   String   @unique
     ItemName   String?
     FirmCode   Int?
     FirmName   String?
@@ -479,6 +477,7 @@ model WorkOrderStatusUpdate {
     prevStatus    String
     currentStatus String
     comments      String?
+    trackingNum   String?
 
     createdAt DateTime @default(now())
     createdBy String?

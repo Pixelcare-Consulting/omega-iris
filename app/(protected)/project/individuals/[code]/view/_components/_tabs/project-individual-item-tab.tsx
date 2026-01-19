@@ -357,10 +357,10 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
             >
               <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
               <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} />
-              <Column dataField='item.manufacturerPartNumber' dataType='string' caption='MFG P/N' />
-              <Column dataField='item.manufacturer' dataType='string' caption='Manufacturer' />
+              <Column dataField='item.ItemCode' dataType='string' caption='MFG P/N' />
+              <Column dataField='item.FirmName' dataType='string' caption='Manufacturer' />
               <Column dataField='partNumber' dataType='string' caption='Part Number' />
-              <Column dataField='item.description' dataType='string' caption='Description' />
+              <Column dataField='item.ItemName' dataType='string' caption='Description' />
               <Column dataField='dateCode' dataType='string' caption='Date Code' />
               <Column dataField='countryOfOrigin' dataType='string' caption='Country Of Origin' />
               <Column dataField='lotCode' dataType='string' caption='Lot Code' />
@@ -400,17 +400,12 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
 
               <Summary>
-                <GroupItem
-                  column='item.manufacturerPartNumber'
-                  summaryType='count'
-                  displayFormat='{0} item'
-                  valueFormat={DEFAULT_NUMBER_FORMAT}
-                />
+                <GroupItem column='item.ItemCode' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
                 {renderCommonSummaryIItems()}
               </Summary>
 
               <Summary>
-                <GroupItem column='item.manufacturer' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+                <GroupItem column='item.FirmName' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
                 {renderCommonSummaryIItems()}
               </Summary>
 
@@ -442,7 +437,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
             <AlertDialog
               isOpen={showConfirmation}
               title='Are you sure?'
-              description={`Are you sure you want to delete this inventory item named "${rowData?.item.description}"?`}
+              description={`Are you sure you want to delete this inventory item named "${rowData?.item.ItemName}"?`}
               onConfirm={() => handleConfirm(rowData?.code)}
               onCancel={() => setShowConfirmation(false)}
             />

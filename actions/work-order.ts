@@ -31,7 +31,7 @@ const COMMON_WORK_ORDER_ORDER_BY = { code: 'asc' } satisfies Prisma.WorkOrderOrd
 export async function getWorkOrders(userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
   if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
 
-  const { userId, userCode, ability } = userInfo
+  const { userId, userCode, ability, roleKey } = userInfo
 
   try {
     if (!ability) {
@@ -50,7 +50,10 @@ export async function getWorkOrders(userInfo: Awaited<ReturnType<typeof getCurre
       where: viewAll
         ? undefined
         : viweOwned
-          ? { OR: [{ userCode }, { projectIndividual: { projectIndividualPics: { some: { userCode } } } }, { createdBy: userId }] }
+          ? {
+              OR: [{ userCode }, { projectIndividual: { projectIndividualPics: { some: { userCode } } } }, { createdBy: userId }],
+              ...(roleKey === 'business-partner' ? { isInternal: false } : {}),
+            }
           : { userCode: -1 },
     })
   } catch (error) {

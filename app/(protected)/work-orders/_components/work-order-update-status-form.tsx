@@ -140,6 +140,18 @@ export default function WorkOrderUpdateStatusForm({ selectedRowKeys, onClose, se
                 />
               </div>
 
+              {(currentStatus === '5' || currentStatus === '6') && (
+                <div className='col-span-12'>
+                  <TextAreaField
+                    control={form.control}
+                    name='trackingNum'
+                    label='Tracking Number'
+                    isAutoResize
+                    extendedProps={{ textAreaOptions: { maxHeight: 150 } }}
+                  />
+                </div>
+              )}
+
               <div className='col-span-12'>
                 <TextAreaField
                   control={form.control}

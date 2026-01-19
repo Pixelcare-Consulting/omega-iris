@@ -91,10 +91,10 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
 
         return {
           projectItemCode: pItem?.code,
-          manufacturerPartNumber: itemMaster?.manufacturerPartNumber || '',
-          manufacturer: itemMaster?.manufacturer || '',
+          ItemCode: itemMaster?.ItemCode || '',
+          FirmName: itemMaster?.FirmName || '',
+          ItemName: itemMaster?.ItemName || '',
           partNumber: pItem?.partNumber || '',
-          description: itemMaster?.description || '',
           dateCode: pItem?.dateCode || '',
           countryOfOrigin: pItem?.countryOfOrigin || '',
           lotCode: pItem?.lotCode || '',
@@ -299,9 +299,9 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
                 alignment='left'
               />
               <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
-              <Column dataField='manufacturer' dataType='string' caption='Manufacturer' allowEditing={false} />
-              <Column dataField='manufacturerPartNumber' dataType='string' caption='MFG P/N' allowEditing={false} />
-              <Column dataField='description' dataType='string' caption='Description' allowEditing={false} />
+              <Column dataField='FirmName' dataType='string' caption='Manufacturer' allowEditing={false} />
+              <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
+              <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} />
 
               <Column
                 dataField='availableToOrder'
@@ -362,17 +362,12 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
               </Summary>
 
               <Summary>
-                <GroupItem column='manufacturer' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+                <GroupItem column='FirmName' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
                 {renderCommonSummaryIItems()}
               </Summary>
 
               <Summary>
-                <GroupItem
-                  column='manufacturerPartNumber'
-                  summaryType='count'
-                  displayFormat='{0} item'
-                  valueFormat={DEFAULT_NUMBER_FORMAT}
-                />
+                <GroupItem column='ItemCode' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
                 {renderCommonSummaryIItems()}
               </Summary>
 
@@ -396,7 +391,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
             <AlertDialog
               isOpen={showConfirmation}
               title='Are you sure?'
-              description={`Are you sure you want to delete this item with MFG P/N of "${rowData?.manufacturerPartNumber}" and has Id of "${rowData?.projectItemCode}"?`}
+              description={`Are you sure you want to delete this item with MFG P/N of "${rowData?.ItemCode}" and has Id of "${rowData?.projectItemCode}"?`}
               onConfirm={() => handleConfirm(workOrder.code, rowData?.projectItemCode || 0)}
               onCancel={() => setShowConfirmation(false)}
             />

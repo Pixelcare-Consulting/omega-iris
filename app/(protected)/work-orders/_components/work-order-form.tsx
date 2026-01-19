@@ -51,6 +51,9 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
   const isCreate = code === 'add' || !workOrder
 
   const values = useMemo(() => {
+    const roleKey = session?.user.roleKey
+    const isBusinessPartner = roleKey === 'business-partner'
+
     if (workOrder) return { ...workOrder, lineItems: [] }
 
     if (isCreate) {
@@ -58,8 +61,8 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
         code: -1,
         projectIndividualCode: 0,
         userCode: 0,
-        status: session?.user.roleKey === 'business-partner' ? '2' : '1',
-        isInternal: false,
+        status: isBusinessPartner ? '2' : '1',
+        isInternal: isBusinessPartner ? false : true,
         billingAddrCode: null,
         shippingAddrCode: null,
         comments: null,
@@ -313,9 +316,11 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
               <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Status' value={selectedStatus || ''} />
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <SwitchField control={form.control} name='isInternal' label='Internal' description='Is this an internal work order?' />
-              </div>
+              {session?.user.roleKey !== 'business-partner' && (
+                <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                  <SwitchField control={form.control} name='isInternal' label='Internal' description='Is this an internal work order?' />
+                </div>
+              )}
 
               <div className='col-span-12'>
                 <TextAreaField control={form.control} name='comments' label='Order Comments' />

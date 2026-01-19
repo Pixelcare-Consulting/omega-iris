@@ -50,9 +50,6 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
     if (isCreate) {
       return {
         code: -1,
-        manufacturerPartNumber: '',
-        manufacturer: null,
-        description: null,
         thumbnail: null,
         notes: null,
         isActive: true,
@@ -61,7 +58,7 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
         // warehouseInventory: [],
 
         //* sap fields
-        ItemCode: null,
+        ItemCode: '',
         ItemName: null,
         ItmsGrpCod: null,
         ItmsGrpNam: null,
@@ -99,7 +96,7 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
 
       if (result?.error) {
         if (result.status === 401) {
-          form.setError('manufacturerPartNumber', { type: 'custom', message: result.message })
+          form.setError('ItemCode', { type: 'custom', message: result.message })
         }
 
         toast.error(result.message)
@@ -253,25 +250,59 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
               </div>
 
               <div className='col-span-12 grid h-fit grid-cols-12 gap-5 pt-4 md:col-span-12 lg:col-span-9 lg:pt-0'>
-                <div className='col-span-12 md:col-span-6'>
-                  <TextBoxField control={form.control} name='manufacturerPartNumber' label='MFG P/N' isRequired />
+                <div className='col-span-12 md:col-span-6 lg:col-span-6'>
+                  <TextBoxField control={form.control} name='ItemCode' label='Code' />
                 </div>
 
                 <div className='col-span-12 md:col-span-6'>
-                  <TextBoxField control={form.control} name='manufacturer' label='Manufacturer' />
-                </div>
-
-                <div className='col-span-12 md:col-span-6'>
-                  <TextBoxField control={form.control} name='description' label='Description' />
-                </div>
-
-                <div className='col-span-12 md:col-span-6'>
-                  <SwitchField
+                  <SelectBoxField
+                    data={manufacturers.data}
+                    isLoading={manufacturers.isLoading}
                     control={form.control}
-                    name='isActive'
-                    label='Active'
-                    description='Is this item active?'
-                    extendedProps={{ switchOptions: { disabled: isCreate } }}
+                    name='FirmCode'
+                    label='Manufacturer'
+                    valueExpr='Code'
+                    displayExpr='ManufacturerName'
+                    searchExpr={['ManufacturerName', 'Code']}
+                    extendedProps={{
+                      selectBoxOptions: {
+                        itemRender: (params) => {
+                          return commonItemRender({
+                            title: params?.ManufacturerName,
+                            value: params?.Code,
+                            valuePrefix: '#',
+                          })
+                        },
+                      },
+                    }}
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6'>
+                  <TextBoxField control={form.control} name='ItemName' label='Description' />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-6'>
+                  <SelectBoxField
+                    data={itemGroups.data}
+                    isLoading={itemGroups.isLoading}
+                    control={form.control}
+                    name='ItmsGrpCod'
+                    label='Group'
+                    valueExpr='Number'
+                    displayExpr='GroupName'
+                    searchExpr={['GroupName', 'Number']}
+                    extendedProps={{
+                      selectBoxOptions: {
+                        itemRender: (params) => {
+                          return commonItemRender({
+                            title: params?.GroupName,
+                            value: params?.Number,
+                            valuePrefix: '#',
+                          })
+                        },
+                      },
+                    }}
                   />
                 </div>
 
@@ -284,65 +315,16 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
                   title='Sync Status'
                   value={syncStatus ? titleCase(syncStatus) : ''}
                 />
-              </div>
 
-              <Separator className='col-span-12' />
-              <ReadOnlyFieldHeader className='col-span-12 mb-1' title='SAP Fields' description='SAP related fields' />
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <TextBoxField control={form.control} name='ItemCode' label='Code' />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <SelectBoxField
-                  data={manufacturers.data}
-                  isLoading={manufacturers.isLoading}
-                  control={form.control}
-                  name='FirmCode'
-                  label='Manufacturer'
-                  valueExpr='Code'
-                  displayExpr='ManufacturerName'
-                  searchExpr={['ManufacturerName', 'Code']}
-                  extendedProps={{
-                    selectBoxOptions: {
-                      itemRender: (params) => {
-                        return commonItemRender({
-                          title: params?.ManufacturerName,
-                          value: params?.Code,
-                          valuePrefix: '#',
-                        })
-                      },
-                    },
-                  }}
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <TextBoxField control={form.control} name='ItemName' label='Description' />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <SelectBoxField
-                  data={itemGroups.data}
-                  isLoading={itemGroups.isLoading}
-                  control={form.control}
-                  name='ItmsGrpCod'
-                  label='Group'
-                  valueExpr='Number'
-                  displayExpr='GroupName'
-                  searchExpr={['GroupName', 'Number']}
-                  extendedProps={{
-                    selectBoxOptions: {
-                      itemRender: (params) => {
-                        return commonItemRender({
-                          title: params?.GroupName,
-                          value: params?.Number,
-                          valuePrefix: '#',
-                        })
-                      },
-                    },
-                  }}
-                />
+                <div className='col-span-12 md:col-span-4'>
+                  <SwitchField
+                    control={form.control}
+                    name='isActive'
+                    label='Active'
+                    description='Is this item active?'
+                    extendedProps={{ switchOptions: { disabled: isCreate } }}
+                  />
+                </div>
               </div>
 
               {/* <div className='col-span-12 md:col-span-6 lg:col-span-4'>

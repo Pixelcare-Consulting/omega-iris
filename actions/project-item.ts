@@ -155,17 +155,15 @@ export const importProjectItems = action
 
       //* get existing items
       const existingItems = await db.item.findMany({
-        where: { OR: [{ manufacturerPartNumber: { in: uniqueMpns } }, { ItemCode: { in: uniqueMpns } }] },
-        select: { code: true, manufacturerPartNumber: true, ItemCode: true }, //* manufacturerPartNumber can be remove in the future
+        where: { ItemCode: { in: uniqueMpns } },
+        select: { code: true, ItemCode: true },
       })
 
       for (let i = 0; i < data.length; i++) {
         const errors: ImportSyncErrorEntry[] = []
         const row = data[i]
 
-        const baseItem = existingItems.find(
-          (item) => item.manufacturerPartNumber === row?.['MFG_P/N'] || item.ItemCode === row?.['MFG_P/N']
-        )
+        const baseItem = existingItems.find((item) => item.ItemCode === row?.['MFG_P/N'])
 
         //* check required fields
         if (!row?.['MFG_P/N']) errors.push({ field: 'MFG_P/N', message: 'Missing required field' })

@@ -21,8 +21,8 @@ type CommonPageHeaderToolbarItemsProps = {
   dataGridRef: MutableRefObject<DataGridRef<any, any> | null>
   isLoading?: boolean
   isEnableImport?: boolean
-  importOptions?: { subjects?: string | string[]; actions?: string | string[] }
-  exportOptions?: { subjects?: string | string[]; actions?: string | string[] }
+  importOptions?: { subjects?: string | string[]; actions?: string | string[]; isLoading?: boolean }
+  exportOptions?: { subjects?: string | string[]; actions?: string | string[]; isLoading?: boolean }
   onImport?: (...args: any[]) => void
   addButton?: { text: string; onClick: () => void; subjects?: string | string[]; actions?: string | string[]; disabled?: boolean }
   customs?: { exportToExcel?: (...args: any[]) => void }
@@ -49,13 +49,15 @@ export default function CommonPageHeaderToolbarItems({
       {
         id: 'export',
         icon: 'export',
+        disabled: exportOptions?.isLoading,
+        text: exportOptions?.isLoading ? 'Loading...' : undefined,
         items: [
           { id: 'export-all-data-to-excel', text: 'Export all data to Excel', icon: 'xlsxfile' },
           { id: 'export-selected-rows-to-excel', text: 'Export selected rows to Excel', icon: 'exportselected' },
         ],
       },
     ]
-  }, [])
+  }, [exportOptions?.isLoading])
 
   const clearMenuItems = useMemo((): MenuTypes.Item[] => {
     return [
@@ -253,7 +255,13 @@ export default function CommonPageHeaderToolbarItems({
         <CanView subject={importOptions?.subjects} action={importOptions?.actions}>
           <Item location='after' widget='dxMenu'>
             <Tooltip target='#import-data' contentRender={() => 'Import'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />
-            <Button id='import-data' icon='import' disabled={isLoading} onClick={() => fileInputRef.current?.click()} />
+            <Button
+              id='import-data'
+              icon='import'
+              disabled={isLoading || importOptions?.isLoading}
+              onClick={() => fileInputRef.current?.click()}
+              text={importOptions?.isLoading ? 'Loading...' : undefined}
+            />
           </Item>
         </CanView>
       )}
@@ -272,7 +280,7 @@ export default function CommonPageHeaderToolbarItems({
             dataSource={exportToExcelMenuItems}
             showFirstSubmenuMode='onClick'
             hideSubmenuOnMouseLeave
-            disabled={isLoading}
+            disabled={isLoading || exportOptions?.isLoading}
             onItemClick={menuItemOnItemClick}
             elementAttr={{
               //* style like button

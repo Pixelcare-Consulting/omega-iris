@@ -16,9 +16,6 @@ export const itemWarehouseInventoryFormSchema = z
 
 export const itemFormSchema = z.object({
   code: z.coerce.number(),
-  manufacturerPartNumber: z.string().min(1, { message: 'MFG P/N is required' }),
-  manufacturer: z.string().nullish(),
-  description: z.string().nullish(),
   thumbnail: z.string().nullish(),
   notes: z.string().nullish(),
   isActive: z.boolean(),
@@ -28,7 +25,7 @@ export const itemFormSchema = z.object({
   // warehouseInventory: itemWarehouseInventoryFormSchema,
 
   //* sap fields
-  ItemCode: z.string().nullish(),
+  ItemCode: z.string().min(1, { message: 'MFG P/N is required' }),
   ItemName: z.string().nullish(),
   ItmsGrpCod: z.coerce.number().nullish(),
   ItmsGrpNam: z.string().nullish(),
