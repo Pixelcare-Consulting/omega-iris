@@ -12,6 +12,7 @@ import {
   syncFromSapFormSchema,
   syncToSapFormSchema,
   ADDRESS_TYPE_STD_API_MAP,
+  BUSINESS_PARTNER_STD_API_GROUP_TYPE_MAP,
 } from '@/schema/business-partner'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
@@ -22,6 +23,7 @@ import { SAP_BASE_URL } from '@/constants/sap'
 import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import { getAddresses, getMasterAddresses } from './address'
 import { getContacts, getMasterContacts } from './contact'
+import { importFormSchema } from '@/schema/import'
 
 const COMMON_BUSINESS_PARTNER_ORDER_BY = { CardCode: 'asc' } satisfies Prisma.BusinessPartnerOrderByWithRelationInput
 
@@ -280,6 +282,125 @@ export const upsertBp = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'UPSERT_BUSINESS_PARTNER',
+      }
+    }
+  })
+
+export const importBp = action
+  .use(authenticationMiddleware)
+  .schema(importFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { data, total, stats, isLastRow, metaData } = parsedInput
+    const { userId } = ctx
+
+    const bpGroups = metaData?.bpGroups || []
+    const currencies = metaData?.currencies || []
+    const paymentTerms = metaData?.paymentTerms || []
+    const accountTypes = metaData?.accountTypes || []
+    const businessTypes = metaData?.businessTypes || []
+
+    const cardType = metaData?.cardType || 'L'
+    const bpGroupType = BUSINESS_PARTNER_STD_API_GROUP_TYPE_MAP[cardType] || 'bbpgt_CustomerGroup'
+
+    const cardCodes = data?.map((row) => row?.['Code'])?.filter(Boolean) || []
+
+    try {
+      const batch: Prisma.BusinessPartnerCreateManyInput[] = []
+      const toBeCreatedCardCode: string[] = [] //* contains toBeCreated business partner code
+
+      //* get existing bps card cades
+      const existingBpsCardCodes = await db.businessPartner
+        .findMany({ where: { CardCode: { in: cardCodes } }, select: { CardCode: true } })
+        .then((bps) => bps.map((bp) => bp.CardCode))
+
+      for (let i = 0; i < data.length; i++) {
+        const errors: ImportSyncErrorEntry[] = []
+        const row = data[i]
+
+        const group = bpGroups?.filter((g: any) => g?.Type === bpGroupType)?.find((g: any) => g?.Code === row?.['Group'])
+        const currency = currencies?.find((c: any) => c?.CurrCode === row?.['Currency'])
+        const paymentTerm = paymentTerms?.find((pt: any) => pt?.GroupNum === row?.['Payment_Terms'])
+        const accountType = accountTypes?.find((at: any) => at?.Code === row?.['Account_Type'])
+        const businessType = businessTypes?.find((bt: any) => bt?.Code === row?.['Type_Of_Business'])
+
+        //* check required fields
+        if (!row?.['Name']) errors.push({ field: 'Name', message: 'Missing required field' })
+
+        //* check if code is provided, check if it is already exist
+        if (existingBpsCardCodes.includes(row?.['Code']) || toBeCreatedCardCode.includes(row?.['Code'])) {
+          errors.push({ field: 'Code', message: 'Code already exists' })
+        }
+
+        //* if errors array is not empty, then update/push to ImportSyncError
+        if (errors.length > 0) {
+          stats.errors.push({ rowNumber: row.rowNumber, entries: errors, row })
+          continue
+        }
+
+        //* add to be created business partner codes
+        toBeCreatedCardCode.push(row['Code'])
+
+        //* reshape data
+        const toCreate: Prisma.BusinessPartnerCreateManyInput = {
+          CardCode: row?.['Code'] ? row?.['Code'] : `BP-${Date.now()}`,
+          CardName: row?.['Name'] || null,
+          CardType: cardType,
+          CurrName: currency?.CurrName || null,
+          CurrCode: currency?.CurrCode || null,
+          GroupCode: group?.Code || null,
+          GroupName: group?.Name || null,
+          GroupNum: paymentTerm?.GroupNum || null,
+          PymntGroup: paymentTerm?.PymntGroup || null,
+          AcctType: accountType?.Code || null,
+          CmpPrivate: businessType?.Code || null,
+          isActive: row?.['Active'] === '1' ? true : !row?.['Active'] ? undefined : false,
+          Phone1: row?.['Phone_1'] || null,
+          createdBy: userId,
+          updatedBy: userId,
+        }
+
+        batch.push(toCreate)
+      }
+
+      //* commit the batch
+      await db.businessPartner.createMany({
+        data: batch,
+        skipDuplicates: true,
+      })
+
+      const progress = ((stats.completed + batch.length) / total) * 100
+
+      const updatedStats = {
+        ...stats,
+        completed: stats.completed + batch.length,
+        progress,
+        status: progress >= 100 || isLastRow ? 'completed' : 'processing',
+      }
+
+      return {
+        status: 200,
+        message: `${updatedStats.completed} ${BUSINESS_PARTNER_TYPE_MAP[cardType]} created successfully!`,
+        action: 'IMPORT_BUSINESS_PARTNERS',
+        stats: updatedStats,
+      }
+    } catch (error) {
+      console.error('Data import error:', error)
+
+      const errors = data.map((row) => ({
+        rowNumber: row.rowNumber as number,
+        entries: [{ field: 'Unknown', message: 'Unexpected batch write error' }],
+        row: null,
+      })) as any
+
+      stats.errors.push(...errors)
+      stats.status = 'error'
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Data import error!',
+        action: 'IMPORT_BUSINESS_PARTNERS',
+        stats,
       }
     }
   })

@@ -13,7 +13,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Item } from 'devextreme-react/toolbar'
 import Tooltip from 'devextreme-react/tooltip'
 
-import { deleteBp, getBps, restoreBp, syncFromSap, syncToSap } from '@/actions/business-partner'
+import { deleteBp, getBps, importBp, restoreBp, syncFromSap, syncToSap } from '@/actions/business-partner'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -28,6 +28,12 @@ import { useSyncMeta } from '@/hooks/safe-actions/sync-meta'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_CURRENCY_FORMAT } from '@/constants/devextreme'
 import CanView from '@/components/acl/can-view'
+import { useBpGroups } from '@/hooks/safe-actions/businsess-partner-group'
+import { useCurrencies } from '@/hooks/safe-actions/currency'
+import { usePaymentTerms } from '@/hooks/safe-actions/payment-term'
+import { useAccountTypes } from '@/hooks/safe-actions/account-type'
+import { useBusinessTypes } from '@/hooks/safe-actions/business-type'
+import { parseExcelFile } from '@/utils/xlsx'
 
 type CustomerTableProps = { bps: Awaited<ReturnType<typeof getBps>> }
 type DataSource = Awaited<ReturnType<typeof getBps>>
@@ -72,11 +78,22 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
 
   const deleteBpData = useAction(deleteBp)
   const restoreBpData = useAction(restoreBp)
+  const importData = useAction(importBp)
   const syncMeta = useSyncMeta('customer')
   const syncToSapData = useAction(syncToSap)
   const syncFromSapData = useAction(syncFromSap)
 
+  const bpGroups = useBpGroups()
+  const currencies = useCurrencies()
+  const paymentTerms = usePaymentTerms()
+  const accountTypes = useAccountTypes()
+  const businessTypes = useBusinessTypes()
+
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
+
+  const importDependenciesIsLoading = useMemo(() => {
+    return bpGroups.isLoading || currencies.isLoading || paymentTerms.isLoading || accountTypes.isLoading || businessTypes.isLoading
+  }, [bpGroups.isLoading, currencies.isLoading, paymentTerms.isLoading, accountTypes.isLoading, businessTypes.isLoading])
 
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const data = e.row?.data
@@ -193,6 +210,89 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
     form.setValue('bps', values)
   }, [])
 
+  const handleImport: (...args: any[]) => void = async (args) => {
+    const { file } = args
+
+    setIsLoading(true)
+
+    try {
+      const headers: string[] = [
+        'Code',
+        'Name',
+        'Group',
+        'Account_Type',
+        'Type_Of_Business',
+        'Currency',
+        'Payment_Terms',
+        'Active',
+        'Phone1',
+      ]
+      const batchSize = 100
+
+      //* parse excel file
+      const parseData = await parseExcelFile({ file, header: headers })
+      const toImportData = parseData.map((row, i) => ({ rowNumber: i + 2, ...row }))
+
+      //* trigger write by batch
+      let batch: typeof toImportData = []
+      let stats: Stats = { total: 0, completed: 0, progress: 0, errors: [], status: 'processing' }
+
+      for (let i = 0; i < toImportData.length; i++) {
+        const isLastRow = i === toImportData.length - 1
+        const row = toImportData[i]
+
+        //* add to batch
+        batch.push(row)
+
+        //* check if batch size is reached or last row
+        if (batch.length === batchSize || isLastRow) {
+          const response = await importData.executeAsync({
+            data: batch,
+            total: toImportData.length,
+            stats,
+            isLastRow,
+            metaData: {
+              bpGroups: bpGroups.data,
+              currencies: currencies.data,
+              paymentTerms: paymentTerms.data,
+              accountTypes: accountTypes.data,
+              businessTypes: businessTypes.data,
+              cardType: 'L',
+            },
+          })
+          const result = response?.data
+
+          if (result?.error) {
+            setStats((prev: any) => ({ ...prev, errors: [...prev.errors, ...result.stats.errors] }))
+            stats.errors = [...stats.errors, ...result.stats.errors]
+          } else if (result?.stats) {
+            setStats(result.stats)
+            stats = result.stats
+          }
+
+          batch = []
+        }
+      }
+
+      if (stats.status === 'completed') {
+        toast.success(`Project groups imported successfully! ${stats.errors.length} errors found.`)
+        setStats((prev: any) => ({ ...prev, total: 0, completed: 0, progress: 0, status: 'processing' }))
+        router.refresh()
+      }
+
+      if (stats.errors.length > 0) {
+        setShowImportError(true)
+        setImportErrors(stats.errors)
+      }
+
+      setIsLoading(false)
+    } catch (error: any) {
+      console.error(error)
+      setIsLoading(false)
+      toast.error(error?.message || 'Failed to import file!')
+    }
+  }
+
   const handleConfirmSyncToSap = async (formData: SyncToSapForm) => {
     try {
       setShowSyncToSapConfirmation(false)
@@ -300,11 +400,11 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
-          isLoading={isLoading || syncToSapData.isExecuting || syncFromSapData.isExecuting}
+          isLoading={isLoading || importData.isExecuting || syncToSapData.isExecuting || syncFromSapData.isExecuting}
           isEnableImport
-          //   onImport={handleImport}
+          onImport={handleImport}
           addButton={{ text: 'Add Customer', onClick: () => router.push('/customers/add'), subjects: 'p-customers', actions: 'create' }}
-          importOptions={{ subjects: 'p-customers', actions: 'import' }}
+          importOptions={{ subjects: 'p-customers', actions: 'import', isLoading: importDependenciesIsLoading }}
           exportOptions={{ subjects: 'p-customers', actions: 'export' }}
         />
 
@@ -426,6 +526,13 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
         description='Are you sure you want to sync from SAP?'
         onConfirm={() => handleConfirmSyncFromSap('C')}
         onCancel={() => setShowSyncFromSapConfirmation(false)}
+      />
+
+      <ImportSyncErrorDataGrid
+        isOpen={showImportError}
+        setIsOpen={setShowImportError}
+        data={importErrors}
+        dataGridRef={importErrorDataGridRef}
       />
 
       <ImportSyncErrorDataGrid

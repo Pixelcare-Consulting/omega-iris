@@ -89,6 +89,10 @@ export default function ItemTable({ items }: ItemTableProps) {
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
+  const importDependenciesIsLoading = useMemo(() => {
+    return itemGroups.isLoading || manufacturers.isLoading
+  }, [itemGroups.isLoading, manufacturers.isLoading])
+
   const thumbnailCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
     const data = e.data as DataSource[number]
     const thumbnail = data.thumbnail
@@ -421,7 +425,7 @@ export default function ItemTable({ items }: ItemTableProps) {
           onImport={handleImport}
           addButton={{ text: 'Add Inventory', onClick: () => router.push('/inventory/add'), subjects: 'p-inventory', actions: 'create' }}
           customs={{ exportToExcel }}
-          importOptions={{ subjects: 'p-inventory', actions: 'import', isLoading: itemGroups.isLoading || manufacturers.isLoading }}
+          importOptions={{ subjects: 'p-inventory', actions: 'import', isLoading: importDependenciesIsLoading }}
           exportOptions={{ subjects: 'p-inventory', actions: 'export' }}
         />
 
