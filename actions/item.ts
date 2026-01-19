@@ -179,9 +179,9 @@ export const importItems = action
       const toBeCreatedMfgpns: string[] = [] //* contains toBeCreated inventory manufacturer part numbers
 
       //* get existing item manufacturer part numbers
-      const existingMfgpns = (await db.item.findMany({ where: { ItemCode: { in: mfgpns } }, select: { ItemCode: true } })).map(
-        (inv) => inv.ItemCode
-      )
+      const existingMfgpns = await db.item
+        .findMany({ where: { ItemCode: { in: mfgpns } }, select: { ItemCode: true } })
+        .then((items) => items.map((inv) => inv.ItemCode))
 
       for (let i = 0; i < data.length; i++) {
         const errors: ImportSyncErrorEntry[] = []
