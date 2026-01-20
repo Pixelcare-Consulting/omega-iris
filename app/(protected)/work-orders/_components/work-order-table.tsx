@@ -24,6 +24,7 @@ import WorkOrderUpdateStatusForm from './work-order-update-status-form'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
+import { safeParseInt } from '@/utils'
 
 type WorkOrderTableProps = { workOrders: Awaited<ReturnType<typeof getWorkOrders>> }
 type DataSource = Awaited<ReturnType<typeof getWorkOrders>>
@@ -177,24 +178,26 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
       <FormProvider {...form}>
         <PageHeader title='Work Orders' description='Manage and track your work order effectively'>
           {selectedRowKeys.length > 0 && (
-            <Item location='after' locateInMenu='auto' widget='dxButton'>
-              <Tooltip
-                target='#update-status'
-                contentRender={() => 'Update Status'}
-                showEvent='mouseenter'
-                hideEvent='mouseleave'
-                position='top'
-              />
-              <LoadingButton
-                id='update-status'
-                icon='rename'
-                isLoading={deleteWorkOrderData.isExecuting || restoreWorkOrderData.isExecuting}
-                text={`${selectedRowKeys.length} : Update Status`}
-                type='default'
-                stylingMode='outlined'
-                onClick={() => setShowUpdateStatusForm(true)}
-              />
-            </Item>
+            <CanView subject='p-work-orders' action='update status'>
+              <Item location='after' locateInMenu='auto' widget='dxButton'>
+                <Tooltip
+                  target='#update-status'
+                  contentRender={() => 'Update Status'}
+                  showEvent='mouseenter'
+                  hideEvent='mouseleave'
+                  position='top'
+                />
+                <LoadingButton
+                  id='update-status'
+                  icon='rename'
+                  isLoading={deleteWorkOrderData.isExecuting || restoreWorkOrderData.isExecuting}
+                  text={`${selectedRowKeys.length} : Update Status`}
+                  type='default'
+                  stylingMode='outlined'
+                  onClick={() => setShowUpdateStatusForm(true)}
+                />
+              </Item>
+            </CanView>
           )}
 
           <CommonPageHeaderToolbarItems
@@ -266,7 +269,8 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
                   hint='Edit'
                   visible={(opt) => {
                     const data = opt?.row?.data
-                    return hideActionButton(data?.deletedAt || data?.deletedBy)
+                    const status = safeParseInt(data?.status)
+                    return hideActionButton(data?.deletedAt || data?.deletedBy || status >= 6)
                   }}
                 />
               </CanView>
@@ -279,7 +283,8 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
                   hint='Delete'
                   visible={(opt) => {
                     const data = opt?.row?.data
-                    return hideActionButton(data?.deletedAt || data?.deletedBy)
+                    const status = safeParseInt(data?.status)
+                    return hideActionButton(data?.deletedAt || data?.deletedBy || status >= 6)
                   }}
                 />
               </CanView>

@@ -1,7 +1,7 @@
 'use client'
 
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton, Summary, TotalItem, GroupItem } from 'devextreme-react/data-grid'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import Toolbar from 'devextreme-react/toolbar'
 import { Anchor, Workbook } from 'exceljs'
@@ -30,6 +30,8 @@ import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FOR
 import { ImportSyncError, Stats } from '@/types/common'
 import { parseExcelFile } from '@/utils/xlsx'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
+import { useSession } from 'next-auth/react'
+import { hideActionButton } from '@/utils/devextreme'
 
 type ProjectIndividualItemTabProps = {
   projectCode: number
@@ -39,6 +41,7 @@ type ProjectIndividualItemTabProps = {
 type DataSource = Awaited<ReturnType<typeof getProjecItems>>
 
 export default function ProjectIndividualItemTab({ projectCode, projectName, items }: ProjectIndividualItemTabProps) {
+  const { data: session } = useSession()
   const router = useRouter()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual-item'
@@ -64,6 +67,11 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
   const importData = useAction(importProjectItems)
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
+
+  const isBusinessPartner = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'business-partner'
+  }, [JSON.stringify(session)])
 
   const thumbnailCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
     const data = e.data as DataSource[number]
@@ -335,9 +343,11 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               isLoading={isLoading || importData.isExecuting}
               isEnableImport
               onImport={handleImport}
+              importOptions={{ isHide: isBusinessPartner }}
               addButton={{
                 text: 'Add Item',
                 onClick: handleAdd,
+                isHide: isBusinessPartner,
               }}
               customs={{ exportToExcel }}
             />
@@ -416,8 +426,20 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
 
               <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
                 <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
-                <DataGridButton icon='edit' onClick={handleEdit} cssClass='!text-lg' hint='Edit' />
-                <DataGridButton icon='trash' onClick={handleDelete} cssClass='!text-lg !text-red-500' hint='Delete' />
+                <DataGridButton
+                  icon='edit'
+                  onClick={handleEdit}
+                  cssClass='!text-lg'
+                  hint='Edit'
+                  visible={hideActionButton(isBusinessPartner)}
+                />
+                <DataGridButton
+                  icon='trash'
+                  onClick={handleDelete}
+                  cssClass='!text-lg !text-red-500'
+                  hint='Delete'
+                  visible={hideActionButton(isBusinessPartner)}
+                />
               </Column>
             </CommonDataGrid>
 

@@ -18,6 +18,7 @@ import WorkOrderStatusUpdateTab from './_tabs/work-order-status-update-tab'
 import { useSalesOrderByWorkOrderCode } from '@/hooks/safe-actions/sales-order'
 import { useAddressById } from '@/hooks/safe-actions/address'
 import CanView from '@/components/acl/can-view'
+import { safeParseInt } from '@/utils'
 
 type ViewWorkOrderProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
@@ -26,6 +27,7 @@ type ViewWorkOrderProps = {
 export default function ViewWorkOrder({ workOrder }: ViewWorkOrderProps) {
   const router = useRouter()
 
+  const status = safeParseInt(workOrder.status)
   const workOrderItems = useWoItemsByWoCode(workOrder?.code)
   const workOrderStatusUpdates = useWoStatusUpdatesByWoCode(workOrder?.code)
   const salesOrder = useSalesOrderByWorkOrderCode(workOrder?.code)
@@ -56,14 +58,16 @@ export default function ViewWorkOrder({ workOrder }: ViewWorkOrderProps) {
           />
         </CanView>
 
-        <CanView subject='p-work-orders' action='edit'>
-          <Item
-            location='after'
-            locateInMenu='always'
-            widget='dxButton'
-            options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/work-orders/${workOrder.code}`) }}
-          />
-        </CanView>
+        {status < 6 && (
+          <CanView subject='p-work-orders' action='edit'>
+            <Item
+              location='after'
+              locateInMenu='always'
+              widget='dxButton'
+              options={{ text: 'Edit', icon: 'edit', onClick: () => router.push(`/work-orders/${workOrder.code}`) }}
+            />
+          </CanView>
+        )}
       </PageHeader>
 
       <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
