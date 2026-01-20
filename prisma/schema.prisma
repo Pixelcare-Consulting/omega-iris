@@ -36,6 +36,7 @@ model User {
     profile  Profile?
     role     Role      @relation(fields: [roleCode], references: [code])
 
+    projectGroupPics           ProjectGroupPic[]           @relation(name: "User-ProjectGroupPic")
     projectIndividualPics      ProjectIndividualPic[]      @relation(name: "User-ProjectIndividualPic")
     projectIndividualCustomers ProjectIndividualCustomer[] @relation(name: "User-ProjectIndividualCustomer")
     workOrders                 WorkOrder[]
@@ -331,6 +332,27 @@ model ProjectGroup {
     deletedBy String?
 
     projectIndividuals ProjectIndividual[] @relation()
+    projectGroupPics   ProjectGroupPic[]   @relation(name: "ProjectGroup-ProjectGroupPic")
+}
+
+model ProjectGroupPic {
+    id               String @id @default(cuid())
+    projectGroupCode Int
+    userCode         Int
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    projectGroup ProjectGroup @relation(name: "ProjectGroup-ProjectGroupPic", fields: [projectGroupCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    user         User         @relation(name: "User-ProjectGroupPic", fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([projectGroupCode, userCode])
+    @@index([projectGroupCode])
+    @@index([userCode])
 }
 
 model ProjectIndividual {

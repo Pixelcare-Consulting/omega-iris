@@ -22,6 +22,9 @@ import { PageMetadata } from '@/types/common'
 import SwitchField from '@/components/forms/switch-field'
 import TextAreaField from '@/components/forms/text-area-field'
 import CanView from '@/components/acl/can-view'
+import { useNonBpUsers } from '@/hooks/safe-actions/user'
+import TagBoxField from '@/components/forms/tag-box-field'
+import { userItemRender } from '@/utils/devextreme'
 
 type ProjectGroupFormProps = { pageMetaData: PageMetadata; projectGroup: Awaited<ReturnType<typeof getPgByCode>> }
 
@@ -40,6 +43,7 @@ export default function ProjectGroupForm({ pageMetaData, projectGroup }: Project
         name: '',
         description: '',
         isActive: true,
+        pics: [],
       }
     }
 
@@ -53,6 +57,8 @@ export default function ProjectGroupForm({ pageMetaData, projectGroup }: Project
   })
 
   const { executeAsync, isExecuting } = useAction(upsertPg)
+
+  const nonCustomerUsers = useNonBpUsers()
 
   const handleOnSubmit = async (formData: ProjectGroupForm) => {
     try {
@@ -147,6 +153,21 @@ export default function ProjectGroupForm({ pageMetaData, projectGroup }: Project
 
               <div className='col-span-12'>
                 <TextAreaField control={form.control} name='description' label='Description' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6'>
+                <TagBoxField
+                  data={nonCustomerUsers.data}
+                  isLoading={nonCustomerUsers.isLoading}
+                  control={form.control}
+                  name='pics'
+                  label='P.I.Cs'
+                  valueExpr='code'
+                  displayExpr={(item) => (item ? `${item?.fname}${item?.lname ? ` ${item?.lname}` : ''}` : '')}
+                  searchExpr={['fname', 'lname', 'code', 'email']}
+                  extendedProps={{ tagBoxOptions: { itemRender: userItemRender } }}
+                  description='Assigned P.I.Cs can access all individual projects in this project group'
+                />
               </div>
             </div>
           </ScrollView>

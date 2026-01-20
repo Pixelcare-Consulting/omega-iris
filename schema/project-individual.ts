@@ -17,7 +17,7 @@ export const projectIndividualCustomerFormSchema = z.object({
 
 export const projectIndividualPicFormSchema = z.object({
   code: z.coerce.number(),
-  pics: z.array(z.coerce.number()).min(1, { message: 'Please select at least one P.I.C' }),
+  pics: z.array(z.coerce.number()),
 })
 
 export type ProjectIndividualCustomerForm = z.infer<typeof projectIndividualCustomerFormSchema>

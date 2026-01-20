@@ -3,11 +3,13 @@ import { notFound } from 'next/navigation'
 import { getPiByCode } from '@/actions/project-individual'
 import ContentContainer from '@/app/(protected)/_components/content-container'
 import ProjectIndividualForm from '../_components/project-individual-form'
+import { getCurrentUserAbility } from '@/actions/auth'
 
 export default async function IndividualPage({ params }: { params: { code: string } }) {
   const { code } = params
 
-  const projectIndividual = await getPiByCode(parseInt(code))
+  const userInfo = await getCurrentUserAbility()
+  const projectIndividual = await getPiByCode(parseInt(code), userInfo)
 
   const getPageMetadata = () => {
     if (!projectIndividual || !projectIndividual?.code || code == 'add')
