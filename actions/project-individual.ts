@@ -27,31 +27,24 @@ export async function getPis(userInfo: Awaited<ReturnType<typeof getCurrentUserA
   const { userId, userCode, ability } = userInfo
 
   try {
-    if (!ability) {
-      return db.projectIndividual.findMany({
-        include: COMMON_PROJECT_INDIVIDUAL_INCLUDE,
-        orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY,
-      })
-    }
+    const canViewAll = ability?.can('view', 'p-projects-individuals')
+    const canViweOwned = ability?.can('view (owner)', 'p-projects-individuals')
 
-    const viewAll = ability.can('view', 'p-projects-individuals')
-    const viweOwned = ability.can('view (owner)', 'p-projects-individuals')
-
-    return db.projectIndividual.findMany({
-      include: COMMON_PROJECT_INDIVIDUAL_INCLUDE,
-      orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY,
-      where: viewAll
+    const where: Prisma.ProjectIndividualWhereInput | undefined =
+      !ability || canViewAll
         ? undefined
-        : viweOwned
+        : canViweOwned
           ? {
               OR: [
+                { projectGroup: { projectGroupPics: { some: { userCode } } } },
                 { projectIndividualCustomers: { some: { userCode } } },
                 { projectIndividualPics: { some: { userCode } } },
                 { createdBy: userId },
               ],
             }
-          : { code: -1 },
-    })
+          : { code: -1 }
+
+    return db.projectIndividual.findMany({ include: COMMON_PROJECT_INDIVIDUAL_INCLUDE, orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY, where })
   } catch (error) {
     console.error(error)
     return []
@@ -84,11 +77,31 @@ export const getPisByGroupCodeClient = action
     return getPisByGroupCode(parsedInput.groupCode)
   })
 
-export async function getPiByCode(code: number) {
-  if (!code) return null
+export async function getPiByCode(code: number, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
+  if (!code || !userInfo || !userInfo.userId || !userInfo.userCode) return null
+
+  const { userId, userCode, ability } = userInfo
 
   try {
-    const projectIndividuals = await db.projectIndividual.findUnique({ where: { code }, include: COMMON_PROJECT_INDIVIDUAL_INCLUDE })
+    const canViewAll = ability?.can('view', 'p-projects-individuals')
+    const canViweOwned = ability?.can('view (owner)', 'p-projects-individuals')
+
+    const where: Prisma.ProjectIndividualWhereUniqueInput =
+      !ability || canViewAll
+        ? { code }
+        : canViweOwned
+          ? {
+              code,
+              OR: [
+                { projectGroup: { projectGroupPics: { some: { userCode } } } },
+                { projectIndividualCustomers: { some: { userCode } } },
+                { projectIndividualPics: { some: { userCode } } },
+                { createdBy: userId },
+              ],
+            }
+          : { code: -1 }
+
+    const projectIndividuals = await db.projectIndividual.findUnique({ where, include: COMMON_PROJECT_INDIVIDUAL_INCLUDE })
 
     if (!projectIndividuals) return null
 

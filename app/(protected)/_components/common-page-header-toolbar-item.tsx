@@ -21,10 +21,17 @@ type CommonPageHeaderToolbarItemsProps = {
   dataGridRef: MutableRefObject<DataGridRef<any, any> | null>
   isLoading?: boolean
   isEnableImport?: boolean
-  importOptions?: { subjects?: string | string[]; actions?: string | string[]; isLoading?: boolean }
-  exportOptions?: { subjects?: string | string[]; actions?: string | string[]; isLoading?: boolean }
+  importOptions?: { subjects?: string | string[]; actions?: string | string[]; isLoading?: boolean; isHide?: boolean }
+  exportOptions?: { subjects?: string | string[]; actions?: string | string[]; isLoading?: boolean; isHide?: boolean }
   onImport?: (...args: any[]) => void
-  addButton?: { text: string; onClick: () => void; subjects?: string | string[]; actions?: string | string[]; disabled?: boolean }
+  addButton?: {
+    text: string
+    onClick: () => void
+    subjects?: string | string[]
+    actions?: string | string[]
+    disabled?: boolean
+    isHide?: boolean
+  }
   customs?: { exportToExcel?: (...args: any[]) => void }
 }
 
@@ -179,7 +186,7 @@ export default function CommonPageHeaderToolbarItems({
         />
       )}
 
-      {addButton && (
+      {addButton && !addButton.isHide && (
         <CanView subject={addButton?.subjects} action={addButton?.actions}>
           <Item location='after' widget='dxButton'>
             <Tooltip
@@ -251,7 +258,7 @@ export default function CommonPageHeaderToolbarItems({
         />
       </Item>
 
-      {isEnableImport && (
+      {isEnableImport && !importOptions?.isHide && (
         <CanView subject={importOptions?.subjects} action={importOptions?.actions}>
           <Item location='after' widget='dxMenu'>
             <Tooltip target='#import-data' contentRender={() => 'Import'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />
@@ -266,29 +273,31 @@ export default function CommonPageHeaderToolbarItems({
         </CanView>
       )}
 
-      <CanView subject={exportOptions?.subjects} action={exportOptions?.actions}>
-        <Item location='after' widget='dxMenu'>
-          <Tooltip
-            target='#export-data-to-file-menu'
-            contentRender={() => 'Export'}
-            showEvent='mouseenter'
-            hideEvent='mouseleave'
-            position='top'
-          />
-          <Menu
-            id='export-data-to-file-menu'
-            dataSource={exportToExcelMenuItems}
-            showFirstSubmenuMode='onClick'
-            hideSubmenuOnMouseLeave
-            disabled={isLoading || exportOptions?.isLoading}
-            onItemClick={menuItemOnItemClick}
-            elementAttr={{
-              //* style like button
-              class: 'dx-button dx-button-mode-contained dx-button-normal dx-button-has-text dx-button-has-icon [&_.dx-icon]:!mr-0',
-            }}
-          />
-        </Item>
-      </CanView>
+      {!exportOptions?.isHide && (
+        <CanView subject={exportOptions?.subjects} action={exportOptions?.actions}>
+          <Item location='after' widget='dxMenu'>
+            <Tooltip
+              target='#export-data-to-file-menu'
+              contentRender={() => 'Export'}
+              showEvent='mouseenter'
+              hideEvent='mouseleave'
+              position='top'
+            />
+            <Menu
+              id='export-data-to-file-menu'
+              dataSource={exportToExcelMenuItems}
+              showFirstSubmenuMode='onClick'
+              hideSubmenuOnMouseLeave
+              disabled={isLoading || exportOptions?.isLoading}
+              onItemClick={menuItemOnItemClick}
+              elementAttr={{
+                //* style like button
+                class: 'dx-button dx-button-mode-contained dx-button-normal dx-button-has-text dx-button-has-icon [&_.dx-icon]:!mr-0',
+              }}
+            />
+          </Item>
+        </CanView>
+      )}
 
       <Item
         location='after'

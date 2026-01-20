@@ -3,11 +3,13 @@ import { notFound } from 'next/navigation'
 import { getPgByCode } from '@/actions/project-group'
 import ContentContainer from '@/app/(protected)/_components/content-container'
 import ProjectGroupForm from '../_components/project-group-form'
+import { getCurrentUserAbility } from '@/actions/auth'
 
 export default async function ProjectGroupPage({ params }: { params: { code: string } }) {
   const { code } = params
 
-  const projectGroup = await getPgByCode(parseInt(code))
+  const userInfo = await getCurrentUserAbility()
+  const projectGroup = await getPgByCode(parseInt(code), userInfo)
 
   const getPageMetadata = () => {
     if (!projectGroup || !projectGroup?.code || code == 'add')

@@ -34,39 +34,47 @@ export async function getWorkOrders(userInfo: Awaited<ReturnType<typeof getCurre
   const { userId, userCode, ability, roleKey } = userInfo
 
   try {
-    if (!ability) {
-      return db.workOrder.findMany({
-        include: COMMON_WORK_ORDER_INCLUDE,
-        orderBy: COMMON_WORK_ORDER_ORDER_BY,
-      })
-    }
+    const canViewAll = ability?.can('view', 'p-work-orders')
+    const canViweOwned = ability?.can('view (owner)', 'p-work-orders')
 
-    const viewAll = ability.can('view', 'p-work-orders')
-    const viweOwned = ability.can('view (owner)', 'p-work-orders')
-
-    return db.workOrder.findMany({
-      include: COMMON_WORK_ORDER_INCLUDE,
-      orderBy: COMMON_WORK_ORDER_ORDER_BY,
-      where: viewAll
+    const where: Prisma.WorkOrderWhereInput | undefined =
+      !ability || canViewAll
         ? undefined
-        : viweOwned
+        : canViweOwned
           ? {
               OR: [{ userCode }, { projectIndividual: { projectIndividualPics: { some: { userCode } } } }, { createdBy: userId }],
               ...(roleKey === 'business-partner' ? { isInternal: false } : {}),
             }
-          : { userCode: -1 },
-    })
+          : { userCode: -1 }
+
+    return db.workOrder.findMany({ include: COMMON_WORK_ORDER_INCLUDE, orderBy: COMMON_WORK_ORDER_ORDER_BY, where })
   } catch (error) {
     console.error(error)
     return []
   }
 }
 
-export async function getWorkOrderByCode(code: number) {
-  if (!code) return null
+export async function getWorkOrderByCode(code: number, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
+  if (!code || !userInfo || !userInfo.userId || !userInfo.userCode) return null
+
+  const { userId, userCode, roleKey, ability } = userInfo
 
   try {
-    return db.workOrder.findUnique({ where: { code }, include: COMMON_WORK_ORDER_INCLUDE })
+    const canViewAll = ability?.can('view', 'p-projects-groups')
+    const canViweOwned = ability?.can('view (owner)', 'p-projects-groups')
+
+    const where: Prisma.WorkOrderWhereUniqueInput =
+      !ability || canViewAll
+        ? { code }
+        : canViweOwned
+          ? {
+              code,
+              OR: [{ userCode }, { projectIndividual: { projectIndividualPics: { some: { userCode } } } }, { createdBy: userId }],
+              ...(roleKey === 'business-partner' ? { isInternal: false } : {}),
+            }
+          : { code: -1 }
+
+    return db.workOrder.findUnique({ where, include: COMMON_WORK_ORDER_INCLUDE })
   } catch (error) {
     console.error(error)
     return null

@@ -14,15 +14,20 @@ import UnderDevelopment from '@/app/under-development'
 import { usePisByGroupCode } from '@/hooks/safe-actions/project-individual'
 import ProjectGroupProjectsTab from './_tabs/project-group-projects-tab'
 import CanView from '@/components/acl/can-view'
+import { useSession } from 'next-auth/react'
+import ProjectGroupPicTab from './_tabs/project-group-pic-tab'
+import { useNonBpUsers } from '@/hooks/safe-actions/user'
 
 type ViewProjectGroupProps = {
   projectGroup: NonNullable<Awaited<ReturnType<typeof getPgByCode>>>
 }
 
 export default function ViewProjectGroup({ projectGroup }: ViewProjectGroupProps) {
+  const { data: session } = useSession()
   const router = useRouter()
 
   const projects = usePisByGroupCode(projectGroup.code)
+  const nonCustomerUsers = useNonBpUsers()
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
@@ -67,6 +72,12 @@ export default function ViewProjectGroup({ projectGroup }: ViewProjectGroupProps
           <TabPanelITem title='Projects'>
             <ProjectGroupProjectsTab groupCode={projectGroup.code} projects={projects} />
           </TabPanelITem>
+
+          {session?.user.roleKey === 'admin' && (
+            <TabPanelITem title='P.I.Cs'>
+              <ProjectGroupPicTab projectGroupCode={projectGroup.code} pics={projectGroup.pics} users={nonCustomerUsers} />
+            </TabPanelITem>
+          )}
         </TabPanel>
       </PageContentWrapper>
     </div>

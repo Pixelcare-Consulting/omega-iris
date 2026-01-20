@@ -4,7 +4,7 @@ import z from 'zod'
 import { Prisma } from '@prisma/client'
 
 import { paramsSchema } from '@/schema/common'
-import { projectGroupFormSchema } from '@/schema/project-group'
+import { projectGroupFormSchema, projectGroupPicFormSchema } from '@/schema/project-group'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
@@ -19,33 +19,24 @@ export async function getPgs(userInfo: Awaited<ReturnType<typeof getCurrentUserA
   const { userId, userCode, ability } = userInfo
 
   try {
-    if (!ability) {
-      return db.projectGroup.findMany({
-        orderBy: COMMON_PROJECT_GROUP_ORDER_BY,
-      })
-    }
+    const canViewAll = ability?.can('view', 'p-projects-groups')
+    const canViweOwned = ability?.can('view (owner)', 'p-projects-groups')
 
-    const viewAll = ability.can('view', 'p-projects-groups')
-    const viweOwned = ability.can('view (owner)', 'p-projects-groups')
-
-    return db.projectGroup.findMany({
-      orderBy: COMMON_PROJECT_GROUP_ORDER_BY,
-      where: viewAll
+    const where: Prisma.ProjectGroupWhereInput | undefined =
+      !ability || canViewAll
         ? undefined
-        : viweOwned
+        : canViweOwned
           ? {
               OR: [
-                {
-                  projectIndividuals: { some: { projectIndividualCustomers: { some: { userCode } } } },
-                },
-                {
-                  projectIndividuals: { some: { projectIndividualPics: { some: { userCode } } } },
-                },
+                { projectGroupPics: { some: { userCode } } },
+                { projectIndividuals: { some: { projectIndividualCustomers: { some: { userCode } } } } },
+                { projectIndividuals: { some: { projectIndividualPics: { some: { userCode } } } } },
                 { createdBy: userId },
               ],
             }
-          : { code: -1 },
-    })
+          : { code: -1 }
+
+    return db.projectGroup.findMany({ orderBy: COMMON_PROJECT_GROUP_ORDER_BY, where })
   } catch (error) {
     console.error(error)
     return []
@@ -56,11 +47,38 @@ export const getPgsClient = action.use(authenticationMiddleware).action(async ({
   return getPgs(ctx)
 })
 
-export async function getPgByCode(code: number) {
-  if (!code) return null
+export async function getPgByCode(code: number, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
+  if (!code || !userInfo || !userInfo.userId || !userInfo.userCode) return null
+
+  const { userId, userCode, ability } = userInfo
 
   try {
-    return db.projectGroup.findUnique({ where: { code } })
+    const canViewAll = ability?.can('view', 'p-projects-groups')
+    const canViweOwned = ability?.can('view (owner)', 'p-projects-groups')
+
+    const where: Prisma.ProjectGroupWhereUniqueInput =
+      !ability || canViewAll
+        ? { code }
+        : canViweOwned
+          ? {
+              code,
+              OR: [
+                { projectGroupPics: { some: { userCode } } },
+                { projectIndividuals: { some: { projectIndividualCustomers: { some: { userCode } } } } },
+                { projectIndividuals: { some: { projectIndividualPics: { some: { userCode } } } } },
+                { createdBy: userId },
+              ],
+            }
+          : { code: -1 }
+
+    const projectGroup = await db.projectGroup.findUnique({ where })
+
+    if (!projectGroup) return null
+
+    //TODO: separate the fetching of customers and pics into separate actions & hooks
+    const pics = await db.projectGroupPic.findMany({ where: { projectGroupCode: code }, select: { userCode: true } })
+
+    return { ...projectGroup, pics: pics.map((p) => p.userCode) }
   } catch (error) {
     console.error(error)
     return null
@@ -71,13 +89,23 @@ export const upsertPg = action
   .use(authenticationMiddleware)
   .schema(projectGroupFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, ...data } = parsedInput
+    const { code, pics, ...data } = parsedInput
     const { userId } = ctx
 
     try {
-      //* update project group
       if (code !== -1) {
-        const updatedPg = await db.projectGroup.update({ where: { code }, data: { ...data, updatedBy: userId } })
+        const [updatedPg] = await db.$transaction([
+          //* update project group
+          db.projectGroup.update({ where: { code }, data: { ...data, updatedBy: userId } }),
+
+          //* delete existing project group pics
+          db.projectGroupPic.deleteMany({ where: { projectGroupCode: code } }),
+
+          //* create new project group pics
+          db.projectGroupPic.createManyAndReturn({
+            data: pics.map((p) => ({ projectGroupCode: code, userCode: p })),
+          }),
+        ])
 
         return {
           status: 200,
@@ -88,7 +116,18 @@ export const upsertPg = action
       }
 
       //* create project group
-      const newPg = await db.projectGroup.create({ data: { ...data, createdBy: userId, updatedBy: userId } })
+      const newPg = await db.projectGroup.create({
+        data: {
+          ...data,
+          createdBy: userId,
+          updatedBy: userId,
+          projectGroupPics: {
+            createMany: {
+              data: pics.map((p) => ({ userCode: p })),
+            },
+          },
+        },
+      })
 
       return {
         status: 200,
@@ -230,6 +269,55 @@ export const importPgs = action
         message: error instanceof Error ? error.message : 'Data import error!',
         action: 'IMPORT_PROJECT_GROUPS',
         stats,
+      }
+    }
+  })
+
+export const updatePgPics = action
+  .use(authenticationMiddleware)
+  .schema(projectGroupPicFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { code, pics } = parsedInput
+    const { userId } = ctx
+
+    try {
+      const projectGroup = await db.projectGroup.findUnique({ where: { code } })
+
+      if (!projectGroup) {
+        return { error: true, status: 404, message: 'Project group not found!', action: 'UPDATE_PROJECT_GROUP_PICS' }
+      }
+
+      //* update project group
+      const [updatedProjectGprojectGroup] = await db.$transaction([
+        //* update project group
+        db.projectGroup.update({
+          where: { code },
+          data: { updatedBy: userId },
+        }),
+
+        //* delete existing project group pics
+        db.projectGroupPic.deleteMany({ where: { projectGroupCode: code } }),
+
+        //* create new project group pics
+        db.projectGroupPic.createManyAndReturn({
+          data: pics.map((p) => ({ projectGroupCode: code, userCode: p })),
+        }),
+      ])
+
+      return {
+        status: 200,
+        message: `Project group's P.I.Cs updated successfully!`,
+        action: 'UPDATE_PROJECT_GROUP_PICS',
+        data: { projectGroup: updatedProjectGprojectGroup },
+      }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'UPDATE_PROJECT_GROUP_PICS',
       }
     }
   })
