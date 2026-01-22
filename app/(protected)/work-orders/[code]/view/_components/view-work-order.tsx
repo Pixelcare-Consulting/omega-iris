@@ -19,6 +19,8 @@ import { useSalesOrderByWorkOrderCode } from '@/hooks/safe-actions/sales-order'
 import { useAddressById } from '@/hooks/safe-actions/address'
 import CanView from '@/components/acl/can-view'
 import { safeParseInt } from '@/utils'
+import { useFileAttachmentsByRefCode } from '@/hooks/safe-actions/file-attachment'
+import WorkOrderAttachmentTab from './_tabs/work-order-attachment-tab'
 
 type ViewWorkOrderProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
@@ -33,6 +35,7 @@ export default function ViewWorkOrder({ workOrder }: ViewWorkOrderProps) {
   const salesOrder = useSalesOrderByWorkOrderCode(workOrder?.code)
   const billingAddress = useAddressById(workOrder?.billingAddrCode ?? '')
   const shippingAddress = useAddressById(workOrder?.shippingAddrCode ?? '')
+  const fileAttachments = useFileAttachmentsByRefCode('work-orders', workOrder?.code)
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
@@ -87,6 +90,10 @@ export default function ViewWorkOrder({ workOrder }: ViewWorkOrderProps) {
 
           <TabPanelITem title='Status Updates'>
             <WorkOrderStatusUpdateTab statusUpdates={workOrderStatusUpdates} />
+          </TabPanelITem>
+
+          <TabPanelITem title='Attachments'>
+            <WorkOrderAttachmentTab workOrder={workOrder} fileAttachments={fileAttachments} />
           </TabPanelITem>
 
           {/* <TabPanelITem title='Sales Order'>

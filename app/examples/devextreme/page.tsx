@@ -401,7 +401,7 @@ export default function DevExtremeExamplePage() {
               <ImageUploaderField control={form.control} name='thumbnail' label='Thumbnail' isRequired />
             </div>
 
-            <h1 className='col-span-12 text-lg font-bold'>File Uploader / Single</h1>
+            <h1 className='col-span-12 text-lg font-bold'>File Uploader / Multiple</h1>
 
             <div className='col-span-12'>
               <ImageUploaderField control={form.control} name='thumbnails' label='Thumbnail' isRequired isMulti />

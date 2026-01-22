@@ -99,7 +99,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     [setShowRestoreConfirmation, setRowData]
   )
 
-  const handleConfirm = useCallback((code?: number) => {
+  const handleConfirm = (code?: number) => {
     if (!code) return
 
     setShowDeleteConfirmation(false)
@@ -125,7 +125,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
         return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
       },
     })
-  }, [])
+  }
 
   const handleConfirmRestore = (code?: number) => {
     if (!code) return

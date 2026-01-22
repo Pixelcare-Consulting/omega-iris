@@ -27,11 +27,12 @@ type FileUploaderFieldProps<
   isHideLabel?: boolean
   isMulti?: boolean
   allowedFileExtensions?: string[]
+  isConvertToBase64?: boolean
   callback?: (...args: any[]) => void
   extendedProps?: ExtendedProps
 }
 
-export default function ImageUploaderField<T extends FieldValues>({
+export default function FileUploaderField<T extends FieldValues>({
   control,
   name,
   label,
@@ -39,11 +40,13 @@ export default function ImageUploaderField<T extends FieldValues>({
   isRequired,
   isHideLabel,
   isMulti,
-  allowedFileExtensions = ['.jpg', '.jpeg', '.png'],
+  allowedFileExtensions = [],
+  isConvertToBase64 = true,
   callback,
   extendedProps,
 }: FileUploaderFieldProps<T>) {
   const uploaderRef = useRef<FileUploaderRef>(null)
+
   const fieldValue = useWatch({ control, name })
 
   //* reset uploader when field value is empty
@@ -71,28 +74,12 @@ export default function ImageUploaderField<T extends FieldValues>({
             )}
 
             <div className={cn('file-uploader-block', extendedProps?.uploaderContainerClassName, isValid ? '' : 'border border-primary')}>
-              {field.value && !isMulti && (
-                <>
-                  <img
-                    className='absolute z-10 block h-full w-full rounded-2xl object-cover object-center'
-                    src={field.value}
-                    alt='thumbnail'
-                  />
-
-                  <div
-                    className='absolute right-2 top-2 z-30 flex size-6 cursor-pointer items-center justify-center rounded-full bg-red-500'
-                    onClick={() => field.onChange('')}
-                  >
-                    <Icons.x className='size-4 text-white' />
-                  </div>
-                </>
-              )}
-
               <FileUploader
                 id='file-uploader'
                 uploadMode='useButtons'
                 dropZone='file-uploader-block'
                 visible
+                ref={uploaderRef}
                 isValid={isValid}
                 multiple={isMulti}
                 showFileList={isMulti}
@@ -108,8 +95,10 @@ export default function ImageUploaderField<T extends FieldValues>({
                     }
 
                     try {
-                      const based64Strings = await Promise.all(value.map(async (file) => await toBase64(file)))
-                      field.onChange(based64Strings)
+                      if (isConvertToBase64) {
+                        const based64Strings = await Promise.all(value.map(async (file) => await toBase64(file)))
+                        field.onChange(based64Strings)
+                      } else field.onChange(value)
                     } catch (error) {
                       field.onChange([])
                     }
@@ -122,8 +111,10 @@ export default function ImageUploaderField<T extends FieldValues>({
                     }
 
                     try {
-                      const base64String = await toBase64(value?.[0])
-                      field.onChange(base64String)
+                      if (isConvertToBase64) {
+                        const base64String = await toBase64(file)
+                        field.onChange(base64String)
+                      } else field.onChange(file)
                     } catch (error) {
                       field.onChange('')
                     }

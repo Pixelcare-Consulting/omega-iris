@@ -523,6 +523,25 @@ model WorkOrderItem {
     @@index([projectItemCode])
 }
 
+model FileAttachment {
+    id        String @id @default(cuid())
+    code      Int    @unique @default(autoincrement())
+    refCode   Int? //* unique code of a entity
+    modelName String
+    name      String
+    type      String
+    size      Int
+    path      String
+
+    uploadedAt DateTime @default(now())
+    updatedAt  DateTime @default(now()) @updatedAt
+    uploadedBy String?
+    updatedBy  String?
+
+    @@unique([modelName, name])
+    @@index([modelName])
+}
+
 model Settings {
     id       String  @id @default(cuid())
     roleCode Int?
