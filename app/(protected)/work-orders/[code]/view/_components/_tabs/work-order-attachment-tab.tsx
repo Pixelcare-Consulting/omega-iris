@@ -241,7 +241,7 @@ export default function WorkOrderAttachmentTab({ workOrder, fileAttachments }: W
                 <div>
                   <Alert
                     variant='default'
-                    message='Uploading a file will overwrite the existing file with the same name. Allowed characters are (a-z A-Z), numbers (0-9), underscore (_), dash (-), dot (.).'
+                    message='Uploading a file will overwrite the existing file with the same name. Allowed characters are letters (a-z A-Z), numbers (0-9), underscore (_), dash (-) and dot (.).'
                   />
                 </div>
 
