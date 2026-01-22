@@ -35,6 +35,9 @@ importers:
       bcryptjs:
         specifier: ^3.0.2
         version: 3.0.2
+      bytes-formatter:
+        specifier: ^21.6.15
+        version: 21.6.15
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1186,6 +1189,9 @@ packages:
   busboy@1.6.0:
     resolution: {integrity: sha512-8SFQbg/0hQ9xy3UNTB0YEnsNBbWfhf7RtnzpL7TkBiTBRfrQ9Fxcnz7VJsleJpyp6rVLvXiuORqjlHi5q+PYuA==}
     engines: {node: '>=10.16.0'}
+
+  bytes-formatter@21.6.15:
+    resolution: {integrity: sha512-LInilx8kwHa9MPKigPXQs2vDsUN0qx3uQNsfmSgAZnO+Jhm3rKvsrLjUdL0xDN4dgb34rJ/rE4BfibJY3Lbd/w==}
 
   call-bind-apply-helpers@1.0.2:
     resolution: {integrity: sha512-Sp1ablJ0ivDkSzjcaJdxEunN5/XvksFJ2sMBFfq6x0ryhQV/2b/KwFe21cMpmHtPOSij8K99/wSfoEuTObmuMQ==}
@@ -4581,6 +4587,8 @@ snapshots:
   busboy@1.6.0:
     dependencies:
       streamsearch: 1.1.0
+
+  bytes-formatter@21.6.15: {}
 
   call-bind-apply-helpers@1.0.2:
     dependencies:

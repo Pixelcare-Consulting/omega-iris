@@ -43,6 +43,7 @@ type CommonDataGridProps<T extends Record<string, any>> = {
   isSelectionEnable?: boolean
   isSelectSingle?: boolean
   dataGridStore: Partial<DataGridStore>
+  pageSize?: number
 }
 
 //? In Devextreme you can implemenet remote pagination only and the rest like pagination, sorting, filtering, grouping, etc. is in client side.
@@ -58,6 +59,7 @@ export default function CommonDataGrid<T extends Record<string, any>>({
   isSelectionEnable,
   isSelectSingle,
   dataGridStore,
+  pageSize,
 }: CommonDataGridProps<T>) {
   return (
     <DataGrid
@@ -102,7 +104,7 @@ export default function CommonDataGrid<T extends Record<string, any>>({
       <StateStoring enabled={dataGridStore.enableStateStoring} type='localStorage' storageKey={storageKey} />
 
       <Pager visible={true} allowedPageSizes={DATAGRID_PAGE_SIZES} showInfo displayMode='full' showPageSizeSelector showNavigationButtons />
-      <Paging defaultPageSize={DATAGRID_DEFAULT_PAGE_SIZE} />
+      <Paging defaultPageSize={pageSize || DATAGRID_DEFAULT_PAGE_SIZE} />
     </DataGrid>
   )
 }

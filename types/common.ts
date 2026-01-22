@@ -9,10 +9,26 @@ export type Stats = {
   status: string //* "processing" | "completed" | "error"
 }
 
+export type FileUploadStats = {
+  total: number
+  completed: number
+  progress: number
+  errors: FileAttachmentError[]
+  status: string //* "processing" | "completed" | "error"
+}
+
 export type ImportSyncErrorEntry = { field: string; message: string }
+export type FileAttachmentErrorEntry = { message: string }
 
 export type ImportSyncError = {
   rowNumber: number
   entries: ImportSyncErrorEntry[]
   row?: any
 } & Record<string, any>
+
+export type FileAttachmentError = {
+  rowNumber: number
+  fileName: string
+  entries: FileAttachmentErrorEntry[]
+  row?: any
+}

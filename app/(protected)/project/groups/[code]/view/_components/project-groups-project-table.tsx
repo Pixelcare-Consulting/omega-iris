@@ -56,7 +56,7 @@ export default function ProjectGroupProjectTable({ projects }: ProjectGroupProje
           storageKey={DATAGRID_STORAGE_KEY}
           dataGridStore={dataGridStore}
         >
-          <Column dataField='code' width={100} dataType='string' caption='ID' sortOrder='asc' />
+          <Column dataField='code' minWidth={100} dataType='string' caption='ID' sortOrder='asc' />
           <Column dataField='name' dataType='string' />
           <Column dataField='description' dataType='string' />
           <Column

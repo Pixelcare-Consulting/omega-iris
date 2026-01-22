@@ -87,6 +87,7 @@ export function toBase64(file: File) {
   })
 }
 
+//* splits an array into smaller chunks
 export function chunkArray<T>(arr: T[], size: number): T[][] {
   const chunks: T[][] = []
   for (let i = 0; i < arr.length; i += size) {
