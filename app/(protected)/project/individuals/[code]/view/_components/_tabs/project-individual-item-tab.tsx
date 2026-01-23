@@ -406,7 +406,11 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
                 alignment='left'
                 format={DEFAULT_NUMBER_FORMAT}
               />
-              <Column dataField='totalStock' dataType='number' caption='Total Stock' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
+
+              {!isBusinessPartner ? (
+                <Column dataField='totalStock' dataType='number' caption='Total Stock' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
+              ) : null}
+
               <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
 
               <Summary>

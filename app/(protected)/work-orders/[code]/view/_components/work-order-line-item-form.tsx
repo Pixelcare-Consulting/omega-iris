@@ -32,6 +32,7 @@ import { Badge } from '@/components/badge'
 import { upsertWorkOrderLineItem } from '@/actions/work-order'
 import { useWoItemsByWoCode } from '@/hooks/safe-actions/work-order-item'
 import { FormDebug } from '@/components/forms/form-debug'
+import { useSession } from 'next-auth/react'
 
 type WorkOrderLineItemFormProps = {
   workOrderCode: number
@@ -55,6 +56,8 @@ export default function WorkOrderLineItemForm({
   projectItems,
   workOrderItems,
 }: WorkOrderLineItemFormProps) {
+  const { data: session } = useSession()
+
   const isCreate = !lineItem
 
   const values = useMemo(() => {
@@ -75,6 +78,11 @@ export default function WorkOrderLineItemForm({
 
   const projectItemCode = useWatch({ control: form.control, name: 'projectItemCode' })
   const maxQty = useWatch({ control: form.control, name: 'maxQty' })
+
+  const isBusinessPartner = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'business-partner'
+  }, [JSON.stringify(session)])
 
   const projectItemsOptions = useMemo(() => {
     if (projectItems.isLoading || projectItems.data.length < 1) return []
@@ -334,11 +342,13 @@ export default function WorkOrderLineItemForm({
                 value={formatNumber(safeParseFloat(selectedProjectItem?.stockOut), DEFAULT_NUMBER_FORMAT)}
               />
 
-              <ReadOnlyField
-                className='col-span-12 md:col-span-6 lg:col-span-4'
-                title='Total Stock'
-                value={formatNumber(safeParseFloat(selectedProjectItem?.totalStock), DEFAULT_NUMBER_FORMAT)}
-              />
+              {!isBusinessPartner && (
+                <ReadOnlyField
+                  className='col-span-12 md:col-span-6 lg:col-span-4'
+                  title='Total Stock'
+                  value={formatNumber(safeParseFloat(selectedProjectItem?.totalStock), DEFAULT_NUMBER_FORMAT)}
+                />
+              )}
 
               <ReadOnlyField className='col-span-12' title='Notes' value={selectedProjectItem?.notes || ''} />
 

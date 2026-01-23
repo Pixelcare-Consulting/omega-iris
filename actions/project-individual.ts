@@ -14,6 +14,7 @@ import z from 'zod'
 import { ImportSyncErrorEntry } from '@/types/common'
 import { importFormSchema } from '@/schema/import'
 import { getCurrentUserAbility } from './auth'
+import { safeParseInt } from '@/utils'
 
 const COMMON_PROJECT_INDIVIDUAL_INCLUDE = {
   projectGroup: { select: { code: true, name: true } },
@@ -245,9 +246,9 @@ export const importPis = action
         //* reshape data
         const toCreate: Prisma.ProjectIndividualCreateManyInput = {
           name: row['Name'],
-          groupCode: row?.['Group ID'] || null,
+          groupCode: safeParseInt(row?.['Group ID']) || null,
           description: row?.['Description'] || null,
-          isActive: row?.['Active'] === '1' ? true : false,
+          isActive: row?.['Active'] === '1' ? true : !row?.['Active'] ? undefined : false,
           createdBy: userId,
           updatedBy: userId,
         }

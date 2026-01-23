@@ -60,7 +60,7 @@ export default function CommonPageHeaderToolbarItems({
         text: exportOptions?.isLoading ? 'Loading...' : undefined,
         items: [
           { id: 'export-all-data-to-excel', text: 'Export all data to Excel', icon: 'xlsxfile' },
-          { id: 'export-selected-rows-to-excel', text: 'Export selected rows to Excel', icon: 'exportselected' },
+          // { id: 'export-selected-rows-to-excel', text: 'Export selected rows to Excel', icon: 'exportselected' }, //* temp disable
         ],
       },
     ]

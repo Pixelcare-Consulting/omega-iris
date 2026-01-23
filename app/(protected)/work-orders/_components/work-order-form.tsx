@@ -274,6 +274,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                   }}
                   extendedProps={{
                     selectBoxOptions: {
+                      disabled: !isCreate,
                       itemRender: (params) => {
                         return commonItemRender({
                           title: params?.name,

@@ -15,6 +15,7 @@ import { WorkOrderItemForm } from '@/schema/work-order'
 import { safeParseFloat } from '@/utils'
 import { format, isValid } from 'date-fns'
 import Separator from '@/components/separator'
+import { useSession } from 'next-auth/react'
 
 type WorkOrderLineItemViewProps = {
   data: Record<string, any> & WorkOrderItemForm
@@ -22,12 +23,19 @@ type WorkOrderLineItemViewProps = {
 }
 
 export default function WorkOrderLineItemView({ data, onClose }: WorkOrderLineItemViewProps) {
+  const { data: session } = useSession()
+
   // const containerRef = useRef<HTMLDivElement>(null)
 
   const dateReceived = useMemo(() => {
     if (!data?.dateReceived || !isValid(data?.dateReceived)) return ''
     return format(data?.dateReceived, 'MM/dd/yyyy hh:mm a')
   }, [JSON.stringify(data?.dateReceived)])
+
+  const isBusinessPartner = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'business-partner'
+  }, [JSON.stringify(session)])
 
   //* Temporary disable
   // const itemWarehouseInventory = useItemWarehouseInventory(data?.item?.code || '', [JSON.stringify(data)])
@@ -112,11 +120,13 @@ export default function WorkOrderLineItemView({ data, onClose }: WorkOrderLineIt
           value={formatNumber(safeParseFloat(data?.stockOut), DEFAULT_NUMBER_FORMAT)}
         />
 
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Total Stock'
-          value={formatNumber(safeParseFloat(data?.totalStock), DEFAULT_NUMBER_FORMAT)}
-        />
+        {!isBusinessPartner && (
+          <ReadOnlyField
+            className='col-span-12 md:col-span-6 lg:col-span-3'
+            title='Total Stock'
+            value={formatNumber(safeParseFloat(data?.totalStock), DEFAULT_NUMBER_FORMAT)}
+          />
+        )}
 
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'
