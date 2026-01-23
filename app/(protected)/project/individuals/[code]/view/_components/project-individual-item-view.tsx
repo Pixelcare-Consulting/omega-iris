@@ -15,6 +15,7 @@ import { formatNumber } from 'devextreme/localization'
 import { useItemWarehouseInventory } from '@/hooks/safe-actions/item-warehouse-inventory'
 import Separator from '@/components/separator'
 import { safeParseFloat } from '@/utils'
+import { useSession } from 'next-auth/react'
 
 type ProjectIndividualItemViewProps = {
   data: Awaited<ReturnType<typeof getProjecItems>>[number]
@@ -22,11 +23,18 @@ type ProjectIndividualItemViewProps = {
 }
 
 export default function ProjectIndividualItemView({ data, onClose }: ProjectIndividualItemViewProps) {
+  const { data: session } = useSession()
+
   const item = data.item
   // const warehouse = data.warehouse
 
   const dateReceived = data.dateReceived && isValid(data?.dateReceived) ? format(data.dateReceived, 'MM/dd/yyyy hh:mm a') : '' // prettier-ignore
   const dateReceivedBy = data.dateReceivedByUser && data.dateReceivedByUser.fname  ? `${data.dateReceivedByUser.fname}${data.dateReceivedByUser.lname ? ` ${data.dateReceivedByUser.lname}` : ''}` : '' // prettier-ignore
+
+  const isBusinessPartner = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'business-partner'
+  }, [JSON.stringify(session)])
 
   //* Temporary disable
   // const itemMasterWarehouseInventory = useItemWarehouseInventory(item?.code)
@@ -126,11 +134,13 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
           value={formatNumber(safeParseFloat(data?.stockOut), DEFAULT_NUMBER_FORMAT)}
         />
 
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Total Stock'
-          value={formatNumber(safeParseFloat(data?.totalStock), DEFAULT_NUMBER_FORMAT)}
-        />
+        {!isBusinessPartner && (
+          <ReadOnlyField
+            className='col-span-12 md:col-span-6 lg:col-span-3'
+            title='Total Stock'
+            value={formatNumber(safeParseFloat(data?.totalStock), DEFAULT_NUMBER_FORMAT)}
+          />
+        )}
 
         <ReadOnlyField className='col-span-12' title='Notes' value={data?.notes || ''} />
 

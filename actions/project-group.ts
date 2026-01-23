@@ -222,7 +222,7 @@ export const importPgs = action
         const toCreate: Prisma.ProjectGroupCreateManyInput = {
           name: row['Name'],
           description: row?.['Description'] || null,
-          isActive: row?.['Active'] === '1' ? true : false,
+          isActive: row?.['Active'] === '1' ? true : !row?.['Active'] ? undefined : false,
           createdBy: userId,
           updatedBy: userId,
         }

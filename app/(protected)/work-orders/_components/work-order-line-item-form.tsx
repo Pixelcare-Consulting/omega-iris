@@ -27,6 +27,7 @@ import ReadOnlyField from '@/components/read-only-field'
 import { toast } from 'sonner'
 import { Badge } from '@/components/badge'
 import { FormDebug } from '@/components/forms/form-debug'
+import { useSession } from 'next-auth/react'
 
 type WorkOrderLineItemFormProps = {
   projectName?: string
@@ -39,6 +40,7 @@ type WorkOrderLineItemFormProps = {
 }
 
 export default function WorkOrderLineItemForm({ projectName, setIsOpen, onClose, lineItem, projectItems }: WorkOrderLineItemFormProps) {
+  const { data: session } = useSession()
   const mainForm = useFormContext<WorkOrderForm>()
 
   const lineItems = useWatch({ control: mainForm.control, name: 'lineItems' }) || []
@@ -61,6 +63,11 @@ export default function WorkOrderLineItemForm({ projectName, setIsOpen, onClose,
 
   const projectItemCode = useWatch({ control: form.control, name: 'projectItemCode' })
   const maxQty = useWatch({ control: form.control, name: 'maxQty' })
+
+  const isBusinessPartner = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'business-partner'
+  }, [JSON.stringify(session)])
 
   const projectItemsOptions = useMemo(() => {
     if (projectItems.isLoading || projectItems.data.length < 1) return []
@@ -312,11 +319,13 @@ export default function WorkOrderLineItemForm({ projectName, setIsOpen, onClose,
                 value={formatNumber(safeParseFloat(selectedProjectItem?.stockOut), DEFAULT_NUMBER_FORMAT)}
               />
 
-              <ReadOnlyField
-                className='col-span-12 md:col-span-6 lg:col-span-4'
-                title='Total Stock'
-                value={formatNumber(safeParseFloat(selectedProjectItem?.totalStock), DEFAULT_NUMBER_FORMAT)}
-              />
+              {!isBusinessPartner && (
+                <ReadOnlyField
+                  className='col-span-12 md:col-span-6 lg:col-span-4'
+                  title='Total Stock'
+                  value={formatNumber(safeParseFloat(selectedProjectItem?.totalStock), DEFAULT_NUMBER_FORMAT)}
+                />
+              )}
 
               <ReadOnlyField className='col-span-12' title='Notes' value={selectedProjectItem?.notes || ''} />
 

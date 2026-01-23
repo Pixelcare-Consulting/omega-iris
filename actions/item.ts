@@ -217,6 +217,7 @@ export const importItems = action
           ItmsGrpNam: group?.GroupName || null,
           ItemName: row?.['Description'] || null,
           isActive: row?.['Active'] === '1' ? true : !row?.['Active'] ? undefined : false,
+          notes: row?.['Notes'] || null,
           createdBy: userId,
           updatedBy: userId,
         }
