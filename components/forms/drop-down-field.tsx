@@ -1,7 +1,7 @@
 'use client'
 
 import { Control, Controller, FieldPath, FieldValues, get } from 'react-hook-form'
-import SelectBox, { ISelectBoxOptions } from 'devextreme-react/select-box'
+import { DropDownBox, DropDownBoxTypes, IDropDownBoxOptions } from 'devextreme-react/drop-down-box'
 
 import { FormExtendedProps } from '@/types/form'
 import FormItem from './form-item'
@@ -10,15 +10,16 @@ import FormDescription from './form-description'
 import FormMessage from './form-message'
 import { Icons } from '../icons'
 import FormLoadingField from './form-loading-field'
+import { useCallback, useEffect, useState } from 'react'
 
-type ExtendedProps = FormExtendedProps & { selectBoxOptions?: ISelectBoxOptions }
+type ExtendedProps = FormExtendedProps & { dropdownBoxOptions?: IDropDownBoxOptions }
 
-type SelectBoxFieldProps<
+type DropDownBoxFieldProps<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
 > = {
   data: any
-  searchExpr: string | string[]
+  isOpen?: boolean
   displayExpr?: string | ((item: any) => string)
   valueExpr: string
   isLoading?: boolean
@@ -33,9 +34,9 @@ type SelectBoxFieldProps<
   extendedProps?: ExtendedProps
 }
 
-export default function SelectBoxField<T extends FieldValues>({
+export default function DaBoxField<T extends FieldValues>({
   data,
-  searchExpr,
+  isOpen,
   valueExpr,
   displayExpr,
   isLoading,
@@ -48,7 +49,15 @@ export default function SelectBoxField<T extends FieldValues>({
   isHideLabel,
   callback,
   extendedProps,
-}: SelectBoxFieldProps<T>) {
+}: DropDownBoxFieldProps<T>) {
+  const [dropDownIsOpened, setDropDownIsOpened] = useState(false)
+
+  const onOptionChanged = useCallback((e: DropDownBoxTypes.OptionChangedEvent): void => {
+    if (e.name === 'opened') {
+      setDropDownIsOpened(e.value)
+    }
+  }, [])
+
   return (
     <Controller
       control={control}
@@ -67,13 +76,13 @@ export default function SelectBoxField<T extends FieldValues>({
             )}
 
             {!isLoading ? (
-              <SelectBox
+              <DropDownBox
                 dataSource={data}
+                opened={dropDownIsOpened}
                 labelMode='hidden'
                 placeholder={placeholder}
                 isValid={isValid}
                 value={field.value}
-                searchExpr={searchExpr}
                 valueExpr={valueExpr}
                 displayExpr={displayExpr}
                 valueChangeEvent='input'
@@ -81,12 +90,12 @@ export default function SelectBoxField<T extends FieldValues>({
                   const item = data.find((d: any) => d[valueExpr] === e.value)
                   const value = e.value
                   field.onChange(value ?? '')
+                  setDropDownIsOpened(false)
                   if (callback) callback({ value, item })
                 }}
-                searchEnabled
+                onOptionChanged={onOptionChanged}
                 showClearButton
-                showDataBeforeSearch
-                {...extendedProps?.selectBoxOptions}
+                {...extendedProps?.dropdownBoxOptions}
               />
             ) : (
               <FormLoadingField />

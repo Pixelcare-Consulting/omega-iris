@@ -58,7 +58,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
   const [importErrors, setImportErrors] = useState<ImportSyncError[]>([])
 
   const users = useUsers()
-  const itemMasters = useItems()
+  const itemMasters = useItems(true)
 
   const dataGridRef = useRef<DataGridRef | null>(null)
   const importErrorDataGridRef = useRef<DataGridRef | null>(null)
