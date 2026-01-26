@@ -1,9 +1,9 @@
 'use client'
 
-import DataGrid, { Column, FilterRow, Pager, Paging } from 'devextreme-react/data-grid'
+import DataGrid, { Column, DataGridTypes, FilterRow, Pager, Paging, Scrolling, Selection } from 'devextreme-react/data-grid'
 import ArrayStore from 'devextreme/data/array_store'
 import { Button } from 'devextreme-react/button'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -16,6 +16,7 @@ import SelectBoxField from '@/components/forms/select-box-field'
 import TagBoxField from '@/components/forms/tag-box-field'
 import SwitchField from '@/components/forms/switch-field'
 import ImageUploaderField from '@/components/forms/image-uploader-field'
+import DropDownBoxField from '@/components/forms/drop-down-field'
 
 const SAMPLE_DATA1 = [
   {
@@ -179,6 +180,7 @@ const exampleFormSchema = z.object({
   body2: z.string().min(1, { message: 'Please enter a body 2' }),
   item1: z.string().min(1, { message: 'Please select an item 1' }),
   item2: z.string().min(1, { message: 'Please select an item 2' }),
+  item3: z.string().min(1, { message: 'Please select an item 3' }),
   fameworks: z.array(z.string()).min(1, { message: 'Please select at least one framework' }),
   isActive: z.boolean().default(true),
   thumbnail: z.string().min(1, { message: 'Please enter a thumbnail' }),
@@ -201,6 +203,7 @@ export default function DevExtremeExamplePage() {
       body2: '',
       item1: '',
       item2: '',
+      item3: '',
       fameworks: [],
       isActive: true,
       thumbnail: '',
@@ -209,9 +212,47 @@ export default function DevExtremeExamplePage() {
     resolver: zodResolver(exampleFormSchema),
   })
 
+  const item3 = useWatch({ control: form.control, name: 'item3' })
+
   const handleSubmit = (data: any) => {
     console.log(data)
   }
+
+  const onSelectionChanged = useCallback((e: DataGridTypes.SelectionChangedEvent): void => {
+    if (e.selectedRowKeys.length === 0) return
+
+    const currentValue = form.getValues('item3')
+    const newValue = e.selectedRowKeys[0]
+
+    if (newValue === currentValue) return
+
+    form.setValue('item3', newValue)
+  }, [])
+
+  const dropdownBoxContentRender = useCallback(() => {
+    return (
+      <DataGrid
+        dataSource={SAMPLE_DATA2}
+        hoverStateEnabled={true}
+        showBorders={true}
+        selectedRowKeys={item3 ? [item3] : []}
+        onSelectionChanged={onSelectionChanged}
+        height='100%'
+        keyExpr='id'
+      >
+        <Column dataField='itemCode' dataType='string' caption='Item Code' />
+        <Column dataField='itemName' dataType='string' caption='Item Name' />
+        <Column dataField='itemDescription' dataType='string' caption='Item Description' />
+        <Column dataField='unitPrice' dataType='number' caption='Unit Price' />
+        <Column dataField='quantity' dataType='number' caption='Quantity' />
+
+        <Selection mode='single' />
+        <Scrolling mode='virtual' />
+        <Paging enabled={true} pageSize={10} />
+        <FilterRow visible={true} />
+      </DataGrid>
+    )
+  }, [onSelectionChanged, item3])
 
   useEffect(() => {
     //* simulate loading
@@ -345,6 +386,26 @@ export default function DevExtremeExamplePage() {
                         </div>
                       )
                     },
+                  },
+                }}
+              />
+            </div>
+
+            <h1 className='col-span-12 text-lg font-bold'>Dropdown Box w/ DataGrid</h1>
+
+            <div className='col-span-12'>
+              <DropDownBoxField
+                data={SAMPLE_DATA2}
+                isLoading={isLoading}
+                control={form.control}
+                name='item3'
+                label='Item 3'
+                valueExpr='id'
+                displayExpr='itemCode'
+                isRequired
+                extendedProps={{
+                  dropdownBoxOptions: {
+                    contentRender: dropdownBoxContentRender,
                   },
                 }}
               />

@@ -6,10 +6,11 @@ import { Item } from 'devextreme-react/toolbar'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
-import { Dispatch, SetStateAction, useMemo } from 'react'
+import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 import { subtract } from 'mathjs'
+import DataGrid, { Column, Selection, Scrolling, Paging, FilterRow, DataGridTypes, DataGridRef } from 'devextreme-react/data-grid'
 
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
@@ -24,7 +25,7 @@ import { getProjecItems } from '@/actions/project-item'
 import useItems from '@/hooks/safe-actions/item'
 import ReadOnlyField from '@/components/read-only-field'
 import { formatNumber } from 'devextreme/localization'
-import { DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
+import { DEFAULT_COLUMN_MIN_WIDTH, DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { safeParseFloat, safeParseInt } from '@/utils'
 import ProjectIndividualItemWarehouseInventory from './project-individual-item-warehouse-inventory'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
@@ -36,6 +37,7 @@ import useUsers from '@/hooks/safe-actions/user'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import TextAreaField from '@/components/forms/text-area-field'
 import { FormDebug } from '@/components/forms/form-debug'
+import DropDownBoxField from '@/components/forms/drop-down-field'
 
 type ProjectItemFormProps = {
   projectCode: number
@@ -117,6 +119,17 @@ export default function ProjectItemForm({
     return itemMasters.data.find((i) => i.code === itemCode)
   }, [itemCode, JSON.stringify(itemMasters)])
 
+  const itemCodeOnSelectionChanged = useCallback((e: DataGridTypes.SelectionChangedEvent): void => {
+    if (e.selectedRowKeys.length === 0) return
+
+    const currentValue = form.getValues('itemCode')
+    const newValue = e.selectedRowKeys[0]
+
+    if (newValue === currentValue) return
+
+    form.setValue('itemCode', newValue)
+  }, [])
+
   const itemMasterWarehouseInventory = useItemWarehouseInventory(selectedBaseItem?.code)
 
   //* Temporary disable
@@ -171,6 +184,33 @@ export default function ProjectItemForm({
     }
   }
 
+  const itemCodeContentRender = useCallback(() => {
+    return (
+      <DataGrid
+        dataSource={itemMasters.data}
+        hoverStateEnabled={true}
+        showBorders={true}
+        onSelectionChanged={itemCodeOnSelectionChanged}
+        height='100%'
+        wordWrapEnabled
+        columnAutoWidth={false}
+        columnMinWidth={DEFAULT_COLUMN_MIN_WIDTH}
+        keyExpr='code'
+        selectedRowKeys={itemCode ? [itemCode] : []}
+      >
+        <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
+        <Column dataField='FirmName' dataType='string' caption='Manufacturer' />
+        <Column dataField='ItemCode' dataType='string' caption='MFG P/N' />
+        <Column dataField='ItemName' dataType='string' caption='Description' />
+
+        <Selection mode='single' />
+        <Scrolling mode='virtual' />
+        <Paging enabled={true} pageSize={10} />
+        <FilterRow visible={true} />
+      </DataGrid>
+    )
+  }, [itemCodeOnSelectionChanged, itemMasters.data, itemMasters.isLoading, itemCode])
+
   const handleClose = () => {
     if (onClose) onClose()
     setTimeout(() => resetForm(), 100)
@@ -211,25 +251,18 @@ export default function ProjectItemForm({
 
               <div className='col-span-12 grid h-fit grid-cols-12 gap-5 pt-4 md:col-span-12 lg:col-span-9 lg:pt-0'>
                 <div className='col-span-12'>
-                  <SelectBoxField
+                  <DropDownBoxField
                     data={itemMasters.data}
                     isLoading={itemMasters.isLoading}
                     control={form.control}
                     name='itemCode'
                     label='Item'
                     valueExpr='code'
-                    displayExpr='ItemName'
-                    searchExpr={['ItemName', 'ItemCode']}
+                    displayExpr='ItemCode'
+                    isRequired
                     extendedProps={{
-                      selectBoxOptions: {
-                        itemRender: (params) => {
-                          return commonItemRender({
-                            title: params?.ItemCode,
-                            description: params?.ItemName,
-                            value: params?.code,
-                            valuePrefix: '#',
-                          })
-                        },
+                      dropdownBoxOptions: {
+                        contentRender: itemCodeContentRender,
                       },
                     }}
                   />

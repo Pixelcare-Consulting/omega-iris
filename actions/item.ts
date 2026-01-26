@@ -18,10 +18,10 @@ import { safeParseInt } from '@/utils'
 
 const COMMON_ITEM_ORDER_BY = { code: 'asc' } satisfies Prisma.ItemOrderByWithRelationInput
 
-export async function getItems(excludeCodes?: number[] | null) {
+export async function getItems(isSynced?: boolean, excludeCodes?: number[] | null) {
   try {
     const result = await db.item.findMany({
-      where: { ...(excludeCodes?.length ? { code: { notIn: excludeCodes } } : {}) },
+      where: { ...(excludeCodes?.length ? { code: { notIn: excludeCodes } } : {}), ...(isSynced ? { syncStatus: 'synced' } : {}) },
       orderBy: COMMON_ITEM_ORDER_BY,
     })
 
@@ -39,9 +39,9 @@ export async function getItems(excludeCodes?: number[] | null) {
 
 export const getItemsClient = action
   .use(authenticationMiddleware)
-  .schema(z.object({ excludeCodes: z.array(z.coerce.number()).nullish() }))
+  .schema(z.object({ isSynced: z.boolean().optional(), excludeCodes: z.array(z.coerce.number()).nullish() }))
   .action(async ({ parsedInput: data }) => {
-    return getItems(data.excludeCodes)
+    return getItems(data.isSynced, data.excludeCodes)
   })
 
 export async function getItemByCode(code: number) {
