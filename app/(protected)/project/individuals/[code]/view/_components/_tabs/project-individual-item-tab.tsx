@@ -379,13 +379,19 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               <Column dataField='lotCode' dataType='string' caption='Lot Code' />
               <Column dataField='palletNo' dataType='string' caption='Pallet No' />
               {/* <Column dataField='warehouse.name' dataType='string' caption='Warehouse' /> */}
-              <Column dataField='dateReceived' dataType='datetime' caption='Date Received' />
-              <Column
-                dataField='dateReceivedBy'
-                dataType='string'
-                caption='Date Received By'
-                calculateCellValue={dateReceivedByCalculatedCellValue}
-              />
+
+              {!isBusinessPartner && (
+                <>
+                  <Column dataField='dateReceived' dataType='datetime' caption='Date Received' />
+                  <Column
+                    dataField='dateReceivedBy'
+                    dataType='string'
+                    caption='Date Received By'
+                    calculateCellValue={dateReceivedByCalculatedCellValue}
+                  />
+                </>
+              )}
+
               <Column dataField='packagingType' dataType='string' caption='Packaging Type' />
               <Column dataField='spq' dataType='string' caption='SPQ' />
               <Column
