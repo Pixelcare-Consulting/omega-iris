@@ -104,7 +104,7 @@ export default function WarehouseForm({ pageMetaData, warehouse }: WarehouseForm
       <form className='flex h-full w-full flex-col gap-5' onSubmit={form.handleSubmit(handleOnSubmit)}>
         <PageHeader title={pageMetaData.title} description={pageMetaData.description}>
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <Button text='Back' stylingMode='outlined' type='default' onClick={() => router.push('/warehouses')} />
+            <Button text='Back' icon='arrowleft' stylingMode='outlined' type='default' onClick={() => router.push('/warehouses')} />
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>

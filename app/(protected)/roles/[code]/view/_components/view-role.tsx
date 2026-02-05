@@ -60,9 +60,9 @@ export default function ViewRole({ role }: ViewRolesProps) {
             <RolesOverviewTab role={role} />
           </TabPanelITem>
 
-          <TabPanelITem title='Permissions'>
+          {/* <TabPanelITem title='Permissions'>
             <UnderDevelopment className='h-[60vh]' />
-          </TabPanelITem>
+          </TabPanelITem> */}
         </TabPanel>
       </PageContentWrapper>
     </div>

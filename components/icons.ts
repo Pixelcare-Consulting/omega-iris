@@ -6,10 +6,13 @@ import {
   LockKeyhole,
   LogIn,
   LogOut,
+  MessageSquareText,
   ShieldCheck,
   ShieldClose,
   TriangleAlert,
   X,
+  XCircle,
+  ClipboardList,
 } from 'lucide-react'
 
 export const Icons = {
@@ -24,4 +27,7 @@ export const Icons = {
   alertCircle: AlertCircle,
   lockKeyHole: LockKeyhole,
   x: X,
+  xCircle: XCircle,
+  msgSquareText: MessageSquareText,
+  clipboadList: ClipboardList,
 }

@@ -144,7 +144,7 @@ export default function WorkOrderAttachmentTab({ workOrder, fileAttachments }: W
         if (batch.length === batchSize || isLast) {
           const response = await uploadFileAttachmentData.executeAsync({
             files: batch,
-            modelName: 'work-orders',
+            modulelName: 'work-orders',
             refCode: workOrder.code,
             total: toUploadFiles.length,
             stats,
@@ -168,7 +168,7 @@ export default function WorkOrderAttachmentTab({ workOrder, fileAttachments }: W
           toast.success(`File${toUploadFiles.length > 1 ? 's' : ''} uploaded successfully! ${stats.errors.length} errors found.`)
           setStats((prev: any) => ({ ...prev, total: 0, completed: 0, progress: 0, status: 'processing' }))
           form.reset()
-          fileAttachments.executeAsync({ modelName: 'work-orders', refCode: workOrder.code })
+          fileAttachments.executeAsync({ modulelName: 'work-orders', refCode: workOrder.code })
         }
 
         if (stats.errors.length > 0) {
@@ -198,7 +198,7 @@ export default function WorkOrderAttachmentTab({ workOrder, fileAttachments }: W
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
-            fileAttachments.executeAsync({ modelName: 'work-orders', refCode: workOrder.code })
+            fileAttachments.executeAsync({ modulelName: 'work-orders', refCode: workOrder.code })
           }, 1500)
 
           return result.message

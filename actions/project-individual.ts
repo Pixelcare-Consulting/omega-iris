@@ -8,6 +8,7 @@ import {
   projectIndividualCustomerFormSchema,
   projectIndividualFormSchema,
   projectIndividualPicFormSchema,
+  projectIndividualSupplierFormSchema,
 } from '@/schema/project-individual'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import z from 'zod'
@@ -107,12 +108,18 @@ export async function getPiByCode(code: number, userInfo: Awaited<ReturnType<typ
     if (!projectIndividuals) return null
 
     //TODO: separate the fetching of customers and pics into separate actions & hooks
-    const [customers, pics] = await Promise.all([
+    const [customers, suppliers, pics] = await Promise.all([
       db.projectIndividualCustomer.findMany({ where: { projectIndividualCode: code }, select: { userCode: true } }),
+      db.projectIndividualSupplier.findMany({ where: { projectIndividualCode: code }, select: { supplierCode: true } }),
       db.projectIndividualPic.findMany({ where: { projectIndividualCode: code }, select: { userCode: true } }),
     ])
 
-    return { ...projectIndividuals, customers: customers.map((c) => c.userCode), pics: pics.map((p) => p.userCode) }
+    return {
+      ...projectIndividuals,
+      customers: customers.map((c) => c.userCode),
+      suppliers: suppliers.map((s) => s.supplierCode),
+      pics: pics.map((p) => p.userCode),
+    }
   } catch (error) {
     console.error(error)
     return null
@@ -149,7 +156,7 @@ export const upsertPi = action
   .use(authenticationMiddleware)
   .schema(projectIndividualFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, customers, pics, ...data } = parsedInput
+    const { code, customers, suppliers, pics, ...data } = parsedInput
     const { userId } = ctx
 
     try {
@@ -168,6 +175,14 @@ export const upsertPi = action
           //* create new project individual customers
           db.projectIndividualCustomer.createManyAndReturn({
             data: customers.map((c) => ({ projectIndividualCode: code, userCode: c })),
+          }),
+
+          //* delete existing project individual suppliers
+          db.projectIndividualSupplier.deleteMany({ where: { projectIndividualCode: code } }),
+
+          //* create new project individual suppliers
+          db.projectIndividualSupplier.createManyAndReturn({
+            data: suppliers.map((s) => ({ projectIndividualCode: code, supplierCode: s })),
           }),
 
           //* delete existing project individual pics
@@ -193,6 +208,9 @@ export const upsertPi = action
           ...data,
           projectIndividualCustomers: {
             createMany: { data: customers.map((c) => ({ userCode: c })) },
+          },
+          projectIndividualSuppliers: {
+            createMany: { data: suppliers.map((s) => ({ supplierCode: s })) },
           },
           projectIndividualPics: {
             createMany: { data: pics.map((p) => ({ userCode: p })) },
@@ -344,6 +362,55 @@ export const updatePiCustomers = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'UPDATE_PROJECT_INDIVIDUAL_CUSTOMERS',
+      }
+    }
+  })
+
+export const updatePiSuppliers = action
+  .use(authenticationMiddleware)
+  .schema(projectIndividualSupplierFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { code, suppliers } = parsedInput
+    const { userId } = ctx
+
+    try {
+      const pi = await db.projectIndividual.findUnique({ where: { code } })
+
+      if (!pi) {
+        return { error: true, status: 404, message: 'Project individual not found!', action: 'UPDATE_PROJECT_INDIVIDUAL_SUPPLIERS' }
+      }
+
+      //* update project individual
+      const [updatedPi] = await db.$transaction([
+        //* update project individual
+        db.projectIndividual.update({
+          where: { code },
+          data: { updatedBy: userId },
+        }),
+
+        //* delete existing project individual suppliers
+        db.projectIndividualSupplier.deleteMany({ where: { projectIndividualCode: code } }),
+
+        //* create new project individual suppliers
+        db.projectIndividualSupplier.createManyAndReturn({
+          data: suppliers.map((s) => ({ projectIndividualCode: code, supplierCode: s })),
+        }),
+      ])
+
+      return {
+        status: 200,
+        message: `Project individual's suppliers updated successfully!`,
+        action: 'UPDATE_PROJECT_INDIVIDUAL_SUPPLIERS',
+        data: { projectIndividual: updatedPi },
+      }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'UPDATE_PROJECT_INDIVIDUAL_SUPPLIERS',
       }
     }
   })

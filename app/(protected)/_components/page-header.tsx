@@ -23,7 +23,7 @@ export default function PageHeader({
   children,
 }: PageHeaderProps) {
   return (
-    <header className={cn('rounded-md bg-white px-4 py-3 shadow-md', className)}>
+    <header className={cn('rounded-md bg-primary-black/5 px-4 py-3 shadow-md', className)}>
       <Toolbar>
         {title && description && (
           <Item
@@ -33,7 +33,7 @@ export default function PageHeader({
                 <h1 className={cn('text-base font-bold tracking-tight sm:text-lg md:text-lg lg:text-left lg:text-xl', titleClassName)}>
                   {title}
                 </h1>
-                <div className={cn('line-clamp-1 text-slate-400 md:text-sm lg:text-left', descriptionClassName)}>{description}</div>
+                <div className={cn('line-clamp-1 text-slate-500 md:text-sm lg:text-left', descriptionClassName)}>{description}</div>
               </div>
             )}
           />

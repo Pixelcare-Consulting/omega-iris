@@ -26,7 +26,7 @@ const COMMON_WORK_ORDER_INCLUDE = {
   user: { select: { code: true, fname: true, lname: true, email: true, customerCode: true } },
 } satisfies Prisma.WorkOrderInclude
 
-const COMMON_WORK_ORDER_ORDER_BY = { code: 'asc' } satisfies Prisma.WorkOrderOrderByWithRelationInput
+const COMMON_WORK_ORDER_ORDER_BY = { createdAt: 'desc' } satisfies Prisma.WorkOrderOrderByWithRelationInput
 
 export async function getWorkOrders(userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
   if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
@@ -540,7 +540,7 @@ export const updateWorkeOrderStatus = action
         status: 200,
         message: 'Work order status updated successfully!',
         action: 'UPDATE_WORK_ORDER_STATUS',
-        data: { workOrders: updatedWorkOrders },
+        data: { workOrders: updatedWorkOrders, appliedStatus: currentStatus },
       }
     } catch (error) {
       console.error(error)

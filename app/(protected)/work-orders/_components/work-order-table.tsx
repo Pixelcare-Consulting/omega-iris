@@ -41,16 +41,17 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
       workOrders: [],
       currentStatus: '',
       comments: '',
+      trackingNum: '',
     },
     resolver: zodResolver(workOrderStatusUpdateFormSchema),
   })
+
+  const currentStatus = useWatch({ control: form.control, name: 'currentStatus' })
 
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false)
   const [showUpdateStatusForm, setShowUpdateStatusForm] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
-
-  const [currentStatus, setCurrentStatus] = useState<string | undefined>()
 
   const dataGridRef = useRef<DataGridRef | null>(null)
 
@@ -155,23 +156,57 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     })
   }
 
-  const handleOnSelectionChange = useCallback((e: DataGridTypes.SelectionChangedEvent) => {
-    const selectedRowsData = e.selectedRowsData
+  const handleOnSelectionChanged = useCallback(
+    (e: DataGridTypes.SelectionChangedEvent) => {
+      const instance = e.component
 
-    const values = selectedRowsData.map((srData) => ({
-      code: srData.code,
-      prevStatus: srData.status,
-      deliveredProjectItems: [],
-    }))
+      //* exclude selection are row with status >= 6 or has deletedAt or deletedBy
+      const allowData = e.selectedRowsData.filter((row) => safeParseInt(row?.status) < 6 && !row?.deletedAt && !row?.deletedBy)
 
-    form.setValue('workOrders', values)
-  }, [])
+      const values = allowData.map((workOrder) => ({
+        code: workOrder.code,
+        prevStatus: workOrder.status,
+        deliveredProjectItems: [],
+      }))
 
-  const handleCloseUpdateStatusForm = () => {
+      if (values.length < 1) instance.deselectAll()
+
+      form.setValue('workOrders', values)
+    },
+    [JSON.stringify(workOrderToUpdate)]
+  )
+
+  function handleOnCellPrepared(e: DataGridTypes.CellPreparedEvent) {
+    const column = e.column as any
+    const data = e.data
+    const cellElement = e.cellElement
+
+    const checkbox = (cellElement?.querySelector('.dx-select-checkbox') as HTMLInputElement) || null
+    const rowType = e.rowType
+
+    if (rowType === 'data') {
+      const isBlocked = data?.deletedAt || data?.deletedBy || safeParseInt(data?.status) >= 6
+
+      //* condition when column type is selection
+      if (column?.type === 'selection') {
+        if (isBlocked && checkbox) {
+          checkbox.style.display = 'none' //* hide checkbox if row has deletedAt or deletedBy
+        }
+      }
+    }
+  }
+
+  const handleCloseUpdateStatusForm = useCallback(() => {
     form.reset()
     setTimeout(() => form.clearErrors(), 100)
     setShowUpdateStatusForm(false)
-  }
+
+    //* deselect all rows
+    if (dataGridRef.current) {
+      const intance = dataGridRef.current.instance()
+      intance.deselectAll()
+    }
+  }, [dataGridRef.current])
 
   return (
     <div className='h-full w-full space-y-5'>
@@ -222,9 +257,13 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             isSelectionEnable
             dataGridStore={dataGridStore}
             selectedRowKeys={selectedRowKeys}
-            callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChange }}
+            callbacks={{
+              onCellPrepared: handleOnCellPrepared,
+              onRowClick: handleView,
+              onSelectionChanged: handleOnSelectionChanged,
+            }}
           >
-            <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
+            <Column dataField='code' dataType='string' minWidth={100} caption='ID' />
             <Column dataField='projectIndividual.name' dataType='string' caption='Project' />
             <Column dataField='projectIndividual.projectGroup.name' dataType='string' caption='Project Group' />
             <Column
@@ -313,11 +352,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             maxWidth={1200}
             height={currentStatus !== '5' ? 410 : 750}
           >
-            <WorkOrderUpdateStatusForm
-              selectedRowKeys={selectedRowKeys}
-              onClose={handleCloseUpdateStatusForm}
-              setCurrentStatus={setCurrentStatus}
-            />
+            <WorkOrderUpdateStatusForm selectedRowKeys={selectedRowKeys} onClose={handleCloseUpdateStatusForm} />
           </Popup>
 
           <AlertDialog

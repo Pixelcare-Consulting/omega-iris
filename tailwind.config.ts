@@ -32,6 +32,9 @@ const config: Config = {
         primary: {
           DEFAULT: 'rgba(var(--primary), <alpha-value>)',
         },
+        'primary-black': {
+          DEFAULT: 'rgba(var(--primary-black), <alpha-value>)',
+        },
       },
     },
   },

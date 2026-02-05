@@ -10,6 +10,8 @@ import { basicInfoFormSchema, changePasswordFormSchema, userFormSchema } from '@
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { db } from '@/utils/db'
 import { DuplicateFields } from '@/types/common'
+import { createNotification } from './notification'
+import { PERMISSIONS_CODES } from '@/constants/permission'
 
 const COMMON_USER_INCLUDE = {
   role: true,
@@ -195,6 +197,18 @@ export const upsertUser = action
           data: { ...data, password: hashedPassword, updatedBy: userId },
         })
 
+        //* create notification
+        // void createNotification(ctx, {
+        //   permissionCode: PERMISSIONS_CODES.USERS,
+        //   title: 'User Updated',
+        //   message: `A user (#${updatedUser.code}) was updated by ${ctx.fullName}.`,
+        //   link: `/users/${updatedUser.code}/view`,
+        //   entityType: 'User' as Prisma.ModelName,
+        //   entityCode: updatedUser.code,
+        //   entityId: updatedUser.id,
+        //   userCodes: [],
+        // })
+
         return { status: 200, message: 'User updated successfully!', data: { user: updatedUser }, action: 'UPSERT_USER' }
       }
 
@@ -211,7 +225,20 @@ export const upsertUser = action
             create: { details: {} },
           },
         },
+        include: { role: true },
       })
+
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES.USERS,
+      //   title: 'User Created',
+      //   message: `A new user (#${newUser.code}) was created by ${ctx.fullName} and assigned the role ${newUser.role.name}.`,
+      //   link: `/users/${newUser.code}/view`,
+      //   entityType: 'User' as Prisma.ModelName,
+      //   entityCode: newUser.code,
+      //   entityId: newUser.id,
+      //   userCodes: [],
+      // })
 
       return { status: 200, message: 'User created successfully!', data: { user: newUser }, action: 'UPSERT_USER' }
     } catch (error) {
@@ -270,6 +297,18 @@ export const updateBasicInfo = action
         data: { ...data, updatedBy: userId },
       })
 
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES.USERS,
+      //   title: 'User Basic Info Updated',
+      //   message: `A user (#${updatedUser.code}) basic info was updated by ${ctx.fullName}.`,
+      //   link: `/users/${updatedUser.code}/view`,
+      //   entityType: 'User' as Prisma.ModelName,
+      //   entityCode: updatedUser.code,
+      //   entityId: updatedUser.id,
+      //   userCodes: [],
+      // })
+
       return { status: 200, message: 'Basic info updated successfully!', data: { user: updatedUser }, action: 'UPDATE_PROFILE_BASIC_INFO' }
     } catch (error) {
       console.error(error)
@@ -314,6 +353,18 @@ export const changePassword = action
         data: { password: hashedPassword, updatedBy: userId },
       })
 
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES.USERS,
+      //   title: 'User Password Changed',
+      //   message: `A user (#${updatedUser.code}) password was changed by ${ctx.fullName}.`,
+      //   link: `/users/${updatedUser.code}/view`,
+      //   entityType: 'User' as Prisma.ModelName,
+      //   entityCode: updatedUser.code,
+      //   entityId: updatedUser.id,
+      //   userCodes: [],
+      // })
+
       return {
         status: 200,
         message: 'Password changed successfully!',
@@ -342,6 +393,19 @@ export const deleteUser = action
       if (!user) return { error: true, status: 404, message: 'User not found!', action: 'DELETE_USER' }
 
       await db.user.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
+
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES.USERS,
+      //   title: 'User Deleted',
+      //   message: `A user (#${user.code}) was deleted by ${ctx.fullName}.`,
+      //   link: `/users/${user.code}/view`,
+      //   entityType: 'User' as Prisma.ModelName,
+      //   entityCode: user.code,
+      //   entityId: user.id,
+      //   userCodes: [],
+      // })
+
       return { status: 200, message: 'User deleted successfully!', action: 'DELETE_USER' }
     } catch (error) {
       console.error(error)
@@ -358,13 +422,25 @@ export const deleteUser = action
 export const restoreUser = action
   .use(authenticationMiddleware)
   .schema(paramsSchema)
-  .action(async ({ parsedInput: data }) => {
+  .action(async ({ ctx, parsedInput: data }) => {
     try {
       const user = await db.user.findUnique({ where: { code: data.code } })
 
       if (!user) return { error: true, status: 404, message: 'User not found!', action: 'RESTORE_USER' }
 
       await db.user.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES.USERS,
+      //   title: 'User Restored',
+      //   message: `A user (#${user.code}) was restored by ${ctx.fullName}.`,
+      //   link: `/users/${user.code}/view`,
+      //   entityType: 'User' as Prisma.ModelName,
+      //   entityCode: user.code,
+      //   entityId: user.id,
+      //   userCodes: [],
+      // })
 
       return { status: 200, message: 'User retored successfully!', action: 'RESTORE_USER' }
     } catch (error) {

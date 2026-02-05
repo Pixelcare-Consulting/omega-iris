@@ -21,13 +21,14 @@ import { updatePiCustomers } from '@/actions/project-individual'
 import LoadingButton from '@/components/loading-button'
 import CommonDataGrid from '@/components/common-datagrid'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
+import { useUsersByRoleKey } from '@/hooks/safe-actions/user'
 
 type ProjectIndividualCustomerTabProps = {
   projectCode: number
   customers: number[]
-  users: { data: Awaited<ReturnType<typeof getUsersByRoleKey>>; isLoading?: boolean }
+  users: ReturnType<typeof useUsersByRoleKey>
 }
-type DataSource = Awaited<ReturnType<typeof getUsersByRoleKey>>
+type DataSource = ReturnType<typeof useUsersByRoleKey>['data']
 
 export default function ProjectIndividualCustomerTab({ projectCode, customers, users }: ProjectIndividualCustomerTabProps) {
   const router = useRouter()
@@ -124,7 +125,7 @@ export default function ProjectIndividualCustomerTab({ projectCode, customers, u
         <CommonPageHeaderToolbarItems dataGridUniqueKey={DATAGRID_UNIQUE_KEY} dataGridRef={dataGridRef} />
       </Toolbar>
 
-      {form.formState.errors.customers && <div className='px-4 text-xs text-red-500'>{form.formState.errors.customers.message}</div>}
+      {form?.formState?.errors?.customers && <div className='px-4 text-xs text-red-500'>{form?.formState?.errors?.customers?.message}</div>}
 
       <PageContentWrapper className='max-h-[calc(100%_-_68px)]'>
         <CommonDataGrid
@@ -146,6 +147,7 @@ export default function ProjectIndividualCustomerTab({ projectCode, customers, u
             caption='Full Name'
             calculateCellValue={(rowData) => `${rowData.fname} ${rowData.lname}`}
           />
+          <Column dataField='customerCode' dataType='string' caption='Customer Code' />
           <Column dataField='email' dataType='string' caption='Email Address' />
           <Column dataField='role.name' dataType='string' caption='Role' />
           <Column

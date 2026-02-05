@@ -32,6 +32,7 @@ export const workOrderItemFormSchema = z
   .refine(
     (formData) => {
       if (formData.projectItemCode === 0) return true
+      if (formData.maxQty === 0) return true
       return formData.qty <= formData.maxQty
     },
     {
@@ -40,11 +41,16 @@ export const workOrderItemFormSchema = z
     }
   )
 
+export const workOrderLineItemsFormSchema = z.object({
+  lineItems: z.array(workOrderItemFormSchema).min(1, { message: 'Please select & set at least one item' }),
+})
+
 export const upsertWorkOrderLineItemFormSchema = workOrderItemFormSchema._def.schema
   .merge(z.object({ operation: z.enum(['create', 'update']), workOrderCode: z.coerce.number() }))
   .refine(
     (formData) => {
       if (formData.projectItemCode === 0) return true
+      if (formData.maxQty === 0) return true
       return formData.qty <= formData.maxQty
     },
     {
@@ -69,7 +75,7 @@ export const workOrderFormSchema = z.object({
   comments: z.string().nullish(),
 
   //* work order items
-  lineItems: z.array(workOrderItemFormSchema).min(1, { message: 'At least one line item is required' }),
+  lineItems: z.array(workOrderItemFormSchema).min(1, { message: 'Please select & set at least one item' }),
 
   //* sap fields
   salesOrderCode: z.coerce.number().nullish(),
@@ -90,6 +96,7 @@ export const workOrderStatusUpdateFormSchema = z.object({
 })
 
 export type WorkOrderItemForm = z.infer<typeof workOrderItemFormSchema>
+export type WorkOrderLineItemsForm = z.infer<typeof workOrderLineItemsFormSchema>
 export type UpsertWorkOrderLineItemForm = z.infer<typeof upsertWorkOrderLineItemFormSchema>
 export type WorkOrderForm = z.infer<typeof workOrderFormSchema>
 export type WorkOrderStatusUpdateForm = z.infer<typeof workOrderStatusUpdateFormSchema>

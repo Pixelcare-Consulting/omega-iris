@@ -16,7 +16,7 @@ type MenuItem = { text: string; icon: string; onClick: () => void }
 
 export default function UserNav({ user }: UserNavProps) {
   const listRef = useRef<ListRef>(null)
-  const userFullName = `${user?.fname} ${user?.lname}`
+  const userFullName = [user.fname, user.lname].filter(Boolean).join(' ')
   const router = useRouter()
 
   const handleSignOut = async () => {

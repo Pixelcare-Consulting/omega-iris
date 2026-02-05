@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useFieldArray, useFormContext, useWatch } from 'react-hook-form'
-import TabPanel, { Item as TabPanelITem } from 'devextreme-react/tab-panel'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useFieldArray, useFormContext, useFormState, useWatch } from 'react-hook-form'
+import TabPanel, { Item as TabPanelITem, TabPanelTypes } from 'devextreme-react/tab-panel'
 import Button from 'devextreme-react/button'
 import Tooltip from 'devextreme-react/tooltip'
 
@@ -24,18 +24,44 @@ type AddressFormProps = {
   bpAddresses: Awaited<ReturnType<typeof useAddresses>>
 }
 
-export default function AddressForm({ bpAddresses }: AddressFormProps) {
-  const isLoaded = useRef(false)
-  const mainForm = useFormContext<BusinessPartnerForm>()
+const BASE_ADDR = {
+  id: 'add',
+  AddressName: '',
+  Street: '',
+  Address2: '',
+  Address3: '',
+  StreetNo: '',
+  BuildingFloorRoom: '',
+  Block: '',
+  City: '',
+  ZipCode: '',
+  County: '',
+  CountryCode: '',
+  CountryName: '',
+  StateCode: '',
+  StateName: '',
+  GlobalLocationNumber: '',
+}
+const DEFAULT_BILLING_ADDR = { ...BASE_ADDR, AddrType: 'B' }
+const DEFAULT_SHIPPING_ADDR = { ...BASE_ADDR, AddrType: 'S' }
 
-  const cardCode = useWatch({ control: mainForm.control, name: 'CardCode' })
+export default function AddressForm({ bpAddresses }: AddressFormProps) {
+  const mainForm = useFormContext<BusinessPartnerForm>()
+  const { isReady: mainFormIsReady } = useFormState({ control: mainForm.control })
 
   const [billingIndex, setBillingIndex] = useState(0)
   const [showBillingAddrConfirmation, setShowBillingAddrConfirmation] = useState(false)
   const [shippingIndex, setShippingIndex] = useState(0)
   const [showShippingAddrConfirmation, setShowShippingAddrConfirmation] = useState(false)
 
-  const [selectedIndex, setSelectedIndex] = useState<{ type: string; index: number } | null>(null)
+  const [selectedIndex, setSelectedIndex] = useState<{
+    type: string
+    index: number
+    data?: AddressForm
+  } | null>(null)
+
+  const billingAddrContainerRef = useRef<HTMLDivElement>(null)
+  const shippingAddrContainerRef = useRef<HTMLDivElement>(null)
 
   const billingAddrsFieldArray = useFieldArray({ control: mainForm.control, name: 'billingAddresses' })
   const shippingAddrsFieldArray = useFieldArray({ control: mainForm.control, name: 'shippingAddresses' })
@@ -100,39 +126,14 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
   }, [JSON.stringify(mainForm.watch('shippingAddresses')), JSON.stringify(shippingAddrsFieldArray.fields), selectedIndex])
 
   const handleAddAddress = (type: string) => {
-    const baseAddress = {
-      id: 'add',
-      AddressName: '',
-      Street: '',
-      Address2: '',
-      Address3: '',
-      StreetNo: '',
-      BuildingFloorRoom: '',
-      Block: '',
-      City: '',
-      ZipCode: '',
-      County: '',
-      CountryCode: '',
-      CountryName: '',
-      StateCode: '',
-      StateName: '',
-      GlobalLocationNumber: '',
-    }
-
     switch (type) {
       case 'B': {
-        billingAddrsFieldArray.append({
-          ...baseAddress,
-          AddrType: 'B',
-        })
+        billingAddrsFieldArray.append({ ...BASE_ADDR, AddrType: 'B' })
         break
       }
 
       case 'S': {
-        shippingAddrsFieldArray.append({
-          ...baseAddress,
-          AddrType: 'S',
-        })
+        shippingAddrsFieldArray.append({ ...BASE_ADDR, AddrType: 'S' })
         break
       }
     }
@@ -162,15 +163,15 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
     }
   }
 
-  const handleRemoveAddress = (type: string, index: number) => {
+  const handleRemoveAddress = (type: string, index: number, data?: AddressForm) => {
     switch (type) {
       case 'B':
         setShowBillingAddrConfirmation(true)
-        setSelectedIndex({ type, index })
+        setSelectedIndex({ type, index, data })
         break
       case 'S':
         setShowShippingAddrConfirmation(true)
-        setSelectedIndex({ type, index })
+        setSelectedIndex({ type, index, data })
         break
     }
   }
@@ -222,64 +223,17 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
     }
   }
 
-  //* set 1 billing & shipping address when create and not loaded
+  // //* set 1 billing & shipping address when create and not loaded
   useEffect(() => {
-    if (!isLoaded.current) {
-      if (billingAddresses.length < 1) {
-        billingAddrsFieldArray.replace([
-          {
-            id: 'add',
-            AddrType: 'B',
-            AddressName: '',
-            Street: '',
-            Address2: '',
-            Address3: '',
-            StreetNo: '',
-            BuildingFloorRoom: '',
-            Block: '',
-            City: '',
-            ZipCode: '',
-            County: '',
-            CountryCode: '',
-            CountryName: '',
-            StateCode: '',
-            StateName: '',
-            GlobalLocationNumber: '',
-          },
-        ])
-      }
+    if (!mainFormIsReady) return
 
-      if (shippingAddresses.length < 1) {
-        shippingAddrsFieldArray.replace([
-          {
-            id: 'add',
-            AddrType: 'S',
-            AddressName: '',
-            Street: '',
-            Address2: '',
-            Address3: '',
-            StreetNo: '',
-            BuildingFloorRoom: '',
-            Block: '',
-            City: '',
-            ZipCode: '',
-            County: '',
-            CountryCode: '',
-            CountryName: '',
-            StateCode: '',
-            StateName: '',
-            GlobalLocationNumber: '',
-          },
-        ])
-      }
+    if (billingAddresses.length < 1 || billingAddrsFieldArray.fields.length < 1) billingAddrsFieldArray.append(DEFAULT_BILLING_ADDR)
+    if (shippingAddresses.length < 1 || shippingAddrsFieldArray.fields.length < 1) shippingAddrsFieldArray.replace(DEFAULT_SHIPPING_ADDR)
+  }, [mainFormIsReady, JSON.stringify(billingAddresses), JSON.stringify(shippingAddresses)])
 
-      isLoaded.current = true
-    }
-
-    return () => {
-      isLoaded.current = false
-    }
-  }, [cardCode, JSON.stringify(billingAddresses), JSON.stringify(shippingAddresses)])
+  // useEffect(() => {
+  //   console.log({ bpAddresses })
+  // }, [bpAddresses])
 
   //* set  billing Addresses
   useEffect(() => {
@@ -332,6 +286,8 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
 
   return (
     <>
+      {/* <FormDebug form={mainForm} keys={['billingAddresses', 'shippingAddresses']} /> */}
+
       <div className='flex flex-col gap-2'>
         {billingAddrsErrorMessage && (
           <div className='col-span-12 mb-4'>
@@ -346,471 +302,507 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
         )}
       </div>
 
-      <TabPanel width='100%' height='100%' animationEnabled tabsPosition='top' defaultSelectedIndex={0}>
+      <TabPanel
+        id='address-tab-panel'
+        key='address-tab-panel'
+        width='100%'
+        height='100%'
+        animationEnabled
+        tabsPosition='top'
+        defaultSelectedIndex={0}
+      >
         <TabPanelITem title='Billing'>
-          {billingAddrsFieldArray.fields.length > 0 ? (
-            <div className='grid h-full grid-cols-12 gap-5 py-8' key={billingIndex}>
-              {/* <div className='col-span-12'>
+          <div ref={billingAddrContainerRef} tabIndex={0}>
+            {billingAddrsFieldArray.fields.length > 0 ? (
+              <div className='grid h-full grid-cols-12 gap-5 py-8' key={billingIndex}>
+                {/* <div className='col-span-12'>
                 <FormDebug form={mainForm} keys={['billingAddresses']} />
               </div> */}
 
-              <div className='col-span-12 flex items-center justify-between'>
-                <div className='flex items-center gap-2'>
-                  <h2 className='text-base font-bold'>Billing Address #{billingIndex + 1}</h2>
-                  {billingIndex === 0 && <Badge variant='soft-blue'>Default</Badge>}
+                <div className='col-span-12 flex items-center justify-between'>
+                  <div className='flex items-center gap-2'>
+                    <h2 className='text-base font-bold'>Billing Address #{billingIndex + 1}</h2>
+                    {billingIndex === 0 && <Badge variant='soft-blue'>Default</Badge>}
+                  </div>
+
+                  <div className='flex items-center gap-2'>
+                    <div className='pr-4'>
+                      <h2 className='text-base font-bold'>
+                        {billingIndex + 1} / {billingAddrsFieldArray.fields.length}
+                      </h2>
+                    </div>
+
+                    <div className='flex gap-1'>
+                      <div>
+                        <Tooltip
+                          target='#address-add-button'
+                          contentRender={() => 'Add'}
+                          showEvent='mouseenter'
+                          hideEvent='mouseleave'
+                          position='top'
+                        />
+                        <Button
+                          id='address-add-button'
+                          icon='add'
+                          stylingMode='outlined'
+                          type='default'
+                          onClick={() => {
+                            if (billingAddrsErrorMessage) {
+                              toast.error(billingAddrsErrorMessage)
+                              return
+                            }
+
+                            handleAddAddress('B')
+                            setBillingIndex(billingAddrsFieldArray.fields.length)
+                            toast.success('Added new billing address entry. Please fill its respective fields.')
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Tooltip
+                          target='#address-remove-button'
+                          contentRender={() => 'Remove'}
+                          showEvent='mouseenter'
+                          hideEvent='mouseleave'
+                          position='top'
+                        />
+                        <Button
+                          id='address-remove-button'
+                          icon='trash'
+                          stylingMode='outlined'
+                          type='default'
+                          disabled={billingAddrsFieldArray.fields.length < 2}
+                          onClick={() => handleRemoveAddress('B', billingIndex, billingAddrsFieldArray.fields[billingIndex])}
+                        />
+                      </div>
+                    </div>
+
+                    <div className='flex gap-1 border-l border-slate-200 pl-2'>
+                      <div>
+                        <Tooltip
+                          target='#address-previous-button'
+                          contentRender={() => 'Previous'}
+                          showEvent='mouseenter'
+                          hideEvent='mouseleave'
+                          position='top'
+                        />
+                        <Button
+                          id='address-previous-button'
+                          icon='chevronprev'
+                          stylingMode='contained'
+                          type='default'
+                          disabled={billingIndex === 0}
+                          onClick={() => handlePreviousAddress('B')}
+                        />
+                      </div>
+                      <div>
+                        <Tooltip
+                          target='#address-next-button'
+                          contentRender={() => 'Next'}
+                          showEvent='mouseenter'
+                          hideEvent='mouseleave'
+                          position='top'
+                        />
+                        <Button
+                          id='address-next-button'
+                          icon='chevronnext'
+                          stylingMode='contained'
+                          type='default'
+                          disabled={billingIndex === billingAddrsFieldArray.fields.length - 1}
+                          onClick={() => handleNextAddress('B')}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className='flex items-center gap-2'>
-                  <div className='pr-4'>
-                    <h2 className='text-base font-bold'>
-                      {billingIndex + 1} / {billingAddrsFieldArray.fields.length}
-                    </h2>
-                  </div>
-
-                  <div className='flex gap-1'>
-                    <div>
-                      <Tooltip
-                        target='#address-add-button'
-                        contentRender={() => 'Add'}
-                        showEvent='mouseenter'
-                        hideEvent='mouseleave'
-                        position='top'
-                      />
-                      <Button
-                        id='address-add-button'
-                        icon='add'
-                        stylingMode='outlined'
-                        type='default'
-                        onClick={() => {
-                          if (billingAddrsErrorMessage) {
-                            toast.error(billingAddrsErrorMessage)
-                            return
-                          }
-
-                          handleAddAddress('B')
-                          setBillingIndex(billingAddrsFieldArray.fields.length)
-                          toast.success('Added new billing address entry. Please fill its respective fields.')
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <Tooltip
-                        target='#address-remove-button'
-                        contentRender={() => 'Remove'}
-                        showEvent='mouseenter'
-                        hideEvent='mouseleave'
-                        position='top'
-                      />
-                      <Button
-                        id='address-remove-button'
-                        icon='trash'
-                        stylingMode='outlined'
-                        type='default'
-                        disabled={billingAddrsFieldArray.fields.length < 2}
-                        onClick={() => handleRemoveAddress('B', billingIndex)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className='flex gap-1 border-l border-slate-200 pl-2'>
-                    <div>
-                      <Tooltip
-                        target='#address-previous-button'
-                        contentRender={() => 'Previous'}
-                        showEvent='mouseenter'
-                        hideEvent='mouseleave'
-                        position='top'
-                      />
-                      <Button
-                        id='address-previous-button'
-                        icon='chevronprev'
-                        stylingMode='contained'
-                        type='default'
-                        disabled={billingIndex === 0}
-                        onClick={() => handlePreviousAddress('B')}
-                      />
-                    </div>
-                    <div>
-                      <Tooltip
-                        target='#address-next-button'
-                        contentRender={() => 'Next'}
-                        showEvent='mouseenter'
-                        hideEvent='mouseleave'
-                        position='top'
-                      />
-                      <Button
-                        id='address-next-button'
-                        icon='chevronnext'
-                        stylingMode='contained'
-                        type='default'
-                        disabled={billingIndex === billingAddrsFieldArray.fields.length - 1}
-                        onClick={() => handleNextAddress('B')}
-                      />
-                    </div>
-                  </div>
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField
+                    key={billingIndex}
+                    control={mainForm.control}
+                    name={`billingAddresses.${billingIndex}.AddressName`}
+                    label='Name'
+                    description='Address unique name'
+                    isRequired
+                  />
                 </div>
-              </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField
-                  key={billingIndex}
-                  control={mainForm.control}
-                  name={`billingAddresses.${billingIndex}.AddressName`}
-                  label='Name'
-                  description='Address unique name'
-                  isRequired
+                <div className='col-span-12'>
+                  <TextAreaField control={mainForm.control} name={`billingAddresses.${billingIndex}.Street`} label='Line 1' isAutoResize />
+                </div>
+
+                <div className='col-span-12'>
+                  <TextAreaField
+                    control={mainForm.control}
+                    name={`billingAddresses.${billingIndex}.Address2`}
+                    label='Line 2'
+                    isAutoResize
+                  />
+                </div>
+
+                <div className='col-span-12'>
+                  <TextAreaField
+                    control={mainForm.control}
+                    name={`billingAddresses.${billingIndex}.Address3`}
+                    label='Line 3'
+                    isAutoResize
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField
+                    key={billingIndex}
+                    control={mainForm.control}
+                    name={`billingAddresses.${billingIndex}.StreetNo`}
+                    label='Street No.'
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField
+                    key={billingIndex}
+                    control={mainForm.control}
+                    name={`billingAddresses.${billingIndex}.BuildingFloorRoom`}
+                    label='Building/Floor/Room'
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField
+                    key={billingIndex}
+                    control={mainForm.control}
+                    name={`billingAddresses.${billingIndex}.Block`}
+                    label='Block'
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField key={billingIndex} control={mainForm.control} name={`billingAddresses.${billingIndex}.City`} label='City' />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField
+                    key={billingIndex}
+                    control={mainForm.control}
+                    name={`billingAddresses.${billingIndex}.ZipCode`}
+                    label='Zip Code'
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField
+                    key={billingIndex}
+                    control={mainForm.control}
+                    name={`billingAddresses.${billingIndex}.County`}
+                    label='County'
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <SelectBoxField
+                    data={billingCountries.data}
+                    isLoading={billingCountries.isLoading}
+                    control={mainForm.control}
+                    name={`billingAddresses.${billingIndex}.CountryCode`}
+                    label='Country'
+                    valueExpr='Code'
+                    displayExpr='Name'
+                    searchExpr={['Name', 'Code']}
+                    callback={() => {
+                      mainForm.setValue(`billingAddresses.${billingIndex}.StateCode`, null)
+                      mainForm.setValue(`billingAddresses.${billingIndex}.StateName`, null)
+                    }}
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <SelectBoxField
+                    data={billingStates.data}
+                    isLoading={billingStates.isLoading}
+                    control={mainForm.control}
+                    name={`billingAddresses.${billingIndex}.StateCode`}
+                    label='State'
+                    valueExpr='Code'
+                    displayExpr='Name'
+                    searchExpr={['Name', 'Code']}
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField
+                    key={billingIndex}
+                    control={mainForm.control}
+                    name={`billingAddresses.${billingIndex}.GlobalLocationNumber`}
+                    label='Global Location Number (GLN)'
+                  />
+                </div>
+
+                <AlertDialog
+                  isOpen={showBillingAddrConfirmation}
+                  title='Are you sure?'
+                  description={`Are you sure you want to remove the billing address #${(selectedIndex?.index ?? -1) + 1} with name ${selectedIndex?.data?.AddressName}?`}
+                  onConfirm={() => handleConfirmRemoveAddress('B', selectedIndex?.index ?? -1)}
+                  onCancel={() => setShowBillingAddrConfirmation(false)}
                 />
               </div>
-
-              <div className='col-span-12'>
-                <TextAreaField control={mainForm.control} name={`billingAddresses.${billingIndex}.Street`} label='Line 1' isAutoResize />
+            ) : (
+              <div className='col-span-12 flex h-[80px] items-center justify-center'>
+                <h2 className='text-base font-bold'>No Address Found</h2>
               </div>
-
-              <div className='col-span-12'>
-                <TextAreaField control={mainForm.control} name={`billingAddresses.${billingIndex}.Address2`} label='Line 2' isAutoResize />
-              </div>
-
-              <div className='col-span-12'>
-                <TextAreaField control={mainForm.control} name={`billingAddresses.${billingIndex}.Address3`} label='Line 3' isAutoResize />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField
-                  key={billingIndex}
-                  control={mainForm.control}
-                  name={`billingAddresses.${billingIndex}.StreetNo`}
-                  label='Street No.'
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField
-                  key={billingIndex}
-                  control={mainForm.control}
-                  name={`billingAddresses.${billingIndex}.BuildingFloorRoom`}
-                  label='Building/Floor/Room'
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField key={billingIndex} control={mainForm.control} name={`billingAddresses.${billingIndex}.Block`} label='Block' />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField key={billingIndex} control={mainForm.control} name={`billingAddresses.${billingIndex}.City`} label='City' />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField
-                  key={billingIndex}
-                  control={mainForm.control}
-                  name={`billingAddresses.${billingIndex}.ZipCode`}
-                  label='Zip Code'
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField
-                  key={billingIndex}
-                  control={mainForm.control}
-                  name={`billingAddresses.${billingIndex}.County`}
-                  label='County'
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <SelectBoxField
-                  data={billingCountries.data}
-                  isLoading={billingCountries.isLoading}
-                  control={mainForm.control}
-                  name={`billingAddresses.${billingIndex}.CountryCode`}
-                  label='Country'
-                  valueExpr='Code'
-                  displayExpr='Name'
-                  searchExpr={['Name', 'Code']}
-                  callback={() => {
-                    mainForm.setValue(`billingAddresses.${billingIndex}.StateCode`, null)
-                    mainForm.setValue(`billingAddresses.${billingIndex}.StateName`, null)
-                  }}
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <SelectBoxField
-                  data={billingStates.data}
-                  isLoading={billingStates.isLoading}
-                  control={mainForm.control}
-                  name={`billingAddresses.${billingIndex}.StateCode`}
-                  label='State'
-                  valueExpr='Code'
-                  displayExpr='Name'
-                  searchExpr={['Name', 'Code']}
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField
-                  key={billingIndex}
-                  control={mainForm.control}
-                  name={`billingAddresses.${billingIndex}.GlobalLocationNumber`}
-                  label='Global Location Number (GLN)'
-                />
-              </div>
-
-              <AlertDialog
-                isOpen={showBillingAddrConfirmation}
-                title='Are you sure?'
-                description={`Are you sure you want to remove the billing address #${(selectedIndex?.index ?? -1) + 1} ?`}
-                onConfirm={() => handleConfirmRemoveAddress('B', selectedIndex?.index ?? -1)}
-                onCancel={() => setShowBillingAddrConfirmation(false)}
-              />
-            </div>
-          ) : null}
+            )}
+          </div>
         </TabPanelITem>
 
         <TabPanelITem title='Shipping'>
-          {shippingAddrsFieldArray.fields.length > 0 ? (
-            <div className='grid h-full grid-cols-12 gap-5 py-8' key={shippingIndex}>
-              {/* <div className='col-span-12'>
+          <div ref={shippingAddrContainerRef} tabIndex={0}>
+            {shippingAddrsFieldArray.fields.length > 0 ? (
+              <div className='grid h-full grid-cols-12 gap-5 py-8' key={shippingIndex}>
+                {/* <div className='col-span-12'>
                 <FormDebug form={mainForm} keys={['shippingAddresses']} />
               </div> */}
 
-              <div className='col-span-12 flex items-center justify-between'>
-                <div className='flex items-center gap-2'>
-                  <h2 className='text-base font-bold'>Shipping Address {shippingIndex + 1}</h2>
-                  {shippingIndex === 0 && <Badge variant='soft-blue'>Default</Badge>}
+                <div className='col-span-12 flex items-center justify-between'>
+                  <div className='flex items-center gap-2'>
+                    <h2 className='text-base font-bold'>Shipping Address #{shippingIndex + 1}</h2>
+                    {shippingIndex === 0 && <Badge variant='soft-blue'>Default</Badge>}
+                  </div>
+
+                  <div className='flex items-center gap-2'>
+                    <div className='pr-4'>
+                      <h2 className='text-base font-bold'>
+                        {shippingIndex + 1} / {shippingAddrsFieldArray.fields.length}
+                      </h2>
+                    </div>
+
+                    <div className='flex gap-1'>
+                      <div>
+                        <Tooltip
+                          target='#address-add-button'
+                          contentRender={() => 'Add'}
+                          showEvent='mouseenter'
+                          hideEvent='mouseleave'
+                          position='top'
+                        />
+                        <Button
+                          id='address-add-button'
+                          icon='add'
+                          stylingMode='outlined'
+                          type='default'
+                          onClick={() => {
+                            if (shippingErrorMessage) {
+                              toast.error(shippingErrorMessage)
+                              return
+                            }
+
+                            handleAddAddress('S')
+                            setShippingIndex(shippingAddrsFieldArray.fields.length)
+                            toast.success('Added new shipping address entry. Please fill its respective fields.')
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Tooltip
+                          target='#address-remove-button'
+                          contentRender={() => 'Remove'}
+                          showEvent='mouseenter'
+                          hideEvent='mouseleave'
+                          position='top'
+                        />
+                        <Button
+                          id='address-remove-button'
+                          icon='trash'
+                          stylingMode='outlined'
+                          type='default'
+                          disabled={shippingAddrsFieldArray.fields.length < 2}
+                          onClick={() => handleRemoveAddress('S', shippingIndex, shippingAddrsFieldArray.fields[shippingIndex])}
+                        />
+                      </div>
+                    </div>
+
+                    <div className='flex gap-1 border-l border-slate-200 pl-2'>
+                      <div>
+                        <Tooltip
+                          target='#address-previous-button'
+                          contentRender={() => 'Previous'}
+                          showEvent='mouseenter'
+                          hideEvent='mouseleave'
+                          position='top'
+                        />
+                        <Button
+                          id='address-previous-button'
+                          icon='chevronprev'
+                          stylingMode='contained'
+                          type='default'
+                          disabled={shippingIndex === 0}
+                          onClick={() => handlePreviousAddress('S')}
+                        />
+                      </div>
+                      <div>
+                        <Tooltip
+                          target='#address-next-button'
+                          contentRender={() => 'Next'}
+                          showEvent='mouseenter'
+                          hideEvent='mouseleave'
+                          position='top'
+                        />
+                        <Button
+                          id='address-next-button'
+                          icon='chevronnext'
+                          stylingMode='contained'
+                          type='default'
+                          disabled={shippingIndex === shippingAddrsFieldArray.fields.length - 1}
+                          onClick={() => handleNextAddress('S')}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className='flex items-center gap-2'>
-                  <div className='pr-4'>
-                    <h2 className='text-base font-bold'>
-                      {shippingIndex + 1} / {shippingAddrsFieldArray.fields.length}
-                    </h2>
-                  </div>
-
-                  <div className='flex gap-1'>
-                    <div>
-                      <Tooltip
-                        target='#address-add-button'
-                        contentRender={() => 'Add'}
-                        showEvent='mouseenter'
-                        hideEvent='mouseleave'
-                        position='top'
-                      />
-                      <Button
-                        id='address-add-button'
-                        icon='add'
-                        stylingMode='outlined'
-                        type='default'
-                        onClick={() => {
-                          if (shippingErrorMessage) {
-                            toast.error(shippingErrorMessage)
-                            return
-                          }
-
-                          handleAddAddress('S')
-                          setShippingIndex(shippingAddrsFieldArray.fields.length)
-                          toast.success('Added new shipping address entry. Please fill its respective fields.')
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <Tooltip
-                        target='#address-remove-button'
-                        contentRender={() => 'Remove'}
-                        showEvent='mouseenter'
-                        hideEvent='mouseleave'
-                        position='top'
-                      />
-                      <Button
-                        id='address-remove-button'
-                        icon='trash'
-                        stylingMode='outlined'
-                        type='default'
-                        disabled={shippingAddrsFieldArray.fields.length < 2}
-                        onClick={() => handleRemoveAddress('S', shippingIndex)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className='flex gap-1 border-l border-slate-200 pl-2'>
-                    <div>
-                      <Tooltip
-                        target='#address-previous-button'
-                        contentRender={() => 'Previous'}
-                        showEvent='mouseenter'
-                        hideEvent='mouseleave'
-                        position='top'
-                      />
-                      <Button
-                        id='address-previous-button'
-                        icon='chevronprev'
-                        stylingMode='contained'
-                        type='default'
-                        disabled={shippingIndex === 0}
-                        onClick={() => handlePreviousAddress('S')}
-                      />
-                    </div>
-                    <div>
-                      <Tooltip
-                        target='#address-next-button'
-                        contentRender={() => 'Next'}
-                        showEvent='mouseenter'
-                        hideEvent='mouseleave'
-                        position='top'
-                      />
-                      <Button
-                        id='address-next-button'
-                        icon='chevronnext'
-                        stylingMode='contained'
-                        type='default'
-                        disabled={shippingIndex === shippingAddrsFieldArray.fields.length - 1}
-                        onClick={() => handleNextAddress('S')}
-                      />
-                    </div>
-                  </div>
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField
+                    key={shippingIndex}
+                    control={mainForm.control}
+                    name={`shippingAddresses.${shippingIndex}.AddressName`}
+                    label='Name'
+                    description='Address unique name'
+                    isRequired
+                  />
                 </div>
-              </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField
-                  key={shippingIndex}
-                  control={mainForm.control}
-                  name={`shippingAddresses.${shippingIndex}.AddressName`}
-                  label='Name'
-                  description='Address unique name'
-                  isRequired
+                <div className='col-span-12'>
+                  <TextAreaField
+                    control={mainForm.control}
+                    name={`shippingAddresses.${shippingIndex}.Street`}
+                    label='Line 1'
+                    isAutoResize
+                  />
+                </div>
+
+                <div className='col-span-12'>
+                  <TextAreaField
+                    control={mainForm.control}
+                    name={`shippingAddresses.${shippingIndex}.Address2`}
+                    label='Line 2'
+                    isAutoResize
+                  />
+                </div>
+
+                <div className='col-span-12'>
+                  <TextAreaField
+                    control={mainForm.control}
+                    name={`shippingAddresses.${shippingIndex}.Address3`}
+                    label='Line 3'
+                    isAutoResize
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField
+                    key={shippingIndex}
+                    control={mainForm.control}
+                    name={`shippingAddresses.${shippingIndex}.StreetNo`}
+                    label='Street No.'
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField
+                    key={shippingIndex}
+                    control={mainForm.control}
+                    name={`shippingAddresses.${shippingIndex}.BuildingFloorRoom`}
+                    label='Building/Floor/Room'
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField
+                    key={shippingIndex}
+                    control={mainForm.control}
+                    name={`shippingAddresses.${shippingIndex}.Block`}
+                    label='Block'
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField
+                    key={shippingIndex}
+                    control={mainForm.control}
+                    name={`shippingAddresses.${shippingIndex}.City`}
+                    label='City'
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField
+                    key={shippingIndex}
+                    control={mainForm.control}
+                    name={`shippingAddresses.${shippingIndex}.ZipCode`}
+                    label='Zip Code'
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField
+                    key={shippingIndex}
+                    control={mainForm.control}
+                    name={`shippingAddresses.${shippingIndex}.County`}
+                    label='County'
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <SelectBoxField
+                    data={shippingCountries.data}
+                    isLoading={shippingCountries.isLoading}
+                    control={mainForm.control}
+                    name={`shippingAddresses.${shippingIndex}.CountryCode`}
+                    label='Country'
+                    valueExpr='Code'
+                    displayExpr='Name'
+                    searchExpr={['Name', 'Code']}
+                    callback={() => {
+                      mainForm.setValue(`shippingAddresses.${shippingIndex}.StateCode`, null)
+                      mainForm.setValue(`shippingAddresses.${shippingIndex}.StateName`, null)
+                    }}
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <SelectBoxField
+                    data={shippingStates.data}
+                    isLoading={shippingStates.isLoading}
+                    control={mainForm.control}
+                    name={`shippingAddresses.${shippingIndex}.StateCode`}
+                    label='State'
+                    valueExpr='Code'
+                    displayExpr='Name'
+                    searchExpr={['Name', 'Code']}
+                  />
+                </div>
+
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField
+                    key={shippingIndex}
+                    control={mainForm.control}
+                    name={`shippingAddresses.${shippingIndex}.GlobalLocationNumber`}
+                    label='Glboal Location Number (GLN)'
+                  />
+                </div>
+
+                <AlertDialog
+                  isOpen={showShippingAddrConfirmation}
+                  title='Are you sure?'
+                  description={`Are you sure you want to remove the shipping address #${(selectedIndex?.index ?? -1) + 1} with name ${selectedIndex?.data?.AddressName}?`}
+                  onConfirm={() => handleConfirmRemoveAddress('S', selectedIndex?.index ?? -1)}
+                  onCancel={() => setShowShippingAddrConfirmation(false)}
                 />
               </div>
-
-              <div className='col-span-12'>
-                <TextAreaField control={mainForm.control} name={`shippingAddresses.${shippingIndex}.Street`} label='Line 1' isAutoResize />
+            ) : (
+              <div className='col-span-12 flex h-[80px] items-center justify-center'>
+                <h2 className='text-base font-bold'>No Address Found</h2>
               </div>
-
-              <div className='col-span-12'>
-                <TextAreaField
-                  control={mainForm.control}
-                  name={`shippingAddresses.${shippingIndex}.Address2`}
-                  label='Line 2'
-                  isAutoResize
-                />
-              </div>
-
-              <div className='col-span-12'>
-                <TextAreaField
-                  control={mainForm.control}
-                  name={`shippingAddresses.${shippingIndex}.Address3`}
-                  label='Line 3'
-                  isAutoResize
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField
-                  key={shippingIndex}
-                  control={mainForm.control}
-                  name={`shippingAddresses.${shippingIndex}.StreetNo`}
-                  label='Street No.'
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField
-                  key={shippingIndex}
-                  control={mainForm.control}
-                  name={`shippingAddresses.${shippingIndex}.BuildingFloorRoom`}
-                  label='Building/Floor/Room'
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField
-                  key={shippingIndex}
-                  control={mainForm.control}
-                  name={`shippingAddresses.${shippingIndex}.Block`}
-                  label='Block'
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField
-                  key={shippingIndex}
-                  control={mainForm.control}
-                  name={`shippingAddresses.${shippingIndex}.City`}
-                  label='City'
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField
-                  key={shippingIndex}
-                  control={mainForm.control}
-                  name={`shippingAddresses.${shippingIndex}.ZipCode`}
-                  label='Zip Code'
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField
-                  key={shippingIndex}
-                  control={mainForm.control}
-                  name={`shippingAddresses.${shippingIndex}.County`}
-                  label='County'
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <SelectBoxField
-                  data={shippingCountries.data}
-                  isLoading={shippingCountries.isLoading}
-                  control={mainForm.control}
-                  name={`shippingAddresses.${shippingIndex}.CountryCode`}
-                  label='Country'
-                  valueExpr='Code'
-                  displayExpr='Name'
-                  searchExpr={['Name', 'Code']}
-                  callback={() => {
-                    mainForm.setValue(`shippingAddresses.${billingIndex}.StateCode`, null)
-                    mainForm.setValue(`shippingAddresses.${billingIndex}.StateName`, null)
-                  }}
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <SelectBoxField
-                  data={shippingStates.data}
-                  isLoading={shippingStates.isLoading}
-                  control={mainForm.control}
-                  name={`shippingAddresses.${shippingIndex}.StateCode`}
-                  label='State'
-                  valueExpr='Code'
-                  displayExpr='Name'
-                  searchExpr={['Name', 'Code']}
-                />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField
-                  key={shippingIndex}
-                  control={mainForm.control}
-                  name={`shippingAddresses.${shippingIndex}.GlobalLocationNumber`}
-                  label='Glboal Location Number (GLN)'
-                />
-              </div>
-
-              <AlertDialog
-                isOpen={showShippingAddrConfirmation}
-                title='Are you sure?'
-                description={`Are you sure you want to remove the shipping address #${(selectedIndex?.index ?? -1) + 1} ?`}
-                onConfirm={() => handleConfirmRemoveAddress('S', selectedIndex?.index ?? -1)}
-                onCancel={() => setShowShippingAddrConfirmation(false)}
-              />
-            </div>
-          ) : (
-            <div className='col-span-12 flex h-[80px] items-center justify-center'>
-              <h2 className='text-base font-bold'>No Address Found</h2>
-            </div>
-          )}
+            )}
+          </div>
         </TabPanelITem>
       </TabPanel>
     </>

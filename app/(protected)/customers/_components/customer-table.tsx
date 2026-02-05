@@ -187,10 +187,11 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
     })
   }
 
-  const handleOnSelectionChange = useCallback((e: DataGridTypes.SelectionChangedEvent) => {
-    //* excclude selection are row with syncStatus === synced or has deletedAt or deletedBy
+  const handleOnSelectionChanged = useCallback((e: DataGridTypes.SelectionChangedEvent) => {
+    const instance = e.component
+
+    //* exclude selection are row with syncStatus === synced or has deletedAt or deletedBy
     const allowData = e.selectedRowsData.filter((row) => row.syncStatus === 'pending' && !row?.deletedAt && !row?.deletedBy)
-    const notAllowData = e.selectedRowsData.filter((row) => row.syncStatus === 'synced' || row?.deletedAt || row?.deletedBy)
 
     const values = allowData.map((row) => ({
       code: row.code,
@@ -205,7 +206,7 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
       CmpPrivate: row?.CmpPrivate ?? null,
     }))
 
-    if (notAllowData.length > 0) e.component.deselectRows(notAllowData.map((row) => row.code))
+    if (values.length < 1) instance.deselectAll()
 
     form.setValue('bps', values)
   }, [])
@@ -420,7 +421,7 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
           isSelectionEnable
           dataGridStore={dataGridStore}
           selectedRowKeys={selectedRowKeys}
-          callbacks={{ onSelectionChanged: handleOnSelectionChange }}
+          callbacks={{ onSelectionChanged: handleOnSelectionChanged }}
         >
           <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
           <Column dataField='CardCode' dataType='string' caption='Code' />

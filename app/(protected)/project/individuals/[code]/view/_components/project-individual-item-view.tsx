@@ -153,12 +153,20 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 3' value={data?.subLocation3 || ''} />
 
-        <Separator className='col-span-12' />
-        <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Item Received' description='Item date received and received by details' />
+        {!isBusinessPartner && (
+          <>
+            <Separator className='col-span-12' />
+            <ReadOnlyFieldHeader
+              className='col-span-12 mb-1'
+              title='Item Received'
+              description='Item date received and received by details'
+            />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Date Received' value={dateReceived} />
+            <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Date Received' value={dateReceived} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Received By' value={dateReceivedBy} />
+            <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Received By' value={dateReceivedBy} />
+          </>
+        )}
 
         {/*  //* Temporary disable */}
         {/* <Separator className='col-span-12' />
@@ -200,17 +208,21 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
           isLoading={itemMasterWarehouseInventory.isLoading}
         /> */}
 
-        <Separator className='col-span-12' />
-        <ReadOnlyFieldHeader className='col-span-12 mt-4' title='Record Meta data' description='Project item record meta data' />
+        {!isBusinessPartner && (
+          <>
+            <Separator className='col-span-12' />
+            <ReadOnlyFieldHeader className='col-span-12 mt-4' title='Record Meta data' description='Project item record meta data' />
 
-        <RecordMetaData
-          createdAt={data.createdAt}
-          updatedAt={data.updatedAt}
-          deletedAt={data.deletedAt}
-          createdBy={data.createdBy}
-          updatedBy={data.updatedBy}
-          deletedBy={data.deletedBy}
-        />
+            <RecordMetaData
+              createdAt={data.createdAt}
+              updatedAt={data.updatedAt}
+              deletedAt={data.deletedAt}
+              createdBy={data.createdBy}
+              updatedBy={data.updatedBy}
+              deletedBy={data.deletedBy}
+            />
+          </>
+        )}
       </div>
     </ScrollView>
   )

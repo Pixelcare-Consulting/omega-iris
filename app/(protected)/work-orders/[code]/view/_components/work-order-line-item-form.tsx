@@ -205,7 +205,7 @@ export default function WorkOrderLineItemForm({
           className='bg-transparent p-0 shadow-none'
         >
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <Button text='Back' stylingMode='outlined' type='default' onClick={handleClose} />
+            <Button text='Back' icon='arrowleft' stylingMode='outlined' type='default' onClick={handleClose} />
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>

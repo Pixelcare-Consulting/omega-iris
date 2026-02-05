@@ -38,10 +38,13 @@ export const authenticationMiddleware = createMiddleware().define(async ({ next 
     actions: rp.actions,
   }))
 
+  const fullName = [user.fname, user.lname].filter(Boolean).join(' ')
+
   const ability = buildAbilityFor({ roleKey: role.key, rolePermissions })
 
   return next({
     ctx: {
+      fullName,
       userId: id,
       userCode: code,
       roleCode: role.code,

@@ -16,7 +16,7 @@ import {
 } from '@/schema/business-partner'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
-import { chunkArray, safeParseFloat, safeParseInt } from '@/utils'
+import { chunkArray, safeParseInt } from '@/utils'
 import logger from '@/utils/logger'
 import { callSapServiceLayerApi } from './sap-service-layer'
 import { SAP_BASE_URL } from '@/constants/sap'
@@ -24,6 +24,9 @@ import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import { getAddresses, getMasterAddresses } from './address'
 import { getContacts, getMasterContacts } from './contact'
 import { importFormSchema } from '@/schema/import'
+import { createNotification } from './notification'
+import { PERMISSIONS_CODES } from '@/constants/permission'
+import { PER_PAGE } from '@/constants/business-partner'
 
 const COMMON_BUSINESS_PARTNER_ORDER_BY = { CardCode: 'asc' } satisfies Prisma.BusinessPartnerOrderByWithRelationInput
 
@@ -108,7 +111,7 @@ export const upsertBp = action
           const bp = await db.businessPartner.update({
             where: { code },
             data: { ...data, syncStatus: data?.syncStatus ?? 'pending', updatedBy: userId },
-            select: { CardCode: true, addresses: true, contacts: true, code: true },
+            select: { id: true, CardCode: true, addresses: true, contacts: true, code: true },
           })
 
           const currentBillingAddresses = bp.addresses.filter((a) => a.AddrType === 'B').map((a) => a.id)
@@ -195,6 +198,18 @@ export const upsertBp = action
           return bp
         })
 
+        //* create notification
+        // void createNotification(ctx, {
+        //   permissionCode: data.CardType === 'L' || data.CardType === 'C' ? PERMISSIONS_CODES.CUSTOMERS : PERMISSIONS_CODES.SUPPLIERS,
+        //   title: `${BUSINESS_PARTNER_TYPE_MAP[data.CardType]} Updated`,
+        //   message: `A ${BUSINESS_PARTNER_TYPE_MAP[data.CardType].toLowerCase()} (#${updatedBp.code}) was updated by ${ctx.fullName}.`,
+        //   link: `/${data.CardType === 'L' || data.CardType === 'C' ? 'customers' : 'suppliers'}/${updatedBp.code}/view`,
+        //   entityType: 'BusinessPartner' as Prisma.ModelName,
+        //   entityCode: updatedBp.code,
+        //   entityId: updatedBp.id,
+        //   userCodes: [],
+        // })
+
         return {
           status: 200,
           message: `${BUSINESS_PARTNER_TYPE_MAP[data.CardType]} updated successfully!`,
@@ -268,6 +283,18 @@ export const upsertBp = action
 
         return bp
       })
+
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: data.CardType === 'L' || data.CardType === 'C' ? PERMISSIONS_CODES.CUSTOMERS : PERMISSIONS_CODES.SUPPLIERS,
+      //   title: `${BUSINESS_PARTNER_TYPE_MAP[data.CardType]} Created`,
+      //   message: `A new ${BUSINESS_PARTNER_TYPE_MAP[data.CardType].toLowerCase()} (#${newBp.code}) was created by ${ctx.fullName}.`,
+      //   link: `/${data.CardType === 'L' || data.CardType === 'C' ? 'customers' : 'suppliers'}/${newBp.code}/view`,
+      //   entityType: 'BusinessPartner' as Prisma.ModelName,
+      //   entityCode: newBp.code,
+      //   entityId: newBp.id,
+      //   userCodes: [],
+      // })
 
       return {
         status: 200,
@@ -378,6 +405,18 @@ export const importBp = action
         status: progress >= 100 || isLastRow ? 'completed' : 'processing',
       }
 
+      // if (updatedStats.status === 'completed') {
+      //   //* create notification
+      //   void createNotification(ctx, {
+      //     permissionCode: cardType === 'C' || cardType === 'L' ? PERMISSIONS_CODES.CUSTOMERS : PERMISSIONS_CODES.SUPPLIERS,
+      //     title: `${BUSINESS_PARTNER_TYPE_MAP[cardType]} Imported`,
+      //     message: `New ${BUSINESS_PARTNER_TYPE_MAP[cardType].toLowerCase()}${total > 1 ? 's were' : ' was'} imported by ${ctx.fullName}.`,
+      //     link: `/${cardType === 'L' || cardType === 'C' ? 'customers' : 'suppliers'}`,
+      //     entityType: 'BusinessPartner' as Prisma.ModelName,
+      //     userCodes: [],
+      //   })
+      // }
+
       return {
         status: 200,
         message: `${updatedStats.completed} ${BUSINESS_PARTNER_TYPE_MAP[cardType]} created successfully!`,
@@ -423,6 +462,18 @@ export const deleteBp = action
 
       await db.businessPartner.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 
+      // //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: bp.CardType === 'L' || bp.CardType === 'C' ? PERMISSIONS_CODES.CUSTOMERS : PERMISSIONS_CODES.SUPPLIERS,
+      //   title: `${BUSINESS_PARTNER_TYPE_MAP[bp.CardType]} Deleted`,
+      //   message: `A ${BUSINESS_PARTNER_TYPE_MAP[bp.CardType].toLowerCase()} (#${bp.code}) was deleted by ${ctx.fullName}.`,
+      //   link: `/${bp.CardType === 'L' || bp.CardType === 'C' ? 'customers' : 'suppliers'}/${bp.code}/view`,
+      //   entityType: 'BusinessPartner' as Prisma.ModelName,
+      //   entityCode: bp.code,
+      //   entityId: bp.id,
+      //   userCodes: [],
+      // })
+
       return {
         status: 200,
         message: `${BUSINESS_PARTNER_TYPE_MAP[data.cardType]} deleted successfully!`,
@@ -443,7 +494,7 @@ export const deleteBp = action
 export const restoreBp = action
   .use(authenticationMiddleware)
   .schema(paramsSchema.merge(z.object({ cardType: z.string() })))
-  .action(async ({ parsedInput: data }) => {
+  .action(async ({ ctx, parsedInput: data }) => {
     try {
       const bp = await db.businessPartner.findUnique({ where: { code: data.code } })
 
@@ -457,6 +508,18 @@ export const restoreBp = action
       }
 
       await db.businessPartner.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+
+      // //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: bp.CardType === 'L' || bp.CardType === 'C' ? PERMISSIONS_CODES.CUSTOMERS : PERMISSIONS_CODES.SUPPLIERS,
+      //   title: `${BUSINESS_PARTNER_TYPE_MAP[bp.CardType]} Restored`,
+      //   message: `A ${BUSINESS_PARTNER_TYPE_MAP[bp.CardType].toLowerCase()} (#${bp.code}) was restored by ${ctx.fullName}.`,
+      //   link: `/${bp.CardType === 'L' || bp.CardType === 'C' ? 'customers' : 'suppliers'}/${bp.code}/view`,
+      //   entityType: 'BusinessPartner' as Prisma.ModelName,
+      //   entityCode: bp.code,
+      //   entityId: bp.id,
+      //   userCodes: [],
+      // })
 
       return {
         status: 200,
@@ -475,9 +538,29 @@ export const restoreBp = action
     }
   })
 
-const PER_PAGE = 100
+export async function getLatestBpMaster(cardType: string) {
+  if (!cardType) return null
 
-export async function getBpMaster(cardType?: string) {
+  try {
+    const bpMaster = await callSapServiceLayerApi({
+      url: `${SAP_BASE_URL}/b1s/v1/BusinessPartners?$select=CardCode,CreateDate,CreateTime&$filter=CardType eq '${cardType}'&$orderby=CreateDate desc,CreateTime desc&$top=1`,
+    })
+
+    return bpMaster?.value?.[0] ?? null
+  } catch (error) {
+    logger.error(error, 'Failed to fetch latest bp master from SAP')
+    return null
+  }
+}
+
+export const getLatestBpMasterClient = action
+  .use(authenticationMiddleware)
+  .schema(z.object({ cardType: z.string() }))
+  .action(async ({ parsedInput }) => {
+    return getLatestBpMaster(parsedInput.cardType)
+  })
+
+export async function getBpMaster(cardType: string) {
   if (!cardType) return []
 
   try {
@@ -659,6 +742,16 @@ export const syncToSap = action
 
       const completed = sapCreated?.filter((sc) => !sc?.error)
 
+      // //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: cardType === 'L' || cardType === 'C' ? PERMISSIONS_CODES.CUSTOMERS : PERMISSIONS_CODES.SUPPLIERS,
+      //   title: `${BUSINESS_PARTNER_TYPE_MAP[cardType]}s Synced To SAP`,
+      //   message: `${completed.length} of ${bps.length} ${BUSINESS_PARTNER_TYPE_MAP[cardType].toLowerCase()}${bps.length > 1 ? 's were' : 'was'} synced into SAP by ${ctx.fullName}. ${importSyncErrors.length} error${importSyncErrors.length > 1 ? 's' : ''} found.`,
+      //   link: `/${cardType === 'L' || cardType === 'C' ? 'customers' : 'suppliers'}`,
+      //   entityType: 'BusinessPartner' as Prisma.ModelName,
+      //   userCodes: [],
+      // })
+
       return {
         status: 200,
         message: `${BUSINESS_PARTNER_TYPE_MAP[cardType]} sync successfully!. ${completed.length}/${bps.length} ${BUSINESS_PARTNER_TYPE_MAP[cardType].toLowerCase()} created into SAP. ${importSyncErrors.length} errors found.`,
@@ -690,15 +783,13 @@ export const syncFromSap = action
   .schema(syncFromSapFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { userId } = ctx
+    const { cardType } = parsedInput
 
-    const SYNC_META_CODE = BUSINESS_PARTNER_TYPE_MAP[parsedInput.cardType].toLowerCase()
+    const SYNC_META_CODE = BUSINESS_PARTNER_TYPE_MAP[cardType].toLowerCase()
 
     try {
       //* fetch all bp master from sap & last sync date
-      const data = await Promise.allSettled([
-        getBpMaster(parsedInput.cardType),
-        db.syncMeta.findUnique({ where: { code: SYNC_META_CODE } }),
-      ])
+      const data = await Promise.allSettled([getBpMaster(cardType), db.syncMeta.findUnique({ where: { code: SYNC_META_CODE } })])
 
       const bpMaster = data[0].status === 'fulfilled' ? data[0]?.value || [] : []
       const lastSyncDate = data[1].status === 'fulfilled' ? data[1]?.value?.lastSyncAt || new Date('01/01/2020') : new Date('01/01/2020')
@@ -707,7 +798,7 @@ export const syncFromSap = action
         return {
           error: true,
           status: 404,
-          message: 'Failed to fetch bp master from SAP!',
+          message: `Failed to fetch ${cardType === 'L' || cardType === 'C' ? 'customer' : 'supplier'} master from SAP!`,
           action: 'SYNC_FROM_SAP',
         }
       }
@@ -890,9 +981,19 @@ export const syncFromSap = action
         update: { code: SYNC_META_CODE, description: 'Last bp customer master synced date', lastSyncAt: new Date() },
       })
 
+      // //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: cardType === 'L' || cardType === 'C' ? PERMISSIONS_CODES.CUSTOMERS : PERMISSIONS_CODES.SUPPLIERS,
+      //   title: `${BUSINESS_PARTNER_TYPE_MAP[cardType]}s Synced From SAP`,
+      //   message: `${BUSINESS_PARTNER_TYPE_MAP[cardType]}${allowedBps.length > 1 ? 's were' : 'was'} synced from SAP by ${ctx.fullName}.`,
+      //   link: `/${cardType === 'L' || cardType === 'C' ? 'customers' : 'suppliers'}`,
+      //   entityType: 'BusinessPartner' as Prisma.ModelName,
+      //   userCodes: [],
+      // })
+
       return {
         status: 200,
-        message: `${BUSINESS_PARTNER_TYPE_MAP[parsedInput.cardType]} sync successfully!`,
+        message: `${BUSINESS_PARTNER_TYPE_MAP[cardType]} sync successfully!`,
         action: 'SYNC_FROM_SAP',
       }
     } catch (error) {

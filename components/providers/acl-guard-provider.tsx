@@ -3,10 +3,11 @@
 import { AppAbility, buildAbilityFor } from '@/utils/acl'
 import { Session } from 'next-auth'
 import { useEffect, useState } from 'react'
-import { AbilityContext } from '../acl/can'
+
 import { useRouter } from 'nextjs-toploader/app'
 import { usePathname } from 'next/navigation'
 import { findNavByPath, navigation } from '@/constants/menu'
+import { AbilityContext } from '@/context/ability'
 
 type ACLGuardProviderProps = {
   session: Session | null

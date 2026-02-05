@@ -27,6 +27,7 @@ import TextAreaField from '@/components/forms/text-area-field'
 import { commonItemRender, userItemRender } from '@/utils/devextreme'
 import SwitchField from '@/components/forms/switch-field'
 import CanView from '@/components/acl/can-view'
+import { useBps } from '@/hooks/safe-actions/business-partner'
 
 type ProjectIndividualFormProps = { pageMetaData: PageMetadata; projectIndividual: Awaited<ReturnType<typeof getPiByCode>> }
 
@@ -47,6 +48,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
         isActive: true,
         groupCode: null,
         customers: [],
+        suppliers: [],
         pics: [],
       }
     }
@@ -65,6 +67,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
   const projectGroups = usePgs()
   const customerUsers = useUsersByRoleKey('business-partner')
   const nonCustomerUsers = useNonBpUsers()
+  const suppliers = useBps('S', true)
 
   const handleOnSubmit = async (formData: ProjectIndividualForm) => {
     try {
@@ -82,7 +85,8 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
         router.refresh()
 
         setTimeout(() => {
-          router.push(`/project/individuals/${result.data?.projectIndividual.code}`)
+          if (isCreate) router.push(`/project/individuals`)
+          else router.push(`/project/individuals/${result.data?.projectIndividual.code}`)
         }, 1500)
       }
     } catch (error) {
@@ -96,7 +100,13 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
       <form className='flex h-full w-full flex-col gap-5' onSubmit={form.handleSubmit(handleOnSubmit)}>
         <PageHeader title={pageMetaData.title} description={pageMetaData.description}>
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <Button text='Back' stylingMode='outlined' type='default' onClick={() => router.push('/project/individuals')} />
+            <Button
+              text='Back'
+              icon='arrowleft'
+              stylingMode='outlined'
+              type='default'
+              onClick={() => router.push('/project/individuals')}
+            />
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>
@@ -198,9 +208,48 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                   name='customers'
                   label='Customers'
                   valueExpr='code'
-                  displayExpr={(item) => (item ? `${item?.fname}${item?.lname ? ` ${item?.lname}` : ''}` : '')}
-                  searchExpr={['fname', 'lname', 'code', 'email']}
-                  extendedProps={{ tagBoxOptions: { itemRender: userItemRender } }}
+                  displayExpr={(item) =>
+                    item
+                      ? `${[item?.fname, item?.lname].filter(Boolean).join(' ')} ${item?.customerCode ? `(${item?.customerCode})` : ''}`
+                      : ''
+                  }
+                  searchExpr={['fname', 'lname', 'code', 'email', 'customerCode']}
+                  extendedProps={{
+                    tagBoxOptions: {
+                      itemRender: (params) => {
+                        return commonItemRender({
+                          title: `${[params?.fname, params?.lname].filter(Boolean).join(' ')} ${params?.customerCode ? `(${params?.customerCode})` : ''}`,
+                          description: params?.email,
+                          value: params?.code,
+                          valuePrefix: '#',
+                        })
+                      },
+                    },
+                  }}
+                />
+              </div>
+
+              <div className='col-span-12 md:col-span-6'>
+                <TagBoxField
+                  data={suppliers.data}
+                  isLoading={suppliers.isLoading}
+                  control={form.control}
+                  name='suppliers'
+                  label='Suppliers'
+                  valueExpr='CardCode'
+                  displayExpr={(item) => (item ? `${item?.CardName} (${item?.CardCode})` : '')}
+                  searchExpr={['CardName', 'CardCode', 'GroupName']}
+                  extendedProps={{
+                    tagBoxOptions: {
+                      itemRender: (params) => {
+                        return commonItemRender({
+                          title: params?.CardName,
+                          description: params?.GroupName,
+                          value: params?.CardCode,
+                        })
+                      },
+                    },
+                  }}
                 />
               </div>
 

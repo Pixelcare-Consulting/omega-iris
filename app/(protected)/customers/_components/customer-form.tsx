@@ -42,14 +42,22 @@ import ContactForm from '../../_components/contact-form'
 import { useContacts } from '@/hooks/safe-actions/contacts'
 import { useAddresses } from '@/hooks/safe-actions/address'
 import CanView from '@/components/acl/can-view'
+import TooltipWrapper from '@/components/tooltip-wrapper'
+import { useLatestBp } from '@/hooks/safe-actions/business-partner'
+import { MAX_CARD_CODE_DIGITS } from '@/constants/business-partner'
+import { safeParseInt } from '@/utils'
 
 type CustomerFormProps = { pageMetaData: PageMetadata; bp: Awaited<ReturnType<typeof getBpByCardCode>> }
+
+const CARD_TYPE = 'C'
 
 export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
   const router = useRouter()
   const { code } = useParams() as { code: string }
 
   const isCreate = code === 'add' || !bp
+
+  const latestBpData = useLatestBp(CARD_TYPE)
 
   const values = useMemo(() => {
     if (bp) return { ...bp, contacts: [], billingAddresses: [], shippingAddresses: [] }
@@ -143,11 +151,51 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
         router.refresh()
 
         setTimeout(() => {
-          router.push(`/customers/${result.data.businessPartner.code}`)
-          addresses.execute({ cardCode: bp?.CardCode ?? '' })
-          contacts.execute({ cardCode: bp?.CardCode ?? '' })
+          if (isCreate) router.push(`/customers`)
+          else {
+            router.push(`/customers/${result.data.businessPartner.code}`)
+            addresses.execute({ cardCode: bp?.CardCode ?? '' })
+            contacts.execute({ cardCode: bp?.CardCode ?? '' })
+          }
         }, 1500)
       }
+    } catch (error) {
+      console.error(error)
+      toast.error('Something went wrong! Please try again later.')
+    }
+  }
+
+  const generateNextCardCode = (cardCode?: string) => {
+    let newCardCode = ''
+
+    //* if no card code will default to initial card code
+    if (!cardCode) {
+      newCardCode = `${CARD_TYPE}${String(1).padStart(MAX_CARD_CODE_DIGITS, '0')}`
+      return newCardCode
+    }
+
+    const codeWithoutPrefix = String(cardCode)?.replaceAll(CARD_TYPE, '')
+    const newCodeWithoutPrefix = safeParseInt(codeWithoutPrefix, 10) + 1
+    newCardCode = `${CARD_TYPE}${String(newCodeWithoutPrefix).padStart(MAX_CARD_CODE_DIGITS, '0')}`
+
+    return newCardCode
+  }
+
+  const handleGenerateCode = async () => {
+    try {
+      const response = await latestBpData.executeAsync({ cardType: CARD_TYPE })
+      const result = response?.data
+      const cardCode = result?.CardCode
+      const newCardCode = generateNextCardCode(result?.CardCode)
+
+      if (!cardCode) {
+        toast.error(`The latest ${BUSINESS_PARTNER_TYPE_MAP[CARD_TYPE].toLowerCase()} was code not found! Therefore initial code will be assigned.`) // prettier-ignore
+        form.setValue('CardCode', newCardCode)
+        return
+      }
+
+      form.setValue('CardCode', newCardCode)
+      toast.success('Code generated successfully!')
     } catch (error) {
       console.error(error)
       toast.error('Something went wrong! Please try again later.')
@@ -183,12 +231,27 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
     console.log({ errors: form.formState.errors })
   }, [JSON.stringify(form.formState.errors)])
 
+  //* set CardCode based on latest bp master
+  useEffect(() => {
+    if (!isCreate) return
+
+    if (!latestBpData.isLoading && latestBpData.data && 'CardCode' in latestBpData.data) {
+      const cardCode = latestBpData.data?.CardCode
+      const newCardCode = generateNextCardCode(cardCode)
+
+      form.setValue('CardCode', newCardCode)
+    } else {
+      const newCardCode = generateNextCardCode()
+      form.setValue('CardCode', newCardCode)
+    }
+  }, [isCreate, JSON.stringify(latestBpData)])
+
   return (
     <FormProvider {...form}>
       <form className='flex h-full w-full flex-col gap-5' onSubmit={form.handleSubmit(handleOnSubmit)}>
         <PageHeader title={pageMetaData.title} description={pageMetaData.description}>
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <Button text='Back' stylingMode='outlined' type='default' onClick={() => router.push('/customers')} />
+            <Button text='Back' icon='arrowleft' stylingMode='outlined' type='default' onClick={() => router.push('/customers')} />
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>
@@ -235,13 +298,23 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
             {/* <FormDebug form={form} /> */}
 
             <div className='grid h-full grid-cols-12 gap-5 px-6 py-8'>
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField
-                  control={form.control}
-                  name='CardCode'
-                  label='Code'
-                  description='If code is not provided, system will provide random temporary code'
-                />
+              <div className='col-span-12 flex items-center gap-1 md:col-span-6 lg:col-span-3'>
+                <div className='w-[90%]'>
+                  <TextBoxField control={form.control} name='CardCode' label='Code' isLoading={latestBpData.isLoading} />
+                </div>
+
+                <div className='flex-1'>
+                  <TooltipWrapper label='Generate Code' targetId='generate-next-card-code'>
+                    <Button
+                      className='mt-5'
+                      icon='refresh'
+                      stylingMode='contained'
+                      type='default'
+                      disabled={latestBpData.isLoading}
+                      onClick={handleGenerateCode}
+                    />
+                  </TooltipWrapper>
+                </div>
               </div>
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>

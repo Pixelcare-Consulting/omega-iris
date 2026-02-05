@@ -188,10 +188,11 @@ export default function ItemTable({ items }: ItemTableProps) {
     })
   }
 
-  const handleOnSelectionChange = useCallback((e: DataGridTypes.SelectionChangedEvent) => {
+  const handleOnSelectionChanged = useCallback((e: DataGridTypes.SelectionChangedEvent) => {
+    const instance = e.component
+
     //* excclude selection are row with syncStatus === synced or has deletedAt or deletedBy
     const allowData = e.selectedRowsData.filter((row) => row.syncStatus === 'pending' && !row?.deletedAt && !row?.deletedBy)
-    const notAllowData = e.selectedRowsData.filter((row) => row.syncStatus === 'synced' || row?.deletedAt || row?.deletedBy)
 
     const values = allowData.map((row) => ({
       code: row.code,
@@ -201,7 +202,7 @@ export default function ItemTable({ items }: ItemTableProps) {
       ItemsGroupCode: row?.ItmsGrpCod ?? -1,
     }))
 
-    if (notAllowData.length > 0) e.component.deselectRows(notAllowData.map((row) => row.code))
+    if (values.length < 1) instance.deselectAll()
 
     form.setValue('items', values)
   }, [])
@@ -221,7 +222,10 @@ export default function ItemTable({ items }: ItemTableProps) {
       customizeCell: ({ gridCell, excelCell }) => {
         if (gridCell?.rowType === 'data') {
           if (gridCell?.column?.dataField === 'thumbnail') {
-            excelCell.value = undefined
+            const thumbnailBase64Value = gridCell.value
+            excelCell.value = ''
+
+            if (!thumbnailBase64Value || typeof thumbnailBase64Value !== 'string') return
 
             const image = workbook.addImage({
               base64: gridCell.value,
@@ -229,7 +233,7 @@ export default function ItemTable({ items }: ItemTableProps) {
             })
 
             worksheet.getRow(excelCell.row).height = 60
-            worksheet.getColumn(excelCell.col).width = 20
+            worksheet.getColumn(excelCell.col).width = 15
             worksheet.addImage(image, {
               tl: { col: excelCell.col - 1, row: excelCell.row - 1 } as Anchor,
               br: { col: excelCell.col, row: excelCell.row } as Anchor,
@@ -441,7 +445,7 @@ export default function ItemTable({ items }: ItemTableProps) {
           isSelectionEnable
           dataGridStore={dataGridStore}
           selectedRowKeys={selectedRowKeys}
-          callbacks={{ onSelectionChanged: handleOnSelectionChange }}
+          callbacks={{ onSelectionChanged: handleOnSelectionChanged }}
         >
           <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
           <Column dataField='thumbnail' minWidth={140} caption='Thumbnail' cellRender={thumbnailCellRender} />

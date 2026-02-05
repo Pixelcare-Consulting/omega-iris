@@ -87,7 +87,8 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
         rolePermissions.execute({ roleId: result.data.role.id })
 
         setTimeout(() => {
-          router.push(`/roles/${result.data.role.code}`)
+          if (isCreate) router.push(`/roles`)
+          else router.push(`/roles/${result.data.role.code}`)
         }, 1500)
       }
     } catch (error) {
@@ -220,16 +221,12 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
     form.reset(roleObj)
   }, [isCreate, JSON.stringify(role), JSON.stringify(permissions), JSON.stringify(rolePermissions)])
 
-  // useEffect(() => {
-  //   console.log({ permissions, rolePermissions, permissionsWithChildren })
-  // }, [JSON.stringify(permissions), JSON.stringify(rolePermissions), permissionsWithChildren])
-
   return (
     <FormProvider {...form}>
       <form className='flex h-full w-full flex-col gap-5' onSubmit={form.handleSubmit(handleOnSubmit)}>
         <PageHeader title={pageMetaData.title} description={pageMetaData.description}>
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <Button text='Back' stylingMode='outlined' type='default' onClick={() => router.push('/roles')} />
+            <Button text='Back' icon='arrowleft' stylingMode='outlined' type='default' onClick={() => router.push('/roles')} />
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>

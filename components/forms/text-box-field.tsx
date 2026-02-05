@@ -8,6 +8,7 @@ import FormItem from './form-item'
 import FormLabel from './form-label'
 import FormDescription from './form-description'
 import FormMessage from './form-message'
+import FormLoadingField from './form-loading-field'
 
 type ExtendedProps = FormExtendedProps & { textBoxOptions?: ITextBoxOptions }
 
@@ -19,6 +20,7 @@ type TextBoxFieldProps<TFieldValues extends FieldValues = FieldValues, TName ext
   description?: string
   isRequired?: boolean
   isHideLabel?: boolean
+  isLoading?: boolean
   callback?: (...args: any[]) => void
   extendedProps?: ExtendedProps
 }
@@ -31,6 +33,7 @@ export default function TextBoxField<T extends FieldValues>({
   description,
   isRequired,
   isHideLabel,
+  isLoading,
   callback,
   extendedProps,
 }: TextBoxFieldProps<T>) {
@@ -50,21 +53,24 @@ export default function TextBoxField<T extends FieldValues>({
                 {label}
               </FormLabel>
             )}
-
-            <TextBox
-              labelMode='hidden'
-              placeholder={placeholder}
-              isValid={isValid}
-              value={field.value}
-              valueChangeEvent='input'
-              onValueChanged={(e) => {
-                const value = e.value
-                field.onChange(value)
-                if (callback) callback({ value })
-              }}
-              showClearButton
-              {...extendedProps?.textBoxOptions}
-            />
+            {!isLoading ? (
+              <TextBox
+                labelMode='hidden'
+                placeholder={placeholder}
+                isValid={isValid}
+                value={field.value}
+                valueChangeEvent='input'
+                onValueChanged={(e) => {
+                  const value = e.value
+                  field.onChange(value)
+                  if (callback) callback({ value })
+                }}
+                showClearButton
+                {...extendedProps?.textBoxOptions}
+              />
+            ) : (
+              <FormLoadingField />
+            )}
 
             {description && <FormDescription {...extendedProps?.formDescription}>{description}</FormDescription>}
 

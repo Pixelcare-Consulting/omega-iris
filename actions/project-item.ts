@@ -9,7 +9,7 @@ import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { projectItemFormSchema } from '@/schema/project-item'
 import { paramsSchema } from '@/schema/common'
-import { delay, safeParseFloat, safeParseInt } from '@/utils'
+import { safeParseFloat, safeParseInt } from '@/utils'
 import { importFormSchema } from '@/schema/import'
 import { ImportSyncErrorEntry } from '@/types/common'
 

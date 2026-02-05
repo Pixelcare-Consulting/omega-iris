@@ -1,0 +1,30 @@
+export const PERMISSIONS_ALLOWED_ACTIONS = {
+  VIEW: 'view',
+  VIEW_OWNER: 'view (owner)',
+  CREATE: 'create',
+  EDIT: 'edit',
+  DELETE: 'delete',
+  RESTORE: 'restore',
+  IMPORT: 'import',
+  EXPORT: 'export',
+  SYNC_TO_SAP: 'sync to sap',
+  SYNC_FROM_SAP: 'sync from sap',
+  UPDATE_STATUS: 'update status',
+  RECEIVE_NOTIFICATIONS: 'receive notifications',
+  RECEIVE_NOTIFICATIONS_OWNER: 'receive notifications (owner)',
+} as const
+
+export const PERMISSIONS_CODES = {
+  CUSTOMERS: 'p-customers',
+  SUPPLIERS: 'p-suppliers',
+  DASHBOARD: 'p-dashboard',
+  INVENTORY: 'p-inventory',
+  PROJECTS: 'p-projects',
+  'PROJECT GROUPS': 'p-projects-groups',
+  'PROJECT INDIVIDUALS': 'p-projects-individuals',
+  REPORTING: 'p-reporting',
+  ROLES: 'p-roles',
+  SETTINGS: 'p-settings',
+  USERS: 'p-users',
+  'WORK ORDERS': 'p-work-orders',
+} as const

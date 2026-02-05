@@ -6,6 +6,8 @@ import { paramsSchema } from '@/schema/common'
 import { roleFormSchema } from '@/schema/role'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
+import { createNotification } from './notification'
+import { PERMISSIONS_CODES } from '@/constants/permission'
 
 const COMMON_ROLE_ORDER_BY = { code: 'asc' } satisfies Prisma.RoleOrderByWithRelationInput
 
@@ -63,6 +65,18 @@ export const upsertRole = action
           return role
         })
 
+        //* create notification
+        // void createNotification(ctx, {
+        //   permissionCode: PERMISSIONS_CODES.ROLES,
+        //   title: 'Role Updated',
+        //   message: `A role (#${updatedRole.code}) was updated by ${ctx.fullName}.`,
+        //   link: `/roles/${updatedRole.code}/view`,
+        //   entityType: 'Role' as Prisma.ModelName,
+        //   entityCode: updatedRole.code,
+        //   entityId: updatedRole.id,
+        //   userCodes: [],
+        // })
+
         return {
           status: 200,
           message: 'Role updated successfully!',
@@ -84,6 +98,18 @@ export const upsertRole = action
           },
         },
       })
+
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES.ROLES,
+      //   title: 'Role Created',
+      //   message: `A new role (#${newRole.code}) was created by ${ctx.fullName}${permissions.length > 0 ? ` and has been assigned with permission${permissions.length > 1 ? 's' : ''}` : ''}.`,
+      //   link: `/roles/${newRole.code}/view`,
+      //   entityType: 'Role' as Prisma.ModelName,
+      //   entityCode: newRole.code,
+      //   entityId: newRole.id,
+      //   userCodes: [],
+      // })
 
       return { status: 200, message: 'Role created successfully!', action: 'UPSERT_ROLE', data: { role: newRole } }
     } catch (error) {
@@ -109,6 +135,18 @@ export const deleleteRole = action
 
       await db.role.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES.ROLES,
+      //   title: 'Role Deleted',
+      //   message: `A role (#${role.code}) was deleted by ${ctx.fullName}.`,
+      //   link: `/roles/${role.code}/view`,
+      //   entityType: 'Role' as Prisma.ModelName,
+      //   entityCode: role.code,
+      //   entityId: role.id,
+      //   userCodes: [],
+      // })
+
       return { status: 200, message: 'Role deleted successfully!', action: 'DELETE_ROLE' }
     } catch (error) {
       console.error(error)
@@ -125,13 +163,25 @@ export const deleleteRole = action
 export const restoreRole = action
   .use(authenticationMiddleware)
   .schema(paramsSchema)
-  .action(async ({ parsedInput: data }) => {
+  .action(async ({ ctx, parsedInput: data }) => {
     try {
       const role = await db.role.findUnique({ where: { code: data.code } })
 
       if (!role) return { error: true, status: 404, message: 'Role not found!', action: 'RESTORE_ROLE' }
 
       await db.role.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES.ROLES,
+      //   title: 'Role Restored',
+      //   message: `A role (#${role.code}) was restored by ${ctx.fullName}.`,
+      //   link: `/roles/${role.code}/view`,
+      //   entityType: 'Role' as Prisma.ModelName,
+      //   entityCode: role.code,
+      //   entityId: role.id,
+      //   userCodes: [],
+      // })
 
       return { status: 200, message: 'Role retored successfully!', action: 'RESTORE_ROLE' }
     } catch (error) {

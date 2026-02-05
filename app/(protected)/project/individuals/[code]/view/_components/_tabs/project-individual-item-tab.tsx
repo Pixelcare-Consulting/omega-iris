@@ -156,7 +156,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
     setIsViewMode(false)
   }, [])
 
-  const exportToExcel = useCallback((fileName: string, component?: dxDataGrid<any, any> | null, selectedRowsOnly = false) => {
+  function exportToExcel(fileName: string, component?: dxDataGrid<any, any> | null, selectedRowsOnly = false) {
     if (!component) return
 
     const normalizedFileName = fileName.replace(/[^a-zA-Z0-9-]/g, '-')
@@ -170,8 +170,11 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
       selectedRowsOnly,
       customizeCell: ({ gridCell, excelCell }) => {
         if (gridCell?.rowType === 'data') {
-          if (gridCell?.column?.dataField === 'thumbnail') {
-            excelCell.value = undefined
+          if (gridCell?.column?.dataField === 'item.thumbnail') {
+            const thumbnailBase64Value = gridCell.value
+            excelCell.value = ''
+
+            if (!thumbnailBase64Value || typeof thumbnailBase64Value !== 'string') return
 
             const image = workbook.addImage({
               base64: gridCell.value,
@@ -179,7 +182,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
             })
 
             worksheet.getRow(excelCell.row).height = 60
-            worksheet.getColumn(excelCell.col).width = 20
+            worksheet.getColumn(excelCell.col).width = 15
             worksheet.addImage(image, {
               tl: { col: excelCell.col - 1, row: excelCell.row - 1 } as Anchor,
               br: { col: excelCell.col, row: excelCell.row } as Anchor,
@@ -192,7 +195,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
         saveAs(new Blob([buffer], { type: 'application/octet-stream' }), `${normalizedFileName}-${format(new Date(), 'MM-dd-yyyy')}.xlsx`)
       })
     })
-  }, [])
+  }
 
   const handleImport: (...args: any[]) => void = async (args) => {
     const { file } = args
