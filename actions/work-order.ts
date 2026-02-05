@@ -477,7 +477,7 @@ export const updateWorkeOrderStatus = action
   .use(authenticationMiddleware)
   .schema(workOrderStatusUpdateFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { workOrders, currentStatus, comments } = parsedInput
+    const { workOrders, currentStatus, comments, trackingNum } = parsedInput
     const { userId } = ctx
 
     const workOrderCodes = workOrders.map((wo) => wo.code)
@@ -512,6 +512,7 @@ export const updateWorkeOrderStatus = action
                       currentStatus,
                       comments,
                       createdBy: userId,
+                      trackingNum,
                     },
                   },
                 },
