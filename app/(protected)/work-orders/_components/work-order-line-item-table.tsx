@@ -31,7 +31,6 @@ import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import { handleOnRowPrepared } from '@/utils/devextreme'
 import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES, DEFAULT_COLUMN_MIN_WIDTH, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { WorkOrderForm, WorkOrderItemForm } from '@/schema/work-order'
-import WorkOrderLineItemForm from './work-order-line-item-form'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import useUsers from '@/hooks/safe-actions/user'
@@ -47,12 +46,14 @@ import { Icons } from '@/components/icons'
 import { parseExcelFile } from '@/utils/xlsx'
 import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
+import WorkOrderLineItemForm from './work-order-line-item-form'
 
 type WorkOrderLineItemsFormProps = {
   workOrder: Awaited<ReturnType<typeof getWorkOrderByCode>>
   workOrderItems: ReturnType<typeof useWoItemsByWoCode>
   projectCode?: number
   projectName?: string
+  projectGroupName?: string
   isLoading?: boolean
 }
 
@@ -61,6 +62,7 @@ export default function WorkOrderLineItemTable({
   workOrderItems,
   projectCode,
   projectName,
+  projectGroupName,
   isLoading,
 }: WorkOrderLineItemsFormProps) {
   const dataGridRef = useRef<DataGridRef | null>(null)
@@ -80,8 +82,6 @@ export default function WorkOrderLineItemTable({
   const lineItems = useWatch({ control: form.control, name: 'lineItems' }) || []
 
   const projectItems = useProjecItems(projectCode ?? 0)
-  const warehouses = useWarehouses()
-  const users = useUsers()
 
   const workOrderStatus = useMemo(() => safeParseInt(workOrder?.status), [JSON.stringify(workOrder)])
 
@@ -89,16 +89,6 @@ export default function WorkOrderLineItemTable({
     setRowData(null)
     setIsOpen(true)
   }, [])
-
-  const handleEdit = useCallback(
-    (e: DataGridTypes.ColumnButtonClickEvent) => {
-      const data = e.row?.data
-      if (!data) return
-      setIsOpen(true)
-      setRowData({ ...data, maxQty: data?.availableToOrder })
-    },
-    [setIsOpen, setRowData]
-  )
 
   const handleDelete = useCallback(
     (e: DataGridTypes.ColumnButtonClickEvent) => {
@@ -137,9 +127,9 @@ export default function WorkOrderLineItemTable({
 
   const handleOnRowUpdated = useCallback(
     (e: DataGridTypes.RowUpdatedEvent<any, any>) => {
-      const index = e.key
+      const key = e.key
       const updatedRows = [...workOrderItemsDataSource]
-      const rowIndex = updatedRows.findIndex((x) => x.projectItemCode === index)
+      const rowIndex = updatedRows.findIndex((x) => x.projectItemCode === key)
 
       if (rowIndex !== -1) {
         updatedRows[rowIndex] = e.data //* update rows
@@ -309,7 +299,7 @@ export default function WorkOrderLineItemTable({
           const totalStock = safeParseFloat(pItem?.totalStock)
 
           const warehouse = pItem?.warehouse
-          const dateReceivedBy = pItem?.dateReceivedByUser ? `${pItem.dateReceivedByUser.fname}${pItem.dateReceivedByUser.lname ? ` ${pItem.dateReceivedByUser.lname}` : ''}` : '' // prettier-ignore
+          const dateReceivedBy = pItem?.dateReceivedByUser ? [pItem?.dateReceivedByUser?.fname, pItem?.dateReceivedByUser?.lname].filter(Boolean).join(' ') : '' // prettier-ignore
 
           return {
             projectItemCode: pItem?.code,
@@ -406,6 +396,9 @@ export default function WorkOrderLineItemTable({
             caption='Available To Order'
             alignment='left'
             format={DEFAULT_NUMBER_FORMAT}
+            allowEditing={false}
+            fixed
+            fixedPosition='right'
           />
           <Column
             dataField='qty'
@@ -415,6 +408,8 @@ export default function WorkOrderLineItemTable({
             alignment='left'
             allowEditing={workOrderStatus >= 1 ? false : true}
             cssClass={cn(workOrderStatus >= 1 ? '!bg-slate-100' : '')}
+            fixed
+            fixedPosition='right'
           >
             <CustomRule
               validationCallback={(e) => {
@@ -426,13 +421,6 @@ export default function WorkOrderLineItemTable({
           </Column>
 
           <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
-            <DataGridButton
-              icon='edit'
-              onClick={handleEdit}
-              cssClass='!text-lg'
-              hint='Edit'
-              visible={workOrderStatus >= 1 ? false : true}
-            />
             <DataGridButton
               icon='trash'
               onClick={handleDelete}
@@ -466,7 +454,7 @@ export default function WorkOrderLineItemTable({
             <Item location='after' widget='dxButton'>
               <Tooltip
                 target='#add-button'
-                contentRender={() => 'Add Line Item'}
+                contentRender={() => 'Add Line Item(s)'}
                 showEvent='mouseenter'
                 hideEvent='mouseleave'
                 position='top'
@@ -509,15 +497,14 @@ export default function WorkOrderLineItemTable({
           <Paging defaultPageSize={DATAGRID_DEFAULT_PAGE_SIZE} />
         </DataGrid>
 
-        <Popup visible={isOpen} dragEnabled={false} showTitle={false} onHiding={() => setIsOpen(false)} width={undefined}>
+        <Popup visible={isOpen} dragEnabled={false} showTitle={false} onHiding={() => setIsOpen(false)} maxWidth={1600} height={750}>
           <WorkOrderLineItemForm
+            projectGroupName={projectGroupName}
             projectName={projectName}
+            isOpen={isOpen}
             setIsOpen={setIsOpen}
-            onClose={handleClose}
-            lineItem={rowData || null}
-            users={users}
             projectItems={projectItems}
-            warehouses={warehouses}
+            workOrderStatus={workOrderStatus}
           />
         </Popup>
 

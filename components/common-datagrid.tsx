@@ -26,9 +26,12 @@ import { handleOnAdaptiveDetailRowPreparing, handleOnCellPrepared, handleOnRowPr
 import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES, DEFAULT_COLUMN_MIN_WIDTH } from '@/constants/devextreme'
 
 type DataGridCallbacks = {
+  onCellPrepared?: (e: DataGridTypes.CellPreparedEvent) => void
   onRowClick?: (e: DataGridTypes.RowClickEvent) => void
   onSelectionChanged?: (e: DataGridTypes.SelectionChangedEvent) => void
   onRowUpdated?: (e: DataGridTypes.RowUpdatedEvent<any, any>) => void
+  onRowPrepared?: (e: DataGridTypes.RowPreparedEvent) => void
+  onEditorPreparing?: (e: DataGridTypes.EditorPreparingEvent) => void
 }
 
 type CommonDataGridProps<T extends Record<string, any>> = {
@@ -44,6 +47,7 @@ type CommonDataGridProps<T extends Record<string, any>> = {
   isSelectSingle?: boolean
   dataGridStore: Partial<DataGridStore>
   pageSize?: number
+  filterValue?: any
 }
 
 //? In Devextreme you can implemenet remote pagination only and the rest like pagination, sorting, filtering, grouping, etc. is in client side.
@@ -75,13 +79,14 @@ export default function CommonDataGrid<T extends Record<string, any>>({
       // allowColumnResizing
       width='100%'
       height='100%'
-      selectedRowKeys={selectedRowKeys ?? []}
+      defaultSelectedRowKeys={selectedRowKeys ?? []}
       onRowClick={callbacks?.onRowClick}
       onSelectionChanged={callbacks?.onSelectionChanged}
-      onRowPrepared={handleOnRowPrepared}
+      onRowPrepared={callbacks?.onRowPrepared ?? handleOnRowPrepared}
       onRowUpdated={callbacks?.onRowUpdated}
-      onCellPrepared={handleOnCellPrepared}
+      onCellPrepared={callbacks?.onCellPrepared ?? handleOnCellPrepared}
       onAdaptiveDetailRowPreparing={handleOnAdaptiveDetailRowPreparing}
+      onEditorPreparing={callbacks?.onEditorPreparing}
       wordWrapEnabled
       columnAutoWidth={false}
       columnMinWidth={DEFAULT_COLUMN_MIN_WIDTH}
@@ -95,7 +100,7 @@ export default function CommonDataGrid<T extends Record<string, any>>({
       <GroupPanel visible={dataGridStore.showGroupPanel} />
       <ColumnFixing enabled />
       <Sorting mode='multiple' />
-      <Scrolling mode='infinite' rowRenderingMode='standard' columnRenderingMode='standard' />
+      <Scrolling mode='standard' rowRenderingMode='standard' columnRenderingMode='standard' />
       <ColumnChooser mode='select' allowSearch width={300} />
       <Export formats={['xlsx']} />
       {isSelectionEnable && <Selection mode={isSelectSingle ? 'single' : 'multiple'} />}

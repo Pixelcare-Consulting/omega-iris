@@ -4,10 +4,10 @@ import ScrollView from 'devextreme-react/scroll-view'
 import { Button } from 'devextreme-react/button'
 import { Item } from 'devextreme-react/toolbar'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { FormProvider, useForm, useWatch } from 'react-hook-form'
+import { FormProvider, useForm, useFormState, useWatch } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
 import { useParams } from 'next/navigation'
-import { useEffect, useMemo } from 'react'
+import { useContext, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 
@@ -27,12 +27,15 @@ import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import { useBps } from '@/hooks/safe-actions/business-partner'
 import { commonItemRender } from '@/utils/devextreme'
 import CanView from '@/components/acl/can-view'
+import { NotificationContext } from '@/context/notification'
 
 type UserFormProps = { pageMetaData: PageMetadata; user: Awaited<ReturnType<typeof getUserByCode>> }
 
 export default function UserForm({ pageMetaData, user }: UserFormProps) {
   const router = useRouter()
   const { code } = useParams() as { code: string }
+
+  // const notificationContext = useContext(NotificationContext)
 
   const isCreate = code === 'add' || !user
 
@@ -100,9 +103,11 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
 
       if (result?.data && result?.data?.user && 'id' in result?.data?.user) {
         router.refresh()
+        // notificationContext?.handleRefresh()
 
         setTimeout(() => {
-          router.push(`/users/${result.data.user.code}`)
+          if (isCreate) router.push(`/users`)
+          else router.push(`/users/${result.data.user.code}`)
         }, 1500)
       }
     } catch (error) {
@@ -120,16 +125,12 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
     }
   }, [oldPassword])
 
-  useEffect(() => {
-    console.log({ customers })
-  }, [JSON.stringify(customers)])
-
   return (
     <FormProvider {...form}>
       <form className='flex h-full w-full flex-col gap-5' onSubmit={form.handleSubmit(handleOnSubmit)}>
         <PageHeader title={pageMetaData.title} description={pageMetaData.description}>
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <Button text='Back' stylingMode='outlined' type='default' onClick={() => router.push('/users')} />
+            <Button text='Back' icon='arrowleft' stylingMode='outlined' type='default' onClick={() => router.push('/users')} />
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>
@@ -274,7 +275,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                       isLoading={customers.isLoading}
                       control={form.control}
                       name='customerCode'
-                      label='Customer Code'
+                      label='Customer'
                       valueExpr='CardCode'
                       displayExpr='CardName'
                       searchExpr={['CardName', 'CardCode', 'GroupName']}
@@ -292,13 +293,13 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                     />
                   </div>
 
-                  <div className='col-span-12 md:col-span-6'>
+                  {/* <div className='col-span-12 md:col-span-6'>
                     <SelectBoxField
                       data={suppliers.data}
                       isLoading={suppliers.isLoading}
                       control={form.control}
                       name='supplierCode'
-                      label='Supplier Code'
+                      label='Supplier'
                       valueExpr='CardCode'
                       displayExpr='CardName'
                       searchExpr={['CardName', 'CardCode', 'GroupName']}
@@ -314,7 +315,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                         },
                       }}
                     />
-                  </div>
+                  </div> */}
                 </>
               )}
             </div>

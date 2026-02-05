@@ -19,7 +19,7 @@ export const uploadFileAttachmentFormSchema = z.object({
       formData: z.any(),
     })
   ),
-  modelName: z.string(),
+  modulelName: z.string(),
   total: z.number(),
   stats: z.object({
     total: z.number(),

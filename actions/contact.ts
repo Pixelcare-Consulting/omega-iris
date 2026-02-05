@@ -11,7 +11,7 @@ export async function getContacts(cardCode: string) {
   if (!cardCode) return []
 
   try {
-    return db.contact.findMany({ where: { CardCode: cardCode } })
+    return db.contact.findMany({ where: { CardCode: cardCode }, orderBy: { updatedAt: 'asc' } })
   } catch (error) {
     console.error(error)
     return []

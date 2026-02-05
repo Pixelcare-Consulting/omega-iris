@@ -122,7 +122,7 @@ export default function ProjectIndividualPicTab({ projectCode, pics, users }: Pr
         <CommonPageHeaderToolbarItems dataGridUniqueKey={DATAGRID_UNIQUE_KEY} dataGridRef={dataGridRef} />
       </Toolbar>
 
-      {form.formState.errors.pics && <div className='px-4 text-xs text-red-500'>{form.formState.errors.pics.message}</div>}
+      {form?.formState?.errors?.pics && <div className='px-4 text-xs text-red-500'>{form?.formState?.errors?.pics?.message}</div>}
 
       <PageContentWrapper className='max-h-[calc(100%_-_68px)]'>
         <CommonDataGrid

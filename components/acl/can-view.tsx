@@ -1,7 +1,7 @@
 'use client'
 
+import { AbilityContext } from '@/context/ability'
 import { useContext } from 'react'
-import { AbilityContext } from './can'
 
 type CanViewProps = {
   children?: React.ReactNode

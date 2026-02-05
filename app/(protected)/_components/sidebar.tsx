@@ -11,7 +11,7 @@ import { useMediaQuery } from '@/hooks/use-media-query'
 import { filterNavigationByAbility, markSelectedAndExpand, navigation } from '@/constants/menu'
 import { usePathname } from 'next/navigation'
 import { DxEvent, PointerInteractionEvent } from 'devextreme/events'
-import { AbilityContext } from '@/components/acl/can'
+import { AbilityContext } from '@/context/ability'
 
 type SidebarProps = { isOpen: boolean; setIsOpen: React.Dispatch<React.SetStateAction<boolean>>; children: React.ReactNode }
 
@@ -99,13 +99,13 @@ export default function Sidebar({ isOpen, setIsOpen, children }: SidebarProps) {
     >
       <main
         id='app-main-content'
-        className={cn('mt-[2px] h-[calc(100vh_-_54px)] w-full border-0 bg-slate-50 p-4', largeMedia && !isOpen && 'border-l')}
+        className={cn('mt-[0.5px] h-[calc(100vh_-_52.5px)] w-full border-0 bg-slate-50 p-4', largeMedia && !isOpen && 'border-l')}
       >
         {children}
       </main>
 
       <Template name='menu'>
-        <div className='mt-[2px] flex h-[calc(100vh_-_54px)] w-[248px] flex-col bg-white shadow-md'>
+        <div className='bg-primary-black mt-[0.5px] flex h-[calc(100vh_-_52.5px)] w-[248px] flex-col shadow-md'>
           <div className='flex min-h-full flex-1 overflow-auto py-2'>
             <TreeView
               className='sidebar-treeview'

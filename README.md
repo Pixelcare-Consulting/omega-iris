@@ -10,6 +10,7 @@ Omga GTI Inventory Management System
 - components/acl - global reusable custom acl components
 - components/providers - global reusable custom providers
 - constants/ - global constants
+- context/ - global react context
 - hooks/ - global react custom hooks
 - hooks/safe-actions/ - global react custom hooks for next-safe-actions
 - prisma/ - prisma schema and migration files

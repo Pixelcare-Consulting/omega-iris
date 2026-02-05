@@ -65,6 +65,16 @@ export const navigation: NavItem[] = [
   },
   {
     id: uuidv4(),
+    text: 'Suppliers',
+    icon: 'group',
+    path: '/suppliers',
+    selected: false,
+    expanded: false,
+    subjects: 'p-suppliers',
+    actions: ['view', 'view (owner)'],
+  },
+  {
+    id: uuidv4(),
     text: 'Projects',
     icon: 'folder',
     selected: false,

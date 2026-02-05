@@ -9,6 +9,7 @@
     /** 1rem = 16px */
     --dx-font-size: 0.8rem;
     --primary: 237, 28, 36;
+    --primary-black: 41, 43, 45;
   }
 
   .dark {
@@ -17,8 +18,37 @@
 }
 
 /** custom devextreme styles/overrdes */
+
+/** sidebar treeview */
 .sidebar-treeview .dx-treeview-item {
-  @apply flex-row-reverse text-sm font-medium;
+  @apply flex-row-reverse text-sm font-medium text-white;
+}
+.sidebar-treeview .dx-treeview-item.dx-state-hover {
+  @apply !bg-primary !text-white;
+}
+.sidebar-treeview .dx-treeview-toggle-item-visibility {
+  @apply !text-white;
+}
+.sidebar-treeview .dx-treeview-node.dx-treeview-item-without-checkbox.dx-state-selected > div {
+  @apply !bg-primary !text-white;
+}
+
+/** set custom styyling for toolbar header */
+.toolbar-header .dx-toolbar-item .dx-button .dx-icon {
+  @apply !text-white;
+}
+
+.toolbar-header .dx-toolbar-item .dx-dropdownbutton .dx-buttongroup .dx-button .dx-button-content {
+  @apply !text-white;
+}
+.toolbar-header .dx-toolbar-item .dx-button.dx-state-focused,
+.toolbar-header .dx-toolbar-item .dx-dropdownbutton .dx-buttongroup .dx-button.dx-state-focused {
+  @apply !bg-primary !text-white;
+}
+
+.toolbar-header .dx-toolbar-item .dx-button.dx-state-hover,
+.toolbar-header .dx-toolbar-item .dx-dropdownbutton.dx-state-hover {
+  @apply rounded-md !bg-primary !text-white;
 }
 
 /** set font size of datagrid */
@@ -35,4 +65,17 @@ tr.dx-row > td {
 /** set datagrid 'no data' text font size */
 .dx-datagrid-nodata {
   font-size: 0.9rem !important;
+}
+
+/** set custom styling for header row of datagrid */
+.dx-header-row > td {
+  @apply !bg-primary-black !text-white;
+}
+
+.dx-header-row > td:hover {
+  @apply !bg-primary;
+}
+.dx-header-row > td:hover .dx-datagrid-text-content,
+.dx-header-row > td .dx-column-indicators > span {
+  @apply !text-white;
 }

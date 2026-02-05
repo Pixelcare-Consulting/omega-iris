@@ -5,7 +5,7 @@ import { useFieldArray, useFormContext, useWatch } from 'react-hook-form'
 import Button from 'devextreme-react/button'
 import Tooltip from 'devextreme-react/tooltip'
 
-import { bpContactsFormSchema, BusinessPartnerForm } from '@/schema/business-partner'
+import { bpContactsFormSchema, BusinessPartnerForm, type ContactForm } from '@/schema/business-partner'
 import TextBoxField from '@/components/forms/text-box-field'
 import { Badge } from '@/components/badge'
 import AlertDialog from '@/components/alert-dialog'
@@ -26,7 +26,7 @@ export default function ContactForm({ bpContacts }: ContactFormProps) {
   const [contactIndex, setContactIndex] = useState(-1)
   const [showContactConfirmation, setShowContactConfirmation] = useState(false)
 
-  const [selectedIndex, setSelectedIndex] = useState<{ index: number } | null>(null)
+  const [selectedIndex, setSelectedIndex] = useState<{ index: number; data?: ContactForm } | null>(null)
 
   const contactsFieldArray = useFieldArray({ control: mainForm.control, name: 'contacts' })
 
@@ -79,9 +79,9 @@ export default function ContactForm({ bpContacts }: ContactFormProps) {
     setContactIndex((prev) => prev - 1)
   }
 
-  const handleRemoveContact = (index: number) => {
+  const handleRemoveContact = (index: number, data?: ContactForm) => {
     setShowContactConfirmation(true)
-    setSelectedIndex({ index })
+    setSelectedIndex({ index, data })
   }
 
   const handleConfirmRemoveContact = (index: number) => {
@@ -113,6 +113,10 @@ export default function ContactForm({ bpContacts }: ContactFormProps) {
       setContactIndex(0)
     }
   }, [cardCode, JSON.stringify(bpContacts), JSON.stringify(contacts)])
+
+  // useEffect(() => {
+  //   console.log({ bpContacts })
+  // }, [bpContacts])
 
   if (bpContacts.isLoading)
     return (
@@ -189,7 +193,7 @@ export default function ContactForm({ bpContacts }: ContactFormProps) {
                   stylingMode='outlined'
                   type='default'
                   disabled={contactsFieldArray.fields.length === 0 || contactIndex === -1}
-                  onClick={() => handleRemoveContact(contactIndex)}
+                  onClick={() => handleRemoveContact(contactIndex, contactsFieldArray.fields[contactIndex])}
                 />
               </div>
             </div>
@@ -286,7 +290,7 @@ export default function ContactForm({ bpContacts }: ContactFormProps) {
             <AlertDialog
               isOpen={showContactConfirmation}
               title='Are you sure?'
-              description={`Are you sure you want to remove the contact #${(selectedIndex?.index ?? -1) + 1} ?`}
+              description={`Are you sure you want to remove the contact #${(selectedIndex?.index ?? -1) + 1} with name ${selectedIndex?.data?.ContactName} ?`}
               onConfirm={() => handleConfirmRemoveContact(selectedIndex?.index ?? -1)}
               onCancel={() => setShowContactConfirmation(false)}
             />

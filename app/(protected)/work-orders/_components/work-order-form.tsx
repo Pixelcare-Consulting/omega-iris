@@ -10,10 +10,11 @@ import { useParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
+import Popup from 'devextreme-react/popup'
 
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
-import { WORK_ORDER_STATUS_OPTIONS, type WorkOrderForm, workOrderFormSchema } from '@/schema/work-order'
+import { WORK_ORDER_STATUS_OPTIONS, type WorkOrderForm, workOrderFormSchema, workOrderStatusUpdateFormSchema } from '@/schema/work-order'
 import LoadingButton from '@/components/loading-button'
 import { getWorkOrderByCode, upsertWorkOrder } from '@/actions/work-order'
 import { PageMetadata } from '@/types/common'
@@ -30,12 +31,13 @@ import ReadOnlyField from '@/components/read-only-field'
 import WorkOrderLineItemTable from './work-order-line-item-table'
 import useDebug from '@/hooks/use-debug'
 import { useWoItemsByWoCode } from '@/hooks/safe-actions/work-order-item'
-import { safeParseFloat } from '@/utils'
+import { safeParseFloat, safeParseInt } from '@/utils'
 import { FormDebug } from '@/components/forms/form-debug'
 import { useAddresses } from '@/hooks/safe-actions/address'
 import { useSalesOrderByWorkOrderCode } from '@/hooks/safe-actions/sales-order'
 import CanView from '@/components/acl/can-view'
 import { useSession } from 'next-auth/react'
+import WorkOrderUpdateStatusForm from './work-order-update-status-form'
 
 type WorkOrderFormProps = {
   pageMetaData: PageMetadata
@@ -50,7 +52,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
   const isCreate = code === 'add' || !workOrder
 
-  const values = useMemo(() => {
+  const formValues = useMemo(() => {
     const roleKey = session?.user.roleKey
     const isBusinessPartner = roleKey === 'business-partner'
 
@@ -78,11 +80,38 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
     return undefined
   }, [isCreate, JSON.stringify(workOrder), JSON.stringify(session)])
 
+  const workOrderStatusUpdateFormValues = useMemo(() => {
+    if (isCreate) return undefined
+
+    return {
+      workOrders: [
+        {
+          code: workOrder.code,
+          prevStatus: workOrder.status,
+          deliveredProjectItems: [],
+        },
+      ],
+      currentStatus: '',
+      comments: '',
+      trackingNum: '',
+    }
+  }, [isCreate, JSON.stringify(workOrder)])
+
   const form = useForm({
     mode: 'onChange',
-    values,
+    values: formValues,
     resolver: zodResolver(workOrderFormSchema),
   })
+
+  const workOrderStatusUpdateForm = useForm({
+    mode: 'onChange',
+    values: workOrderStatusUpdateFormValues,
+    resolver: zodResolver(workOrderStatusUpdateFormSchema),
+  })
+
+  const currentStatus = useWatch({ control: workOrderStatusUpdateForm.control, name: 'currentStatus' })
+
+  const [showUpdateStatusForm, setShowUpdateStatusForm] = useState(false)
 
   const projectCode = useWatch({ control: form.control, name: 'projectIndividualCode' })
   const userCode = useWatch({ control: form.control, name: 'userCode' })
@@ -150,11 +179,23 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
       return {
         ...pi,
-        fullName: `${user.fname}${user.lname ? ` ${user.lname}` : ''}`,
+        fullName: `${[user?.fname, user?.lname].filter(Boolean).join(' ')}`,
         email: user.email,
+        customerCode: user?.customerCode,
       }
     })
   }, [JSON.stringify(piCustomers)])
+
+  const handleCloseUpdateStatusForm = () => {
+    workOrderStatusUpdateForm.reset()
+    setTimeout(() => workOrderStatusUpdateForm.clearErrors(), 100)
+    setShowUpdateStatusForm(false)
+  }
+
+  const handleWorkOrderStatusUpdateSubmitCallback = () => {
+    if (!workOrder?.code) return
+    workOrderItems.execute({ workOrderCode: workOrder.code })
+  }
 
   const handleOnSubmit = async (formData: WorkOrderForm) => {
     try {
@@ -173,7 +214,8 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
         workOrderItems.execute({ workOrderCode: result.data.workOrder.code })
 
         setTimeout(() => {
-          router.push(`/work-orders/${result.data.workOrder.code}`)
+          if (isCreate) router.push(`/work-orders`)
+          else router.push(`/work-orders/${result.data.workOrder.code}`)
         }, 1500)
       }
     } catch (error) {
@@ -205,10 +247,32 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
   return (
     <FormProvider {...form}>
+      {workOrder && (
+        <FormProvider {...workOrderStatusUpdateForm}>
+          <Popup
+            visible={showUpdateStatusForm}
+            dragEnabled={false}
+            showTitle={false}
+            onHiding={() => setShowUpdateStatusForm(false)}
+            width={undefined}
+            maxWidth={1200}
+            height={currentStatus !== '5' ? 410 : 750}
+          >
+            <WorkOrderUpdateStatusForm
+              selectedRowKeys={[workOrder.code]}
+              onClose={handleCloseUpdateStatusForm}
+              filterStatus={safeParseInt(workOrder.status)}
+              callback={handleWorkOrderStatusUpdateSubmitCallback}
+              isRedirect
+            />
+          </Popup>
+        </FormProvider>
+      )}
+
       <form className='flex h-full w-full flex-col gap-5' onSubmit={form.handleSubmit(handleOnSubmit)}>
         <PageHeader title={pageMetaData.title} description={pageMetaData.description}>
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <Button text='Back' stylingMode='outlined' type='default' onClick={() => router.push('/work-orders')} />
+            <Button text='Back' icon='arrowleft' stylingMode='outlined' type='default' onClick={() => router.push('/work-orders')} />
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>
@@ -248,6 +312,21 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                   }}
                 />
               </CanView>
+
+              {safeParseInt(workOrder.status) < 6 && (
+                <CanView subject='p-work-orders' action='update status'>
+                  <Item
+                    location='after'
+                    locateInMenu='always'
+                    widget='dxButton'
+                    options={{
+                      text: 'Update Status',
+                      icon: 'rename',
+                      onClick: () => setShowUpdateStatusForm(true),
+                    }}
+                  />
+                </CanView>
+              )}
             </>
           )}
         </PageHeader>
@@ -296,15 +375,15 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                   name='userCode'
                   label='Owner'
                   valueExpr='userCode'
-                  displayExpr='fullName'
-                  searchExpr={['userCode', 'fullName', 'email']}
+                  displayExpr={(item) => (item ? `${item?.fullName} ${item?.customerCode ? `(${item?.customerCode})` : ''}` : '')}
+                  searchExpr={['userCode', 'fullName', 'email', 'customerCode']}
                   isRequired
                   extendedProps={{
                     selectBoxOptions: {
                       disabled: session?.user.roleKey !== 'admin',
                       itemRender: (params) => {
                         return commonItemRender({
-                          title: params?.fullName,
+                          title: `${params.fullName} ${params?.customerCode ? `(${params?.customerCode})` : ''}`,
                           description: params?.email,
                           value: params?.userCode,
                           valuePrefix: '#',
@@ -390,6 +469,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                 workOrderItems={workOrderItems}
                 projectCode={selectedProject?.code}
                 projectName={selectedProject?.name}
+                projectGroupName={selectedProject?.projectGroup?.name}
                 isLoading={false}
               />
             </div>

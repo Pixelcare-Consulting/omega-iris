@@ -68,13 +68,26 @@ export function toKebabCase(text: string, toLowerCase = false) {
     .replace(/-+/g, '-') //* Collapse multiple dashes
 }
 
+export function splitCamelCase(text: string) {
+  if (!text || typeof text !== 'string') return ''
+
+  return (
+    text
+      //* Add space between lowercase/number and uppercase (e.g. "userName" → "user Name")
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      //* Handle cases like "APIResponse" → "API Response"
+      .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
+      .trim()
+  )
+}
+
 export function safeParseFloat(value: any) {
   const num = parseFloat(value)
   return isNaN(num) || !isFinite(num) ? 0 : num
 }
 
-export function safeParseInt(value: any) {
-  const num = parseInt(value)
+export function safeParseInt(value: any, radix?: number) {
+  const num = parseInt(value, radix)
   return isNaN(num) || !isFinite(num) ? 0 : num
 }
 

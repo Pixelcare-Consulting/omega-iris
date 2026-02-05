@@ -10,6 +10,8 @@ import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import { importFormSchema } from '@/schema/import'
 import { getCurrentUserAbility } from './auth'
+import { createNotification } from './notification'
+import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 
 const COMMON_PROJECT_GROUP_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectGroupOrderByWithRelationInput
 
@@ -127,7 +129,43 @@ export const upsertPg = action
             },
           },
         },
+        include: {
+          projectGroupPics: {
+            //* only return the p.i.c that has role which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                role: {
+                  rolePermissions: {
+                    some: {
+                      permission: { code: PERMISSIONS_CODES['PROJECT GROUPS'] },
+                      actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                    },
+                  },
+                },
+              },
+            },
+            select: { userCode: true },
+          },
+        },
       })
+
+      // //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES['PROJECT GROUPS'],
+      //   title: 'Project Group Created',
+      //   message: `A new project group (#${newPg.code}) was created by ${ctx.fullName}.`,
+      //   link: `/project/groups/${newPg.code}/view`,
+      //   entityType: 'ProjectGroup' as Prisma.ModelName,
+      //   entityCode: newPg.code,
+      //   entityId: newPg.id,
+      //   userCodes: [],
+      // })
+      //   .then(() => {
+      //     //* notify assigned p.i.cs
+      //     //* do not notify already notified user
+      //     // Promise.all()
+      //   })
+      //   .catch((error) => console.error(error))
 
       return {
         status: 200,

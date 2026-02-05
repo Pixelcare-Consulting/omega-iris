@@ -76,7 +76,8 @@ export default function ProjectGroupForm({ pageMetaData, projectGroup }: Project
         router.refresh()
 
         setTimeout(() => {
-          router.push(`/project/groups/${result.data.projectGroup.code}`)
+          if (isCreate) router.push(`/project/groups`)
+          else router.push(`/project/groups/${result.data.projectGroup.code}`)
         }, 1500)
       }
     } catch (error) {
@@ -90,7 +91,7 @@ export default function ProjectGroupForm({ pageMetaData, projectGroup }: Project
       <form className='flex h-full w-full flex-col gap-5' onSubmit={form.handleSubmit(handleOnSubmit)}>
         <PageHeader title={pageMetaData.title} description={pageMetaData.description}>
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <Button text='Back' stylingMode='outlined' type='default' onClick={() => router.push('/project/groups')} />
+            <Button text='Back' icon='arrowleft' stylingMode='outlined' type='default' onClick={() => router.push('/project/groups')} />
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>

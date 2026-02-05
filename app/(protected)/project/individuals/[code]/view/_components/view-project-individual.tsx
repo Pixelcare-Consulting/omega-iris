@@ -17,6 +17,8 @@ import ProjectIndividualItemTab from './_tabs/project-individual-item-tab'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import CanView from '@/components/acl/can-view'
 import { useSession } from 'next-auth/react'
+import { useBps } from '@/hooks/safe-actions/business-partner'
+import ProjectIndividualSupplierTab from './_tabs/project-individual-supplier-tab'
 
 type ViewProjectIndividualProps = {
   projectIndividual: NonNullable<Awaited<ReturnType<typeof getPiByCode>>>
@@ -29,6 +31,7 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
   const customerUsers = useUsersByRoleKey('business-partner')
   const nonCustomerUsers = useNonBpUsers()
   const items = useProjecItems(projectIndividual.code)
+  const suppliers = useBps('S', true)
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
@@ -77,6 +80,14 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
                   projectCode={projectIndividual.code}
                   customers={projectIndividual.customers}
                   users={customerUsers}
+                />
+              </TabPanelITem>
+
+              <TabPanelITem title='Suppliers'>
+                <ProjectIndividualSupplierTab
+                  projectCode={projectIndividual.code}
+                  suppliers={projectIndividual.suppliers}
+                  bps={suppliers}
                 />
               </TabPanelITem>
 

@@ -24,14 +24,23 @@ import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import WorkOrderLineItemsTobeDeliver from './work-order-line-items-tobe-deliver'
 import { useCallback, useEffect, useState } from 'react'
 import AlertDialog from '@/components/alert-dialog'
+import { safeParseInt } from '@/utils'
 
 type WorkOrderUpdateStatusFormProps = {
   selectedRowKeys: number[]
   onClose?: () => void
-  setCurrentStatus: React.Dispatch<React.SetStateAction<string | undefined>>
+  filterStatus?: number
+  callback?: () => void
+  isRedirect?: boolean //* isRedirect means its a single work order update which was done inside work order form not in work order table
 }
 
-export default function WorkOrderUpdateStatusForm({ selectedRowKeys, onClose, setCurrentStatus }: WorkOrderUpdateStatusFormProps) {
+export default function WorkOrderUpdateStatusForm({
+  selectedRowKeys,
+  onClose,
+  filterStatus,
+  callback,
+  isRedirect,
+}: WorkOrderUpdateStatusFormProps) {
   const router = useRouter()
 
   const form = useFormContext<WorkOrderStatusUpdateForm>()
@@ -64,6 +73,15 @@ export default function WorkOrderUpdateStatusForm({ selectedRowKeys, onClose, se
         if (onClose) {
           setTimeout(() => {
             onClose()
+
+            if (callback) callback()
+            if (isRedirect) {
+              const workOrder = result?.data?.workOrders[0]
+              const appliedStatus = safeParseInt(result.data.appliedStatus)
+
+              if (appliedStatus < 6) router.replace(`/work-orders/${workOrder.code}`)
+              else router.replace(`/work-orders`)
+            }
           }, 1000)
         }
       }
@@ -85,10 +103,6 @@ export default function WorkOrderUpdateStatusForm({ selectedRowKeys, onClose, se
     [JSON.stringify(workOrders)]
   )
 
-  useEffect(() => {
-    setCurrentStatus(currentStatus)
-  }, [currentStatus])
-
   return (
     <FormProvider {...form}>
       <div className='flex h-fit w-full flex-col gap-3'>
@@ -98,7 +112,7 @@ export default function WorkOrderUpdateStatusForm({ selectedRowKeys, onClose, se
           className='bg-transparent p-0 shadow-none'
         >
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <Button text='Back' stylingMode='outlined' type='default' onClick={onClose} />
+            <Button text='Back' icon='arrowleft' stylingMode='outlined' type='default' onClick={onClose} />
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>
@@ -129,7 +143,13 @@ export default function WorkOrderUpdateStatusForm({ selectedRowKeys, onClose, se
 
               <div className='col-span-12 md:col-span-6'>
                 <SelectBoxField
-                  data={WORK_ORDER_STATUS_OPTIONS}
+                  data={
+                    filterStatus !== undefined
+                      ? WORK_ORDER_STATUS_OPTIONS.filter(
+                          (s) => safeParseInt(s.value) > filterStatus || (safeParseInt(s.value) === 5 && filterStatus <= 5)
+                        )
+                      : WORK_ORDER_STATUS_OPTIONS
+                  }
                   control={form.control}
                   name='currentStatus'
                   label='Status'

@@ -2,7 +2,7 @@ import { Workbook } from 'exceljs'
 import { saveAs } from 'file-saver-es'
 import { exportDataGrid } from 'devextreme-react/common/export/excel'
 import { format } from 'date-fns'
-import dxDataGrid, { Column, dxDataGridColumn, dxDataGridRowObject, Row } from 'devextreme/ui/data_grid'
+import dxDataGrid from 'devextreme/ui/data_grid'
 import { DataGridTypes } from 'devextreme-react/cjs/data-grid'
 
 //* devextreme helpers functions
@@ -52,7 +52,7 @@ export function handleOnCellPrepared(e: DataGridTypes.CellPreparedEvent) {
   if (rowType === 'data') {
     //* condition when column type is selection
     if (column?.type === 'selection') {
-      if (data?.deletedAt || data?.deletedBy) {
+      if (data?.deletedAt || data?.deletedBy || data?.syncStatus === 'synced') {
         if (checkbox) checkbox.style.display = 'none' //* hide checkbox if row has deletedAt or deletedBy
       }
     }

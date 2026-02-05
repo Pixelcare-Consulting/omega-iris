@@ -145,12 +145,20 @@ export default function WorkOrderLineItemView({ data, onClose }: WorkOrderLineIt
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 3' value={data?.subLocation3 || ''} />
 
-        <Separator className='col-span-12' />
-        <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Item Received ' description='Item date received and received by details' />
+        {!isBusinessPartner && (
+          <>
+            <Separator className='col-span-12' />
+            <ReadOnlyFieldHeader
+              className='col-span-12 mb-1'
+              title='Item Received '
+              description='Item date received and received by details'
+            />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Date Received' value={dateReceived} />
+            <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Date Received' value={dateReceived} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Date Received By' value={data?.dateReceivedBy} />
+            <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Date Received By' value={data?.dateReceivedBy} />
+          </>
+        )}
 
         {/*   //* Temporary disable */}
         {/* <Separator className='col-span-12' />

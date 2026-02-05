@@ -91,6 +91,7 @@ model RolePermission {
     permission Permission @relation(fields: [permissionId], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
     @@unique([roleId, permissionId])
+    @@index([actions], type: Gin)
 }
 
 model Profile {
@@ -130,6 +131,53 @@ model Account {
     @@id([provider, providerAccountId])
 }
 
+//* event notify
+model Notification {
+    id         String  @id @default(cuid())
+    code       Int     @unique @default(autoincrement())
+    title      String
+    message    String  @db.Text
+    link       String?
+    entityType String? //* user, project, item, etc
+    entityCode Int?
+    entityId   String?
+    metaData   Json? //* contains additional data
+
+    //* audience fields
+    userCodes  Int[]    @default([])
+    roleCodes  Int[]    @default([])
+    roleKeys   String[] @default([])
+    isGlobal   Boolean  @default(false)
+    isInternal Boolean  @default(false)
+
+    createdAt DateTime  @default(now())
+    expiresAt DateTime? //* should expire 1month  //* can be use to handle auto deletion of notification via cron job 
+    createdBy String?
+
+    receipts NotificationReceipt[]
+
+    //* Gin - Generalized Inverted Index (designed for fast and efficient querying of values such as Arrays, JSONB)
+    @@index([userCodes], type: Gin)
+    @@index([roleCodes], type: Gin)
+    @@index([roleKeys], type: Gin)
+}
+
+//* event user interaction
+model NotificationReceipt {
+    id               String @id @default(cuid())
+    code             Int    @unique @default(autoincrement())
+    notificationCode Int
+
+    userCode  Int
+    readAt    DateTime?
+    deletedAt DateTime?
+
+    notification Notification @relation(fields: [notificationCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([notificationCode, userCode])
+    @@index([userCode, readAt, deletedAt])
+}
+
 model BusinessPartner {
     id       String  @id @default(cuid())
     code     Int     @unique @default(autoincrement())
@@ -161,8 +209,9 @@ model BusinessPartner {
     updatedBy String?
     deletedBy String?
 
-    addresses Address[]
-    contacts  Contact[]
+    addresses                  Address[]
+    contacts                   Contact[]
+    projectIndividualSuppliers ProjectIndividualSupplier[] @relation(name: "BusinessPartner-ProjectIndividualSupplier")
 }
 
 model Address {
@@ -374,6 +423,7 @@ model ProjectIndividual {
 
     projectIndividualPics      ProjectIndividualPic[]      @relation(name: "ProjectIndividual-ProjectIndividualPic")
     projectIndividualCustomers ProjectIndividualCustomer[] @relation(name: "ProjectIndividual-ProjectIndividualCustomer")
+    projectIndividualSuppliers ProjectIndividualSupplier[] @relation(name: "ProjectIndividual-ProjectIndividualSupplier")
     items                      ProjectItem[]
     workOrders                 WorkOrder[]
 }
@@ -440,6 +490,26 @@ model ProjectIndividualCustomer {
     @@unique([projectIndividualCode, userCode])
     @@index([projectIndividualCode])
     @@index([userCode])
+}
+
+model ProjectIndividualSupplier {
+    id                    String @id @default(cuid())
+    projectIndividualCode Int
+    supplierCode          String
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    projectIndividual ProjectIndividual @relation(name: "ProjectIndividual-ProjectIndividualSupplier", fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    businessPartner   BusinessPartner   @relation(name: "BusinessPartner-ProjectIndividualSupplier", fields: [supplierCode], references: [CardCode], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([projectIndividualCode, supplierCode])
+    @@index([projectIndividualCode])
+    @@index([supplierCode])
 }
 
 model ProjectIndividualPic {
@@ -524,22 +594,22 @@ model WorkOrderItem {
 }
 
 model FileAttachment {
-    id        String @id @default(cuid())
-    code      Int    @unique @default(autoincrement())
-    refCode   Int? //* unique code of a entity
-    modelName String
-    name      String
-    type      String
-    size      Int
-    path      String
+    id          String @id @default(cuid())
+    code        Int    @unique @default(autoincrement())
+    refCode     Int? //* unique code of a entity
+    modulelName String
+    name        String
+    type        String
+    size        Int
+    path        String
 
     uploadedAt DateTime @default(now())
     updatedAt  DateTime @default(now()) @updatedAt
     uploadedBy String?
     updatedBy  String?
 
-    @@unique([modelName, name])
-    @@index([modelName])
+    @@unique([modulelName, name])
+    @@index([modulelName])
 }
 
 model Settings {

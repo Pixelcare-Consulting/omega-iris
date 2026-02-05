@@ -11,17 +11,15 @@ import { FileAttachmentErrorEntry } from '@/types/common'
 import { db } from '@/utils/db'
 import { paramsSchema } from '@/schema/common'
 import { fileExists, sanitizeFilename } from '@/utils/fileAttachment'
-
-const STORAGE_PATH = process.env.STORAGE_PATH || 'D:/omega-iris-storage'
-const MAX_FILE_SIZE = 100 * 1024 * 1024 //* 100 MB Limit
+import { MAX_FILE_SIZE, STORAGE_PATH } from '@/constants/file-attachment'
 
 const COMMON_FILE_ATTACHMENT_ORDER_BY = { code: 'asc' } satisfies Prisma.FileAttachmentOrderByWithRelationInput
 
-export async function getFileAttachmentsByRefCode(modelName: string, refCode?: number | null) {
-  if (!modelName) return []
+export async function getFileAttachmentsByRefCode(modulelName: string, refCode?: number | null) {
+  if (!modulelName) return []
 
   try {
-    return db.fileAttachment.findMany({ where: { modelName, ...(refCode && { refCode }) }, orderBy: COMMON_FILE_ATTACHMENT_ORDER_BY })
+    return db.fileAttachment.findMany({ where: { modulelName, ...(refCode && { refCode }) }, orderBy: COMMON_FILE_ATTACHMENT_ORDER_BY })
   } catch (error) {
     console.error(error)
     return []
@@ -30,16 +28,16 @@ export async function getFileAttachmentsByRefCode(modelName: string, refCode?: n
 
 export const getFileAttachmentsByRefCodeClient = action
   .use(authenticationMiddleware)
-  .schema(z.object({ modelName: z.string(), refCode: z.coerce.number().nullish() }))
+  .schema(z.object({ modulelName: z.string(), refCode: z.coerce.number().nullish() }))
   .action(async ({ parsedInput }) => {
-    return getFileAttachmentsByRefCode(parsedInput.modelName, parsedInput.refCode)
+    return getFileAttachmentsByRefCode(parsedInput.modulelName, parsedInput.refCode)
   })
 
 export const uploadFileAttachment = action
   .use(authenticationMiddleware)
   .schema(uploadFileAttachmentFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { refCode, files, modelName, total, stats, isLast } = parsedInput
+    const { refCode, files, modulelName, total, stats, isLast } = parsedInput
     const { userId } = ctx
 
     const uploaded: string[] = [] //* track written files for rollback
@@ -52,7 +50,7 @@ export const uploadFileAttachment = action
 
       const batch: Prisma.FileAttachmentCreateManyInput[] = []
 
-      //? Note: File attchement with already existing name and with already existing modelName will be updated, using upsert and replace in file system
+      //? Note: File attchement with already existing name and with already existing modulelName will be updated, using upsert and replace in file system
 
       for (let i = 0; i < files.length; i++) {
         const errors: FileAttachmentErrorEntry[] = []
@@ -60,7 +58,7 @@ export const uploadFileAttachment = action
         const file = formData.get('file') as File
 
         const safeFileName = sanitizeFilename(file.name) //* sanitize filename
-        const filePath = path.join(STORAGE_PATH, modelName, refCode ? refCode.toString() : '', safeFileName)
+        const filePath = path.join(STORAGE_PATH, modulelName, refCode ? refCode.toString() : '', safeFileName)
 
         //* check if file exceed max file size
         if (file.size > MAX_FILE_SIZE) {
@@ -101,7 +99,7 @@ export const uploadFileAttachment = action
         //* reshape data
         const toCreateOrUpdate: Prisma.FileAttachmentCreateManyInput = {
           refCode: refCode ?? null,
-          modelName,
+          modulelName,
           name: safeFileName,
           type: file.type,
           size: file.size,
@@ -118,9 +116,9 @@ export const uploadFileAttachment = action
           batch.map((b) =>
             tx.fileAttachment.upsert({
               where: {
-                modelName_name: {
+                modulelName_name: {
                   name: b.name,
-                  modelName: b.modelName,
+                  modulelName: b.modulelName,
                 },
               },
               create: {

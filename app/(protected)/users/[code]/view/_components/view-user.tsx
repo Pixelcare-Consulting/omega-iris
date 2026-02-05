@@ -61,7 +61,7 @@ export default function ViewUser({ user }: ViewUserProps) {
             <UserOverviewTab user={user} />
           </TabPanelITem>
 
-          <TabPanelITem
+          {/* <TabPanelITem
             title='Customer Details'
             badge='SAP'
             visible={user.role.key === 'business-partner' && user?.customerCode ? true : false}
@@ -69,9 +69,9 @@ export default function ViewUser({ user }: ViewUserProps) {
             <ScrollView>
               <UnderDevelopment className='h-[60vh]' />
             </ScrollView>
-          </TabPanelITem>
+          </TabPanelITem> */}
 
-          <TabPanelITem
+          {/* <TabPanelITem
             title='Supplier Details'
             badge='SAP'
             visible={user.role.key === 'business-partner' && user?.supplierCode ? true : false}
@@ -79,7 +79,7 @@ export default function ViewUser({ user }: ViewUserProps) {
             <ScrollView>
               <UnderDevelopment className='h-[60vh]' />
             </ScrollView>
-          </TabPanelITem>
+          </TabPanelITem> */}
         </TabPanel>
       </PageContentWrapper>
     </div>

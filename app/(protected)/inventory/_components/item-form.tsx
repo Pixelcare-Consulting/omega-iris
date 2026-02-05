@@ -111,7 +111,8 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
         // itemWarehouseInventory.execute({ itemCode: result.data.item.code })
 
         setTimeout(() => {
-          router.push(`/inventory/${result.data.item.code}`)
+          if (isCreate) router.push(`/inventory`)
+          else router.push(`/inventory/${result.data.item.code}`)
         }, 1500)
       }
     } catch (error) {
@@ -190,7 +191,7 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
       <form className='flex h-full w-full flex-col gap-5' onSubmit={form.handleSubmit(handleOnSubmit)}>
         <PageHeader title={pageMetaData.title} description={pageMetaData.description}>
           <Item location='after' locateInMenu='auto' widget='dxButton'>
-            <Button text='Back' stylingMode='outlined' type='default' onClick={() => router.push('/inventory')} />
+            <Button text='Back' icon='arrowleft' stylingMode='outlined' type='default' onClick={() => router.push('/inventory')} />
           </Item>
 
           <Item location='after' locateInMenu='auto' widget='dxButton'>
