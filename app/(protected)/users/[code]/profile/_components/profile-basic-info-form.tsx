@@ -5,6 +5,7 @@ import { FormProvider, useForm, useWatch, useFormState } from 'react-hook-form'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 import { useRouter } from 'nextjs-toploader/app'
+import { useSession } from 'next-auth/react'
 
 import { getUserByCode, updateBasicInfo } from '@/actions/users'
 import { getInitials } from '@/utils'
@@ -16,7 +17,7 @@ import SwitchField from '@/components/forms/switch-field'
 import LoadingButton from '@/components/loading-button'
 import Copy from '@/components/copy'
 import { FormDebug } from '@/components/forms/form-debug'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { isEmpty } from 'radash'
 
 type ProfileBasicInfoFormProps = {
@@ -24,6 +25,8 @@ type ProfileBasicInfoFormProps = {
 }
 
 export default function ProfileBasicInfoForm({ user }: ProfileBasicInfoFormProps) {
+  const { data: session } = useSession()
+
   const router = useRouter()
 
   const userFullName = `${user?.fname} ${user?.lname}`
@@ -39,7 +42,6 @@ export default function ProfileBasicInfoForm({ user }: ProfileBasicInfoFormProps
       roleCode: user.role.code,
       roleKey: user.role.key,
       isActive: user.isActive,
-      customerCode: user?.customerCode,
     },
     resolver: zodResolver(basicInfoFormSchema),
   })
@@ -47,8 +49,12 @@ export default function ProfileBasicInfoForm({ user }: ProfileBasicInfoFormProps
   const { executeAsync, isExecuting } = useAction(updateBasicInfo)
   const roles = useRoles()
 
-  const roleKey = useWatch({ control: form.control, name: 'roleKey' })
   const formState = useFormState({ control: form.control })
+
+  const isAdmin = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'admin'
+  }, [JSON.stringify(session)])
 
   const handleOnSubmit = async (formData: BasicInfoForm) => {
     try {
@@ -82,9 +88,16 @@ export default function ProfileBasicInfoForm({ user }: ProfileBasicInfoFormProps
     }
   }
 
+  const handleCancel = () => {
+    form.reset()
+    setTimeout(() => form.clearErrors(), 100)
+  }
+
   useEffect(() => {
     console.log({ formState })
   }, [formState])
+
+  console.log(`DEL-${Date.now()}`)
 
   return (
     <FormProvider {...form}>
@@ -99,7 +112,7 @@ export default function ProfileBasicInfoForm({ user }: ProfileBasicInfoFormProps
               stylingMode='contained'
               isLoading={isExecuting}
               disabled={isEmpty(formState.dirtyFields)}
-              onClick={() => form.reset()}
+              onClick={handleCancel}
             />
 
             <LoadingButton
@@ -159,30 +172,28 @@ export default function ProfileBasicInfoForm({ user }: ProfileBasicInfoFormProps
             <TextBoxField control={form.control} name='email' label='Email' isRequired />
           </div>
 
-          <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-            <SelectBoxField
-              data={roles.data}
-              isLoading={roles.isLoading}
-              control={form.control}
-              name='roleCode'
-              label='Role'
-              valueExpr='code'
-              displayExpr='name'
-              searchExpr={['name', 'description']}
-              isRequired
-              callback={(args) => form.setValue('roleKey', args.item?.key)}
-            />
-          </div>
+          {isAdmin && (
+            <>
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <SelectBoxField
+                  data={roles.data}
+                  isLoading={roles.isLoading}
+                  control={form.control}
+                  name='roleCode'
+                  label='Role'
+                  valueExpr='code'
+                  displayExpr='name'
+                  searchExpr={['name', 'description']}
+                  isRequired
+                  callback={(args) => form.setValue('roleKey', args.item?.key)}
+                />
+              </div>
 
-          {roleKey && roleKey === 'customer' && (
-            <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-              <TextBoxField control={form.control} name='customerCode' label='Customer Code' description='SAP customer code' isRequired />
-            </div>
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <SwitchField control={form.control} name='isActive' label='Active' description='Is this user active?' />
+              </div>
+            </>
           )}
-
-          <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-            <SwitchField control={form.control} name='isActive' label='Active' description='Is this user active?' />
-          </div>
         </div>
       </form>
     </FormProvider>

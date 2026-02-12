@@ -20,8 +20,6 @@ type ProfileChangePasswordFormProps = {
 export default function ProfileChangePasswordForm({ user }: ProfileChangePasswordFormProps) {
   const router = useRouter()
 
-  const userFullName = `${user?.fname} ${user?.lname}`
-
   const form = useForm({
     mode: 'onChange',
     values: {
@@ -65,6 +63,11 @@ export default function ProfileChangePasswordForm({ user }: ProfileChangePasswor
     }
   }
 
+  const handleCancel = () => {
+    form.reset()
+    setTimeout(() => form.clearErrors(), 100)
+  }
+
   //* clear password fields when old password is empty
   useEffect(() => {
     if (!oldPassword) {
@@ -87,7 +90,7 @@ export default function ProfileChangePasswordForm({ user }: ProfileChangePasswor
               stylingMode='contained'
               isLoading={isExecuting}
               disabled={isEmpty(formState.dirtyFields)}
-              onClick={() => form.reset()}
+              onClick={handleCancel}
             />
 
             <LoadingButton
