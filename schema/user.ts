@@ -13,7 +13,7 @@ export const userFormSchema = z
     roleCode: z.coerce.number().min(1, { message: 'Role is required' }),
     roleKey: z.string().min(1, { message: 'Role key is required' }),
     isActive: z.boolean(),
-    oldPassword: z.string().nullish(),
+    // oldPassword: z.string().nullish(),
     newPassword: z.string().nullish(),
     newConfirmPassword: z.string().nullish(),
     customerCode: z.string().nullish(),
@@ -54,61 +54,47 @@ export const userFormSchema = z
   .refine(
     (formObj) => {
       if (formObj.code && formObj.code !== -1) {
-        if (formObj.oldPassword && formObj.oldPassword !== null && formObj.oldPassword !== undefined) {
-          return formObj.oldPassword.length >= 8
+        if (formObj.newPassword !== null && formObj.newPassword !== undefined && formObj.newPassword.length > 0) {
+          return formObj.newPassword.length >= 8
         }
+      }
 
-        return true
-      } else return true
-    },
-    { message: 'Old password must be at least 8 characters', path: ['oldPassword'] }
-  )
-  .refine(
-    (formObj) => {
-      if (formObj.code && formObj.code !== -1) {
-        if (formObj.oldPassword && formObj.oldPassword !== null && formObj.oldPassword !== undefined) {
-          if (formObj.newPassword !== null && formObj.newPassword !== undefined) {
-            return formObj.newPassword.length >= 8
-          } else return true
-        }
-
-        return true
-      } else return true
+      return true
     },
     { message: 'New password must be at least 8 characters', path: ['newPassword'] }
   )
   .refine(
     (formObj) => {
       if (formObj.code && formObj.code !== -1) {
-        if (formObj.oldPassword && formObj.oldPassword !== null && formObj.oldPassword !== undefined) {
-          if (formObj.newConfirmPassword !== null && formObj.newConfirmPassword !== undefined) {
-            return formObj.newConfirmPassword.length >= 8
-          } else return true
-        }
+        if (
+          formObj.newPassword !== null &&
+          formObj.newPassword !== undefined &&
+          formObj.newPassword.length >= 8 &&
+          formObj.newConfirmPassword !== null &&
+          formObj.newConfirmPassword !== undefined
+        )
+          return formObj.newConfirmPassword.length >= 8
+      }
 
-        return true
-      } else return true
+      return true
     },
     { message: 'new confirm password must be at least 8 characters', path: ['newConfirmPassword'] }
   )
   .refine(
     (formObj) => {
       if (formObj.code && formObj.code !== -1) {
-        if (formObj.oldPassword && formObj.oldPassword !== null && formObj.oldPassword !== undefined) {
-          if (
-            formObj.newPassword &&
-            formObj.newPassword !== null &&
-            formObj.newPassword !== undefined &&
-            formObj.newConfirmPassword &&
-            formObj.newConfirmPassword !== null &&
-            formObj.newConfirmPassword !== undefined
-          ) {
-            return formObj.newPassword === formObj.newConfirmPassword
-          } else return true
-        }
+        if (
+          formObj.newPassword !== null &&
+          formObj.newPassword !== undefined &&
+          formObj.newPassword.length >= 8 &&
+          formObj.newConfirmPassword !== null &&
+          formObj.newConfirmPassword !== undefined &&
+          formObj.newConfirmPassword.length >= 8
+        )
+          return formObj.newPassword === formObj.newConfirmPassword
+      }
 
-        return true
-      } else return true
+      return true
     },
     { message: "New confirm passwords don't match", path: ['newConfirmPassword'] }
   )
@@ -122,7 +108,6 @@ export const basicInfoFormSchema = z.object({
   roleCode: z.coerce.number().min(1, { message: 'Role is required' }),
   roleKey: z.string().min(1, { message: 'Role key is required' }),
   isActive: z.boolean(),
-  customerCode: z.string().nullish(),
 })
 
 export const changePasswordFormSchema = z

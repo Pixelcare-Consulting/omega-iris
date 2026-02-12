@@ -27,6 +27,7 @@ import { importFormSchema } from '@/schema/import'
 import { createNotification } from './notification'
 import { PERMISSIONS_CODES } from '@/constants/permission'
 import { PER_PAGE } from '@/constants/business-partner'
+import { randomBytes } from 'crypto'
 
 const COMMON_BUSINESS_PARTNER_ORDER_BY = { CardCode: 'asc' } satisfies Prisma.BusinessPartnerOrderByWithRelationInput
 
@@ -449,6 +450,11 @@ export const deleteBp = action
   .use(authenticationMiddleware)
   .schema(paramsSchema.merge(z.object({ cardType: z.string() })))
   .action(async ({ ctx, parsedInput: data }) => {
+    function generateDeletedCardCode(code: string) {
+      const suffix = randomBytes(4).toString('hex').toUpperCase() //* 8 chars
+      return `DEL-${code}-${suffix}`
+    }
+
     try {
       const bp = await db.businessPartner.findUnique({ where: { code: data.code } })
 
@@ -460,7 +466,11 @@ export const deleteBp = action
           action: 'DELETE_BUSINESS_PARTNER',
         }
 
-      await db.businessPartner.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
+      //* modify also the card code of the bp so that auto generate card code will still be able to be assign to new bp if it still be available
+      await db.businessPartner.update({
+        where: { code: data.code },
+        data: { CardCode: generateDeletedCardCode(bp.CardCode), deletedAt: new Date(), deletedBy: ctx.userId },
+      })
 
       //* create notification
       // void createNotification(ctx, {

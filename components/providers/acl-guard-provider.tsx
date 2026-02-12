@@ -37,6 +37,12 @@ export default function ACLGuardProvider({ session, children }: ACLGuardProvider
     if (!ability || !user) return
     if (pathname === '/unauthorized') return
 
+    //* user profile -  user/<USER_CODE>/profile
+    const userProfilePaths = /^\/users\/\d+\/profile$/
+
+    //* white list routes
+    if (userProfilePaths.test(pathname)) return
+
     const menuItem = findNavByPath(navigation, pathname)
 
     if (!menuItem || !menuItem.actions || !menuItem.subjects) return

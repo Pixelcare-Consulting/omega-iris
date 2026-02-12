@@ -144,7 +144,7 @@ export const upsertUser = action
   .use(authenticationMiddleware)
   .schema(userFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, password, confirmPassword, oldPassword, newPassword, newConfirmPassword, roleKey, ...data } = parsedInput
+    const { code, password, confirmPassword, newPassword, newConfirmPassword, roleKey, ...data } = parsedInput
     const { userId } = ctx
 
     try {
@@ -182,13 +182,7 @@ export const upsertUser = action
 
         let hashedPassword = user.password
 
-        if (oldPassword && newPassword) {
-          //* if old password is provided, check if it matches the current password
-          if (user.password) {
-            const isPasswordMatch = await bcrypt.compare(oldPassword, user.password)
-            if (!isPasswordMatch) return { error: true, status: 409, message: 'Old password does not match', action: 'UPSERT_USER' }
-          }
-
+        if (newPassword) {
           hashedPassword = await bcrypt.hash(newPassword, 10)
         }
 
@@ -326,7 +320,7 @@ export const changePassword = action
   .use(authenticationMiddleware)
   .schema(changePasswordFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, oldPassword, newPassword, newConfirmPassword } = parsedInput
+    const { code, oldPassword, newPassword } = parsedInput
     const { userId } = ctx
 
     try {

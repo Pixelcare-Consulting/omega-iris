@@ -71,7 +71,6 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
     resolver: zodResolver(userFormSchema),
   })
 
-  const oldPassword = useWatch({ control: form.control, name: 'oldPassword' })
   const roleKey = useWatch({ control: form.control, name: 'roleKey' })
 
   const { executeAsync, isExecuting } = useAction(upsertUser)
@@ -85,8 +84,6 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
       const result = response?.data
 
       if (result?.error) {
-        if (result.status === 409) form.setError('oldPassword', { type: 'custom', message: result.message })
-
         if (result.status === 401 && result.paths && result.paths.length > 0) {
           result.paths.forEach((path) => {
             const field = path.field as keyof UserForm
@@ -114,15 +111,6 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
       toast.error('Something went wrong! Please try again later.')
     }
   }
-
-  //* clear password fields when old password is empty
-  useEffect(() => {
-    if (!oldPassword) {
-      form.setValue('newPassword', '')
-      form.setValue('newConfirmPassword', '')
-      form.clearErrors(['newPassword', 'newConfirmPassword'])
-    }
-  }, [oldPassword])
 
   return (
     <FormProvider {...form}>
@@ -227,16 +215,6 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                 </>
               ) : (
                 <>
-                  <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                    <TextBoxField
-                      control={form.control}
-                      name='oldPassword'
-                      label='Old Password'
-                      isRequired
-                      extendedProps={{ textBoxOptions: { mode: 'password' } }}
-                    />
-                  </div>
-
                   <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                     <TextBoxField
                       control={form.control}

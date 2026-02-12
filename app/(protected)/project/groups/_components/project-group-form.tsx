@@ -69,6 +69,10 @@ export default function ProjectGroupForm({ pageMetaData, projectGroup }: Project
       const result = response?.data
 
       if (result?.error) {
+        if (result.status === 401) {
+          form.setError('name', { type: 'custom', message: result.message })
+        }
+
         toast.error(result.message)
         return
       }
