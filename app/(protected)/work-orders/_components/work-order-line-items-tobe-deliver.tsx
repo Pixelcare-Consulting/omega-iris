@@ -105,8 +105,6 @@ function WorkOrderLineItemsTobeDeliver({ workOrderCodes, showConfirmation, setSh
     [JSON.stringify(currentWorkOrderLineItems), JSON.stringify(wosFormField)]
   )
 
-  //TODO: use isDelivered column of line items to determine which line items has beed delivered/qty credited
-
   const handlePrevoiusWorkOrder = () => {
     setWorkOrderIndex((prev) => prev - 1)
   }
@@ -134,10 +132,6 @@ function WorkOrderLineItemsTobeDeliver({ workOrderCodes, showConfirmation, setSh
       })
     }
   }, [JSON.stringify(woItems), JSON.stringify(workOrderCodes)])
-
-  useEffect(() => {
-    console.log({ currentWorkOrderLineItems })
-  }, [JSON.stringify(currentWorkOrderLineItems)])
 
   if (woItems.isLoading) {
     return (

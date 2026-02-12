@@ -3,7 +3,7 @@
 import { getUsersByRoleKey } from '@/actions/users'
 import { Column, DataGridTypes, DataGridRef, Button } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useContext, useEffect, useRef } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 import { format, isValid } from 'date-fns'
@@ -22,6 +22,7 @@ import LoadingButton from '@/components/loading-button'
 import CommonDataGrid from '@/components/common-datagrid'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import { useUsersByRoleKey } from '@/hooks/safe-actions/user'
+import { NotificationContext } from '@/context/notification'
 
 type ProjectIndividualCustomerTabProps = {
   projectCode: number
@@ -35,6 +36,8 @@ export default function ProjectIndividualCustomerTab({ projectCode, customers, u
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual-customer'
   const DATAGRID_UNIQUE_KEY = 'project-individual-customers'
+
+  // const notificationContext = useContext(NotificationContext)
 
   const form = useForm({
     mode: 'onChange',
@@ -82,6 +85,7 @@ export default function ProjectIndividualCustomerTab({ projectCode, customers, u
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
+            // notificationContext?.handleRefresh()
           }, 1000)
 
           return result.message

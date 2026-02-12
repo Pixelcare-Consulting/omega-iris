@@ -14,7 +14,7 @@ import DataGrid, {
   Paging,
 } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useContext, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 import ProgressBar from 'devextreme-react/progress-bar'
@@ -31,6 +31,7 @@ import { ImportSyncError, Stats } from '@/types/common'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
+import { NotificationContext } from '@/context/notification'
 
 type ProjectGroupTableProps = { projectGroups: Awaited<ReturnType<typeof getPgs>> }
 type DataSource = Awaited<ReturnType<typeof getPgs>>
@@ -40,6 +41,8 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-group'
   const DATAGRID_UNIQUE_KEY = 'project-groups'
+
+  // const notificationContext = useContext(NotificationContext)
 
   const [isLoading, setIsLoading] = useState(false)
   const [stats, setStats] = useState<Stats>({ total: 0, completed: 0, progress: 0, errors: [], status: 'processing' })
@@ -91,7 +94,7 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
     [setShowRestoreConfirmation, setRowData]
   )
 
-  const handleConfirm = useCallback((code?: number) => {
+  const handleConfirmDelete = useCallback((code?: number) => {
     if (!code) return
 
     setShowDeleteConfirmation(false)
@@ -106,6 +109,7 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
+            // notificationContext?.handleRefresh()
           }, 1500)
 
           return result.message
@@ -134,6 +138,7 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
+            // notificationContext?.handleRefresh()
           }, 1500)
 
           return result.message
@@ -192,11 +197,13 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
         toast.success(`Project groups imported successfully! ${stats.errors.length} errors found.`)
         setStats((prev: any) => ({ ...prev, total: 0, completed: 0, progress: 0, status: 'processing' }))
         router.refresh()
+        // notificationContext?.handleRefresh()
       }
 
       if (stats.errors.length > 0) {
         setShowImportError(true)
         setImportErrors(stats.errors)
+        // notificationContext?.handleRefresh()
       }
 
       setIsLoading(false)
@@ -303,7 +310,7 @@ export default function ProjectGroupTable({ projectGroups }: ProjectGroupTablePr
         isOpen={showDeleteConfirmation}
         title='Are you sure?'
         description={`Are you sure you want to delete this project group named "${rowData?.name}"?`}
-        onConfirm={() => handleConfirm(rowData?.code)}
+        onConfirm={() => handleConfirmDelete(rowData?.code)}
         onCancel={() => setShowDeleteConfirmation(false)}
       />
 

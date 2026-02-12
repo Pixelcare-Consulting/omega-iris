@@ -3,11 +3,11 @@ import { useAction } from 'next-safe-action/hooks'
 
 import { getProjecItemsClient } from '@/actions/project-item'
 
-export function useProjecItems(projectCode: number, dependencies?: any[]) {
+export function useProjecItems(projectCode: number, isHideDeleted?: boolean, dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getProjecItemsClient)
 
   useEffect(() => {
-    execute({ projectCode })
+    execute({ projectCode, isHideDeleted })
   }, [projectCode, ...(dependencies || [])])
 
   return {

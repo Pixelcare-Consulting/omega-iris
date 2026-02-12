@@ -157,6 +157,19 @@ export default function CommonPageHeaderToolbarItems({
     instance?.searchByText(e.value)
   }, 1000)
 
+  //* For Single export button
+  const handleExport = useCallback(() => {
+    const instance = dataGridRef?.current?.instance()
+
+    if (!instance) return
+
+    if (customs?.exportToExcel) {
+      customs.exportToExcel(dataGridUniqueKey, instance, false)
+      return
+    }
+    exportToExcel(dataGridUniqueKey, instance, false)
+  }, [dataGridRef?.current, customs?.exportToExcel])
+
   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     //* importing only support xlsx file, only 1 file at a time
     const file = e.target.files?.[0]
@@ -276,14 +289,14 @@ export default function CommonPageHeaderToolbarItems({
       {!exportOptions?.isHide && (
         <CanView subject={exportOptions?.subjects} action={exportOptions?.actions}>
           <Item location='after' widget='dxMenu'>
-            <Tooltip
+            {/* <Tooltip
               target='#export-data-to-file-menu'
               contentRender={() => 'Export'}
               showEvent='mouseenter'
               hideEvent='mouseleave'
               position='top'
-            />
-            <Menu
+            /> */}
+            {/* <Menu
               id='export-data-to-file-menu'
               dataSource={exportToExcelMenuItems}
               showFirstSubmenuMode='onClick'
@@ -294,6 +307,16 @@ export default function CommonPageHeaderToolbarItems({
                 //* style like button
                 class: 'dx-button dx-button-mode-contained dx-button-normal dx-button-has-text dx-button-has-icon [&_.dx-icon]:!mr-0',
               }}
+            /> */}
+
+            <Tooltip target='#export-data' contentRender={() => 'Export'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />
+
+            <Button
+              id='export-data'
+              icon='xlsxfile'
+              disabled={isLoading || exportOptions?.isLoading}
+              onClick={handleExport}
+              text={importOptions?.isLoading ? 'Loading...' : undefined}
             />
           </Item>
         </CanView>

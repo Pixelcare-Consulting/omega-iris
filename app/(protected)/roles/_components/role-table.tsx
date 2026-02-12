@@ -3,7 +3,7 @@
 import { deleleteRole, getRoles, restoreRole } from '@/actions/roles'
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useContext, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 
@@ -16,6 +16,7 @@ import CommonDataGrid from '@/components/common-datagrid'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
+import { NotificationContext } from '@/context/notification'
 
 type RoleTableProps = { roles: Awaited<ReturnType<typeof getRoles>> }
 type DataSource = Awaited<ReturnType<typeof getRoles>>
@@ -25,6 +26,8 @@ export default function RoleTable({ roles }: RoleTableProps) {
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-role'
   const DATAGRID_UNIQUE_KEY = 'roles'
+
+  // const notificationContext = useContext(NotificationContext)
 
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false)
@@ -68,7 +71,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
     [setShowRestoreConfirmation, setRowData]
   )
 
-  const handleConfirm = (code?: number) => {
+  const handleConfirmDelete = (code?: number) => {
     if (!code) return
 
     setShowDeleteConfirmation(false)
@@ -83,6 +86,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
+            // notificationContext?.handleRefresh()
           }, 1500)
 
           return result.message
@@ -111,6 +115,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
+            // notificationContext?.handleRefresh()
           }, 1500)
 
           return result.message
@@ -203,7 +208,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
         isOpen={showDeleteConfirmation}
         title='Are you sure?'
         description={`Are you sure you want to delete this role named "${rowData?.name}"?`}
-        onConfirm={() => handleConfirm(rowData?.code)}
+        onConfirm={() => handleConfirmDelete(rowData?.code)}
         onCancel={() => setShowDeleteConfirmation(false)}
       />
 

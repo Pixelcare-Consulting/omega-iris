@@ -2,7 +2,7 @@
 
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useContext, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
@@ -25,6 +25,7 @@ import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import { safeParseInt } from '@/utils'
+import { NotificationContext } from '@/context/notification'
 
 type WorkOrderTableProps = { workOrders: Awaited<ReturnType<typeof getWorkOrders>> }
 type DataSource = Awaited<ReturnType<typeof getWorkOrders>>
@@ -34,6 +35,8 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-work-order'
   const DATAGRID_UNIQUE_KEY = 'work-orders'
+
+  // const notificationContext = useContext(NotificationContext)
 
   const form = useForm({
     mode: 'onChange',
@@ -100,7 +103,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     [setShowRestoreConfirmation, setRowData]
   )
 
-  const handleConfirm = (code?: number) => {
+  const handleConfirmDelete = (code?: number) => {
     if (!code) return
 
     setShowDeleteConfirmation(false)
@@ -115,6 +118,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
+            // notificationContext?.handleRefresh()
           }, 1500)
 
           return result.message
@@ -143,6 +147,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
+            // notificationContext?.handleRefresh()
           }, 1500)
 
           return result.message
@@ -359,7 +364,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             isOpen={showDeleteConfirmation}
             title='Are you sure?'
             description={`Are you sure you want to delete this work order with id "${rowData?.code}"?`}
-            onConfirm={() => handleConfirm(rowData?.code)}
+            onConfirm={() => handleConfirmDelete(rowData?.code)}
             onCancel={() => setShowDeleteConfirmation(false)}
           />
 

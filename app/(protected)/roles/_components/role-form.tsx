@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
 import { useParams } from 'next/navigation'
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useContext, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 import { CheckBox } from 'devextreme-react/check-box'
@@ -29,12 +29,15 @@ import { Icons } from '@/components/icons'
 import { titleCase } from '@/utils'
 import CanView from '@/components/acl/can-view'
 import can from '@/components/acl/can'
+import { NotificationContext } from '@/context/notification'
 
 type RoleFormProps = { pageMetaData: PageMetadata; role: Awaited<ReturnType<typeof getRolesByCode>> }
 
 export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
   const router = useRouter()
   const { code } = useParams() as { code: string }
+
+  // const notificationContext = useContext(NotificationContext)
 
   const isCreate = code === 'add' || !role
 
@@ -84,6 +87,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
 
       if (result?.data && result?.data?.role && 'id' in result?.data?.role) {
         router.refresh()
+        // notificationContext?.handleRefresh()
         rolePermissions.execute({ roleId: result.data.role.id })
 
         setTimeout(() => {

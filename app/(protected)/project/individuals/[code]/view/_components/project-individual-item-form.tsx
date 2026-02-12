@@ -6,7 +6,7 @@ import { Item } from 'devextreme-react/toolbar'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
-import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef } from 'react'
+import { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 import { subtract } from 'mathjs'
@@ -38,6 +38,7 @@ import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import TextAreaField from '@/components/forms/text-area-field'
 import { FormDebug } from '@/components/forms/form-debug'
 import DropDownBoxField from '@/components/forms/drop-down-field'
+import { NotificationContext } from '@/context/notification'
 
 type ProjectItemFormProps = {
   projectCode: number
@@ -63,6 +64,8 @@ export default function ProjectItemForm({
   const router = useRouter()
 
   const isCreate = !item
+
+  // const notificationContext = useContext(NotificationContext)
 
   const values = useMemo(() => {
     if (item) return item
@@ -168,7 +171,7 @@ export default function ProjectItemForm({
 
       if (result?.data && result?.data?.projectItem && 'id' in result?.data?.projectItem) {
         router.refresh()
-
+        // notificationContext?.handleRefresh()
         items.execute({ projectCode })
 
         if (onClose) {

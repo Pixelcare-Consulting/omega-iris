@@ -83,7 +83,7 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
                 />
               </TabPanelITem>
 
-              <TabPanelITem title='Suppliers'>
+              <TabPanelITem title='Suppliers Codes'>
                 <ProjectIndividualSupplierTab
                   projectCode={projectIndividual.code}
                   suppliers={projectIndividual.suppliers}
@@ -91,7 +91,7 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
                 />
               </TabPanelITem>
 
-              <TabPanelITem title='P.I.Cs'>
+              <TabPanelITem title='PICs'>
                 <ProjectIndividualPicTab projectCode={projectIndividual.code} pics={projectIndividual.pics} users={nonCustomerUsers} />
               </TabPanelITem>
             </>

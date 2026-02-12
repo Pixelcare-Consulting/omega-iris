@@ -16,6 +16,8 @@ import { ImportSyncErrorEntry } from '@/types/common'
 import { importFormSchema } from '@/schema/import'
 import { getCurrentUserAbility } from './auth'
 import { safeParseInt } from '@/utils'
+import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
+import { createNotification } from './notification'
 
 const COMMON_PROJECT_INDIVIDUAL_INCLUDE = {
   projectGroup: { select: { code: true, name: true } },
@@ -157,11 +159,68 @@ export const upsertPi = action
   .schema(projectIndividualFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, customers, suppliers, pics, ...data } = parsedInput
-    const { userId } = ctx
+    const { userId, userCode } = ctx
+
+    const include: Prisma.ProjectIndividualInclude = {
+      projectIndividualCustomers: {
+        //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
+        where: {
+          user: {
+            OR: [
+              {
+                role: {
+                  rolePermissions: {
+                    some: {
+                      permission: { code: PERMISSIONS_CODES['PROJECT INDIVIDUALS'] },
+                      actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                    },
+                  },
+                },
+              },
+              {
+                role: {
+                  key: 'admin',
+                },
+              },
+            ],
+          },
+        },
+      },
+      projectIndividualPics: {
+        //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
+        where: {
+          user: {
+            OR: [
+              {
+                role: {
+                  rolePermissions: {
+                    some: {
+                      permission: { code: PERMISSIONS_CODES['PROJECT INDIVIDUALS'] },
+                      actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                    },
+                  },
+                },
+              },
+              {
+                role: {
+                  key: 'admin',
+                },
+              },
+            ],
+          },
+        },
+      },
+    }
 
     try {
       //* update project individual
       if (code !== -1) {
+        const existingPi = await db.projectIndividual.findUnique({ where: { code }, include })
+
+        if (!existingPi) {
+          return { error: true, status: 404, message: 'Project individual not found!', action: 'UPSERT_PROJECT_INDIVIDUAL' }
+        }
+
         const [updatedPi] = await db.$transaction([
           //* update project individual
           db.projectIndividual.update({
@@ -194,6 +253,108 @@ export const upsertPi = action
           }),
         ])
 
+        //* create notifications
+        // void createNotification(ctx, {
+        //   permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+        //   title: 'Project Individual Updated',
+        //   message: `A project individual (#${updatedPi.code}) was updated by ${ctx.fullName}.`,
+        //   link: `/project/individuals/${updatedPi.code}/view`,
+        //   entityType: 'ProjectIndividual' as Prisma.ModelName,
+        //   entityCode: updatedPi.code,
+        //   entityId: updatedPi.id,
+        //   userCodes: [],
+        // }).then((data) => {
+        //   if (data.error) return
+
+        //   const currentCustomers = existingPi.projectIndividualCustomers.map((pic) => pic.userCode)
+        //   const newlyAssignedCustomers = customers.filter((customer) => !currentCustomers.includes(customer))
+        //   const unAssignedCustomers = currentCustomers.filter((pic) => !customers.includes(pic))
+
+        //   const currentPics = existingPi.projectIndividualPics.map((pip) => pip.userCode)
+        //   const newlyAssignedPics = pics.filter((pic) => !currentPics.includes(pic))
+        //   const unAssignedPics = currentPics.filter((pic) => !pics.includes(pic))
+
+        //   //* if the user is assigned or unassigned as a customer, then skip notify will be false to notify the user otherwise true
+        //   const isNewlyAssignedCustomersIsSkipNotify = newlyAssignedCustomers.includes(ctx.userCode)
+        //   const isUnassignedCustomersIsSkipNotify = unAssignedCustomers.includes(ctx.userCode)
+
+        //   //* if the user is assigned or unassigned as a pic, then skip notify will be false to notify the user otherwise true
+        //   const isNewlyAssignedPicsIsSkipNotify = newlyAssignedPics.includes(ctx.userCode)
+        //   const isUnassignedPicsIsSkipNotify = unAssignedPics.includes(ctx.userCode)
+
+        //   //* create notification for newly assigned customers
+        //   if (newlyAssignedCustomers.length > 0) {
+        //     void createNotification(
+        //       ctx,
+        //       {
+        //         permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+        //         title: 'Project Individual Customer Assigned',
+        //         message: `You were assigned as a customer to project individual (#${updatedPi.code}) by ${ctx.fullName}.`,
+        //         link: `/project/individuals/${updatedPi.code}/view`,
+        //         entityType: 'ProjectIndividual' as Prisma.ModelName,
+        //         entityCode: updatedPi.code,
+        //         entityId: updatedPi.id,
+        //         userCodes: newlyAssignedCustomers,
+        //       },
+        //       { skipNotify: isNewlyAssignedCustomersIsSkipNotify ? false : true }
+        //     )
+        //   }
+
+        //   //* create notification for unassigned customers
+        //   if (unAssignedCustomers.length > 0) {
+        //     void createNotification(
+        //       ctx,
+        //       {
+        //         permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+        //         title: 'Project Individual Customer Unassigned',
+        //         message: `You were unassigned as a customer to project individual (#${updatedPi.code}) by ${ctx.fullName}.`,
+        //         link: `/project/individuals`,
+        //         entityType: 'ProjectIndividual' as Prisma.ModelName,
+        //         entityCode: updatedPi.code,
+        //         entityId: updatedPi.id,
+        //         userCodes: unAssignedCustomers,
+        //       },
+        //       { skipNotify: isUnassignedCustomersIsSkipNotify ? false : true }
+        //     )
+        //   }
+
+        //   //* create notification for newly assigned pics
+        //   if (newlyAssignedPics.length > 0) {
+        //     void createNotification(
+        //       ctx,
+        //       {
+        //         permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+        //         title: 'Project Individual PIC Assigned',
+        //         message: `You were assigned as a PIC to project individual (#${updatedPi.code}) by ${ctx.fullName}.`,
+        //         link: `/project/individuals/${updatedPi.code}/view`,
+        //         entityType: 'ProjectIndividual' as Prisma.ModelName,
+        //         entityCode: updatedPi.code,
+        //         entityId: updatedPi.id,
+        //         userCodes: newlyAssignedPics,
+        //       },
+        //       { skipNotify: isNewlyAssignedPicsIsSkipNotify ? false : true }
+        //     )
+        //   }
+
+        //   //* create notification for unassigned pics
+        //   if (unAssignedPics.length > 0) {
+        //     void createNotification(
+        //       ctx,
+        //       {
+        //         permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+        //         title: 'Project Individual PIC Unassigned',
+        //         message: `You were unassigned as a PIC to project individual (#${updatedPi.code}) by ${ctx.fullName}.`,
+        //         link: `/project/individuals`,
+        //         entityType: 'ProjectIndividual' as Prisma.ModelName,
+        //         entityCode: updatedPi.code,
+        //         entityId: updatedPi.id,
+        //         userCodes: unAssignedPics,
+        //       },
+        //       { skipNotify: isUnassignedPicsIsSkipNotify ? false : true }
+        //     )
+        //   }
+        // })
+
         return {
           status: 200,
           message: 'Project individual updated successfully!',
@@ -218,7 +379,68 @@ export const upsertPi = action
           createdBy: userId,
           updatedBy: userId,
         },
+        include,
       })
+
+      //* create notifications
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+      //   title: 'Project Individual Created',
+      //   message: `A new project individual (#${newPi.code}) was created by ${ctx.fullName}.`,
+      //   link: `/project/individuals/${newPi.code}/view`,
+      //   entityType: 'ProjectIndividual' as Prisma.ModelName,
+      //   entityCode: newPi.code,
+      //   entityId: newPi.id,
+      //   userCodes: [],
+      // }).then((data) => {
+      //   if (data.error) return
+
+      //   //* only notify when notification of created project individual was successful
+      //   //* notify assigned customers & pics
+
+      //   const assignedCustomers = newPi.projectIndividualCustomers.map((pc) => pc.userCode)
+      //   const assignedPics = newPi.projectIndividualPics.map((pp) => pp.userCode)
+
+      //   //* if the user is assigned as a customer or pic, then skip notify will be false to notify the user otherwise true
+      //   const isAssignedCustomersSkipNotify = assignedCustomers.includes(userCode)
+      //   const isAssignedPicsSkipNotify = assignedPics.includes(userCode)
+
+      //   //* create notification for assigned customers
+      //   if (assignedCustomers.length > 0) {
+      //     void createNotification(
+      //       ctx,
+      //       {
+      //         permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+      //         title: 'Project Individual Customer Assigned',
+      //         message: `You were assigned as a customer to project individual (#${newPi.code}) by ${ctx.fullName}.`,
+      //         link: `/project/individuals/${newPi.code}/view`,
+      //         entityType: 'ProjectIndividual' as Prisma.ModelName,
+      //         entityCode: newPi.code,
+      //         entityId: newPi.id,
+      //         userCodes: assignedCustomers,
+      //       },
+      //       { skipNotify: isAssignedCustomersSkipNotify ? false : true }
+      //     )
+      //   }
+
+      //   //* create notification for assigned pics
+      //   if (assignedPics.length > 0) {
+      //     void createNotification(
+      //       ctx,
+      //       {
+      //         permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+      //         title: 'Project Individual PIC Assigned',
+      //         message: `You were assigned as a PIC to project individual (#${newPi.code}) by ${ctx.fullName}.`,
+      //         link: `/project/individuals/${newPi.code}/view`,
+      //         entityType: 'ProjectIndividual' as Prisma.ModelName,
+      //         entityCode: newPi.code,
+      //         entityId: newPi.id,
+      //         userCodes: assignedPics,
+      //       },
+      //       { skipNotify: isAssignedPicsSkipNotify ? false : true }
+      //     )
+      //   }
+      // })
 
       return {
         status: 200,
@@ -234,6 +456,81 @@ export const upsertPi = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'UPSERT_PROJECT_INDIVIDUAL',
+      }
+    }
+  })
+
+export const deleletePi = action
+  .use(authenticationMiddleware)
+  .schema(paramsSchema)
+  .action(async ({ ctx, parsedInput: data }) => {
+    try {
+      const projectIndividual = await db.projectIndividual.findUnique({ where: { code: data.code } })
+
+      if (!projectIndividual)
+        return { error: true, status: 404, message: 'Project individual not found!', action: 'DELETE_PROJECT_INDIVIDUAL' }
+
+      await db.projectIndividual.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
+
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+      //   title: 'Project Individual Deleted',
+      //   message: `A project individual (#${projectIndividual.code}) was deleted by ${ctx.fullName}.`,
+      //   link: `/project/individuals/${projectIndividual.code}/view`,
+      //   entityType: 'ProjectIndividual' as Prisma.ModelName,
+      //   entityCode: projectIndividual.code,
+      //   entityId: projectIndividual.id,
+      //   userCodes: [],
+      // })
+
+      return { status: 200, message: 'Project individual deleted successfully!', action: 'DELETE_PROJECT_INDIVIDUAL' }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'An unexpected error occurred',
+        action: 'DELETE_PROJECT_INDIVIDUAL',
+      }
+    }
+  })
+
+export const restorePi = action
+  .use(authenticationMiddleware)
+  .schema(paramsSchema)
+  .action(async ({ ctx, parsedInput: data }) => {
+    try {
+      const projectIndividual = await db.projectIndividual.findUnique({ where: { code: data.code } })
+
+      if (!projectIndividual) {
+        return { error: true, status: 404, message: 'Project individual not found!', action: 'RESTORE_PROJECT_INDIVIDUAL' }
+      }
+
+      await db.projectIndividual.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+      //   title: 'Project Individual Restored',
+      //   message: `A project individual (#${projectIndividual.code}) was restored by ${ctx.fullName}.`,
+      //   link: `/project/individuals/${projectIndividual.code}/view`,
+      //   entityType: 'ProjectIndividual' as Prisma.ModelName,
+      //   entityCode: projectIndividual.code,
+      //   entityId: projectIndividual.id,
+      //   userCodes: [],
+      // })
+
+      return { status: 200, message: 'Project individual retored successfully!', action: 'RESTORE_PROJECT_INDIVIDUAL' }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'RESTORE_PROJECT_INDIVIDUAL',
       }
     }
   })
@@ -289,6 +586,18 @@ export const importPis = action
         status: progress >= 100 || isLastRow ? 'completed' : 'processing',
       }
 
+      // if (updatedStats.status === 'completed') {
+      //   //* create notification
+      //   void createNotification(ctx, {
+      //     permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+      //     title: 'Project Individual Imported',
+      //     message: `New project individual${total > 1 ? 's were' : ' was'} imported by ${ctx.fullName}.`,
+      //     link: `/project/individuals`,
+      //     entityType: 'ProjectIndividual' as Prisma.ModelName,
+      //     userCodes: [],
+      //   })
+      // }
+
       return {
         status: 200,
         message: `${updatedStats.completed} project individual created successfully!`,
@@ -324,8 +633,35 @@ export const updatePiCustomers = action
     const { code, customers } = parsedInput
     const { userId } = ctx
 
+    const include: Prisma.ProjectIndividualInclude = {
+      projectIndividualCustomers: {
+        //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
+        where: {
+          user: {
+            OR: [
+              {
+                role: {
+                  rolePermissions: {
+                    some: {
+                      permission: { code: PERMISSIONS_CODES['PROJECT INDIVIDUALS'] },
+                      actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                    },
+                  },
+                },
+              },
+              {
+                role: {
+                  key: 'admin',
+                },
+              },
+            ],
+          },
+        },
+      },
+    }
+
     try {
-      const pi = await db.projectIndividual.findUnique({ where: { code } })
+      const pi = await db.projectIndividual.findUnique({ where: { code }, include })
 
       if (!pi) {
         return { error: true, status: 404, message: 'Project individual not found!', action: 'UPDATE_PROJECT_INDIVIDUAL_CUSTOMERS' }
@@ -347,6 +683,64 @@ export const updatePiCustomers = action
           data: customers.map((c) => ({ projectIndividualCode: code, userCode: c })),
         }),
       ])
+
+      //* create notifications
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+      //   title: 'Project Individual Updated',
+      //   message: `A project individual (#${updatedPi.code}) was updated by ${ctx.fullName}.`,
+      //   link: `/project/individuals/${updatedPi.code}/view`,
+      //   entityType: 'ProjectIndividual' as Prisma.ModelName,
+      //   entityCode: updatedPi.code,
+      //   entityId: updatedPi.id,
+      //   userCodes: [],
+      // }).then((data) => {
+      //   if (data.error) return
+
+      //   const currentCustomers = pi.projectIndividualCustomers.map((pic) => pic.userCode)
+      //   const newlyAssignedCustomers = customers.filter((customer) => !currentCustomers.includes(customer))
+      //   const unAssignedCustomers = currentCustomers.filter((pic) => !customers.includes(pic))
+
+      //   //* if the user is assigned or unassigned as a customer, then skip notify will be false to notify the user otherwise true
+      //   const isNewlyAssignedCustomersIsSkipNotify = newlyAssignedCustomers.includes(ctx.userCode)
+      //   const isUnassignedCustomersIsSkipNotify = unAssignedCustomers.includes(ctx.userCode)
+
+      //   //* create notification for newly assigned customers
+      //   if (newlyAssignedCustomers.length > 0) {
+      //     void createNotification(
+      //       ctx,
+      //       {
+      //         permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+      //         title: 'Project Individual Customer Assigned',
+      //         message: `You were assigned as a customer to project individual (#${updatedPi.code}) by ${ctx.fullName}.`,
+      //         link: `/project/individuals/${updatedPi.code}/view`,
+      //         entityType: 'ProjectIndividual' as Prisma.ModelName,
+      //         entityCode: updatedPi.code,
+      //         entityId: updatedPi.id,
+      //         userCodes: newlyAssignedCustomers,
+      //       },
+      //       { skipNotify: isNewlyAssignedCustomersIsSkipNotify ? false : true }
+      //     )
+      //   }
+
+      //   //* create notification for unassigned customers
+      //   if (unAssignedCustomers.length > 0) {
+      //     void createNotification(
+      //       ctx,
+      //       {
+      //         permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+      //         title: 'Project Individual Customer Unassigned',
+      //         message: `You were unassigned as a customer to project individual (#${updatedPi.code}) by ${ctx.fullName}.`,
+      //         link: `/project/individuals`,
+      //         entityType: 'ProjectIndividual' as Prisma.ModelName,
+      //         entityCode: updatedPi.code,
+      //         entityId: updatedPi.id,
+      //         userCodes: unAssignedCustomers,
+      //       },
+      //       { skipNotify: isUnassignedCustomersIsSkipNotify ? false : true }
+      //     )
+      //   }
+      // })
 
       return {
         status: 200,
@@ -422,15 +816,42 @@ export const updatePiPics = action
     const { code, pics } = parsedInput
     const { userId } = ctx
 
-    try {
-      const projectIndividual = await db.projectIndividual.findUnique({ where: { code } })
+    const include: Prisma.ProjectIndividualInclude = {
+      projectIndividualPics: {
+        //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
+        where: {
+          user: {
+            OR: [
+              {
+                role: {
+                  rolePermissions: {
+                    some: {
+                      permission: { code: PERMISSIONS_CODES['PROJECT INDIVIDUALS'] },
+                      actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                    },
+                  },
+                },
+              },
+              {
+                role: {
+                  key: 'admin',
+                },
+              },
+            ],
+          },
+        },
+      },
+    }
 
-      if (!projectIndividual) {
+    try {
+      const pi = await db.projectIndividual.findUnique({ where: { code }, include })
+
+      if (!pi) {
         return { error: true, status: 404, message: 'Project individual not found!', action: 'UPDATE_PROJECT_INDIVIDUAL_PICS' }
       }
 
       //* update project individual
-      const [updatedProjectIndividual] = await db.$transaction([
+      const [updatedPi] = await db.$transaction([
         //* update project individual
         db.projectIndividual.update({
           where: { code },
@@ -446,11 +867,69 @@ export const updatePiPics = action
         }),
       ])
 
+      //* create notifications
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+      //   title: 'Project Individual Updated',
+      //   message: `A project individual (#${updatedPi.code}) was updated by ${ctx.fullName}.`,
+      //   link: `/project/individuals/${updatedPi.code}/view`,
+      //   entityType: 'ProjectIndividual' as Prisma.ModelName,
+      //   entityCode: updatedPi.code,
+      //   entityId: updatedPi.id,
+      //   userCodes: [],
+      // }).then((data) => {
+      //   if (data.error) return
+
+      //   const currentPics = pi.projectIndividualPics.map((pip) => pip.userCode)
+      //   const newlyAssignedPics = pics.filter((pic) => !currentPics.includes(pic))
+      //   const unAssignedPics = currentPics.filter((pic) => !pics.includes(pic))
+
+      //   //* if the user is assigned or unassigned as a pic, then skip notify will be false to notify the user otherwise true
+      //   const isNewlyAssignedPicsIsSkipNotify = newlyAssignedPics.includes(ctx.userCode)
+      //   const isUnassignedPicsIsSkipNotify = unAssignedPics.includes(ctx.userCode)
+
+      //   //* create notification for newly assigned pics
+      //   if (newlyAssignedPics.length > 0) {
+      //     void createNotification(
+      //       ctx,
+      //       {
+      //         permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+      //         title: 'Project Individual PIC Assigned',
+      //         message: `You were assigned as a PIC to project individual (#${updatedPi.code}) by ${ctx.fullName}.`,
+      //         link: `/project/individuals/${updatedPi.code}/view`,
+      //         entityType: 'ProjectIndividual' as Prisma.ModelName,
+      //         entityCode: updatedPi.code,
+      //         entityId: updatedPi.id,
+      //         userCodes: newlyAssignedPics,
+      //       },
+      //       { skipNotify: isNewlyAssignedPicsIsSkipNotify ? false : true }
+      //     )
+      //   }
+
+      //   //* create notification for unassigned pics
+      //   if (unAssignedPics.length > 0) {
+      //     void createNotification(
+      //       ctx,
+      //       {
+      //         permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+      //         title: 'Project Individual PIC Unassigned',
+      //         message: `You were unassigned as a PIC to project individual (#${updatedPi.code}) by ${ctx.fullName}.`,
+      //         link: `/project/individuals`,
+      //         entityType: 'ProjectIndividual' as Prisma.ModelName,
+      //         entityCode: updatedPi.code,
+      //         entityId: updatedPi.id,
+      //         userCodes: unAssignedPics,
+      //       },
+      //       { skipNotify: isUnassignedPicsIsSkipNotify ? false : true }
+      //     )
+      //   }
+      // })
+
       return {
         status: 200,
-        message: `Project individual's P.I.Cs updated successfully!`,
+        message: `Project individual's PICs updated successfully!`,
         action: 'UPDATE_PROJECT_INDIVIDUAL_PICS',
-        data: { projectIndividual: updatedProjectIndividual },
+        data: { projectIndividual: updatedPi },
       }
     } catch (error) {
       console.error(error)
@@ -460,57 +939,6 @@ export const updatePiPics = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'UPDATE_PROJECT_INDIVIDUAL_PICS',
-      }
-    }
-  })
-
-export const deleletePi = action
-  .use(authenticationMiddleware)
-  .schema(paramsSchema)
-  .action(async ({ ctx, parsedInput: data }) => {
-    try {
-      const projectIndividual = await db.projectIndividual.findUnique({ where: { code: data.code } })
-
-      if (!projectIndividual)
-        return { error: true, status: 404, message: 'Project individual not found!', action: 'DELETE_PROJECT_INDIVIDUAL' }
-
-      await db.projectIndividual.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
-
-      return { status: 200, message: 'Project individual deleted successfully!', action: 'DELETE_PROJECT_INDIVIDUAL' }
-    } catch (error) {
-      console.error(error)
-
-      return {
-        error: true,
-        status: 500,
-        message: error instanceof Error ? error.message : 'An unexpected error occurred',
-        action: 'DELETE_PROJECT_INDIVIDUAL',
-      }
-    }
-  })
-
-export const restorePi = action
-  .use(authenticationMiddleware)
-  .schema(paramsSchema)
-  .action(async ({ parsedInput: data }) => {
-    try {
-      const projectIndividual = await db.projectIndividual.findUnique({ where: { code: data.code } })
-
-      if (!projectIndividual) {
-        return { error: true, status: 404, message: 'Project individual not found!', action: 'RESTORE_PROJECT_INDIVIDUAL' }
-      }
-
-      await db.projectIndividual.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
-
-      return { status: 200, message: 'Project individual retored successfully!', action: 'RESTORE_PROJECT_INDIVIDUAL' }
-    } catch (error) {
-      console.error(error)
-
-      return {
-        error: true,
-        status: 500,
-        message: error instanceof Error ? error.message : 'Something went wrong!',
-        action: 'RESTORE_PROJECT_INDIVIDUAL',
       }
     }
   })

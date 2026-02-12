@@ -9,7 +9,7 @@ type HeaderProps = { user: ExtendedUser; setIsOpen: React.Dispatch<React.SetStat
 
 export default function Header({ user, setIsOpen }: HeaderProps) {
   return (
-    <header id='app-header' className='bg-primary-black flex h-[52px] items-center px-4 shadow-md'>
+    <header id='app-header' className='flex h-[52px] items-center bg-primary-black px-4 shadow-md'>
       <Toolbar className='toolbar-header'>
         <Item visible location='before' widget='dxButton'>
           <Button icon='menu' stylingMode='text' onClick={() => setIsOpen((prev) => !prev)} />

@@ -51,9 +51,13 @@
   @apply rounded-md !bg-primary !text-white;
 }
 
-/** set font size of datagrid */
+/** set font size of datagrid, wrap text*/
 tr.dx-row > td {
   font-size: var(--dx-font-size) !important;
+  white-space: normal !important;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  text-overflow: unset !important;
 }
 
 /** set font size of  */

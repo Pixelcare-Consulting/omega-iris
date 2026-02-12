@@ -150,6 +150,11 @@ model Notification {
     isGlobal   Boolean  @default(false)
     isInternal Boolean  @default(false)
 
+    //* blocking fields
+    excludeUserCodes Int[]    @default([])
+    excludeRoleCodes Int[]    @default([])
+    excludeRoleKeys  String[] @default([])
+
     createdAt DateTime  @default(now())
     expiresAt DateTime? //* should expire 1month  //* can be use to handle auto deletion of notification via cron job 
     createdBy String?
@@ -544,6 +549,7 @@ model WorkOrder {
     comments              String?
     salesOrderCode        Int?
     purchaseOrderCode     Int?
+    alternativeAddr       String?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt

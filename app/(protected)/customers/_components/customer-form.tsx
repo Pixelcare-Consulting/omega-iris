@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
 import { useParams } from 'next/navigation'
-import { useEffect, useMemo } from 'react'
+import { useContext, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 
@@ -46,6 +46,7 @@ import TooltipWrapper from '@/components/tooltip-wrapper'
 import { useLatestBp } from '@/hooks/safe-actions/business-partner'
 import { MAX_CARD_CODE_DIGITS } from '@/constants/business-partner'
 import { safeParseInt } from '@/utils'
+import { NotificationContext } from '@/context/notification'
 
 type CustomerFormProps = { pageMetaData: PageMetadata; bp: Awaited<ReturnType<typeof getBpByCardCode>> }
 
@@ -54,6 +55,8 @@ const CARD_TYPE = 'C'
 export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
   const router = useRouter()
   const { code } = useParams() as { code: string }
+
+  // const notificationContext = useContext(NotificationContext)
 
   const isCreate = code === 'add' || !bp
 
@@ -149,6 +152,7 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
 
       if (result?.data && result?.data?.businessPartner && 'code' in result?.data?.businessPartner) {
         router.refresh()
+        // notificationContext?.handleRefresh()
 
         setTimeout(() => {
           if (isCreate) router.push(`/customers`)

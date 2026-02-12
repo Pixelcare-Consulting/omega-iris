@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
 import { useParams } from 'next/navigation'
-import { useEffect, useMemo } from 'react'
+import { useContext, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 
@@ -35,12 +35,15 @@ import { commonItemRender } from '@/utils/devextreme'
 import ReadOnlyField from '@/components/read-only-field'
 import { titleCase } from '@/utils'
 import CanView from '@/components/acl/can-view'
+import { NotificationContext } from '@/context/notification'
 
 type ItemFormProps = { pageMetaData: PageMetadata; item: Awaited<ReturnType<typeof getItemByCode>> }
 
 export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
   const router = useRouter()
   const { code } = useParams() as { code: string }
+
+  // const notificationContext = useContext(NotificationContext)
 
   const isCreate = code === 'add' || !item
 
@@ -107,6 +110,7 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
 
       if (result?.data && result?.data?.item && 'id' in result?.data?.item) {
         router.refresh()
+        // notificationContext?.handleRefresh()
 
         // itemWarehouseInventory.execute({ itemCode: result.data.item.code })
 

@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
 import { useParams } from 'next/navigation'
-import { useEffect, useMemo } from 'react'
+import { useContext, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 
@@ -28,12 +28,15 @@ import { commonItemRender, userItemRender } from '@/utils/devextreme'
 import SwitchField from '@/components/forms/switch-field'
 import CanView from '@/components/acl/can-view'
 import { useBps } from '@/hooks/safe-actions/business-partner'
+import { NotificationContext } from '@/context/notification'
 
 type ProjectIndividualFormProps = { pageMetaData: PageMetadata; projectIndividual: Awaited<ReturnType<typeof getPiByCode>> }
 
 export default function ProjectIndividualForm({ pageMetaData, projectIndividual }: ProjectIndividualFormProps) {
   const router = useRouter()
   const { code } = useParams() as { code: string }
+
+  // const notificationContext = useContext(NotificationContext)
 
   const isCreate = code === 'add' || !projectIndividual
 
@@ -83,6 +86,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
 
       if (result?.data && result?.data?.projectIndividual && 'id' in result?.data?.projectIndividual) {
         router.refresh()
+        // notificationContext?.handleRefresh()
 
         setTimeout(() => {
           if (isCreate) router.push(`/project/individuals`)
@@ -235,7 +239,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                   isLoading={suppliers.isLoading}
                   control={form.control}
                   name='suppliers'
-                  label='Suppliers'
+                  label='Suppliers Codes'
                   valueExpr='CardCode'
                   displayExpr={(item) => (item ? `${item?.CardName} (${item?.CardCode})` : '')}
                   searchExpr={['CardName', 'CardCode', 'GroupName']}
@@ -259,7 +263,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                   isLoading={nonCustomerUsers.isLoading}
                   control={form.control}
                   name='pics'
-                  label='P.I.Cs'
+                  label='PICs'
                   valueExpr='code'
                   displayExpr={(item) => (item ? `${item?.fname}${item?.lname ? ` ${item?.lname}` : ''}` : '')}
                   searchExpr={['fname', 'lname', 'code', 'email']}

@@ -7,6 +7,9 @@ import { paramsSchema } from '@/schema/common'
 import {
   deleteWorkOrderLineItemFormSchema,
   upsertWorkOrderLineItemFormSchema,
+  upsertWorkOrderLineItemsFormSchema,
+  WORK_ORDER_STATUS_OPTIONS,
+  WORK_ORDER_STATUS_VALUE_MAP,
   workOrderFormSchema,
   workOrderStatusUpdateFormSchema,
 } from '@/schema/work-order'
@@ -14,6 +17,8 @@ import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { safeParseInt } from '@/utils'
 import { getCurrentUserAbility } from './auth'
+import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
+import { createNotification } from './notification'
 
 const COMMON_WORK_ORDER_INCLUDE = {
   projectIndividual: {
@@ -153,11 +158,12 @@ export async function creditStock(params: CreditStockParams) {
 
     const lineItems = existingWorkOrder.workOrderItems
 
-    //TODO: if work order create qty credited to stock-in and qty will be locked
-
-    //* only credit stocks-in only when new status is 'Open' or 'Pending' and old status === 0,
-    //*  means after work order is created by admin - default to 'Open' or by customer - default to 'Pending'
-    if (oldStatus === 0 && (newStatus === 1 || newStatus === 2)) {
+    //* only credit stocks-in only when new status is 'In Process' and old is between 'Open' and 'Pending'
+    if (
+      oldStatus >= WORK_ORDER_STATUS_VALUE_MAP.Open &&
+      oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Pending'] &&
+      newStatus == WORK_ORDER_STATUS_VALUE_MAP['In Process']
+    ) {
       //* credit stock
       await Promise.all(
         lineItems.map((li) => {
@@ -175,12 +181,23 @@ export async function creditStock(params: CreditStockParams) {
     }
 
     //* if has old status and new status is between or equal 'Open' and 'Verified', then do nothing
-    if (oldStatus !== 0 && oldStatus >= 1 && oldStatus <= 4 && newStatus >= 1 && newStatus <= 4) return
+    if (
+      oldStatus !== 0 &&
+      oldStatus >= WORK_ORDER_STATUS_VALUE_MAP['Open'] &&
+      oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Verified'] &&
+      newStatus >= WORK_ORDER_STATUS_VALUE_MAP['Open'] &&
+      newStatus <= WORK_ORDER_STATUS_VALUE_MAP['Verified']
+    ) {
+      return
+    }
 
-    //* if old status is 'Verified' and current status is 'Partial Delivery,
+    //* if old status is 'Verified' and current status is 'Partial Delivery or old status is 'Partial Delivery'
     //* then credit qty of the items that has beed mark as delivered to stock-in and debit total stock accordingly
     //* once item is already marked as delivered, will not be included
-    if ((oldStatus === 4 || oldStatus === 5) && newStatus === 5) {
+    if (
+      (oldStatus === WORK_ORDER_STATUS_VALUE_MAP['Verified'] || oldStatus === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery']) &&
+      newStatus === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery']
+    ) {
       //* process only the line items that has isDelivered = false and included in deliveredProjectItems
       const lineItemsToProcess = lineItems.filter((li) => !li.isDelivered && deliveredProjectItems.includes(li.projectItem.code))
 
@@ -219,10 +236,13 @@ export async function creditStock(params: CreditStockParams) {
       return
     }
 
-    //* if old status is 'Verified' and new status is = 'Delivered'
+    //* if old status is 'Verified' or 'Partial Delivery' and new status is = 'Delivered'
     //* then credit qty of the items that isDelivered = false to stock-in and debit stock-in & total stock accordingly
     //* once item is already marked as delivered, will not be included
-    if ((oldStatus === 4 || oldStatus === 5) && newStatus === 6) {
+    if (
+      (oldStatus === WORK_ORDER_STATUS_VALUE_MAP['Verified'] || oldStatus === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery']) &&
+      newStatus === WORK_ORDER_STATUS_VALUE_MAP['Delivered']
+    ) {
       //* process only the line items that has isDelivered = false
       //? deliveredProjectItems is not being used here
       const lineItemsToProcess = lineItems.filter((li) => !li.isDelivered)
@@ -263,9 +283,9 @@ export async function creditStock(params: CreditStockParams) {
     }
 
     //* rollback on Cancelled / Deleted
-    if (newStatus === 7 || newStatus === 8) {
-      //* if between or equal to 'Open' and 'Verified' and then cancel or delete, then rollback stock
-      if (oldStatus >= 1 && oldStatus <= 4) {
+    if (newStatus === WORK_ORDER_STATUS_VALUE_MAP['Cancelled'] || newStatus === WORK_ORDER_STATUS_VALUE_MAP['Deleted']) {
+      //* if between or equal to 'In Process' and 'Verified' and then cancel or delete, then rollback stock
+      if (oldStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process'] && oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Verified']) {
         await Promise.all(
           lineItems.map((li) => {
             const pItem = li.projectItem
@@ -283,7 +303,7 @@ export async function creditStock(params: CreditStockParams) {
 
       //* if oldStatus is between or equal 'Partial Delivery' and 'Delivered' and then cancel or delete, then rollback stock
       //* only process line items that has isDelivered = true
-      if (oldStatus >= 5 && oldStatus <= 6) {
+      if (oldStatus >= WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery'] && oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Delivered']) {
         const lineItemsToProcess = lineItems.filter((li) => li.isDelivered)
 
         //* update isDelivered to false of work order items
@@ -338,11 +358,79 @@ export const upsertWorkOrder = action
 
     const woItems = lineItems.map(({ maxQty, ...li }) => li)
 
+    const include = {
+      projectIndividual: {
+        include: {
+          projectIndividualCustomers: {
+            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          projectIndividualPics: {
+            //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    } satisfies Prisma.WorkOrderInclude
+
     try {
       if (code !== -1) {
+        const existingWorkOrder = await db.workOrder.findUnique({
+          where: { code },
+          include,
+        })
+
+        if (!existingWorkOrder) {
+          return { error: true, status: 404, message: 'Work order not found!', action: 'UPSERT_WORK_ORDER' }
+        }
+
         const [updatedWorkOrder] = await db.$transaction([
           //* update work order
-          db.workOrder.update({ where: { code }, data: { ...data, updatedBy: userId } }),
+          db.workOrder.update({
+            where: { code },
+            data: { ...data, updatedBy: userId },
+            include: { projectIndividual: { select: { name: true } } },
+          }),
 
           //* delete the existing work order items
           db.workOrderItem.deleteMany({ where: { workOrderCode: code } }),
@@ -350,6 +438,21 @@ export const upsertWorkOrder = action
           //* create new work order items
           db.workOrderItem.createMany({ data: woItems.map((li) => ({ ...li, workOrderCode: code })) }),
         ])
+
+        // const assignedPics = existingWorkOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
+        // const owner = existingWorkOrder.userCode
+
+        // //* create notifications
+        // void createNotification(ctx, {
+        //   permissionCode: PERMISSIONS_CODES['WORK ORDERS'],
+        //   title: 'Work Order Updated',
+        //   message: `A work order (#${updatedWorkOrder.code}) for ${updatedWorkOrder.projectIndividual.name} was updated by ${ctx.fullName}.`,
+        //   link: `/work-orders/${updatedWorkOrder.code}/view`,
+        //   entityType: 'WorkOrder' as Prisma.ModelName,
+        //   entityCode: updatedWorkOrder.code,
+        //   entityId: updatedWorkOrder.id,
+        //   userCodes: [owner, ...assignedPics],
+        // })
 
         return {
           status: 200,
@@ -359,29 +462,30 @@ export const upsertWorkOrder = action
         }
       }
 
-      const newWorkOrder = await db.$transaction(async (tx) => {
-        //* create new work order
-        const wo = await db.workOrder.create({
-          data: {
-            ...data,
-            createdBy: userId,
-            updatedBy: userId,
-            workOrderItems: { createMany: { data: woItems } },
-          },
-        })
-
-        //* credit stock-in upon successful creation of work order
-        //* it should be status = 'Open' or 'Pending' for it to be credited
-        await creditStock({
-          tx,
-          workOrderCode: wo.code,
-          prevStatus: null,
-          currStatus: wo.status,
-          deliveredProjectItems: [],
-        })
-
-        return wo
+      const newWorkOrder = await db.workOrder.create({
+        data: {
+          ...data,
+          createdBy: userId,
+          updatedBy: userId,
+          workOrderItems: { createMany: { data: woItems } },
+        },
+        include,
       })
+
+      // const assignedPics = newWorkOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
+      // const owner = newWorkOrder.userCode
+
+      // //* create notifications
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES['WORK ORDERS'],
+      //   title: 'Work Order Created',
+      //   message: `A new work order (#${newWorkOrder.code}) for ${newWorkOrder.projectIndividual.name} was created by ${ctx.fullName}.`,
+      //   link: `/work-orders/${newWorkOrder.code}/view`,
+      //   entityType: 'WorkOrder' as Prisma.ModelName,
+      //   entityCode: newWorkOrder.code,
+      //   entityId: newWorkOrder.id,
+      //   userCodes: [owner, ...assignedPics],
+      // })
 
       return {
         status: 200,
@@ -401,13 +505,285 @@ export const upsertWorkOrder = action
     }
   })
 
+export const deleteWorkOrder = action
+  .use(authenticationMiddleware)
+  .schema(paramsSchema)
+  .action(async ({ ctx, parsedInput: data }) => {
+    const include = {
+      projectIndividual: {
+        include: {
+          projectIndividualCustomers: {
+            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          projectIndividualPics: {
+            //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    } satisfies Prisma.WorkOrderInclude
+
+    try {
+      const existingWorkOrder = await db.workOrder.findUnique({ where: { code: data.code }, include })
+
+      if (!existingWorkOrder) return { error: true, status: 404, message: 'Work order not found!', action: 'DELETE_WORK_ORDER' }
+
+      // const assignedPics = existingWorkOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
+      // const owner = existingWorkOrder.userCode
+
+      await db.$transaction(async (tx) => {
+        const updatedWorkOrder = await db.workOrder.update({
+          where: { code: data.code },
+          data: { status: String(WORK_ORDER_STATUS_VALUE_MAP.Deleted), deletedAt: new Date(), deletedBy: ctx.userId },
+        })
+
+        //* rollback - because work order status also updated to deleted
+        await creditStock({
+          tx,
+          workOrderCode: updatedWorkOrder.code,
+          prevStatus: existingWorkOrder.status,
+          currStatus: updatedWorkOrder.status,
+          deliveredProjectItems: [],
+        })
+      })
+
+      // //* create notifications
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES['WORK ORDERS'],
+      //   title: 'Work Order Deleted',
+      //   message: `A work order (#${data.code}) for ${existingWorkOrder.projectIndividual.name} was deleted by ${ctx.fullName}.`,
+      //   link: `/work-orders/${data.code}/view`,
+      //   entityType: 'WorkOrder' as Prisma.ModelName,
+      //   entityCode: existingWorkOrder.code,
+      //   entityId: existingWorkOrder.id,
+      //   userCodes: [owner, ...assignedPics],
+      // })
+
+      return { status: 200, message: 'Work order deleted successfully!', action: 'DELETE_WORK_ORDER' }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'DELETE_WORK_ORDER',
+      }
+    }
+  })
+
+export const restoreWorkOrder = action
+  .use(authenticationMiddleware)
+  .schema(paramsSchema)
+  .action(async ({ parsedInput: data }) => {
+    const include = {
+      projectIndividual: {
+        include: {
+          projectIndividualCustomers: {
+            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          projectIndividualPics: {
+            //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    } satisfies Prisma.WorkOrderInclude
+
+    try {
+      const existingWorkOrder = await db.workOrder.findUnique({ where: { code: data.code }, include })
+
+      if (!existingWorkOrder) return { error: true, status: 404, message: 'Work order not found!', action: 'RESTORE_WORK_ORDER' }
+
+      // const assignedPics = existingWorkOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
+      // const owner = existingWorkOrder.userCode
+
+      await db.workOrder.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+
+      // //* create notifications
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES['WORK ORDERS'],
+      //   title: 'Work Order Restored',
+      //   message: `A work order (#${data.code}) for ${existingWorkOrder.projectIndividual.name} was deleted by ${ctx.fullName}.`,
+      //   link: `/work-orders/${data.code}/view`,
+      //   entityType: 'WorkOrder' as Prisma.ModelName,
+      //   entityCode: existingWorkOrder.code,
+      //   entityId: existingWorkOrder.id,
+      //   userCodes: [owner, ...assignedPics],
+      // })
+
+      return { status: 200, message: 'Work order retored successfully!', action: 'RESTORE_WORK_ORDER' }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'RESTORE_WORK_ORDER',
+      }
+    }
+  })
+
+// * upsert only one line item
 export const upsertWorkOrderLineItem = action
   .use(authenticationMiddleware)
   .schema(upsertWorkOrderLineItemFormSchema)
   .action(async ({ parsedInput }) => {
     const { workOrderCode, projectItemCode, operation, maxQty, ...data } = parsedInput
 
+    console.log('zzzzz')
+
+    const include = {
+      projectIndividual: {
+        include: {
+          projectIndividualCustomers: {
+            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          projectIndividualPics: {
+            //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    } satisfies Prisma.WorkOrderInclude
+
     try {
+      const existingWorkOrder = await db.workOrder.findUnique({
+        where: { code: workOrderCode },
+        include,
+      })
+
+      if (!existingWorkOrder) {
+        return { error: true, status: 404, message: 'Work order not found!', action: 'UPSERT_WORK_ORDER_LINE_ITEM' }
+      }
+
+      // const assignedPics = existingWorkOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
+      // const owner = existingWorkOrder.userCode
+
       //* update work order line item
       if (operation === 'update') {
         const updatedWorkOrderItem = await db.workOrderItem.update({
@@ -415,10 +791,22 @@ export const upsertWorkOrderLineItem = action
           data,
         })
 
+        // //* create notifications
+        // void createNotification(ctx, {
+        //   permissionCode: PERMISSIONS_CODES['WORK ORDERS'],
+        //   title: 'Work Order Line Item Updated',
+        //   message: `A work order line item (#${updatedWorkOrderItem.projectItemCode}) for work order (#${existingWorkOrder.code}) was updated by ${ctx.fullName}.`,
+        //   link: `/work-orders/${updatedWorkOrderItem.workOrderCode}/view`,
+        //   entityType: 'WorkOrder' as Prisma.ModelName,
+        //   entityCode: existingWorkOrder.code,
+        //   entityId: existingWorkOrder.id,
+        //   userCodes: [owner, ...assignedPics],
+        // })
+
         return {
           status: 200,
           message: 'Work order line item updated successfully!',
-          action: 'UPDATE_WORK_ORDER_LINE_ITEM',
+          action: 'UPSERT_WORK_ORDER_LINE_ITEM',
           data: { workOrderItem: updatedWorkOrderItem },
         }
       }
@@ -428,10 +816,22 @@ export const upsertWorkOrderLineItem = action
         data: { ...data, workOrderCode, projectItemCode },
       })
 
+      // //* create notifications
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES['WORK ORDERS'],
+      //   title: 'Work Order Line Item Created',
+      //   message: `A new work order line item (#${newWorkOrderItem.projectItemCode}) for work order (#${existingWorkOrder.code}) was created by ${ctx.fullName}.`,
+      //   link: `/work-orders/${newWorkOrderItem.workOrderCode}/view`,
+      //   entityType: 'WorkOrder' as Prisma.ModelName,
+      //   entityCode: existingWorkOrder.code,
+      //   entityId: existingWorkOrder.id,
+      //   userCodes: [owner, ...assignedPics],
+      // })
+
       return {
         status: 200,
         message: 'Work order line item created successfully!',
-        action: 'UPDATE_WORK_ORDER_LINE_ITEM',
+        action: 'UPSERT_WORK_ORDER_LINE_ITEM',
         data: { workOrderItem: newWorkOrderItem },
       }
     } catch (error) {
@@ -441,37 +841,257 @@ export const upsertWorkOrderLineItem = action
         error: true,
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
-        action: 'UPDATE_WORK_ORDER_LINE_ITEM',
+        action: 'UPSERT_WORK_ORDER_LINE_ITEM',
       }
     }
   })
 
-export const deleteWorkOrderLineItem = action.schema(deleteWorkOrderLineItemFormSchema).action(async ({ parsedInput: data }) => {
-  try {
-    const workOrderLineItem = await db.workOrderItem.findUnique({
-      where: { workOrderCode_projectItemCode: { workOrderCode: data.workOrderCode, projectItemCode: data.projectItemCode } },
-    })
+// * upsert multiple line items
+export const upsertWorkOrderLineItems = action
+  .use(authenticationMiddleware)
+  .schema(upsertWorkOrderLineItemsFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { lineItems, workOrderCode } = parsedInput
 
-    if (!workOrderLineItem) {
-      return { error: true, status: 404, message: 'Work order line item not found!', action: 'DELETE_WORK_ORDER_LINE_ITEM' }
+    const include = {
+      projectIndividual: {
+        include: {
+          projectIndividualCustomers: {
+            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          projectIndividualPics: {
+            //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    } satisfies Prisma.WorkOrderInclude
+
+    try {
+      const existingWorkOrder = await db.workOrder.findUnique({
+        where: { code: workOrderCode },
+        include,
+      })
+
+      if (!existingWorkOrder) {
+        return { error: true, status: 404, message: 'Work order not found!', action: 'UPSERT_WORK_ORDER_LINE_ITEMS' }
+      }
+
+      const currLineItems = await db.workOrderItem.findMany({
+        where: { workOrderCode },
+      })
+
+      const uniqueLineItemsPItemCodes = new Set(lineItems.map((li) => li.projectItemCode))
+
+      const toUpdateLineItems = currLineItems.filter((cli) => uniqueLineItemsPItemCodes.has(cli.projectItemCode))
+      const toDeleteLineItems = currLineItems.filter((cli) => !uniqueLineItemsPItemCodes.has(cli.projectItemCode))
+      const toDeleteLineItemsPItemCodes = toDeleteLineItems.map((cli) => cli.projectItemCode)
+
+      const newWorkOrderItem = await db.$transaction(async (tx) => {
+        //* delete line items
+        await tx.workOrderItem.deleteMany({
+          where: {
+            workOrderCode,
+            projectItemCode: { in: toDeleteLineItemsPItemCodes },
+          },
+        })
+
+        //* upsert line items
+        return await Promise.all(
+          lineItems.map(({ maxQty, ...li }) => {
+            const lineItem = { ...li, workOrderCode }
+
+            return tx.workOrderItem.upsert({
+              where: { workOrderCode_projectItemCode: { workOrderCode, projectItemCode: li.projectItemCode } },
+              create: lineItem,
+              update: lineItem,
+            })
+          })
+        )
+      })
+
+      const assignedPics = existingWorkOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
+      const owner = existingWorkOrder.userCode
+
+      // //* create notifications
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES['WORK ORDERS'],
+      //   title: 'Work Order Line Items Updated',
+      //   message: `${toUpdateLineItems.length} ${toUpdateLineItems.length > 1 ? 'items were' : 'item was'} updated and ${toDeleteLineItems.length} ${toDeleteLineItems.length > 1 ? 'items were' : 'item was'} deleted by ${ctx.fullName}.`,
+      //   link: `/work-orders/${existingWorkOrder.code}/view`,
+      //   entityType: 'WorkOrder' as Prisma.ModelName,
+      //   entityCode: existingWorkOrder.code,
+      //   entityId: existingWorkOrder.id,
+      //   userCodes: [owner, ...assignedPics],
+      // })
+
+      return {
+        status: 200,
+        message: 'Work order lines item updated successfully!',
+        action: 'UPSERT_WORK_ORDER_LINE_ITEMS',
+        data: { workOrderItem: newWorkOrderItem },
+      }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'UPSERT_WORK_ORDER_LINE_ITEMS',
+      }
     }
+  })
 
-    await db.workOrderItem.delete({
-      where: { workOrderCode_projectItemCode: { workOrderCode: data.workOrderCode, projectItemCode: data.projectItemCode } },
-    })
+export const deleteWorkOrderLineItem = action
+  .use(authenticationMiddleware)
+  .schema(deleteWorkOrderLineItemFormSchema)
+  .action(async ({ ctx, parsedInput: data }) => {
+    const include = {
+      projectIndividual: {
+        include: {
+          projectIndividualCustomers: {
+            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          projectIndividualPics: {
+            //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    } satisfies Prisma.WorkOrderInclude
 
-    return { status: 200, message: 'Work order deleted successfully!', action: 'DELETE_WORK_ORDER_LINE_ITEM' }
-  } catch (error) {
-    console.error(error)
+    try {
+      const existingWorkOrder = await db.workOrder.findUnique({
+        where: { code: data.workOrderCode },
+        include,
+      })
 
-    return {
-      error: true,
-      status: 500,
-      message: error instanceof Error ? error.message : 'Something went wrong!',
-      action: 'DELETE_WORK_ORDER_LINE_ITEM',
+      if (!existingWorkOrder) {
+        return { error: true, status: 404, message: 'Work order not found!', action: 'DELETE_WORK_ORDER_LINE_ITEM' }
+      }
+
+      // const assignedPics = existingWorkOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
+      // const owner = existingWorkOrder.userCode
+
+      const workOrderLineItem = await db.workOrderItem.findUnique({
+        where: { workOrderCode_projectItemCode: { workOrderCode: data.workOrderCode, projectItemCode: data.projectItemCode } },
+      })
+
+      if (!workOrderLineItem) {
+        return { error: true, status: 404, message: 'Work order line item not found!', action: 'DELETE_WORK_ORDER_LINE_ITEM' }
+      }
+
+      await db.workOrderItem.delete({
+        where: { workOrderCode_projectItemCode: { workOrderCode: data.workOrderCode, projectItemCode: data.projectItemCode } },
+      })
+
+      // //* create notifications
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES['WORK ORDERS'],
+      //   title: 'Work Order Line Item Deleted',
+      //   message: `A work order line item (#${workOrderLineItem.projectItemCode}) for work order (#${existingWorkOrder.code}) was deleted by ${ctx.fullName}.`,
+      //   link: `/work-orders/${data.workOrderCode}/view`,
+      //   entityType: 'WorkOrder' as Prisma.ModelName,
+      //   entityCode: existingWorkOrder.code,
+      //   entityId: existingWorkOrder.id,
+      //   userCodes: [owner, ...assignedPics],
+      // })
+
+      return { status: 200, message: 'Work order deleted successfully!', action: 'DELETE_WORK_ORDER_LINE_ITEM' }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'DELETE_WORK_ORDER_LINE_ITEM',
+      }
     }
-  }
-})
+  })
 
 export const updateWorkeOrderStatus = action
   .use(authenticationMiddleware)
@@ -479,6 +1099,61 @@ export const updateWorkeOrderStatus = action
   .action(async ({ ctx, parsedInput }) => {
     const { workOrders, currentStatus, comments, trackingNum } = parsedInput
     const { userId } = ctx
+
+    const include = {
+      projectIndividual: {
+        include: {
+          projectIndividualCustomers: {
+            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          projectIndividualPics: {
+            //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    } satisfies Prisma.WorkOrderInclude
 
     const workOrderCodes = workOrders.map((wo) => wo.code)
 
@@ -516,6 +1191,7 @@ export const updateWorkeOrderStatus = action
                     },
                   },
                 },
+                include,
               })
             })
             .filter((update) => update !== null)
@@ -537,6 +1213,26 @@ export const updateWorkeOrderStatus = action
         return result
       })
 
+      // //* create notifications
+      // if (updatedWorkOrders.length > 0) {
+      //   updatedWorkOrders.forEach((wo) => {
+      //     const assignedPics = wo.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
+      //     const owner = wo.userCode
+      //     const status = WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === currentStatus)?.label || ''
+
+      //     void createNotification(ctx, {
+      //       permissionCode: PERMISSIONS_CODES['WORK ORDERS'],
+      //       title: 'Work Order Status Updated',
+      //       message: `A work order's (#${wo.code}) status was updated to '${status}' by ${ctx.fullName}.`,
+      //       link: `/work-orders/${wo.code}/view`,
+      //       entityType: 'WorkOrder' as Prisma.ModelName,
+      //       entityCode: wo.code,
+      //       entityId: wo.id,
+      //       userCodes: [owner, ...assignedPics],
+      //     })
+      //   })
+      // }
+
       return {
         status: 200,
         message: 'Work order status updated successfully!',
@@ -551,56 +1247,6 @@ export const updateWorkeOrderStatus = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'UPDATE_WORK_ORDER_STATUS',
-      }
-    }
-  })
-
-export const deleteWorkOrder = action
-  .use(authenticationMiddleware)
-  .schema(paramsSchema)
-  .action(async ({ ctx, parsedInput: data }) => {
-    try {
-      const workOrder = await db.workOrder.findUnique({ where: { code: data.code } })
-
-      if (!workOrder) return { error: true, status: 404, message: 'Work order not found!', action: 'DELETE_WORK_ORDER' }
-
-      await db.workOrder.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
-
-      return { status: 200, message: 'Work order deleted successfully!', action: 'DELETE_WORK_ORDER' }
-    } catch (error) {
-      console.error(error)
-
-      return {
-        error: true,
-        status: 500,
-        message: error instanceof Error ? error.message : 'Something went wrong!',
-        action: 'DELETE_WORK_ORDER',
-      }
-    }
-  })
-
-export const restoreWorkOrder = action
-  .use(authenticationMiddleware)
-  .schema(paramsSchema)
-  .action(async ({ parsedInput: data }) => {
-    try {
-      const workOrder = await db.workOrder.findUnique({ where: { code: data.code } })
-
-      if (!workOrder) {
-        return { error: true, status: 404, message: 'Work order not found!', action: 'RESTORE_WORK_ORDER' }
-      }
-
-      await db.workOrder.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
-
-      return { status: 200, message: 'Work order retored successfully!', action: 'RESTORE_WORK_ORDER' }
-    } catch (error) {
-      console.error(error)
-
-      return {
-        error: true,
-        status: 500,
-        message: error instanceof Error ? error.message : 'Something went wrong!',
-        action: 'RESTORE_WORK_ORDER',
       }
     }
   })

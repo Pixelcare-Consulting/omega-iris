@@ -3,7 +3,7 @@
 import { getNonCustomerUsers } from '@/actions/users'
 import { Column, DataGridTypes, DataGridRef, Button } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useContext, useEffect, useRef } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 import { format, isValid } from 'date-fns'
@@ -21,6 +21,7 @@ import { updatePiPics } from '@/actions/project-individual'
 import LoadingButton from '@/components/loading-button'
 import CommonDataGrid from '@/components/common-datagrid'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
+import { NotificationContext } from '@/context/notification'
 
 type ProjectIndividualPicTabProps = {
   projectCode: number
@@ -34,6 +35,8 @@ export default function ProjectIndividualPicTab({ projectCode, pics, users }: Pr
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual-pic'
   const DATAGRID_UNIQUE_KEY = 'project-individual-pics'
+
+  // const notificationContext = useContext(NotificationContext)
 
   const form = useForm({
     mode: 'onChange',
@@ -72,15 +75,16 @@ export default function ProjectIndividualPicTab({ projectCode, pics, users }: Pr
     if (!formData.code) return
 
     toast.promise(executeAsync(formData), {
-      loading: 'Updating P.I.Cs...',
+      loading: 'Updating PICs...',
       success: (response) => {
         const result = response?.data
 
-        if (!response || !result) throw { message: 'Failed to update P.I.Cs!', unExpectedError: true }
+        if (!response || !result) throw { message: 'Failed to update PICs!', unExpectedError: true }
 
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
+            // notificationContext?.handleRefresh()
           }, 1000)
 
           return result.message

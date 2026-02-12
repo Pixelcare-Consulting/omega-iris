@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
 import { useParams } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useContext, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 import Popup from 'devextreme-react/popup'
@@ -38,6 +38,7 @@ import { useSalesOrderByWorkOrderCode } from '@/hooks/safe-actions/sales-order'
 import CanView from '@/components/acl/can-view'
 import { useSession } from 'next-auth/react'
 import WorkOrderUpdateStatusForm from './work-order-update-status-form'
+import { NotificationContext } from '@/context/notification'
 
 type WorkOrderFormProps = {
   pageMetaData: PageMetadata
@@ -49,6 +50,8 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
   const router = useRouter()
   const { code } = useParams() as { code: string }
+
+  // const notificationContext = useContext(NotificationContext)
 
   const isCreate = code === 'add' || !workOrder
 
@@ -67,6 +70,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
         isInternal: isBusinessPartner ? false : true,
         billingAddrCode: null,
         shippingAddrCode: null,
+        alternativeAddr: null,
         comments: null,
 
         //* sap fields
@@ -211,6 +215,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
       if (result?.data && result?.data?.workOrder && 'id' in result?.data?.workOrder) {
         router.refresh()
+        // notificationContext?.handleRefresh()
         workOrderItems.execute({ workOrderCode: result.data.workOrder.code })
 
         setTimeout(() => {
@@ -462,6 +467,10 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                     },
                   }}
                 />
+              </div>
+
+              <div className='col-span-12'>
+                <TextAreaField control={form.control} name='alternativeAddr' label='Alternative Address' />
               </div>
 
               <WorkOrderLineItemTable

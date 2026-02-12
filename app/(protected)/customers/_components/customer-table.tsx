@@ -2,7 +2,7 @@
 
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useContext, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 import { format } from 'date-fns'
@@ -34,6 +34,7 @@ import { usePaymentTerms } from '@/hooks/safe-actions/payment-term'
 import { useAccountTypes } from '@/hooks/safe-actions/account-type'
 import { useBusinessTypes } from '@/hooks/safe-actions/business-type'
 import { parseExcelFile } from '@/utils/xlsx'
+import { NotificationContext } from '@/context/notification'
 
 type CustomerTableProps = { bps: Awaited<ReturnType<typeof getBps>> }
 type DataSource = Awaited<ReturnType<typeof getBps>>
@@ -43,6 +44,8 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-customer'
   const DATAGRID_UNIQUE_KEY = 'customers'
+
+  // const notificationContext = useContext(NotificationContext)
 
   const form = useForm({
     mode: 'onChange',
@@ -144,6 +147,7 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
+            // notificationContext?.handleRefresh()
           }, 1500)
 
           return result.message
@@ -174,6 +178,7 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
+            // notificationContext?.handleRefresh()
           }, 1500)
 
           return result.message
@@ -279,11 +284,13 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
         toast.success(`Project groups imported successfully! ${stats.errors.length} errors found.`)
         setStats((prev: any) => ({ ...prev, total: 0, completed: 0, progress: 0, status: 'processing' }))
         router.refresh()
+        // notificationContext?.handleRefresh()
       }
 
       if (stats.errors.length > 0) {
         setShowImportError(true)
         setImportErrors(stats.errors)
+        // notificationContext?.handleRefresh()
       }
 
       setIsLoading(false)
@@ -309,6 +316,7 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
       toast.success(result?.message, { duration: 10000 })
       form.reset()
       router.refresh()
+      // notificationContext?.handleRefresh()
 
       if (result?.errors && result?.errors.length > 0) {
         setShowSyncError(true)
@@ -334,6 +342,7 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
 
       toast.success(result?.message)
       router.refresh()
+      // notificationContext?.handleRefresh()
       syncMeta.execute({ code: 'customer' })
     } catch (error: any) {
       console.error(error)

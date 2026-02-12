@@ -405,17 +405,17 @@ export const importBp = action
         status: progress >= 100 || isLastRow ? 'completed' : 'processing',
       }
 
-      // if (updatedStats.status === 'completed') {
-      //   //* create notification
-      //   void createNotification(ctx, {
-      //     permissionCode: cardType === 'C' || cardType === 'L' ? PERMISSIONS_CODES.CUSTOMERS : PERMISSIONS_CODES.SUPPLIERS,
-      //     title: `${BUSINESS_PARTNER_TYPE_MAP[cardType]} Imported`,
-      //     message: `New ${BUSINESS_PARTNER_TYPE_MAP[cardType].toLowerCase()}${total > 1 ? 's were' : ' was'} imported by ${ctx.fullName}.`,
-      //     link: `/${cardType === 'L' || cardType === 'C' ? 'customers' : 'suppliers'}`,
-      //     entityType: 'BusinessPartner' as Prisma.ModelName,
-      //     userCodes: [],
-      //   })
-      // }
+      if (updatedStats.status === 'completed') {
+        //* create notification
+        // void createNotification(ctx, {
+        //   permissionCode: cardType === 'C' || cardType === 'L' ? PERMISSIONS_CODES.CUSTOMERS : PERMISSIONS_CODES.SUPPLIERS,
+        //   title: `${BUSINESS_PARTNER_TYPE_MAP[cardType]} Imported`,
+        //   message: `New ${BUSINESS_PARTNER_TYPE_MAP[cardType].toLowerCase()}${total > 1 ? 's were' : ' was'} imported by ${ctx.fullName}.`,
+        //   link: `/${cardType === 'L' || cardType === 'C' ? 'customers' : 'suppliers'}`,
+        //   entityType: 'BusinessPartner' as Prisma.ModelName,
+        //   userCodes: [],
+        // })
+      }
 
       return {
         status: 200,
@@ -462,7 +462,7 @@ export const deleteBp = action
 
       await db.businessPartner.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 
-      // //* create notification
+      //* create notification
       // void createNotification(ctx, {
       //   permissionCode: bp.CardType === 'L' || bp.CardType === 'C' ? PERMISSIONS_CODES.CUSTOMERS : PERMISSIONS_CODES.SUPPLIERS,
       //   title: `${BUSINESS_PARTNER_TYPE_MAP[bp.CardType]} Deleted`,
@@ -509,7 +509,7 @@ export const restoreBp = action
 
       await db.businessPartner.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
 
-      // //* create notification
+      //* create notification
       // void createNotification(ctx, {
       //   permissionCode: bp.CardType === 'L' || bp.CardType === 'C' ? PERMISSIONS_CODES.CUSTOMERS : PERMISSIONS_CODES.SUPPLIERS,
       //   title: `${BUSINESS_PARTNER_TYPE_MAP[bp.CardType]} Restored`,

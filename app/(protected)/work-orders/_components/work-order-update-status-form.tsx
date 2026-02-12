@@ -22,9 +22,10 @@ import { FormDebug } from '@/components/forms/form-debug'
 import Separator from '@/components/separator'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import WorkOrderLineItemsTobeDeliver from './work-order-line-items-tobe-deliver'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useContext, useEffect, useState } from 'react'
 import AlertDialog from '@/components/alert-dialog'
 import { safeParseInt } from '@/utils'
+import { NotificationContext } from '@/context/notification'
 
 type WorkOrderUpdateStatusFormProps = {
   selectedRowKeys: number[]
@@ -42,6 +43,8 @@ export default function WorkOrderUpdateStatusForm({
   isRedirect,
 }: WorkOrderUpdateStatusFormProps) {
   const router = useRouter()
+
+  // const notificationContext = useContext(NotificationContext)
 
   const form = useFormContext<WorkOrderStatusUpdateForm>()
 
@@ -73,6 +76,7 @@ export default function WorkOrderUpdateStatusForm({
         if (onClose) {
           setTimeout(() => {
             onClose()
+            // notificationContext?.handleRefresh()
 
             if (callback) callback()
             if (isRedirect) {

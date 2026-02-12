@@ -1,9 +1,9 @@
 'use client'
 
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton, Summary, TotalItem, GroupItem } from 'devextreme-react/data-grid'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { format } from 'date-fns'
-import Toolbar from 'devextreme-react/toolbar'
+import Toolbar, { Item } from 'devextreme-react/toolbar'
 import { Anchor, Workbook } from 'exceljs'
 import { exportDataGrid } from 'devextreme/common/export/excel'
 import { saveAs } from 'file-saver-es'
@@ -13,12 +13,20 @@ import { useAction } from 'next-safe-action/hooks'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import ProgressBar from 'devextreme-react/progress-bar'
+import Tooltip from 'devextreme-react/tooltip'
 
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import CommonDataGrid from '@/components/common-datagrid'
-import { deleteProjectItem, getProjecItems, importProjectItems } from '@/actions/project-item'
+import {
+  deleteProjectItem,
+  deleteProjectItems,
+  getProjecItems,
+  importProjectItems,
+  restoreProjectItem,
+  restoreProjectItems,
+} from '@/actions/project-item'
 import ProjectItemForm from '../project-individual-item-form'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import AlertDialog from '@/components/alert-dialog'
@@ -31,7 +39,11 @@ import { ImportSyncError, Stats } from '@/types/common'
 import { parseExcelFile } from '@/utils/xlsx'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import { useSession } from 'next-auth/react'
-import { hideActionButton } from '@/utils/devextreme'
+import { hideActionButton, showActionButton } from '@/utils/devextreme'
+import { NotificationContext } from '@/context/notification'
+import { useForm } from 'react-hook-form'
+import { deleteProjectItemsFormSchema } from '@/schema/project-item'
+import LoadingButton from '@/components/loading-button'
 
 type ProjectIndividualItemTabProps = {
   projectCode: number
@@ -47,15 +59,21 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual-item'
   const DATAGRID_UNIQUE_KEY = 'project-individual-items'
 
+  // const notificationContext = useContext(NotificationContext)
+
   const [isLoading, setIsLoading] = useState(false)
   const [stats, setStats] = useState<Stats>({ total: 0, completed: 0, progress: 0, errors: [], status: 'processing' })
 
-  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
+  const [showDeleleteSelectedConfirmation, setShowDeleleteSelectedConfirmation] = useState(false)
+  const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false)
   const [showImportError, setShowImportError] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
   const [isViewMode, setIsViewMode] = useState(false)
   const [importErrors, setImportErrors] = useState<ImportSyncError[]>([])
+
+  const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([])
 
   const users = useUsers()
   const itemMasters = useItems(true)
@@ -63,7 +81,9 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
   const dataGridRef = useRef<DataGridRef | null>(null)
   const importErrorDataGridRef = useRef<DataGridRef | null>(null)
 
-  const { executeAsync } = useAction(deleteProjectItem)
+  const deleteProjectItemData = useAction(deleteProjectItem)
+  const deleteProjectItemsData = useAction(deleteProjectItems)
+  const restoreProjectItemData = useAction(restoreProjectItem)
   const importData = useAction(importProjectItems)
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
@@ -115,18 +135,28 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
     (e: DataGridTypes.ColumnButtonClickEvent) => {
       const data = e.row?.data
       if (!data) return
-      setShowConfirmation(true)
+      setShowDeleteConfirmation(true)
       setRowData(data)
     },
-    [setShowConfirmation, setRowData]
+    [setShowDeleteConfirmation, setRowData]
   )
 
-  const handleConfirm = useCallback((code?: number) => {
+  const handleRestore = useCallback(
+    (e: DataGridTypes.ColumnButtonClickEvent) => {
+      const data = e.row?.data
+      if (!data) return
+      setShowRestoreConfirmation(true)
+      setRowData(data)
+    },
+    [setShowRestoreConfirmation, setRowData]
+  )
+
+  const handleConfirmDelete = (code?: number) => {
     if (!code) return
 
-    setShowConfirmation(false)
+    setShowDeleteConfirmation(false)
 
-    toast.promise(executeAsync({ code }), {
+    toast.promise(deleteProjectItemData.executeAsync({ code }), {
       loading: 'Deleting item...',
       success: (response) => {
         const result = response?.data
@@ -136,6 +166,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
         if (!result.error) {
           setTimeout(() => {
             items.execute({ projectCode })
+            // notificationContext?.handleRefresh()
             handleClose()
           }, 1500)
 
@@ -148,7 +179,66 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
         return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
       },
     })
-  }, [])
+  }
+
+  const handleConfirmDeleteSelected = (codes?: number[]) => {
+    if (!codes || codes.length < 1) return
+
+    setShowDeleleteSelectedConfirmation(false)
+
+    toast.promise(deleteProjectItemsData.executeAsync({ codes, projectCode }), {
+      loading: 'Deleting items...',
+      success: (response) => {
+        const result = response?.data
+
+        if (!response || !result) throw { message: 'Failed to delete items!', unExpectedError: true }
+
+        if (!result.error) {
+          setTimeout(() => {
+            items.execute({ projectCode })
+            // notificationContext?.handleRefresh()
+            handleClose()
+          }, 1500)
+
+          return result.message
+        }
+
+        throw { message: result.message, expectedError: true }
+      },
+      error: (err: Error & { expectedError: boolean }) => {
+        return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
+      },
+    })
+  }
+
+  const handleConfirmRestore = (code?: number) => {
+    if (!code) return
+
+    setShowRestoreConfirmation(false)
+
+    toast.promise(restoreProjectItemData.executeAsync({ code }), {
+      loading: 'Restoring item...',
+      success: (response) => {
+        const result = response?.data
+
+        if (!response || !result) throw { message: 'Failed to restore item!', unExpectedError: true }
+
+        if (!result.error) {
+          setTimeout(() => {
+            items.execute({ projectCode })
+            // notificationContext?.handleRefresh()
+          }, 1500)
+
+          return result.message
+        }
+
+        throw { message: result.message, expectedError: true }
+      },
+      error: (err: Error & { expectedError: boolean }) => {
+        return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
+      },
+    })
+  }
 
   const handleClose = useCallback(() => {
     setRowData(null)
@@ -156,7 +246,11 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
     setIsViewMode(false)
   }, [])
 
-  function exportToExcel(fileName: string, component?: dxDataGrid<any, any> | null, selectedRowsOnly = false) {
+  const handleOnSelectionChanged = (e: DataGridTypes.SelectionChangedEvent) => {
+    setSelectedRowKeys(e.selectedRowKeys)
+  }
+
+  const exportToExcel = (fileName: string, component?: dxDataGrid<any, any> | null, selectedRowsOnly = false) => {
     if (!component) return
 
     const normalizedFileName = fileName.replace(/[^a-zA-Z0-9-]/g, '-')
@@ -204,6 +298,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
 
     try {
       const headers: string[] = [
+        'ID',
         'MFG_P/N',
         'Part_Number',
         'Date_Code',
@@ -213,8 +308,6 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
         'Packaging_Type',
         'SPQ',
         'Cost',
-        'Available_To_Order',
-        'In_Process_Pending',
         'Total_Stock',
         'Notes',
         'Site_Location',
@@ -264,7 +357,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
       }
 
       if (stats.status === 'completed') {
-        toast.success(`Project groups imported successfully! ${stats.errors.length} errors found.`)
+        toast.success(`Project item imported successfully! ${stats.errors.length} errors found.`)
         setStats((prev: any) => ({ ...prev, total: 0, completed: 0, progress: 0, status: 'processing' }))
         router.refresh()
         items.execute({ projectCode })
@@ -340,6 +433,27 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
       {!isViewMode ? (
         <div className='flex h-full w-full flex-col'>
           <Toolbar className='mt-5'>
+            {selectedRowKeys.length > 0 && (
+              <Item location='after' locateInMenu='auto' widget='dxMenu'>
+                <Tooltip
+                  target='#update-status'
+                  contentRender={() => 'Update Status'}
+                  showEvent='mouseenter'
+                  hideEvent='mouseleave'
+                  position='top'
+                />
+                <LoadingButton
+                  id='update-status'
+                  icon='trash'
+                  isLoading={isLoading || importData.isExecuting || deleteProjectItemsData.isExecuting}
+                  text={`${selectedRowKeys.length} : Delete`}
+                  type='default'
+                  stylingMode='outlined'
+                  onClick={() => setShowDeleleteSelectedConfirmation(true)}
+                />
+              </Item>
+            )}
+
             <CommonPageHeaderToolbarItems
               dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
               dataGridRef={dataGridRef}
@@ -365,8 +479,9 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               isLoading={items.isLoading}
               storageKey={DATAGRID_STORAGE_KEY}
               keyExpr='code'
+              isSelectionEnable
               dataGridStore={dataGridStore}
-              callbacks={{ onRowClick: handleView }}
+              callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChanged }}
             >
               <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
               <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} />
@@ -374,8 +489,8 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               <Column dataField='item.FirmName' dataType='string' caption='Manufacturer' />
               <Column dataField='partNumber' dataType='string' caption='Part Number' />
               <Column dataField='item.ItemName' dataType='string' caption='Description' />
-              <Column dataField='dateCode' dataType='string' caption='Date Code' />
-              <Column dataField='countryOfOrigin' dataType='string' caption='Country Of Origin' />
+              <Column dataField='dateCode' minWidth={60} dataType='string' caption='DC' />
+              <Column dataField='countryOfOrigin' minWidth={70} dataType='string' caption='COO' />
               <Column dataField='lotCode' dataType='string' caption='Lot Code' />
               <Column dataField='palletNo' dataType='string' caption='Pallet No' />
               {/* <Column dataField='warehouse.name' dataType='string' caption='Warehouse' /> */}
@@ -438,20 +553,57 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               </Summary>
 
               <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
-                <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
+                <DataGridButton
+                  icon='eyeopen'
+                  onClick={handleView}
+                  cssClass='!text-lg'
+                  hint='View'
+                  visible={(opt) => {
+                    const data = opt?.row?.data
+                    return hideActionButton(data?.deletedAt || data?.deletedBy)
+                  }}
+                />
                 <DataGridButton
                   icon='edit'
                   onClick={handleEdit}
                   cssClass='!text-lg'
                   hint='Edit'
-                  visible={hideActionButton(isBusinessPartner)}
+                  visible={(opt) => {
+                    const data = opt?.row?.data
+                    return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner)
+                  }}
                 />
                 <DataGridButton
                   icon='trash'
                   onClick={handleDelete}
                   cssClass='!text-lg !text-red-500'
                   hint='Delete'
-                  visible={hideActionButton(isBusinessPartner)}
+                  visible={(opt) => {
+                    const data = opt?.row?.data
+                    return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner)
+                  }}
+                />
+
+                <DataGridButton
+                  icon='undo'
+                  onClick={handleRestore}
+                  cssClass='!text-lg !text-blue-500'
+                  hint='Restore'
+                  visible={(opt) => {
+                    const data = opt?.row?.data
+                    return showActionButton((data?.deletedAt || data?.deletedBy) && !isBusinessPartner)
+                  }}
+                />
+
+                <DataGridButton
+                  icon='clear'
+                  onClick={() => {}}
+                  cssClass='!text-xl !text-red-500'
+                  hint='Permanent Delete'
+                  visible={(opt) => {
+                    const data = opt?.row?.data
+                    return showActionButton((data?.deletedAt || data?.deletedBy) && !isBusinessPartner)
+                  }}
                 />
               </Column>
             </CommonDataGrid>
@@ -470,11 +622,27 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
             </Popup>
 
             <AlertDialog
-              isOpen={showConfirmation}
+              isOpen={showDeleteConfirmation}
               title='Are you sure?'
               description={`Are you sure you want to delete this inventory item named "${rowData?.item.ItemName}"?`}
-              onConfirm={() => handleConfirm(rowData?.code)}
-              onCancel={() => setShowConfirmation(false)}
+              onConfirm={() => handleConfirmDelete(rowData?.code)}
+              onCancel={() => setShowDeleteConfirmation(false)}
+            />
+
+            <AlertDialog
+              isOpen={showDeleleteSelectedConfirmation}
+              title='Are you sure?'
+              description={`Are you sure you want to delete these ${selectedRowKeys.length} inventory items?`}
+              onConfirm={() => handleConfirmDeleteSelected(selectedRowKeys)}
+              onCancel={() => setShowDeleleteSelectedConfirmation(false)}
+            />
+
+            <AlertDialog
+              isOpen={showRestoreConfirmation}
+              title='Are you sure?'
+              description={`Are you sure you want to restore this inventory item named "${rowData?.item.ItemName}"?`}
+              onConfirm={() => handleConfirmRestore(rowData?.code)}
+              onCancel={() => setShowRestoreConfirmation(false)}
             />
 
             <ImportSyncErrorDataGrid

@@ -35,7 +35,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
   const router = useRouter()
   const { code } = useParams() as { code: string }
 
-  // const notificationContext = useContext(NotificationContext)
+  const notificationContext = useContext(NotificationContext)
 
   const isCreate = code === 'add' || !user
 
@@ -77,7 +77,6 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
   const { executeAsync, isExecuting } = useAction(upsertUser)
 
   const customers = useBps('C', true)
-  const suppliers = useBps('S', true)
   const roles = useRoles()
 
   const handleOnSubmit = async (formData: UserForm) => {

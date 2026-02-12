@@ -16,7 +16,7 @@ import Toolbar from 'devextreme-react/toolbar'
 import Popup from 'devextreme-react/popup'
 import { useAction } from 'next-safe-action/hooks'
 import { toast } from 'sonner'
-import Tooltip from 'devextreme-react/tooltip'
+import { useSession } from 'next-auth/react'
 
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -29,14 +29,15 @@ import AlertDialog from '@/components/alert-dialog'
 import { deleteWorkOrderLineItem, getWorkOrderByCode, upsertWorkOrderLineItem } from '@/actions/work-order'
 import { cn, safeParseFloat, safeParseInt } from '@/utils'
 import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
-import WorkOrderLineItemForm from '../work-order-line-item-form'
-import { WorkOrderItemForm } from '@/schema/work-order'
+import { WORK_ORDER_STATUS_VALUE_MAP, WorkOrderItemForm } from '@/schema/work-order'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import useUsers from '@/hooks/safe-actions/user'
 import WorkOrderLineItemView from '../work-order-line-item-view'
 import CanView from '@/components/acl/can-view'
 import { AbilityContext } from '@/context/ability'
+import { NotificationContext } from '@/context/notification'
+import WorkOrderLineItemForm from '../work-order-line-item-form'
 
 type WorkOrderLineItemTabProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
@@ -46,9 +47,12 @@ type WorkOrderLineItemTabProps = {
 type DataSource = Record<string, any> & WorkOrderItemForm
 
 export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: WorkOrderLineItemTabProps) {
+  const { data: session } = useSession()
+
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-work-order-item'
   const DATAGRID_UNIQUE_KEY = 'project-order-items'
 
+  // const notificationContext = useContext(NotificationContext)
   const ability = useContext(AbilityContext)
 
   const [showConfirmation, setShowConfirmation] = useState(false)
@@ -62,10 +66,17 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
   const dataGridRef = useRef<DataGridRef | null>(null)
 
   const projectItems = useProjecItems(workOrder.projectIndividualCode ?? 0)
-  const warehouses = useWarehouses()
-  const users = useUsers()
 
   const workOrderStatus = useMemo(() => safeParseInt(workOrder?.status), [JSON.stringify(workOrder)])
+
+  const isBusinessPartner = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'business-partner'
+  }, [JSON.stringify(session)])
+
+  const isLocked = useMemo(() => {
+    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process'] || isBusinessPartner
+  }, [workOrderStatus, isBusinessPartner])
 
   const woItems = useMemo(() => {
     if (workOrderItems.isLoading || workOrderItems.data.length < 1) return []
@@ -171,6 +182,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
         if (!result.error) {
           setTimeout(() => {
             workOrderItems.execute({ workOrderCode: workOrder.code })
+            // notificationContext?.handleRefresh()
             handleClose()
           }, 1500)
 
@@ -196,7 +208,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
       const updatedData = e.data
       const workOrderCode = workOrder.code
 
-      if (ability.can('edit', 'p-work-orders')) return
+      if (!ability.can('edit', 'p-work-orders')) return
 
       const formData = {
         workOrderCode,
@@ -218,7 +230,10 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
 
         toast.success(result?.message)
 
-        if (result?.data && result?.data?.workOrderItem) workOrderItems.execute({ workOrderCode })
+        if (result?.data && result?.data?.workOrderItem) {
+          workOrderItems.execute({ workOrderCode })
+          // notificationContext?.handleRefresh()
+        }
       } catch (error) {
         console.error(error)
         toast.error('Something went wrong! Please try again later.')
@@ -226,6 +241,12 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
     },
     [JSON.stringify(workOrderItems), JSON.stringify(workOrder.code)]
   )
+
+  const handleOnEditorPreparing = (e: DataGridTypes.EditorPreparingEvent) => {
+    if (e.parentType === 'dataRow' && e.dataField === 'qty') {
+      e.editorOptions.readOnly = ability.can('edit', 'p-work-orders') ? false : true
+    }
+  }
 
   const renderCommonSummaryIItems = () => {
     return (
@@ -272,7 +293,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
               addButton={{
                 text: 'Add Line Item',
                 onClick: handleAdd,
-                disabled: workOrderStatus >= 1 ? true : false,
+                disabled: isLocked ? true : false,
               }}
             />
           </Toolbar>
@@ -285,7 +306,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
               storageKey={DATAGRID_STORAGE_KEY}
               keyExpr='projectItemCode'
               dataGridStore={dataGridStore}
-              callbacks={{ onRowUpdated: handleOnRowUpdated }}
+              callbacks={{ onRowUpdated: handleOnRowUpdated, onEditorPreparing: handleOnEditorPreparing }}
             >
               <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' sortOrder='asc' allowEditing={false} />
               <Column
@@ -315,11 +336,11 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
               <Column
                 dataField='qty'
                 dataType='number'
-                caption={`Quantity${workOrderStatus >= 1 ? ' (Locked)' : ''}`}
+                caption={`Quantity${isLocked ? ' (Locked)' : ''}`}
                 format={DEFAULT_NUMBER_FORMAT}
                 alignment='left'
-                allowEditing={workOrderStatus >= 1 ? false : true}
-                cssClass={cn(workOrderStatus >= 1 ? '!bg-slate-100' : '')}
+                allowEditing={isLocked ? false : true}
+                cssClass={cn(isLocked ? '!bg-slate-100' : '')}
               >
                 <CustomRule
                   validationCallback={(e) => {
@@ -335,23 +356,13 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
                   <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
                 </CanView>
 
-                <CanView subject='p-work-orders' action='edit'>
-                  <DataGridButton
-                    icon='edit'
-                    onClick={handleEdit}
-                    cssClass='!text-lg'
-                    hint='Edit'
-                    visible={workOrderStatus >= 1 ? false : true}
-                  />
-                </CanView>
-
                 <CanView subject='p-work-orders' action='delete'>
                   <DataGridButton
                     icon='trash'
                     onClick={handleDelete}
                     cssClass='!text-lg !text-red-500'
                     hint='Delete'
-                    visible={workOrderStatus >= 1 ? false : true}
+                    visible={isLocked ? false : true}
                   />
                 </CanView>
               </Column>
@@ -374,18 +385,16 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
               <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
             </CommonDataGrid>
 
-            <Popup visible={isOpen} dragEnabled={false} showTitle={false} onHiding={() => setIsOpen(false)} width={undefined}>
-              {/* //TODO: Update work order line item form, it should be able to select & set mulitple line items and save to db */}
+            <Popup visible={isOpen} dragEnabled={false} showTitle={false} onHiding={() => setIsOpen(false)} maxWidth={1600} height={750}>
               <WorkOrderLineItemForm
                 workOrderCode={workOrder.code}
+                projectGroupName={workOrder.projectIndividual.projectGroup?.name}
                 projectName={workOrder.projectIndividual.name}
+                isOpen={isOpen}
                 setIsOpen={setIsOpen}
-                onClose={handleClose}
-                lineItem={rowData || null}
-                users={users}
                 projectItems={projectItems}
-                warehouses={warehouses}
                 workOrderItems={workOrderItems}
+                workOrderStatus={workOrderStatus}
               />
             </Popup>
 

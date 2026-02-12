@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { FormProvider, useForm } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
 import { useParams } from 'next/navigation'
-import { useMemo } from 'react'
+import { useContext, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 
@@ -25,12 +25,15 @@ import CanView from '@/components/acl/can-view'
 import { useNonBpUsers } from '@/hooks/safe-actions/user'
 import TagBoxField from '@/components/forms/tag-box-field'
 import { userItemRender } from '@/utils/devextreme'
+import { NotificationContext } from '@/context/notification'
 
 type ProjectGroupFormProps = { pageMetaData: PageMetadata; projectGroup: Awaited<ReturnType<typeof getPgByCode>> }
 
 export default function ProjectGroupForm({ pageMetaData, projectGroup }: ProjectGroupFormProps) {
   const router = useRouter()
   const { code } = useParams() as { code: string }
+
+  // const notificationContext = useContext(NotificationContext)
 
   const isCreate = code === 'add' || !projectGroup
 
@@ -74,6 +77,7 @@ export default function ProjectGroupForm({ pageMetaData, projectGroup }: Project
 
       if (result?.data && result?.data?.projectGroup && 'id' in result?.data?.projectGroup) {
         router.refresh()
+        // notificationContext?.handleRefresh()
 
         setTimeout(() => {
           if (isCreate) router.push(`/project/groups`)
@@ -162,12 +166,12 @@ export default function ProjectGroupForm({ pageMetaData, projectGroup }: Project
                   isLoading={nonCustomerUsers.isLoading}
                   control={form.control}
                   name='pics'
-                  label='P.I.Cs'
+                  label='PICs'
                   valueExpr='code'
                   displayExpr={(item) => (item ? `${item?.fname}${item?.lname ? ` ${item?.lname}` : ''}` : '')}
                   searchExpr={['fname', 'lname', 'code', 'email']}
                   extendedProps={{ tagBoxOptions: { itemRender: userItemRender } }}
-                  description='Assigned P.I.Cs can access all individual projects in this project group'
+                  description='Assigned PICs can access all individual projects in this project group'
                 />
               </div>
             </div>
