@@ -122,6 +122,8 @@ export const upsertPg = action
       },
     }
 
+    const trimmedName = data.name.trim()
+
     try {
       if (code !== -1) {
         const existingPg = await db.projectGroup.findUnique({ where: { code }, include })
@@ -130,8 +132,16 @@ export const upsertPg = action
           return { error: true, status: 404, message: 'Project group not found!', action: 'UPSERT_PROJECT_GROUP' }
         }
 
+        if (existingPg.name !== trimmedName) {
+          //* check if the name is already exists
+          const existingPgName = await db.projectGroup.findFirst({ where: { name: trimmedName, code: { not: existingPg.code } } })
+          if (existingPgName) {
+            return { error: true, status: 401, message: 'Project group name already exists!', action: 'UPSERT_PROJECT_GROUP' }
+          }
+        }
+
         const [updatedPg] = await db.$transaction([
-          db.projectGroup.update({ where: { code }, data: { ...data, updatedBy: userId } }),
+          db.projectGroup.update({ where: { code }, data: { ...data, name: trimmedName, updatedBy: userId } }),
 
           db.projectGroupPic.deleteMany({ where: { projectGroupCode: code } }),
 
@@ -207,10 +217,16 @@ export const upsertPg = action
         }
       }
 
+      //* check if the name is already exists
+      const existingPg = await db.projectGroup.findFirst({ where: { name: trimmedName } })
+
+      if (existingPg) return { error: true, status: 401, message: 'Project group name already exists!', action: 'UPSERT_PROJECT_GROUP' }
+
       //* create project group
       const newPg = await db.projectGroup.create({
         data: {
           ...data,
+          name: trimmedName,
           createdBy: userId,
           updatedBy: userId,
           projectGroupPics: {
@@ -358,8 +374,19 @@ export const importPgs = action
     const { data, total, stats, isLastRow } = parsedInput
     const { userId } = ctx
 
+    const names = data?.map((row) => row?.['Name'])?.filter(Boolean) || []
+
     try {
       const batch: Prisma.ProjectGroupCreateManyInput[] = []
+      const toBeCreatedNames: string[] = [] //* contains toBeCreated project group names
+
+      //* get existing project group names
+      const existingPgNames = await db.projectGroup
+        .findMany({
+          where: { name: { in: names } },
+          select: { name: true },
+        })
+        .then((pgs) => pgs.map((pg) => pg.name))
 
       for (let i = 0; i < data.length; i++) {
         const errors: ImportSyncErrorEntry[] = []
@@ -368,11 +395,19 @@ export const importPgs = action
         //* check required fields
         if (!row?.['Name']) errors.push({ field: 'Name', message: 'Missing required field' })
 
+        //* check if project group name already exists
+        if (existingPgNames.includes(row?.['Name']) || toBeCreatedNames.includes(row?.['Name'])) {
+          errors.push({ field: 'Name', message: 'Name already exists' })
+        }
+
         //* if errors array is not empty, then update/push to stats.error
         if (errors.length > 0) {
           stats.errors.push({ rowNumber: row.rowNumber, entries: errors, row })
           continue
         }
+
+        //* add to be create project group names
+        toBeCreatedNames.push(row['Name'])
 
         //* reshape data
         const toCreate: Prisma.ProjectGroupCreateManyInput = {

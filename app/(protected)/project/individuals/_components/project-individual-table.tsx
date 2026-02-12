@@ -152,7 +152,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
 
       //* parse excel file
       const parseData = await parseExcelFile({ file, header: headers })
-      const toImportData = parseData.map((row, i) => ({ rowNumber: i + 2, ...row }))
+      const toImportData = parseData.map((row, i) => ({ rowNumber: i + 2, ...row, Name: row?.['Name']?.trim() }))
 
       //* trigger write by batch
       let batch: typeof toImportData = []

@@ -78,6 +78,10 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
       const result = response?.data
 
       if (result?.error) {
+        if (result.status === 401) {
+          form.setError('name', { type: 'custom', message: result.message })
+        }
+
         toast.error(result.message)
         return
       }

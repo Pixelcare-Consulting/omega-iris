@@ -374,7 +374,7 @@ model Warehouse {
 model ProjectGroup {
     id          String  @id @default(cuid())
     code        Int     @unique @default(autoincrement())
-    name        String
+    name        String  @unique
     description String?
     isActive    Boolean @default(true)
 
@@ -412,7 +412,7 @@ model ProjectGroupPic {
 model ProjectIndividual {
     id          String  @id @default(cuid())
     code        Int     @unique @default(autoincrement())
-    name        String
+    name        String  @unique
     groupCode   Int?
     description String?
     isActive    Boolean @default(true)

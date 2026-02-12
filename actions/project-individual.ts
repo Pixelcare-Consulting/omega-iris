@@ -212,6 +212,8 @@ export const upsertPi = action
       },
     }
 
+    const trimmedName = data.name.trim()
+
     try {
       //* update project individual
       if (code !== -1) {
@@ -221,11 +223,19 @@ export const upsertPi = action
           return { error: true, status: 404, message: 'Project individual not found!', action: 'UPSERT_PROJECT_INDIVIDUAL' }
         }
 
+        if (existingPi.name !== trimmedName) {
+          //* check if the name is already exists
+          const existingPiName = await db.projectIndividual.findFirst({ where: { name: trimmedName, code: { not: existingPi.code } } })
+          if (existingPiName) {
+            return { error: true, status: 401, message: 'Project individual name already exists!', action: 'UPSERT_PROJECT_INDIVIDUAL' }
+          }
+        }
+
         const [updatedPi] = await db.$transaction([
           //* update project individual
           db.projectIndividual.update({
             where: { code },
-            data: { ...data, updatedBy: userId },
+            data: { ...data, name: trimmedName, updatedBy: userId },
           }),
 
           //* delete existing project individual customers
@@ -363,10 +373,18 @@ export const upsertPi = action
         }
       }
 
+      //* check if the name is already exists
+      const existingPi = await db.projectIndividual.findFirst({ where: { name: trimmedName } })
+
+      if (existingPi) {
+        return { error: true, status: 401, message: 'Project individual name already exists!', action: 'UPSERT_PROJECT_INDIVIDUAL' }
+      }
+
       //* create project individual
       const newPi = await db.projectIndividual.create({
         data: {
           ...data,
+          name: trimmedName,
           projectIndividualCustomers: {
             createMany: { data: customers.map((c) => ({ userCode: c })) },
           },
@@ -542,8 +560,19 @@ export const importPis = action
     const { data, total, stats, isLastRow } = parsedInput
     const { userId } = ctx
 
+    const names = data?.map((row) => row?.['Name'])?.filter(Boolean) || []
+
     try {
       const batch: Prisma.ProjectIndividualCreateManyInput[] = []
+      const toBeCreatedNames: string[] = [] //* contains toBeCreated project individual names
+
+      //* get existing project individual names
+      const existingPiNames = await db.projectIndividual
+        .findMany({
+          where: { name: { in: names } },
+          select: { name: true },
+        })
+        .then((pis) => pis.map((pi) => pi.name))
 
       for (let i = 0; i < data.length; i++) {
         const errors: ImportSyncErrorEntry[] = []
@@ -552,11 +581,19 @@ export const importPis = action
         //* check required fields
         if (!row?.['Name']) errors.push({ field: 'Name', message: 'Missing required field' })
 
+        //* check if project individual name already exists
+        if (existingPiNames.includes(row?.['Name']) || toBeCreatedNames.includes(row?.['Name'])) {
+          errors.push({ field: 'Name', message: 'Name already exists' })
+        }
+
         //* if errors array is not empty, then update/push to importErrors
         if (errors.length > 0) {
           stats.errors.push({ rowNumber: row.rowNumber, entries: errors, row })
           continue
         }
+
+        //* add to be create project group names
+        toBeCreatedNames.push(row['Name'])
 
         //* reshape data
         const toCreate: Prisma.ProjectIndividualCreateManyInput = {
