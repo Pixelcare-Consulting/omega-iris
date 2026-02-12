@@ -3,7 +3,7 @@
 import { deleletePi, getPis, importPis, restorePi } from '@/actions/project-individual'
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useContext, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 import ProgressBar from 'devextreme-react/progress-bar'
@@ -20,6 +20,7 @@ import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
+import { NotificationContext } from '@/context/notification'
 
 type ProjectIndividualTableProps = { projectIndividuals: Awaited<ReturnType<typeof getPis>> }
 type DataSource = Awaited<ReturnType<typeof getPis>>
@@ -29,6 +30,8 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual'
   const DATAGRID_UNIQUE_KEY = 'project-individuals'
+
+  // const notificationContext = useContext(NotificationContext)
 
   const [isLoading, setIsLoading] = useState(false)
   const [stats, setStats] = useState<Stats>({ total: 0, completed: 0, progress: 0, errors: [], status: 'processing' })
@@ -80,7 +83,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
     [setShowRestoreConfirmation, setRowData]
   )
 
-  const handleConfirm = useCallback((code?: number) => {
+  const handleConfirmDelete = useCallback((code?: number) => {
     if (!code) return
 
     setShowDeleteConfirmation(false)
@@ -95,6 +98,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
+            // notificationContext?.handleRefresh()
           }, 1500)
 
           return result.message
@@ -123,6 +127,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
+            // notificationContext?.handleRefresh()
           }, 1500)
 
           return result.message
@@ -293,7 +298,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
         isOpen={showDeleteConfirmation}
         title='Are you sure?'
         description={`Are you sure you want to delete this project individual named "${rowData?.name}"?`}
-        onConfirm={() => handleConfirm(rowData?.code)}
+        onConfirm={() => handleConfirmDelete(rowData?.code)}
         onCancel={() => setShowDeleteConfirmation(false)}
       />
 

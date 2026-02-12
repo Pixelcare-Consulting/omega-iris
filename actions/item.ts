@@ -15,6 +15,8 @@ import { SAP_BASE_URL } from '@/constants/sap'
 import { importFormSchema } from '@/schema/import'
 import logger from '@/utils/logger'
 import { safeParseInt } from '@/utils'
+import { createNotification } from './notification'
+import { PERMISSIONS_CODES } from '@/constants/permission'
 
 const COMMON_ITEM_ORDER_BY = { code: 'asc' } satisfies Prisma.ItemOrderByWithRelationInput
 
@@ -116,6 +118,18 @@ export const upsertItem = action
           return item
         })
 
+        //* create notification
+        // void createNotification(ctx, {
+        //   permissionCode: PERMISSIONS_CODES.INVENTORY,
+        //   title: 'Inventory Updated',
+        //   message: `An inventory (#${updatedItem.code}) was updated by ${ctx.fullName}.`,
+        //   link: `/inventory/${updatedItem.code}/view`,
+        //   entityType: 'Item' as Prisma.ModelName,
+        //   entityCode: updatedItem.code,
+        //   entityId: updatedItem.id,
+        //   userCodes: [],
+        // })
+
         return {
           status: 200,
           message: 'Item updated successfully!',
@@ -144,6 +158,18 @@ export const upsertItem = action
           // },
         },
       })
+
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES.INVENTORY,
+      //   title: 'Inventory Created',
+      //   message: `A new inventory (#${newItem.code}) was created by ${ctx.fullName}.`,
+      //   link: `/inventory/${newItem.code}/view`,
+      //   entityType: 'Item' as Prisma.ModelName,
+      //   entityCode: newItem.code,
+      //   entityId: newItem.id,
+      //   userCodes: [],
+      // })
 
       return {
         status: 200,
@@ -192,11 +218,11 @@ export const importItems = action
         const manufacturer = manufacturers.find((m: any) => m?.Code == row?.['Manufacturer'])
 
         //* check required fields
-        if (!row?.['MFG_P/N']) errors.push({ field: 'MFG_P/N', message: 'Missing required field' })
+        if (!row?.['MFG_P/N']) errors.push({ field: 'MFG P/N', message: 'Missing required field' })
 
         //* check if manufacturer part number already exists
         if (existingMfgpns.includes(row?.['MFG_P/N']) || toBeCreatedMfgpns.includes(row?.['MFG_P/N'])) {
-          errors.push({ field: 'MFG_P/N', message: 'Manufacturer part number already exists' })
+          errors.push({ field: 'MFG P/N', message: 'Manufacturer part number already exists' })
         }
 
         //* if errors array is not empty, then update/push to importErrors
@@ -240,6 +266,18 @@ export const importItems = action
         status: progress >= 100 || isLastRow ? 'completed' : 'processing',
       }
 
+      if (updatedStats.status === 'completed') {
+        //* create notification
+        // void createNotification(ctx, {
+        //   permissionCode: PERMISSIONS_CODES.INVENTORY,
+        //   title: 'Inventory Imported',
+        //   message: `A new inventor${total > 1 ? 'ies were' : 'y was'} imported by ${ctx.fullName}.`,
+        //   link: `/inventory`,
+        //   entityType: 'Item' as Prisma.ModelName,
+        //   userCodes: [],
+        // })
+      }
+
       return {
         status: 200,
         message: `${updatedStats.completed} inventory items created successfully!`,
@@ -279,6 +317,18 @@ export const deleteItem = action
 
       await db.item.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES.INVENTORY,
+      //   title: 'Inventory Deleted',
+      //   message: `An inventory (#${item.code}) was deleted by ${ctx.fullName}.`,
+      //   link: `/inventory/${item.code}/view`,
+      //   entityType: 'Item' as Prisma.ModelName,
+      //   entityCode: item.code,
+      //   entityId: item.id,
+      //   userCodes: [],
+      // })
+
       return { status: 200, message: 'Item deleted successfully!', action: 'DELETE_ITEM' }
     } catch (error) {
       console.error(error)
@@ -295,13 +345,25 @@ export const deleteItem = action
 export const restoreItem = action
   .use(authenticationMiddleware)
   .schema(paramsSchema)
-  .action(async ({ parsedInput: data }) => {
+  .action(async ({ ctx, parsedInput: data }) => {
     try {
       const item = await db.item.findUnique({ where: { code: data.code } })
 
       if (!item) return { error: true, status: 404, message: 'Item not found!', action: 'RESTORE_ITEM' }
 
       await db.item.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES.INVENTORY,
+      //   title: 'Inventory Restored',
+      //   message: `An inventory (#${item.code}) was restored by ${ctx.fullName}.`,
+      //   link: `/inventory/${item.code}/view`,
+      //   entityType: 'Item' as Prisma.ModelName,
+      //   entityCode: item.code,
+      //   entityId: item.id,
+      //   userCodes: [],
+      // })
 
       return { status: 200, message: 'Item retored successfully!', action: 'RESTORE_ITEM' }
     } catch (error) {
@@ -373,7 +435,7 @@ export const syncToSap = action
         const rowNumber = i + 1
 
         //* check required fields
-        if (!row?.ItemCode) errors.push({ field: 'MFG_P/N', message: 'Missing required field' })
+        if (!row?.ItemCode) errors.push({ field: 'MFG P/N', message: 'Missing required field' })
 
         if (!row?.ItemsGroupCode) errors.push({ field: 'Group', message: 'Missing required field' })
 
@@ -445,6 +507,16 @@ export const syncToSap = action
       })
 
       const completed = sapCreated?.filter((sc) => !sc?.error)
+
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES.INVENTORY,
+      //   title: 'Invetories Synced To SAP',
+      //   message: `${completed.length} of ${items.length} inventor${items.length > 1 ? 'ies were' : 'y was'} synced into SAP by ${ctx.fullName}. ${importSyncErrors.length} error${importSyncErrors.length > 1 ? 's' : ''} found.`,
+      //   link: `/inventory`,
+      //   entityType: 'Item' as Prisma.ModelName,
+      //   userCodes: [],
+      // })
 
       return {
         status: 200,
@@ -556,6 +628,16 @@ export const syncFromSap = action.use(authenticationMiddleware).action(async ({ 
         update: { code: SYNC_META_CODE, description: 'Last item master synced date', lastSyncAt: new Date() },
       })
     })
+
+    //* create notification
+    // void createNotification(ctx, {
+    //   permissionCode: PERMISSIONS_CODES.INVENTORY,
+    //   title: 'Invetories Synced From SAP',
+    //   message: `Inventor${filteredSapItemMasters.length > 1 ? 'ies were' : 'y was'} synced from SAP by ${ctx.fullName}.`,
+    //   link: `/inventory`,
+    //   entityType: 'Item' as Prisma.ModelName,
+    //   userCodes: [],
+    // })
 
     return {
       status: 200,

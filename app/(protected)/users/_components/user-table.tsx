@@ -3,7 +3,7 @@
 import { deleteUser, getUsers, restoreUser } from '@/actions/users'
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useContext, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 import { format, isValid } from 'date-fns'
@@ -18,6 +18,7 @@ import CommonDataGrid from '@/components/common-datagrid'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
+import { NotificationContext } from '@/context/notification'
 
 type UserTableProps = { users: Awaited<ReturnType<typeof getUsers>> }
 type DataSource = Awaited<ReturnType<typeof getUsers>>
@@ -29,6 +30,8 @@ export default function UserTable({ users }: UserTableProps) {
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-user'
   const DATAGRID_UNIQUE_KEY = 'users'
+
+  // const notificationContext = useContext(NotificationContext)
 
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false)
@@ -94,6 +97,7 @@ export default function UserTable({ users }: UserTableProps) {
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
+            // notificationContext?.handleRefresh()
           }, 1500)
 
           return result.message
@@ -122,6 +126,7 @@ export default function UserTable({ users }: UserTableProps) {
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
+            // notificationContext?.handleRefresh()
           }, 1500)
 
           return result.message

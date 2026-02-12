@@ -2,7 +2,7 @@
 
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useContext, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 import { format } from 'date-fns'
@@ -25,6 +25,7 @@ import { useSyncMeta } from '@/hooks/safe-actions/sync-meta'
 import { hideActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import CanView from '@/components/acl/can-view'
+import { NotificationContext } from '@/context/notification'
 
 type SupplierTableProps = { bps: Awaited<ReturnType<typeof getBps>> }
 type DataSource = Awaited<ReturnType<typeof getBps>>
@@ -34,6 +35,8 @@ export default function SupplierTable({ bps }: SupplierTableProps) {
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-supplier'
   const DATAGRID_UNIQUE_KEY = 'suppliers'
+
+  // const notificationContext = useContext(NotificationContext)
 
   const form = useForm({
     mode: 'onChange',
@@ -77,6 +80,7 @@ export default function SupplierTable({ bps }: SupplierTableProps) {
 
       toast.success(result?.message)
       router.refresh()
+      // notificationContext?.handleRefresh()
       syncMeta.execute({ code: 'supplier' })
     } catch (error: any) {
       console.error(error)

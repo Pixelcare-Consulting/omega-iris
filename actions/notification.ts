@@ -22,12 +22,19 @@ export async function getNotifications(userInfo: Awaited<ReturnType<typeof getCu
     //* notifactions that has userCodes, roleCodes or roleKeys
     //* and are not expired
     //* and no or have recepit which deletedAt is null - means not deleted
+    //* and not excluded
     return db.notification.findMany({
       where: {
         AND: [
+          //* inclusion
           {
             OR: [{ isGlobal: true }, { userCodes: { has: userCode } }, { roleCodes: { has: roleCode } }, { roleKeys: { has: roleKey } }],
           },
+          //* exclusion
+          {
+            NOT: [{ excludeUserCodes: { has: userCode } }, { excludeRoleCodes: { has: roleCode } }, { excludeRoleKeys: { has: roleKey } }],
+          },
+          //* expiration
           {
             OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
           },
@@ -74,9 +81,15 @@ export async function getUnReadNotificationsCount(userInfo: Awaited<ReturnType<t
     return db.notification.count({
       where: {
         AND: [
+          //* inclusion
           {
             OR: [{ isGlobal: true }, { userCodes: { has: userCode } }, { roleCodes: { has: roleCode } }, { roleKeys: { has: roleKey } }],
           },
+          //* exclusion
+          {
+            NOT: [{ excludeUserCodes: { has: userCode } }, { excludeRoleCodes: { has: roleCode } }, { excludeRoleKeys: { has: roleKey } }],
+          },
+          //* expiration
           {
             OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
           },
@@ -109,10 +122,13 @@ export const getUnReadNotificationsCountClient = action.use(authenticationMiddle
 
 export async function createNotification(
   userInfo: NonNullable<Awaited<ReturnType<typeof getCurrentUserAbility>>>,
-  notificationData: NotificationForm
+  notificationData: NotificationForm,
+  options: { skipNotify?: boolean } = {
+    skipNotify: false, //* by default the user that trigger the notification will be notified, if true then will not be notified
+  }
 ) {
-  const { permissionCode, userCodes, ...data } = notificationData
-  const { userId, userCode, ability } = userInfo
+  const { permissionCode, userCodes, excludeUserCodes, excludeRoleCodes, excludeRoleKeys, ...data } = notificationData
+  const { userId, userCode, roleCode, roleKey, ability } = userInfo
 
   try {
     //* get allowed roles based on the permission code and it should allowed to 'receive notifications'
@@ -145,11 +161,34 @@ export async function createNotification(
     const uniqueRoleCodes = [...new Set(roleCodes)]
     const uniqueRoleKeys = [...new Set(roleKeys)]
 
+    const unqiueExcludeUserCodes = [...new Set(excludeUserCodes)]
+    const unqiueExcludeRoleCodes = [...new Set(excludeRoleCodes)]
+    const unqiueExcludeRoleKeys = [...new Set(excludeRoleKeys)]
+
     //* if user are allowed to received notifications (owner) and userCode does not included yet in uniqueUserCodes
-    if (canReceivedNotifOwned && !uniqueUserCodes.includes(userCode)) uniqueUserCodes.push(userCode)
+    if (canReceivedNotifOwned && !uniqueUserCodes.includes(userCode) && !options.skipNotify) uniqueUserCodes.push(userCode)
+
+    //* if skipNotify is true then exclude the userCode, roleCode, roleKey from the notification
+    if (options.skipNotify) {
+      unqiueExcludeUserCodes.push(userCode)
+      unqiueExcludeRoleCodes.push(roleCode)
+      unqiueExcludeRoleKeys.push(roleKey)
+    }
 
     await db.notification.create({
-      data: { ...data, userCodes: uniqueUserCodes, roleCodes: uniqueRoleCodes, roleKeys: uniqueRoleKeys, createdBy: userId, expiresAt },
+      data: {
+        ...data,
+        //* auidience/recepients
+        userCodes: uniqueUserCodes,
+        roleCodes: uniqueRoleCodes,
+        roleKeys: uniqueRoleKeys,
+        //* exclusion
+        excludeUserCodes: unqiueExcludeUserCodes,
+        excludeRoleCodes: unqiueExcludeRoleCodes,
+        excludeRoleKeys: unqiueExcludeRoleKeys,
+        createdBy: userId,
+        expiresAt,
+      },
     })
 
     return {
@@ -159,6 +198,7 @@ export async function createNotification(
     }
   } catch (error) {
     logger.error(error, 'Failed to create notification')
+    logger.error(`PERMISSION_CODES: ${permissionCode}`)
 
     return {
       error: true,

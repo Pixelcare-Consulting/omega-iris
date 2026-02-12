@@ -2,7 +2,7 @@
 
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useContext, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 import { saveAs } from 'file-saver-es'
@@ -35,6 +35,7 @@ import CanView from '@/components/acl/can-view'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import { useItemGroups } from '@/hooks/safe-actions/item-group'
 import { useManufacturers } from '@/hooks/safe-actions/manufacturer'
+import { NotificationContext } from '@/context/notification'
 
 type ItemTableProps = { items: Awaited<ReturnType<typeof getItems>> }
 type DataSource = Awaited<ReturnType<typeof getItems>>
@@ -44,6 +45,8 @@ export default function ItemTable({ items }: ItemTableProps) {
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-inventory'
   const DATAGRID_UNIQUE_KEY = 'inventory'
+
+  // const notificationContext = useContext(NotificationContext)
 
   const form = useForm({
     mode: 'onChange',
@@ -147,6 +150,7 @@ export default function ItemTable({ items }: ItemTableProps) {
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
+            // notificationContext?.handleRefresh()
           }, 1500)
 
           return result.message
@@ -175,6 +179,7 @@ export default function ItemTable({ items }: ItemTableProps) {
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
+            // notificationContext?.handleRefresh()
           }, 1500)
 
           return result.message
@@ -302,11 +307,13 @@ export default function ItemTable({ items }: ItemTableProps) {
         toast.success(`Project groups imported successfully! ${stats.errors.length} errors found.`)
         setStats((prev: any) => ({ ...prev, total: 0, completed: 0, progress: 0, status: 'processing' }))
         router.refresh()
+        // notificationContext?.handleRefresh()
       }
 
       if (stats.errors.length > 0) {
         setShowImportError(true)
         setImportErrors(stats.errors)
+        // notificationContext?.handleRefresh()
       }
 
       setIsLoading(false)
@@ -332,6 +339,7 @@ export default function ItemTable({ items }: ItemTableProps) {
       toast.success(result?.message, { duration: 10000 })
       form.reset()
       router.refresh()
+      // notificationContext?.handleRefresh()
 
       if (result?.errors && result?.errors.length > 0) {
         setShowSyncError(true)
@@ -357,6 +365,7 @@ export default function ItemTable({ items }: ItemTableProps) {
 
       toast.success(result?.message)
       router.refresh()
+      // notificationContext?.handleRefresh()
       syncMeta.execute({ code: 'item' })
     } catch (error: any) {
       console.error(error)

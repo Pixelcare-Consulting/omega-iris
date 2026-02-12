@@ -74,7 +74,7 @@ export default function ViewProjectGroup({ projectGroup }: ViewProjectGroupProps
           </TabPanelITem>
 
           {session?.user.roleKey === 'admin' && (
-            <TabPanelITem title='P.I.Cs'>
+            <TabPanelITem title='PICs'>
               <ProjectGroupPicTab projectGroupCode={projectGroup.code} pics={projectGroup.pics} users={nonCustomerUsers} />
             </TabPanelITem>
           )}

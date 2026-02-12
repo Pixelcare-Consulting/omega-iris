@@ -28,16 +28,24 @@ export function exportToExcel(fileName: string, component?: dxDataGrid<any, any>
 export function handleOnRowPrepared(e: DataGridTypes.RowPreparedEvent) {
   const rowType = e.rowType
   const data = e.data
+  const rowElement = e.rowElement
 
-  if (rowType === 'data') {
+  if (rowType === 'data' && rowElement) {
     e.rowElement.classList.add('cursor-pointer')
 
     if (data?.deletedAt && data?.deletedBy) {
-      e.rowElement.style.textDecoration = 'line-through'
-      e.rowElement.style.textDecorationColor = 'red'
-      e.rowElement.style.textDecorationThickness = '2px'
-      e.rowElement.style.opacity = '0.6'
-      e.rowElement.title = 'This record has been deleted'
+      const columnElement = Array.from(rowElement.children) as HTMLElement[]
+
+      //* style column elements except the action columns
+      columnElement.forEach((cEl) => {
+        //* identify the action column by the class name that contains dx-command
+        if (!cEl.className.includes('dx-command')) {
+          cEl.style.textDecoration = 'line-through'
+          cEl.style.textDecorationColor = 'red'
+          cEl.style.textDecorationThickness = '2px'
+          cEl.style.opacity = '0.6'
+        }
+      })
     }
   }
 }

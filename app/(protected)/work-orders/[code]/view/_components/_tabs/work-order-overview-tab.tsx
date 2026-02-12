@@ -97,7 +97,7 @@ export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAdd
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Internal' value={workOrder.isInternal ? 'Yes' : 'No'} />
 
-        <ReadOnlyField className='col-span-12' title='Order Comments' value={fullName} />
+        <ReadOnlyField className='col-span-12' title='Order Comments' value={workOrder?.comments} />
 
         <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='SAP Fields' description='SAP related fields' />
@@ -149,6 +149,8 @@ export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAdd
             </div>
           )}
         </ReadOnlyField>
+
+        <ReadOnlyField className='col-span-12' title='Alternative Address' value={workOrder.alternativeAddr || ''} />
 
         <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='Record Meta data' description='Work order record meta data' />

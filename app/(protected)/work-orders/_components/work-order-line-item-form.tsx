@@ -6,7 +6,7 @@ import { Column, CustomRule, DataGridRef, DataGridTypes, Editing } from 'devextr
 import Button from 'devextreme-react/button'
 import { v4 as uuidv4 } from 'uuid'
 
-import { WorkOrderForm, WorkOrderLineItemsForm, workOrderLineItemsFormSchema } from '@/schema/work-order'
+import { WORK_ORDER_STATUS_VALUE_MAP, WorkOrderForm, WorkOrderLineItemsForm, workOrderLineItemsFormSchema } from '@/schema/work-order'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import { cn, safeParseFloat } from '@/utils'
 import PageHeader from '../../_components/page-header'
@@ -43,7 +43,7 @@ export default function WorkOrderLineItemForm({
 
   const dataGridRef = useRef<DataGridRef | null>(null)
 
-  const DATAGRID_STORAGE_KEY = 'dx-datagrid-work-order-project-items'
+  const DATAGRID_STORAGE_KEY = 'dx-datagrid-work-order-project-item'
   const DATAGRID_UNIQUE_KEY = 'work-orders-project-items'
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
@@ -70,6 +70,10 @@ export default function WorkOrderLineItemForm({
     if (!session) return false
     return session.user.roleKey === 'business-partner'
   }, [JSON.stringify(session)])
+
+  const isLocked = useMemo(() => {
+    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process'] || isBusinessPartner
+  }, [workOrderStatus, isBusinessPartner])
 
   const errorMessage = useMemo(() => {
     const noLineItemsError = errors?.lineItems?.message || ''
@@ -197,9 +201,6 @@ export default function WorkOrderLineItemForm({
     handleClose()
   }
 
-  //* WORKING need double check
-  // TODO: Test when changing the outside line items it will also reflect in the datagrid e.g selection , qty etc.
-
   //* set local state project items data source combined with the data of the line items e.g qty, isDelivered, etc
   useEffect(() => {
     if (!isOpen) return
@@ -209,8 +210,9 @@ export default function WorkOrderLineItemForm({
         .map((pItem) => {
           const lineItem = mainFormLineItems.find((li) => li.projectItemCode === pItem.code)
           const itemMaster = pItem?.item
+          const isDeleted = pItem?.deletedAt || pItem?.deletedBy
 
-          if (!itemMaster) return null
+          if (isDeleted || !itemMaster) return null
 
           const cost = safeParseFloat(pItem?.cost)
           const qty = safeParseFloat(lineItem?.qty)
@@ -290,12 +292,13 @@ export default function WorkOrderLineItemForm({
               icon='save'
               stylingMode='contained'
               isLoading={false}
+              disabled={isLocked}
               onClick={() => form.handleSubmit(handleOnSubmit)()}
             />
           </TooltipWrapper>
         </Item>
 
-        <CommonPageHeaderToolbarItems dataGridUniqueKey={DATAGRID_UNIQUE_KEY} dataGridRef={dataGridRef} exportOptions={{ isHide: true }} />
+        <CommonPageHeaderToolbarItems dataGridUniqueKey={DATAGRID_UNIQUE_KEY} dataGridRef={dataGridRef} />
       </PageHeader>
 
       {errorMessage && <div className='text-sm text-red-500'>{errorMessage}</div>}
@@ -382,11 +385,11 @@ export default function WorkOrderLineItemForm({
           <Column
             dataField='qty'
             dataType='number'
-            caption={`Quantity${workOrderStatus >= 1 ? ' (Locked)' : ''}`}
+            caption={`Quantity${isLocked ? ' (Locked)' : ''}`}
             format={DEFAULT_NUMBER_FORMAT}
             alignment='left'
-            allowEditing={workOrderStatus >= 1 ? false : true}
-            cssClass={cn(workOrderStatus >= 1 ? '!bg-slate-100' : '')}
+            allowEditing={isLocked ? false : true}
+            cssClass={cn(isLocked ? '!bg-slate-100' : '')}
             fixed
             fixedPosition='right'
           >

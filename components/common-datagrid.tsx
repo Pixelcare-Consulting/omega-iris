@@ -84,7 +84,7 @@ export default function CommonDataGrid<T extends Record<string, any>>({
       onSelectionChanged={callbacks?.onSelectionChanged}
       onRowPrepared={callbacks?.onRowPrepared ?? handleOnRowPrepared}
       onRowUpdated={callbacks?.onRowUpdated}
-      onCellPrepared={callbacks?.onCellPrepared ?? handleOnCellPrepared}
+      onCellPrepared={callbacks?.onCellPrepared}
       onAdaptiveDetailRowPreparing={handleOnAdaptiveDetailRowPreparing}
       onEditorPreparing={callbacks?.onEditorPreparing}
       wordWrapEnabled

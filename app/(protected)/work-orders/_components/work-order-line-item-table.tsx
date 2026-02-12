@@ -24,13 +24,14 @@ import DataGrid, {
 import Button from 'devextreme-react/button'
 import Tooltip from 'devextreme-react/tooltip'
 import Popup from 'devextreme-react/popup'
+import { useSession } from 'next-auth/react'
 
 import { useFormContext, useWatch } from 'react-hook-form'
 import Separator from '@/components/separator'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import { handleOnRowPrepared } from '@/utils/devextreme'
 import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES, DEFAULT_COLUMN_MIN_WIDTH, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
-import { WorkOrderForm, WorkOrderItemForm } from '@/schema/work-order'
+import { WORK_ORDER_STATUS_VALUE_MAP, WorkOrderForm, WorkOrderItemForm } from '@/schema/work-order'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import useUsers from '@/hooks/safe-actions/user'
@@ -65,6 +66,8 @@ export default function WorkOrderLineItemTable({
   projectGroupName,
   isLoading,
 }: WorkOrderLineItemsFormProps) {
+  const { data: session } = useSession()
+
   const dataGridRef = useRef<DataGridRef | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const importErrorDataGridRef = useRef<DataGridRef | null>(null)
@@ -81,9 +84,18 @@ export default function WorkOrderLineItemTable({
 
   const lineItems = useWatch({ control: form.control, name: 'lineItems' }) || []
 
-  const projectItems = useProjecItems(projectCode ?? 0)
+  const projectItems = useProjecItems(projectCode ?? 0, false)
 
   const workOrderStatus = useMemo(() => safeParseInt(workOrder?.status), [JSON.stringify(workOrder)])
+
+  const isBusinessPartner = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'business-partner'
+  }, [JSON.stringify(session)])
+
+  const isLocked = useMemo(() => {
+    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process'] || isBusinessPartner
+  }, [workOrderStatus, isBusinessPartner])
 
   const handleAdd = useCallback(() => {
     setRowData(null)
@@ -171,6 +183,9 @@ export default function WorkOrderLineItemTable({
         const rowNumber = i + 1
         const pItem = projectItems.data.find((pi) => pi.code == row?.['ID'])
 
+        const totalStock = safeParseInt(pItem?.totalStock)
+        const availableToOrder = safeParseInt(pItem?.availableToOrder)
+
         //* check required fields
         if (!row?.['ID']) errors.push({ field: 'ID', message: 'Missing required field' })
 
@@ -185,13 +200,13 @@ export default function WorkOrderLineItemTable({
         }
 
         //* check if item is out of stock
-        if (!pItem?.totalStock) errors.push({ field: 'ID', message: 'Item is out of stock' })
+        if (totalStock < 1 || availableToOrder < 1) errors.push({ field: 'ID', message: 'Item is unavailable for order' })
 
         //* check if quantity is a number
         if (!row?.['Quantity'].match(/^[1-9]\d*$/)) errors.push({ field: 'Quantity', message: 'Invalid quantity' })
 
         //* check if quantity exceed the available to order, and item should not be out of stock
-        if (pItem?.totalStock && pItem?.totalStock > 0 && pItem?.availableToOrder && row?.['Quantity'] > pItem?.availableToOrder) {
+        if (totalStock && totalStock > 0 && availableToOrder && row?.['Quantity'] > availableToOrder) {
           errors.push({ field: 'Quantity', message: 'Quantity exceeds the available to order' })
         }
 
@@ -300,6 +315,7 @@ export default function WorkOrderLineItemTable({
 
           const warehouse = pItem?.warehouse
           const dateReceivedBy = pItem?.dateReceivedByUser ? [pItem?.dateReceivedByUser?.fname, pItem?.dateReceivedByUser?.lname].filter(Boolean).join(' ') : '' // prettier-ignore
+          const isDeleted = pItem?.deletedAt || pItem?.deletedBy
 
           return {
             projectItemCode: pItem?.code,
@@ -314,6 +330,7 @@ export default function WorkOrderLineItemTable({
             warehouse: warehouse?.name || '',
             dateReceived: pItem?.dateReceived,
             dateReceivedBy,
+            isDeleted,
             packagingType: pItem?.packagingType || '',
             spq: pItem?.spq || '',
             availableToOrder,
@@ -403,11 +420,11 @@ export default function WorkOrderLineItemTable({
           <Column
             dataField='qty'
             dataType='number'
-            caption={`Quantity${workOrderStatus >= 1 ? ' (Locked)' : ''}`}
+            caption={`Quantity${isLocked ? ' (Locked)' : ''}`}
             format={DEFAULT_NUMBER_FORMAT}
             alignment='left'
-            allowEditing={workOrderStatus >= 1 ? false : true}
-            cssClass={cn(workOrderStatus >= 1 ? '!bg-slate-100' : '')}
+            allowEditing={isLocked ? false : true}
+            cssClass={cn(isLocked ? '!bg-slate-100' : '')}
             fixed
             fixedPosition='right'
           >
@@ -426,7 +443,7 @@ export default function WorkOrderLineItemTable({
               onClick={handleDelete}
               cssClass='!text-lg !text-red-500'
               hint='Delete'
-              visible={workOrderStatus >= 1 ? false : true}
+              visible={isLocked ? false : true}
             />
           </Column>
 
@@ -465,7 +482,7 @@ export default function WorkOrderLineItemTable({
                 type='default'
                 stylingMode='contained'
                 onClick={handleAdd}
-                disabled={!projectCode || workOrderStatus >= 1 ? true : false}
+                disabled={!projectCode || isLocked ? true : false}
               />
             </Item>
 
@@ -482,9 +499,7 @@ export default function WorkOrderLineItemTable({
                 id='import-line-items'
                 icon='import'
                 disabled={
-                  !projectCode || workOrderStatus >= 1
-                    ? true
-                    : false || isLoading || workOrderItems.isLoading || projectItems.isLoading || isImporting
+                  !projectCode || isLocked ? true : false || isLoading || workOrderItems.isLoading || projectItems.isLoading || isImporting
                 }
                 onClick={() => fileInputRef.current?.click()}
               />
