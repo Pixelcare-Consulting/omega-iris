@@ -167,7 +167,7 @@ export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAdd
           <p className='whitespace-pre-line'>{workOrder.alternativeBillingAddr || ''}</p>
         </ReadOnlyField>
 
-        <ReadOnlyField className='col-span-12 md:col-span-6' title='Alternative Shipping Address'>
+        <ReadOnlyField className='col-span-12 md:col-span-6' title='Alternative Delivery Address'>
           <p className='whitespace-pre-line'>{workOrder.alternativeShippingAddr || ''}</p>
         </ReadOnlyField>
 

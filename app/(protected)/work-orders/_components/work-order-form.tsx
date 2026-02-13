@@ -517,7 +517,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                 <TextAreaField
                   control={form.control}
                   name='alternativeShippingAddr'
-                  label='Alternative Shipping Address'
+                  label='Alternative Delivery Address'
                   extendedProps={{
                     textAreaOptions: {
                       disabled: !isAlternativeAddr,
