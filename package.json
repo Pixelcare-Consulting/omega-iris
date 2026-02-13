@@ -4,8 +4,12 @@
   "main": "index.js",
   "scripts": {
     "dev": "next dev",
-    "build": "pnpm prisma generate && next build",
     "start": "next start",
+    "build": "pnpm prisma generate && next build",
+    "dev:dev": "next dev -p 4000",
+    "dev:start": "next start -p 4000",
+    "prod:dev": "next dev -p 3000",
+    "prod:start": "next start -p 3000",
     "lint": "next lint",
     "format": "pnpm prettier --write .",
     "db:push": "pnpm prisma db push",
