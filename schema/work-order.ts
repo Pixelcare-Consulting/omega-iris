@@ -98,10 +98,24 @@ export const workOrderFormSchema = z.object({
   userCode: z.coerce.number().min(1, { message: 'Owner is required' }),
   status: z.string().min(1, { message: 'Status is required' }),
   isInternal: z.boolean(),
-  billingAddrCode: z.string().nullish(),
-  shippingAddrCode: z.string().nullish(),
-  alternativeAddr: z.string().nullish(),
+  billingAddrCode: z
+    .string()
+    .nullish()
+    .transform((val) => val || null),
+  shippingAddrCode: z
+    .string()
+    .nullish()
+    .transform((val) => val || null),
   comments: z.string().nullish(),
+  isAlternativeAddr: z.boolean(),
+  alternativeBillingAddr: z
+    .string()
+    .nullish()
+    .transform((val) => val || null),
+  alternativeShippingAddr: z
+    .string()
+    .nullish()
+    .transform((val) => val || null),
 
   //* work order items
   lineItems: z.array(workOrderItemFormSchema).min(1, { message: 'Please select & set at least one item' }),

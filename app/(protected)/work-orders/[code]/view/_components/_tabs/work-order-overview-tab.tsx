@@ -97,7 +97,9 @@ export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAdd
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Internal' value={workOrder.isInternal ? 'Yes' : 'No'} />
 
-        <ReadOnlyField className='col-span-12' title='Order Comments' value={workOrder?.comments} />
+        <ReadOnlyField className='col-span-12' title='Order Comments'>
+          <p className='whitespace-pre-line'>{workOrder.comments || ''}</p>
+        </ReadOnlyField>
 
         <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='SAP Fields' description='SAP related fields' />
@@ -130,7 +132,18 @@ export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAdd
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Owner Email' value={workOrder?.user?.email || ''} />
 
         <Separator className='col-span-12' />
-        <ReadOnlyFieldHeader className='col-span-12' title='Address Details' description='Billing & delivery address details' />
+        <ReadOnlyFieldHeader
+          className='col-span-12'
+          title='Address Details'
+          description='Billing & delivery address details'
+          actions={
+            <ReadOnlyField
+              className='flex items-center gap-1'
+              title='Use Alternative Address'
+              value={workOrder.isAlternativeAddr ? 'Yes' : 'No'}
+            />
+          }
+        />
 
         <ReadOnlyField className='col-span-12 md:col-span-6' title='Billing Address' isLoading={billingAddress.isLoading}>
           {billingAddressValue && (
@@ -150,7 +163,13 @@ export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAdd
           )}
         </ReadOnlyField>
 
-        <ReadOnlyField className='col-span-12' title='Alternative Address' value={workOrder.alternativeAddr || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6' title='Alternative Billing Address'>
+          <p className='whitespace-pre-line'>{workOrder.alternativeBillingAddr || ''}</p>
+        </ReadOnlyField>
+
+        <ReadOnlyField className='col-span-12 md:col-span-6' title='Alternative Shipping Address'>
+          <p className='whitespace-pre-line'>{workOrder.alternativeShippingAddr || ''}</p>
+        </ReadOnlyField>
 
         <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='Record Meta data' description='Work order record meta data' />
