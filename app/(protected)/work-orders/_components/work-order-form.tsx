@@ -70,8 +70,10 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
         isInternal: isBusinessPartner ? false : true,
         billingAddrCode: null,
         shippingAddrCode: null,
-        alternativeAddr: null,
         comments: null,
+        isAlternativeAddr: false,
+        alternativeBillingAddr: null,
+        alternativeShippingAddr: null,
 
         //* sap fields
         salesOrderCode: null,
@@ -106,6 +108,8 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
     values: formValues,
     resolver: zodResolver(workOrderFormSchema),
   })
+
+  const isAlternativeAddr = useWatch({ control: form.control, name: 'isAlternativeAddr' })
 
   const workOrderStatusUpdateForm = useForm({
     mode: 'onChange',
@@ -201,6 +205,18 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
     workOrderItems.execute({ workOrderCode: workOrder.code })
   }
 
+  const handleIsAlternativeAddrCallback = (args: any) => {
+    const { value } = args
+
+    if (value) {
+      form.setValue('billingAddrCode', null)
+      form.setValue('shippingAddrCode', null)
+    } else {
+      form.setValue('alternativeBillingAddr', null)
+      form.setValue('alternativeShippingAddr', null)
+    }
+  }
+
   const handleOnSubmit = async (formData: WorkOrderForm) => {
     try {
       const response = await executeAsync(formData)
@@ -229,21 +245,21 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
     }
   }
 
-  //* auto select first billing address when billing address dont have value
+  //* auto select first billing address when billing address dont have value, only when isAlternativeAddr is false
   useEffect(() => {
-    if (!billingAddrCode && billingAddresses.length > 0) {
+    if (!billingAddrCode && billingAddresses.length > 0 && !isAlternativeAddr) {
       const firstBillingAddress = billingAddresses[0]
       if (firstBillingAddress) form.setValue('billingAddrCode', firstBillingAddress.id)
     }
-  }, [JSON.stringify(billingAddresses), billingAddrCode, isCreate])
+  }, [JSON.stringify(billingAddresses), billingAddrCode, isCreate, isAlternativeAddr])
 
-  //* auto select first shipping address when shipping address dont have value
+  //* auto select first shipping address when shipping address dont have value, only when isAlternativeAddr is false
   useEffect(() => {
-    if (!shippingAddrCode && shippingAddresses.length > 0) {
+    if (!shippingAddrCode && shippingAddresses.length > 0 && !isAlternativeAddr) {
       const firstShippingAddress = shippingAddresses[0]
       if (firstShippingAddress) form.setValue('shippingAddrCode', firstShippingAddress.id)
     }
-  }, [JSON.stringify(shippingAddresses), shippingAddrCode, isCreate])
+  }, [JSON.stringify(shippingAddresses), shippingAddrCode, isCreate, isAlternativeAddr])
 
   //* set userCode (owner) automatically if user is business partner (customer)
   useEffect(() => {
@@ -422,7 +438,20 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
               />
 
               <Separator className='col-span-12' />
-              <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Address Details' description='Billing & delivery address details' />
+              <ReadOnlyFieldHeader
+                className='col-span-12 mb-1'
+                title='Address Details'
+                description='Billing & delivery address details'
+                actions={
+                  <SwitchField
+                    control={form.control}
+                    name='isAlternativeAddr'
+                    label='Use Alternative Address'
+                    description='Use alternative address for billing & delivery'
+                    callback={handleIsAlternativeAddrCallback}
+                  />
+                }
+              />
 
               <div className='col-span-12 md:col-span-6'>
                 <SelectBoxField
@@ -436,6 +465,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                   searchExpr={['label', 'description']}
                   extendedProps={{
                     selectBoxOptions: {
+                      disabled: isAlternativeAddr,
                       itemRender: (params) => {
                         return commonItemRender({
                           title: params?.label,
@@ -458,6 +488,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                   searchExpr={['label', 'description']}
                   extendedProps={{
                     selectBoxOptions: {
+                      disabled: isAlternativeAddr,
                       itemRender: (params) => {
                         return commonItemRender({
                           title: params?.label,
@@ -469,8 +500,30 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                 />
               </div>
 
-              <div className='col-span-12'>
-                <TextAreaField control={form.control} name='alternativeAddr' label='Alternative Address' />
+              <div className='col-span-12 md:col-span-6'>
+                <TextAreaField
+                  control={form.control}
+                  name='alternativeBillingAddr'
+                  label='Alternative Billing Address'
+                  extendedProps={{
+                    textAreaOptions: {
+                      disabled: !isAlternativeAddr,
+                    },
+                  }}
+                />
+              </div>
+
+              <div className='col-span-12 md:col-span-6'>
+                <TextAreaField
+                  control={form.control}
+                  name='alternativeShippingAddr'
+                  label='Alternative Shipping Address'
+                  extendedProps={{
+                    textAreaOptions: {
+                      disabled: !isAlternativeAddr,
+                    },
+                  }}
+                />
               </div>
 
               <WorkOrderLineItemTable
