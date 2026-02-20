@@ -65,8 +65,8 @@ export async function getWorkOrderByCode(code: number, userInfo: Awaited<ReturnT
   const { userId, userCode, roleKey, ability } = userInfo
 
   try {
-    const canViewAll = ability?.can('view', 'p-projects-groups')
-    const canViweOwned = ability?.can('view (owner)', 'p-projects-groups')
+    const canViewAll = ability?.can('view', 'p-work-orders')
+    const canViweOwned = ability?.can('view (owner)', 'p-work-orders')
 
     const where: Prisma.WorkOrderWhereUniqueInput =
       !ability || canViewAll
