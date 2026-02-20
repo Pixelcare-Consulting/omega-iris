@@ -85,11 +85,13 @@ export const getPisByGroupCodeClient = action
 export async function getPiByCode(code: number, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
   if (!code || !userInfo || !userInfo.userId || !userInfo.userCode) return null
 
-  const { userId, userCode, ability } = userInfo
+  const { userId, userCode, ability, roleKey } = userInfo
 
   try {
     const canViewAll = ability?.can('view', 'p-projects-individuals')
     const canViweOwned = ability?.can('view (owner)', 'p-projects-individuals')
+
+    console.log({ canViewAll, canViweOwned, roleKey })
 
     const where: Prisma.ProjectIndividualWhereUniqueInput =
       !ability || canViewAll
