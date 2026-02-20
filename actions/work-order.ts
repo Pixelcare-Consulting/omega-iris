@@ -714,8 +714,6 @@ export const upsertWorkOrderLineItem = action
   .action(async ({ parsedInput }) => {
     const { workOrderCode, projectItemCode, operation, maxQty, ...data } = parsedInput
 
-    console.log('zzzzz')
-
     const include = {
       projectIndividual: {
         include: {
