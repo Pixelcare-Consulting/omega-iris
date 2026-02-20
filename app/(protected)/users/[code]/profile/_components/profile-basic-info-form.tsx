@@ -157,19 +157,59 @@ export default function ProfileBasicInfoForm({ user }: ProfileBasicInfoFormProps
           </div>
 
           <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-            <TextBoxField control={form.control} name='fname' label='First Name' isRequired />
+            <TextBoxField
+              control={form.control}
+              name='fname'
+              label='First Name'
+              isRequired
+              extendedProps={{
+                textBoxOptions: {
+                  disabled: !isAdmin,
+                },
+              }}
+            />
           </div>
 
           <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-            <TextBoxField control={form.control} name='lname' label='Last Name' isRequired />
+            <TextBoxField
+              control={form.control}
+              name='lname'
+              label='Last Name'
+              isRequired
+              extendedProps={{
+                textBoxOptions: {
+                  disabled: !isAdmin,
+                },
+              }}
+            />
           </div>
 
           <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-            <TextBoxField control={form.control} name='username' label='Username' isRequired />
+            <TextBoxField
+              control={form.control}
+              name='username'
+              label='Username'
+              isRequired
+              extendedProps={{
+                textBoxOptions: {
+                  disabled: !isAdmin,
+                },
+              }}
+            />
           </div>
 
           <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-            <TextBoxField control={form.control} name='email' label='Email' isRequired />
+            <TextBoxField
+              control={form.control}
+              name='email'
+              label='Email'
+              isRequired
+              extendedProps={{
+                textBoxOptions: {
+                  disabled: !isAdmin,
+                },
+              }}
+            />
           </div>
 
           {isAdmin && (

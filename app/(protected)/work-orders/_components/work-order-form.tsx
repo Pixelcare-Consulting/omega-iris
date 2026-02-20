@@ -71,6 +71,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
         billingAddrCode: null,
         shippingAddrCode: null,
         comments: null,
+        customerPo: null,
         isAlternativeAddr: false,
         alternativeBillingAddr: null,
         alternativeShippingAddr: null,
@@ -134,6 +135,11 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
   const piCustomers = usePiCustomerByProjectCode(projectCode)
   const customer = useUserByCode(userCode)
   const salesOrder = useSalesOrderByWorkOrderCode(workOrder?.code)
+
+  const isBusinessPartner = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'business-partner'
+  }, [JSON.stringify(session)])
 
   const selectedStatus = useMemo(() => WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === status)?.label, [status])
   const selectedProject = useMemo(() => projects.data.find((p) => p.code === projectCode), [JSON.stringify(projects), projectCode])
@@ -280,6 +286,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
             height={currentStatus !== '5' ? 410 : 750}
           >
             <WorkOrderUpdateStatusForm
+              isOpen={showUpdateStatusForm}
               selectedRowKeys={[workOrder.code]}
               onClose={handleCloseUpdateStatusForm}
               filterStatus={safeParseInt(workOrder.status)}
@@ -424,18 +431,26 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
               )}
 
               <div className='col-span-12'>
+                <TextAreaField control={form.control} name='customerPo' label='Customer PO' />
+              </div>
+
+              <div className='col-span-12'>
                 <TextAreaField control={form.control} name='comments' label='Order Comments' />
               </div>
 
-              <Separator className='col-span-12' />
-              <ReadOnlyFieldHeader className='col-span-12 mb-1' title='SAP Fields' description='SAP related fields' />
+              {!isBusinessPartner && (
+                <>
+                  <Separator className='col-span-12' />
+                  <ReadOnlyFieldHeader className='col-span-12 mb-1' title='SAP Fields' description='SAP related fields' />
 
-              <ReadOnlyField
-                className='col-span-12 md:col-span-6 lg:col-span-3'
-                title='Sales Order Code'
-                value={salesOrder.data?.DocNum || ''}
-                isLoading={salesOrder.isLoading}
-              />
+                  <ReadOnlyField
+                    className='col-span-12 md:col-span-6 lg:col-span-3'
+                    title='Sales Order Code'
+                    value={salesOrder.data?.DocNum || ''}
+                    isLoading={salesOrder.isLoading}
+                  />
+                </>
+              )}
 
               <Separator className='col-span-12' />
               <ReadOnlyFieldHeader

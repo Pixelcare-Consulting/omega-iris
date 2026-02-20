@@ -88,13 +88,7 @@ export const businessPartnerFormSchema = z.object({
   syncStatus: z.string().nullish(),
 
   //* sap fields
-  CardCode: z
-    .string()
-    .nullish()
-    .transform((val) => {
-      if (!val) return `BP-${Date.now()}`
-      return val
-    }),
+  CardCode: z.string().min(1, { message: 'Code is required' }),
   CardName: z.string().min(1, { message: 'Name is required' }),
   CardType: z.string().min(1, { message: 'Type is required' }),
   CntctPrsn: z.string().nullish(),

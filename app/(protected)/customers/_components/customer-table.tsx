@@ -281,7 +281,7 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
       }
 
       if (stats.status === 'completed') {
-        toast.success(`Project groups imported successfully! ${stats.errors.length} errors found.`)
+        toast.success(`Customer imported successfully! ${stats.errors.length} errors found.`)
         setStats((prev: any) => ({ ...prev, total: 0, completed: 0, progress: 0, status: 'processing' }))
         router.refresh()
         // notificationContext?.handleRefresh()

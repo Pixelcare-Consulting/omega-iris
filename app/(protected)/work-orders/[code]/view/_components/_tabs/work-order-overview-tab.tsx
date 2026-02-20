@@ -1,6 +1,8 @@
 'use client'
 
+import { useMemo } from 'react'
 import ScrollView from 'devextreme-react/scroll-view'
+import { useSession } from 'next-auth/react'
 
 import { getWorkOrderByCode } from '@/actions/work-order'
 import ReadOnlyField from '@/components/read-only-field'
@@ -22,6 +24,8 @@ type WorkOrderOverviewTabProps = {
 }
 
 export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAddress, shippingAddress }: WorkOrderOverviewTabProps) {
+  const { data: session } = useSession()
+
   const fullName = workOrder.user ? `${workOrder?.user?.fname}${workOrder?.user?.lname ? ` ${workOrder?.user?.lname}` : ''}` : ''
   const status = WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === workOrder.status)?.label
 
@@ -55,6 +59,11 @@ export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAdd
 
   const billingAddressValue = getAddressValue(billingAddress.data)
   const shippingAddressValue = getAddressValue(shippingAddress.data)
+
+  const isBusinessPartner = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'business-partner'
+  }, [JSON.stringify(session)])
 
   return (
     <ScrollView>
@@ -97,21 +106,29 @@ export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAdd
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Internal' value={workOrder.isInternal ? 'Yes' : 'No'} />
 
+        <ReadOnlyField className='col-span-12' title='Customer PO'>
+          <p className='whitespace-pre-line'>{workOrder.customerPo || ''}</p>
+        </ReadOnlyField>
+
         <ReadOnlyField className='col-span-12' title='Order Comments'>
           <p className='whitespace-pre-line'>{workOrder.comments || ''}</p>
         </ReadOnlyField>
 
-        <Separator className='col-span-12' />
-        <ReadOnlyFieldHeader className='col-span-12' title='SAP Fields' description='SAP related fields' />
+        {!isBusinessPartner && (
+          <>
+            <Separator className='col-span-12' />
+            <ReadOnlyFieldHeader className='col-span-12' title='SAP Fields' description='SAP related fields' />
 
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Sales Order Code'
-          value={salesOrder?.data?.DocNum || ''}
-          isLoading={salesOrder.isLoading}
-        >
-          {salesOrder?.data?.DocNum && <Copy value={salesOrder?.data?.DocNum || ''} />}
-        </ReadOnlyField>
+            <ReadOnlyField
+              className='col-span-12 md:col-span-6 lg:col-span-3'
+              title='Sales Order Code'
+              value={salesOrder?.data?.DocNum || ''}
+              isLoading={salesOrder.isLoading}
+            >
+              {salesOrder?.data?.DocNum && <Copy value={salesOrder?.data?.DocNum || ''} />}
+            </ReadOnlyField>
+          </>
+        )}
 
         <ReadOnlyFieldHeader className='col-span-12' title='Owner' description='Work order owner details' />
 

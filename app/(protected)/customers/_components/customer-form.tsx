@@ -75,7 +75,7 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
         shippingAddresses: [],
 
         //* sap fields
-        CardCode: null,
+        CardCode: '',
         CardName: '',
         CardType: 'L',
         CntctPrsn: null,
@@ -140,8 +140,11 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
       const result = response?.data
 
       if (result?.error) {
-        if (result.status === 401) {
-          form.setError('CardCode', { type: 'custom', message: result.message })
+        if (result.status === 401 && result.paths && result.paths.length > 0) {
+          result.paths.forEach((path) => {
+            const field = path.field as keyof BusinessPartnerForm
+            form.setError(field, { type: 'custom', message: path.message })
+          })
         }
 
         toast.error(result.message)
@@ -304,7 +307,7 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
             <div className='grid h-full grid-cols-12 gap-5 px-6 py-8'>
               <div className='col-span-12 flex items-center gap-1 md:col-span-6 lg:col-span-3'>
                 <div className='w-[90%]'>
-                  <TextBoxField control={form.control} name='CardCode' label='Code' isLoading={latestBpData.isLoading} />
+                  <TextBoxField control={form.control} name='CardCode' label='Code' isLoading={latestBpData.isLoading} isRequired />
                 </div>
 
                 <div className='flex-1'>

@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client'
 import { paramsSchema } from '@/schema/common'
 import { db } from '@/utils/db'
 import {
+  customerProjectIndividualsFormSchema,
   projectIndividualCustomerFormSchema,
   projectIndividualFormSchema,
   projectIndividualPicFormSchema,
@@ -560,7 +561,7 @@ export const importPis = action
     const { data, total, stats, isLastRow } = parsedInput
     const { userId } = ctx
 
-    const names = data?.map((row) => row?.['Name'])?.filter(Boolean) || []
+    const names = data?.map((row) => row?.['Name']?.trim())?.filter(Boolean) || []
 
     try {
       const batch: Prisma.ProjectIndividualCreateManyInput[] = []
@@ -578,11 +579,13 @@ export const importPis = action
         const errors: ImportSyncErrorEntry[] = []
         const row = data[i]
 
+        const trimmedName = row?.['Name']?.trim()
+
         //* check required fields
-        if (!row?.['Name']) errors.push({ field: 'Name', message: 'Missing required field' })
+        if (!trimmedName) errors.push({ field: 'Name', message: 'Missing required field' })
 
         //* check if project individual name already exists
-        if (existingPiNames.includes(row?.['Name']) || toBeCreatedNames.includes(row?.['Name'])) {
+        if (existingPiNames.includes(trimmedName) || toBeCreatedNames.includes(trimmedName)) {
           errors.push({ field: 'Name', message: 'Name already exists' })
         }
 
@@ -593,11 +596,11 @@ export const importPis = action
         }
 
         //* add to be create project group names
-        toBeCreatedNames.push(row['Name'])
+        toBeCreatedNames.push(trimmedName)
 
         //* reshape data
         const toCreate: Prisma.ProjectIndividualCreateManyInput = {
-          name: row['Name'],
+          name: trimmedName,
           groupCode: safeParseInt(row?.['Group ID']) || null,
           description: row?.['Description'] || null,
           isActive: row?.['Active'] === '1' ? true : !row?.['Active'] ? undefined : false,
@@ -976,6 +979,151 @@ export const updatePiPics = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'UPDATE_PROJECT_INDIVIDUAL_PICS',
+      }
+    }
+  })
+
+export const updateCustomerPis = action
+  .use(authenticationMiddleware)
+  .schema(customerProjectIndividualsFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { code, projects } = parsedInput
+    const { userId } = ctx
+
+    const include: Prisma.ProjectIndividualInclude = {
+      projectIndividualPics: {
+        //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
+        where: {
+          user: {
+            OR: [
+              {
+                role: {
+                  rolePermissions: {
+                    some: {
+                      permission: { code: PERMISSIONS_CODES['PROJECT INDIVIDUALS'] },
+                      actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                    },
+                  },
+                },
+              },
+              {
+                role: {
+                  key: 'admin',
+                },
+              },
+            ],
+          },
+        },
+      },
+    }
+
+    try {
+      const currentAssignedPis = (
+        await db.projectIndividualCustomer.findMany({
+          where: { userCode: code },
+          select: { projectIndividual: { select: { code: true, name: true } } },
+        })
+      ).map((pc) => pc.projectIndividual.code)
+      const newlyAssignedPis = projects.filter((pi) => !currentAssignedPis.includes(pi))
+      const unAssignedPis = currentAssignedPis.filter((pi) => !projects.includes(pi))
+
+      const updatedPis = await db.$transaction(async (tx) => {
+        //* update project individuals
+        await tx.projectIndividual.updateMany({
+          where: { code: { in: [...newlyAssignedPis, ...unAssignedPis] } },
+          data: { updatedBy: userId },
+        })
+
+        //* delete the project individual customers which based on the unAssignedPis
+        await tx.projectIndividualCustomer.deleteMany({
+          where: {
+            projectIndividualCode: { in: unAssignedPis },
+            userCode: code,
+          },
+        })
+
+        //* create the project individual customers which based on the newlyAssignedPis
+        await tx.projectIndividualCustomer.createMany({
+          data: newlyAssignedPis.map((pi) => ({ projectIndividualCode: pi, userCode: code })),
+        })
+
+        return await tx.projectIndividual.findMany({
+          where: { code: { in: [...newlyAssignedPis, ...unAssignedPis] } },
+          include,
+        })
+      })
+
+      // TODO: Need more testing on this
+      // updatedPis.forEach((uPi) => {
+      //   void createNotification(ctx, {
+      //     permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+      //     title: 'Project Individual Updated',
+      //     message: `A project individual (#${uPi.code}) was updated by ${ctx.fullName}.`,
+      //     link: `/project/individuals/${uPi.code}/view`,
+      //     entityType: 'ProjectIndividual' as Prisma.ModelName,
+      //     entityCode: uPi.code,
+      //     entityId: uPi.id,
+      //     userCodes: [],
+      //   }).then((data) => {
+      //     if (data.error) return
+
+      //     const assignedPics = uPi.projectIndividualPics.map((pip) => pip.userCode)
+      //     const isNewlyAssigned = newlyAssignedPis.includes(uPi.code)
+      //     const isSkipNotify = ctx.userCode === code
+      //     const isUnassigned = unAssignedPis.includes(uPi.code)
+
+      //     //* create notification for newly assigned customer
+      //     if (isNewlyAssigned) {
+      //       void createNotification(
+      //         ctx,
+      //         {
+      //           permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+      //           title: 'Project Individual Customer Assigned',
+      //           message: `You were assigned as a customer to project individual (#${uPi.code}) by ${ctx.fullName}.`,
+      //           link: `/project/individuals/${uPi.code}/view`,
+      //           entityType: 'ProjectIndividual' as Prisma.ModelName,
+      //           entityCode: uPi.code,
+      //           entityId: uPi.id,
+      //           userCodes: [code, ...assignedPics],
+      //         },
+      //         { skipNotify: isSkipNotify ? false : true }
+      //       )
+      //     }
+
+      //     //* create notification for unassigned customer
+      //     if (isUnassigned) {
+      //       void createNotification(
+      //         ctx,
+      //         {
+      //           permissionCode: PERMISSIONS_CODES['PROJECT INDIVIDUALS'],
+      //           title: 'Project Individual Customer Unassigned',
+      //           message: `You were unassigned as a customer to project individual (#${uPi.code}) by ${ctx.fullName}.`,
+      //           link: `/project/individuals`,
+      //           entityType: 'ProjectIndividual' as Prisma.ModelName,
+      //           entityCode: uPi.code,
+      //           entityId: uPi.id,
+      //           userCodes: [code, ...assignedPics],
+      //         },
+      //         { skipNotify: isSkipNotify ? false : true }
+      //       )
+      //     }
+      //   })
+      // })
+
+      return {
+        status: 200,
+        message: `${newlyAssignedPis.length} project individual(s) assigned and ${unAssignedPis.length} project individual(s) unassigned successfully!`,
+        action: 'UPDATE_CUSTOMER_PROJECT_INDIVIDUALS',
+        data: { projectIndividual: updatedPis },
+      }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'UPDATE_CUSTOMER_PROJECT_INDIVIDUALS',
       }
     }
   })

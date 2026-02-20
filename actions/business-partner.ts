@@ -20,7 +20,7 @@ import { chunkArray, safeParseInt } from '@/utils'
 import logger from '@/utils/logger'
 import { callSapServiceLayerApi } from './sap-service-layer'
 import { SAP_BASE_URL } from '@/constants/sap'
-import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
+import { DuplicateFields, ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import { getAddresses, getMasterAddresses } from './address'
 import { getContacts, getMasterContacts } from './contact'
 import { importFormSchema } from '@/schema/import'
@@ -28,6 +28,7 @@ import { createNotification } from './notification'
 import { PERMISSIONS_CODES } from '@/constants/permission'
 import { PER_PAGE } from '@/constants/business-partner'
 import { randomBytes } from 'crypto'
+import { capitalize } from 'radash'
 
 const COMMON_BUSINESS_PARTNER_ORDER_BY = { CardCode: 'asc' } satisfies Prisma.BusinessPartnerOrderByWithRelationInput
 
@@ -89,21 +90,24 @@ export const upsertBp = action
     const { code, contacts, billingAddresses, shippingAddresses, ...data } = parsedInput
     const { userId } = ctx
 
-    try {
-      const existingBp = await db.businessPartner.findFirst({
-        where: {
-          CardCode: data.CardCode,
-          ...(code && code !== -1 && { code: { not: code } }),
-        },
-      })
+    const trimmedCardCode = data?.CardCode?.trim()
+    const trimmedCardName = data?.CardName?.trim()
 
-      if (existingBp) {
-        return {
-          error: true,
-          status: 401,
-          message: `${BUSINESS_PARTNER_TYPE_MAP[data.CardType]} code already exists!`,
-          action: 'UPSERT_BUSINESS_PARTNER',
-        }
+    try {
+      const [existingCardCode, existingCardName] = await Promise.all([
+        db.businessPartner.findFirst({ where: { CardCode: trimmedCardCode, ...(code && code !== -1 && { code: { not: code } }) } }),
+        db.businessPartner.findFirst({ where: { CardName: trimmedCardName, ...(code && code !== -1 && { code: { not: code } }) } }),
+      ])
+
+      const duplicates: DuplicateFields = []
+
+      if(existingCardCode) duplicates.push({ field: 'CardCode', name: 'Code',  message: `${BUSINESS_PARTNER_TYPE_MAP[data.CardType]} code already exists!` }) // prettier-ignore
+      if(existingCardName) duplicates.push({ field: 'CardName', name: 'Name', message: `${BUSINESS_PARTNER_TYPE_MAP[data.CardType]} name already exists!` }) // prettier-ignore
+
+      if (duplicates.length > 0) {
+        const paths = duplicates.map((d) => ({ field: d.field, message: d.message }))
+        const message = duplicates.map((d) => d.name).join(', ')
+        return { error: true, status: 401, message: `${capitalize(message)} already exists!`, action: 'UPSERT_BUSINESS_PARTNER', paths }
       }
 
       //* update bp
@@ -224,7 +228,8 @@ export const upsertBp = action
         const bp = await tx.businessPartner.create({
           data: {
             ...data,
-            CardCode: data?.CardCode?.trim(),
+            CardCode: trimmedCardCode,
+            CardName: trimmedCardName,
             syncStatus: data?.syncStatus ?? 'pending',
             createdBy: userId,
             updatedBy: userId,
@@ -331,20 +336,29 @@ export const importBp = action
     const cardType = metaData?.cardType || 'L'
     const bpGroupType = BUSINESS_PARTNER_STD_API_GROUP_TYPE_MAP[cardType] || 'bbpgt_CustomerGroup'
 
-    const cardCodes = data?.map((row) => row?.['Code'])?.filter(Boolean) || []
+    const cardCodes = data?.map((row) => row?.['Code']?.trim())?.filter(Boolean) || []
+    const cardNames = data?.map((row) => row?.['Name']?.trim())?.filter(Boolean) || []
 
     try {
       const batch: Prisma.BusinessPartnerCreateManyInput[] = []
       const toBeCreatedCardCode: string[] = [] //* contains toBeCreated business partner code
+      const toBeCreatedCardName: string[] = [] //* contains toBeCreated business partner name
 
-      //* get existing bps card cades
-      const existingBpsCardCodes = await db.businessPartner
-        .findMany({ where: { CardCode: { in: cardCodes } }, select: { CardCode: true } })
-        .then((bps) => bps.map((bp) => bp.CardCode))
+      //* get existing bps card cades, names
+      const [BpsCardCodes, BpsCardNames] = await Promise.all([
+        db.businessPartner.findMany({ where: { CardCode: { in: cardCodes } }, select: { CardCode: true } }),
+        db.businessPartner.findMany({ where: { CardName: { in: cardNames } }, select: { CardName: true } }),
+      ])
+
+      const existingBpsCardCodes = BpsCardCodes.map((bp) => bp.CardCode)
+      const existingBpsCardNames = BpsCardNames.map((bp) => bp.CardName)
 
       for (let i = 0; i < data.length; i++) {
         const errors: ImportSyncErrorEntry[] = []
         const row = data[i]
+
+        const trimmedCardCode = row?.['Code']?.trim()
+        const trimmedCardName = row?.['Name']?.trim()
 
         const group = bpGroups?.filter((g: any) => g?.Type === bpGroupType)?.find((g: any) => g?.Code == row?.['Group'])
         const currency = currencies?.find((c: any) => c?.CurrCode == row?.['Currency'])
@@ -353,11 +367,17 @@ export const importBp = action
         const businessType = businessTypes?.find((bt: any) => bt?.Code == row?.['Type_Of_Business'])
 
         //* check required fields
-        if (!row?.['Name']) errors.push({ field: 'Name', message: 'Missing required field' })
+        if (!trimmedCardCode) errors.push({ field: 'Code', message: 'Missing required field' })
+        if (!trimmedCardName) errors.push({ field: 'Name', message: 'Missing required field' })
 
         //* check if code is provided, check if it is already exist
-        if (existingBpsCardCodes.includes(row?.['Code']) || toBeCreatedCardCode.includes(row?.['Code'])) {
+        if (existingBpsCardCodes.includes(trimmedCardCode) || toBeCreatedCardCode.includes(trimmedCardCode)) {
           errors.push({ field: 'Code', message: 'Code already exists' })
+        }
+
+        //* check if name is provided, check if it is already exist
+        if (existingBpsCardNames.includes(trimmedCardName) || toBeCreatedCardName.includes(trimmedCardName)) {
+          errors.push({ field: 'Name', message: 'Name already exists' })
         }
 
         //* if errors array is not empty, then update/push to ImportSyncError
@@ -367,12 +387,15 @@ export const importBp = action
         }
 
         //* add to be created business partner codes
-        toBeCreatedCardCode.push(row['Code'])
+        toBeCreatedCardCode.push(trimmedCardCode)
+
+        //* add to be created business partner names
+        toBeCreatedCardName.push(trimmedCardName)
 
         //* reshape data
         const toCreate: Prisma.BusinessPartnerCreateManyInput = {
-          CardCode: row?.['Code'] ? row?.['Code']?.trim() : `BP-${Date.now()}`,
-          CardName: row?.['Name'] || null,
+          CardCode: trimmedCardCode ? trimmedCardCode : `BP-${Date.now()}`,
+          CardName: trimmedCardName || null,
           CardType: cardType,
           CurrName: currency?.CurrName || null,
           CurrCode: currency?.CurrCode || null,
@@ -798,11 +821,19 @@ export const syncFromSap = action
     const SYNC_META_CODE = BUSINESS_PARTNER_TYPE_MAP[cardType].toLowerCase()
 
     try {
-      //* fetch all bp master from sap & last sync date
-      const data = await Promise.allSettled([getBpMaster(cardType), db.syncMeta.findUnique({ where: { code: SYNC_META_CODE } })])
+      //* fetch all bp master from sap, bp in portal & last sync date
+      const data = await Promise.allSettled([
+        getBpMaster(cardType),
+        db.businessPartner.findMany({
+          where: { CardType: cardType },
+          select: { CardCode: true, CardName: true, CardType: true },
+        }),
+        db.syncMeta.findUnique({ where: { code: SYNC_META_CODE } }),
+      ])
 
       const bpMaster = data[0].status === 'fulfilled' ? data[0]?.value || [] : []
-      const lastSyncDate = data[1].status === 'fulfilled' ? data[1]?.value?.lastSyncAt || new Date('01/01/2020') : new Date('01/01/2020')
+      const bps = data[1].status === 'fulfilled' ? data[1]?.value || [] : []
+      const lastSyncDate = data[2].status === 'fulfilled' ? data[2]?.value?.lastSyncAt || new Date('01/01/2020') : new Date('01/01/2020')
 
       if (bpMaster.length < 1) {
         return {
@@ -828,15 +859,36 @@ export const syncFromSap = action
           return isCreateDateSameDay || isUpdateDateSameDay || isCreateDateAfter || isUpdateDateAfter
         }) || []
 
-      const allowedBps = filteredSapBpMasters.filter((row) => row?.U_Portal_Sync === 'Y')
+      const nameMap = new Map<string, string>()
+      const addressMap = new Map<string, any[]>()
+      const contactMap = new Map<string, any[]>()
+
+      bps.forEach((bp) => {
+        nameMap.set(bp?.CardName?.trim(), bp.CardCode)
+      })
+
+      const allowedBps = filteredSapBpMasters
+        .filter((row) => row?.['U_Portal_Sync'] === 'Y')
+        .filter((row) => {
+          const trimmedName = row?.['CardName']?.trim()
+          if (!trimmedName) return false
+
+          //* Blocks duplicate CardName with different CardCode
+          const existingCode = nameMap.get(trimmedName)
+
+          //* if code not exist, then add to nameMap
+          if (!existingCode) {
+            nameMap.set(trimmedName, row?.['CardCode'])
+            return true
+          }
+
+          return existingCode === row?.['CardCode'] //* if 'false' means card name already exist in db with diffrent card code not the row's card code
+        })
 
       const [bpAddreses, bpContacts] = await Promise.all([
         Promise.all(allowedBps.map((bp) => getMasterAddresses(bp?.CardCode ?? ''))),
         Promise.all(allowedBps.map((bp) => getMasterContacts(bp?.CardCode ?? ''))),
       ])
-
-      const addressMap = new Map<string, any[]>()
-      const contactMap = new Map<string, any[]>()
 
       allowedBps.forEach((bp, index) => {
         addressMap.set(bp.CardCode, bpAddreses[index]?.value ?? [])

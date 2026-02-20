@@ -94,8 +94,8 @@ export default function WorkOrderLineItemTable({
   }, [JSON.stringify(session)])
 
   const isLocked = useMemo(() => {
-    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process'] || isBusinessPartner
-  }, [workOrderStatus, isBusinessPartner])
+    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process']
+  }, [workOrderStatus])
 
   const handleAdd = useCallback(() => {
     setRowData(null)
