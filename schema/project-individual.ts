@@ -16,6 +16,11 @@ export const projectIndividualCustomerFormSchema = z.object({
   customers: z.array(z.coerce.number()).min(1, { message: 'Please select at least one customer' }),
 })
 
+export const customerProjectIndividualsFormSchema = z.object({
+  code: z.coerce.number(),
+  projects: z.array(z.coerce.number()),
+})
+
 export const projectIndividualSupplierFormSchema = z.object({
   code: z.coerce.number(),
   suppliers: z.array(z.coerce.string()),
@@ -27,6 +32,7 @@ export const projectIndividualPicFormSchema = z.object({
 })
 
 export type ProjectIndividualCustomerForm = z.infer<typeof projectIndividualCustomerFormSchema>
+export type CustomerProjectIndividualForm = z.infer<typeof customerProjectIndividualsFormSchema>
 export type ProjectIndividualSupplierForm = z.infer<typeof projectIndividualSupplierFormSchema>
 export type ProjectIndividualPicForm = z.infer<typeof projectIndividualPicFormSchema>
 export type ProjectIndividualForm = z.infer<typeof projectIndividualFormSchema>

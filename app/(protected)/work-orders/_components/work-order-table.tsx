@@ -2,7 +2,7 @@
 
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
-import { useCallback, useContext, useMemo, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
@@ -67,6 +67,23 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     if (workOrderToUpdate.length < 1) return []
     return workOrderToUpdate.map((wo) => wo.code)
   }, [JSON.stringify(workOrderToUpdate)])
+
+  const workOrderToUpdateInfo = useMemo(() => {
+    //* return isStatusError = 'true' if selected work order has different status, all should be the same status will be 'false'
+    //* return which status the selected work order have in common, if all are the same status, otherwise return '0'
+
+    if (workOrderToUpdate.length < 1) return { isStatusError: false, status: 0 }
+
+    const firstStatus = workOrderToUpdate[0].prevStatus
+
+    for (const wo of workOrderToUpdate) {
+      if (wo.prevStatus !== firstStatus) {
+        return { isStatusError: true, status: 0 }
+      }
+    }
+
+    return { isStatusError: false, status: safeParseInt(firstStatus) }
+  }, [workOrderToUpdate])
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
@@ -357,7 +374,13 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             maxWidth={1200}
             height={currentStatus !== '5' ? 410 : 750}
           >
-            <WorkOrderUpdateStatusForm selectedRowKeys={selectedRowKeys} onClose={handleCloseUpdateStatusForm} />
+            <WorkOrderUpdateStatusForm
+              isOpen={showUpdateStatusForm}
+              selectedRowKeys={selectedRowKeys}
+              onClose={handleCloseUpdateStatusForm}
+              filterStatus={workOrderToUpdateInfo.status}
+              isStatusError={workOrderToUpdateInfo.isStatusError}
+            />
           </Popup>
 
           <AlertDialog

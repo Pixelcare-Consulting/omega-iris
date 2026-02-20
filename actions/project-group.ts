@@ -374,7 +374,7 @@ export const importPgs = action
     const { data, total, stats, isLastRow } = parsedInput
     const { userId } = ctx
 
-    const names = data?.map((row) => row?.['Name'])?.filter(Boolean) || []
+    const names = data?.map((row) => row?.['Name']?.trim())?.filter(Boolean) || []
 
     try {
       const batch: Prisma.ProjectGroupCreateManyInput[] = []
@@ -392,11 +392,13 @@ export const importPgs = action
         const errors: ImportSyncErrorEntry[] = []
         const row = data[i]
 
+        const trimmedName = row?.['Name']?.trim()
+
         //* check required fields
-        if (!row?.['Name']) errors.push({ field: 'Name', message: 'Missing required field' })
+        if (!trimmedName) errors.push({ field: 'Name', message: 'Missing required field' })
 
         //* check if project group name already exists
-        if (existingPgNames.includes(row?.['Name']) || toBeCreatedNames.includes(row?.['Name'])) {
+        if (existingPgNames.includes(trimmedName) || toBeCreatedNames.includes(trimmedName)) {
           errors.push({ field: 'Name', message: 'Name already exists' })
         }
 
@@ -407,11 +409,11 @@ export const importPgs = action
         }
 
         //* add to be create project group names
-        toBeCreatedNames.push(row['Name'])
+        toBeCreatedNames.push(trimmedName)
 
         //* reshape data
         const toCreate: Prisma.ProjectGroupCreateManyInput = {
-          name: row['Name'],
+          name: trimmedName,
           description: row?.['Description'] || null,
           isActive: row?.['Active'] === '1' ? true : !row?.['Active'] ? undefined : false,
           createdBy: userId,

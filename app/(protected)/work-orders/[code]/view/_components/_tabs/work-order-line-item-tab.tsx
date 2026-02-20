@@ -69,14 +69,9 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
 
   const workOrderStatus = useMemo(() => safeParseInt(workOrder?.status), [JSON.stringify(workOrder)])
 
-  const isBusinessPartner = useMemo(() => {
-    if (!session) return false
-    return session.user.roleKey === 'business-partner'
-  }, [JSON.stringify(session)])
-
   const isLocked = useMemo(() => {
-    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process'] || isBusinessPartner
-  }, [workOrderStatus, isBusinessPartner])
+    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process']
+  }, [workOrderStatus])
 
   const woItems = useMemo(() => {
     if (workOrderItems.isLoading || workOrderItems.data.length < 1) return []

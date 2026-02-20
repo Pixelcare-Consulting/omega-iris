@@ -4,7 +4,7 @@ import { Item } from 'devextreme-react/toolbar'
 import { Button } from 'devextreme-react/button'
 import ScrollView from 'devextreme-react/scroll-view'
 
-import { WORK_ORDER_STATUS_OPTIONS, WorkOrderStatusUpdateForm } from '@/schema/work-order'
+import { WORK_ORDER_STATUS_OPTIONS, WORK_ORDER_STATUS_VALUE_MAP, WorkOrderStatusUpdateForm } from '@/schema/work-order'
 import { FormProvider, useFormContext, useWatch } from 'react-hook-form'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import LoadingButton from '@/components/loading-button'
@@ -22,25 +22,29 @@ import { FormDebug } from '@/components/forms/form-debug'
 import Separator from '@/components/separator'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import WorkOrderLineItemsTobeDeliver from './work-order-line-items-tobe-deliver'
-import { useCallback, useContext, useEffect, useState } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import AlertDialog from '@/components/alert-dialog'
 import { safeParseInt } from '@/utils'
 import { NotificationContext } from '@/context/notification'
 
 type WorkOrderUpdateStatusFormProps = {
   selectedRowKeys: number[]
+  isOpen?: boolean
   onClose?: () => void
   filterStatus?: number
   callback?: () => void
   isRedirect?: boolean //* isRedirect means its a single work order update which was done inside work order form not in work order table
+  isStatusError?: boolean
 }
 
 export default function WorkOrderUpdateStatusForm({
   selectedRowKeys,
+  isOpen,
   onClose,
   filterStatus,
   callback,
   isRedirect,
+  isStatusError,
 }: WorkOrderUpdateStatusFormProps) {
   const router = useRouter()
 
@@ -54,6 +58,60 @@ export default function WorkOrderUpdateStatusForm({
   const workOrders = useWatch({ control: form.control, name: 'workOrders' }) || []
 
   const { executeAsync, isExecuting } = useAction(updateWorkeOrderStatus)
+
+  const filteredWorkOrderStatusOptions = useMemo(() => {
+    if (filterStatus === undefined) return []
+
+    const options: { label: string; value: string }[] = []
+
+    const CURRENT_STATUS = filterStatus
+    const NEXT_STATUS = ++filterStatus
+
+    const DEFAULT_ALLOWED_STATUSES = WORK_ORDER_STATUS_OPTIONS.filter((s) => {
+      const status = safeParseInt(s.value)
+      return status === WORK_ORDER_STATUS_VALUE_MAP['Cancelled'] || status === WORK_ORDER_STATUS_VALUE_MAP['Deleted']
+    })
+
+    //* append all allowed statuses based on conditions
+
+    //* if CURRENT_STATUS is below to 'Verified' just append the option based on NEXT_STATUS
+    //* set form value to NEXT_STATUS
+    if (CURRENT_STATUS < WORK_ORDER_STATUS_VALUE_MAP['Verified']) {
+      options.push(
+        ...WORK_ORDER_STATUS_OPTIONS.filter((s) => {
+          const status = safeParseInt(s.value)
+          return status === NEXT_STATUS
+        })
+      )
+    }
+
+    //* if CURRENT_STATUS is 'Verified' or 'Partial Delivery' then append the option 'Partial Delivery' and 'Delivered'
+    if (CURRENT_STATUS === WORK_ORDER_STATUS_VALUE_MAP['Verified'] || CURRENT_STATUS === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery']) {
+      options.push(
+        ...WORK_ORDER_STATUS_OPTIONS.filter((s) => {
+          const status = safeParseInt(s.value)
+          return status === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery'] || status === WORK_ORDER_STATUS_VALUE_MAP['Delivered']
+        })
+      )
+    }
+
+    //* append all default allowed statuses
+    options.push(...DEFAULT_ALLOWED_STATUSES)
+
+    return options
+  }, [JSON.stringify(filterStatus)])
+
+  const filteredWorkOrderStatuses = useMemo(() => {
+    return filteredWorkOrderStatusOptions.map((s) => `"${s.label}"`)
+  }, [JSON.stringify(filteredWorkOrderStatusOptions)])
+
+  function formatFilteredWorkOrderStatuses(statuses: string[]) {
+    if (statuses.length === 0) return ''
+    if (statuses.length === 1) return statuses[0]
+    if (statuses.length === 2) return statuses.join(' or ')
+
+    return statuses.slice(0, -1).join(', ') + ', or ' + statuses[statuses.length - 1]
+  }
 
   const handleOnSubmit = async (formData: WorkOrderStatusUpdateForm) => {
     setShowConfirmation(false)
@@ -107,6 +165,38 @@ export default function WorkOrderUpdateStatusForm({
     [JSON.stringify(workOrders)]
   )
 
+  //* auto select current status
+  useEffect(() => {
+    if (!isOpen || isStatusError) return
+
+    //? filterStatus can be the current status of the work order or the selected work orders
+    if (filterStatus !== undefined && filteredWorkOrderStatusOptions.length > 0) {
+      if (filterStatus < WORK_ORDER_STATUS_VALUE_MAP['Verified']) {
+        //* just set the first options which also the next status of the work order
+        form.setValue('currentStatus', filteredWorkOrderStatusOptions[0].value)
+        return
+      }
+
+      if (filterStatus === WORK_ORDER_STATUS_VALUE_MAP['Verified']) {
+        //* set as delivered status option
+        const option = filteredWorkOrderStatusOptions.find((s) => safeParseInt(s.value) === WORK_ORDER_STATUS_VALUE_MAP['Delivered'])
+        if (option) {
+          form.setValue('currentStatus', option.value)
+          return
+        }
+      }
+
+      if (filterStatus === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery']) {
+        //* set as partial delivery status option
+        const option = filteredWorkOrderStatusOptions.find((s) => safeParseInt(s.value) === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery'])
+        if (option) {
+          form.setValue('currentStatus', option.value)
+          return
+        }
+      }
+    }
+  }, [filterStatus, filteredWorkOrderStatusOptions, isOpen, isStatusError])
+
   return (
     <FormProvider {...form}>
       <div className='flex h-fit w-full flex-col gap-3'>
@@ -126,7 +216,7 @@ export default function WorkOrderUpdateStatusForm({
               stylingMode='contained'
               icon='save'
               isLoading={isExecuting}
-              disabled={!currentStatus}
+              disabled={!currentStatus || isStatusError}
               onClick={() => setShowConfirmation(true)}
             />
           </Item>
@@ -137,23 +227,29 @@ export default function WorkOrderUpdateStatusForm({
             {/* <FormDebug form={form} /> */}
 
             <div className='grid h-full grid-cols-12 gap-5'>
-              <Alert
-                className='col-span-12'
-                variant='default'
-                message={`Selected work orders with the same status or status is higher than the selected status will be ignored! Work order that will be updated: ${selectedRowKeys.join(', ')}`}
-              />
+              {!isStatusError ? (
+                <Alert
+                  className='col-span-12'
+                  variant='default'
+                  message={`Work order(s) current status: "${WORK_ORDER_STATUS_OPTIONS.find((s) => safeParseInt(s.value) === filterStatus)?.label}." You can only update the status to ${formatFilteredWorkOrderStatuses(filteredWorkOrderStatuses)}`}
+                />
+              ) : (
+                <>
+                  <Alert className='col-span-12' variant='error' message={`Selected work order(s) must have the same status to proceed.`} />
+
+                  <Alert
+                    className='col-span-12'
+                    variant='default'
+                    message={`Please make sure that the following work order(s) have the same status: ${selectedRowKeys.join(', ')}.`}
+                  />
+                </>
+              )}
 
               <ReadOnlyField className='col-span-12 md:col-span-6' title='Date & Time' value={format(new Date(), 'MM/dd/yyyy hh:mm a')} />
 
               <div className='col-span-12 md:col-span-6'>
                 <SelectBoxField
-                  data={
-                    filterStatus !== undefined
-                      ? WORK_ORDER_STATUS_OPTIONS.filter(
-                          (s) => safeParseInt(s.value) > filterStatus || (safeParseInt(s.value) === 5 && filterStatus <= 5)
-                        )
-                      : WORK_ORDER_STATUS_OPTIONS
-                  }
+                  data={filteredWorkOrderStatusOptions}
                   control={form.control}
                   name='currentStatus'
                   label='Status'
@@ -161,6 +257,9 @@ export default function WorkOrderUpdateStatusForm({
                   displayExpr='label'
                   searchExpr={['label', 'value']}
                   callback={currentStatusCallback}
+                  extendedProps={{
+                    selectBoxOptions: { disabled: isStatusError },
+                  }}
                 />
               </div>
 
@@ -171,7 +270,7 @@ export default function WorkOrderUpdateStatusForm({
                     name='trackingNum'
                     label='Tracking Number'
                     isAutoResize
-                    extendedProps={{ textAreaOptions: { maxHeight: 150 } }}
+                    extendedProps={{ textAreaOptions: { maxHeight: 150, disabled: isStatusError } }}
                   />
                 </div>
               )}
@@ -182,11 +281,11 @@ export default function WorkOrderUpdateStatusForm({
                   name='comments'
                   label='Comments'
                   isAutoResize
-                  extendedProps={{ textAreaOptions: { maxHeight: 150 } }}
+                  extendedProps={{ textAreaOptions: { maxHeight: 150, disabled: isStatusError } }}
                 />
               </div>
 
-              {currentStatus === '5' && (
+              {!isStatusError && currentStatus === '5' && (
                 <>
                   <Separator className='col-span-12' />
                   <ReadOnlyFieldHeader

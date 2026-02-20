@@ -489,8 +489,8 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               <Column dataField='item.FirmName' dataType='string' caption='Manufacturer' />
               <Column dataField='partNumber' dataType='string' caption='Part Number' />
               <Column dataField='item.ItemName' dataType='string' caption='Description' />
-              <Column dataField='dateCode' minWidth={60} dataType='string' caption='DC' />
-              <Column dataField='countryOfOrigin' minWidth={70} dataType='string' caption='COO' />
+              <Column dataField='dateCode' minWidth={75} dataType='string' caption='DC' />
+              <Column dataField='countryOfOrigin' minWidth={75} dataType='string' caption='COO' />
               <Column dataField='lotCode' dataType='string' caption='Lot Code' />
               <Column dataField='palletNo' dataType='string' caption='Pallet No' />
               {/* <Column dataField='warehouse.name' dataType='string' caption='Warehouse' /> */}

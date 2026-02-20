@@ -547,6 +547,7 @@ model WorkOrder {
     billingAddrCode         String?
     shippingAddrCode        String?
     comments                String?
+    customerPo              String?
     salesOrderCode          Int?
     purchaseOrderCode       Int?
     isAlternativeAddr       Boolean @default(false)
