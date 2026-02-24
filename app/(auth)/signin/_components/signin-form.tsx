@@ -25,6 +25,8 @@ export default function SigninForm() {
   const [seconds, setSeconds] = useState(MAXIMUM_SECONDS)
   const [countdown, setCountdown] = useState(MAXIMUM_COUNTDOWN)
 
+  const [showReminder, setShowReminder] = useState(true)
+
   const intervalRef = useRef<any>(null)
   const countdownRef = useRef<any>(null)
 
@@ -226,6 +228,38 @@ export default function SigninForm() {
         <ToolbarItem visible={!!error} toolbar='bottom' widget='dxButton' location='center' locateInMenu='never'>
           <Button text='Try Again' type='default' stylingMode='contained' onClick={() => setIsOpen(false)} />
         </ToolbarItem>
+      </Popup>
+
+      <Popup visible={showReminder} dragEnabled={false} showCloseButton={false} showTitle={false} height={415} maxWidth={580}>
+        <div className='pt-4'>
+          <h2 className='mb-1.5 text-center text-lg font-semibold'>Welcome to the New IRIS Portal</h2>
+
+          <p className='mb-3 text-sm'>Hello Dear User/Customer we are currently migrating to a new and reimagined IRIS Portal.</p>
+
+          <p className='mb-3 text-sm'>
+            To access our old portal kindly use this link:{' '}
+            <a className='!text-blue-500 hover:underline' href='https://iris-legacy.omegagti.com' target='_blank' rel='noreferrer'>
+              https://iris-legacy.omegagti.com
+            </a>{' '}
+            until <b>March 13, 2026</b>.
+          </p>
+
+          <p className='mb-3 text-sm'>
+            Rest assured, your inventory and projects will still be safely maintained with us! Kindly contact your account manager to begin
+            your migration to our new IRIS Portal.
+          </p>
+
+          <p className='mb-3 text-sm'>
+            If you already have migrated your account/projects, please use the new credentials provided to you here.
+          </p>
+
+          <p>Thank you!</p>
+          <p className='font-bold'>-Omega GTI</p>
+
+          <ToolbarItem toolbar='bottom' widget='dxButton' location='center' locateInMenu='never'>
+            <Button text='Got It!' type='default' stylingMode='contained' onClick={() => setShowReminder(false)} />
+          </ToolbarItem>
+        </div>
       </Popup>
     </div>
   )
