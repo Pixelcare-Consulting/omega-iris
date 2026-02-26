@@ -226,8 +226,10 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
 
   const handleCloseUpdateStatusForm = useCallback(() => {
     form.reset()
-    setTimeout(() => form.clearErrors(), 100)
-    setShowUpdateStatusForm(false)
+    setTimeout(() => {
+      setShowUpdateStatusForm(false)
+      form.clearErrors()
+    }, 100)
 
     //* deselect all rows
     if (dataGridRef.current) {
@@ -238,6 +240,8 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
 
   return (
     <div className='h-full w-full space-y-5'>
+      {JSON.stringify(selectedRowKeys, null, 2)}
+
       <FormProvider {...form}>
         <PageHeader title='Work Orders' description='Manage and track your work order effectively'>
           {selectedRowKeys.length > 0 && (
