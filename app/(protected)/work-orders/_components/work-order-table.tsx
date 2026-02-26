@@ -240,8 +240,6 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
 
   return (
     <div className='h-full w-full space-y-5'>
-      {JSON.stringify(selectedRowKeys, null, 2)}
-
       <FormProvider {...form}>
         <PageHeader title='Work Orders' description='Manage and track your work order effectively'>
           {selectedRowKeys.length > 0 && (
