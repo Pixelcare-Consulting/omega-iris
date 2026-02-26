@@ -1,3 +1,5 @@
+type CommonErrorObj = { message: string }
+
 export type PageMetadata = { title: string; description: string }
 export type DuplicateFields = { field: string; name: string; message: string }[]
 
@@ -18,7 +20,8 @@ export type FileUploadStats = {
 }
 
 export type ImportSyncErrorEntry = { field: string; message: string }
-export type FileAttachmentErrorEntry = { message: string }
+export type FileAttachmentErrorEntry = CommonErrorObj
+export type CommonErrorEntry = CommonErrorObj & Record<string, any>
 
 export type ImportSyncError = {
   rowNumber: number
@@ -30,5 +33,11 @@ export type FileAttachmentError = {
   rowNumber: number
   fileName: string
   entries: FileAttachmentErrorEntry[]
+  row?: any
+}
+
+export type CommonOperationError = {
+  id: number
+  entries: CommonErrorEntry[]
   row?: any
 }

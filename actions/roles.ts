@@ -17,6 +17,7 @@ export async function getRoles() {
       orderBy: COMMON_ROLE_ORDER_BY,
     })
   } catch (error) {
+    console.error(error)
     return []
   }
 }
@@ -26,7 +27,8 @@ export async function getRolesByCode(code: number) {
 
   try {
     return db.role.findUnique({ where: { code } })
-  } catch (err) {
+  } catch (error) {
+    console.error(error)
     return null
   }
 }

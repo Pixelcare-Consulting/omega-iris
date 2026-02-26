@@ -3,6 +3,7 @@
 import { Item } from 'devextreme-react/toolbar'
 import { Button } from 'devextreme-react/button'
 import ScrollView from 'devextreme-react/scroll-view'
+import { Column, DataGridRef } from 'devextreme-react/data-grid'
 
 import { WORK_ORDER_STATUS_OPTIONS, WORK_ORDER_STATUS_VALUE_MAP, WorkOrderStatusUpdateForm } from '@/schema/work-order'
 import { FormProvider, useFormContext, useWatch } from 'react-hook-form'
@@ -22,10 +23,11 @@ import { FormDebug } from '@/components/forms/form-debug'
 import Separator from '@/components/separator'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import WorkOrderLineItemsTobeDeliver from './work-order-line-items-tobe-deliver'
-import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import AlertDialog from '@/components/alert-dialog'
 import { safeParseInt } from '@/utils'
 import { NotificationContext } from '@/context/notification'
+import { CommonOperationError } from '@/types/common'
 
 type WorkOrderUpdateStatusFormProps = {
   selectedRowKeys: number[]
@@ -35,6 +37,8 @@ type WorkOrderUpdateStatusFormProps = {
   callback?: () => void
   isRedirect?: boolean //* isRedirect means its a single work order update which was done inside work order form not in work order table
   isStatusError?: boolean
+  setShowUpdateStatusErrors: Dispatch<SetStateAction<boolean>>
+  setUpdateStatusErrors: Dispatch<SetStateAction<CommonOperationError[]>>
 }
 
 export default function WorkOrderUpdateStatusForm({
@@ -45,6 +49,8 @@ export default function WorkOrderUpdateStatusForm({
   callback,
   isRedirect,
   isStatusError,
+  setShowUpdateStatusErrors,
+  setUpdateStatusErrors,
 }: WorkOrderUpdateStatusFormProps) {
   const router = useRouter()
 
@@ -122,12 +128,18 @@ export default function WorkOrderUpdateStatusForm({
 
       if (result?.error) {
         toast.error(result.message)
+
+        if (result?.errors && result?.errors?.length > 0) {
+          setUpdateStatusErrors(result.errors)
+          setShowUpdateStatusErrors(true)
+        }
+
         return
       }
 
       toast.success(result?.message)
 
-      if (result?.data && result?.data?.workOrders) {
+      if (result?.data && result?.data?.workOrders && result?.data?.workOrders) {
         router.refresh()
         form.setValue('workOrders', [])
 
@@ -140,6 +152,8 @@ export default function WorkOrderUpdateStatusForm({
             if (isRedirect) {
               const workOrder = result?.data?.workOrders[0]
               const appliedStatus = safeParseInt(result.data.appliedStatus)
+
+              if (!workOrder) return
 
               if (appliedStatus < 6) router.replace(`/work-orders/${workOrder.code}`)
               else router.replace(`/work-orders`)
