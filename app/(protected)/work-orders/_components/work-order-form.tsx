@@ -7,17 +7,18 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
 import { useParams } from 'next/navigation'
-import { useContext, useEffect, useMemo, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 import Popup from 'devextreme-react/popup'
+import { Column, DataGridRef } from 'devextreme-react/data-grid'
 
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { WORK_ORDER_STATUS_OPTIONS, type WorkOrderForm, workOrderFormSchema, workOrderStatusUpdateFormSchema } from '@/schema/work-order'
 import LoadingButton from '@/components/loading-button'
 import { getWorkOrderByCode, upsertWorkOrder } from '@/actions/work-order'
-import { PageMetadata } from '@/types/common'
+import { CommonOperationError, PageMetadata } from '@/types/common'
 import SelectBoxField from '@/components/forms/select-box-field'
 import TextAreaField from '@/components/forms/text-area-field'
 import SwitchField from '@/components/forms/switch-field'
@@ -39,6 +40,7 @@ import CanView from '@/components/acl/can-view'
 import { useSession } from 'next-auth/react'
 import WorkOrderUpdateStatusForm from './work-order-update-status-form'
 import { NotificationContext } from '@/context/notification'
+import CommonOperationErrorDataGrid from '@/components/common-operation-error-datagrid'
 
 type WorkOrderFormProps = {
   pageMetaData: PageMetadata
@@ -54,6 +56,11 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
   // const notificationContext = useContext(NotificationContext)
 
   const isCreate = code === 'add' || !workOrder
+
+  const [showUpdateStatusErrors, setShowUpdateStatusErrors] = useState(false)
+  const [updateStatusErrors, setUpdateStatusErrors] = useState<CommonOperationError[]>([])
+
+  const updateStatusErrorDataGridRef = useRef<DataGridRef | null>(null)
 
   const formValues = useMemo(() => {
     const roleKey = session?.user.roleKey
@@ -292,6 +299,8 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
               filterStatus={safeParseInt(workOrder.status)}
               callback={handleWorkOrderStatusUpdateSubmitCallback}
               isRedirect
+              setShowUpdateStatusErrors={setShowUpdateStatusErrors}
+              setUpdateStatusErrors={setUpdateStatusErrors}
             />
           </Popup>
         </FormProvider>
@@ -552,6 +561,19 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
             </div>
           </ScrollView>
         </PageContentWrapper>
+
+        <CommonOperationErrorDataGrid
+          title='Update Work Order Status Errors'
+          description='There was an error encountered while updating the work order status.'
+          isOpen={showUpdateStatusErrors}
+          setIsOpen={setShowUpdateStatusErrors}
+          data={updateStatusErrors}
+          dataGridRef={updateStatusErrorDataGridRef}
+          detailsChildren={<Column dataField='id' dataType='number' caption='#' alignment='center' />}
+          detailsColumns={['id']}
+          uniqueKey='WORK-ORDER-STATUS-UPDATE'
+          titleRowAdditionalText='Work Order Line Items'
+        />
       </form>
     </FormProvider>
   )

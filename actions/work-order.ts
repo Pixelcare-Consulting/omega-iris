@@ -19,6 +19,7 @@ import { safeParseInt } from '@/utils'
 import { getCurrentUserAbility } from './auth'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { createNotification } from './notification'
+import { CommonErrorEntry, CommonOperationError } from '@/types/common'
 
 const COMMON_WORK_ORDER_INCLUDE = {
   projectIndividual: {
@@ -164,20 +165,38 @@ export async function creditStock(params: CreditStockParams) {
       oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Pending'] &&
       newStatus == WORK_ORDER_STATUS_VALUE_MAP['In Process']
     ) {
-      //* credit stock
-      await Promise.all(
-        lineItems.map((li) => {
-          const pItem = li.projectItem
-          const qty = safeParseInt(li.qty)
+      const entries: CommonErrorEntry[] = []
 
-          return tx.projectItem.update({
-            where: { code: pItem.code },
-            data: { stockIn: { increment: qty } },
+      for (const li of lineItems) {
+        const pItem = li.projectItem
+        const qty = safeParseInt(li.qty)
+
+        //* only increase stockIn by qty but only if available stock is enough
+        const query = Prisma.sql`
+          UPDATE "ProjectItem"
+          SET "stockIn" = "stockIn" + ${qty}
+          WHERE "code" = ${pItem.code}
+          AND ("totalStock" - "stockIn") >= ${qty}`
+
+        const affected = await tx.$executeRaw(query)
+
+        //* if query does not work means affected is 0 means insufficient available to order then generate error
+        if (affected === 0) {
+          entries.push({
+            id: pItem.code,
+            message: `Insufficient available to order`,
           })
-        })
-      )
+        }
+      }
 
-      return
+      //* return error so that it can be use outside
+      return {
+        error: true,
+        status: 400,
+        message: 'Failed to perform work order status update!',
+        action: 'CREDIT_STOCK',
+        errors: { id: existingWorkOrder.code, entries },
+      }
     }
 
     //* if has old status and new status is between or equal 'Open' and 'Verified', then do nothing
@@ -1169,6 +1188,9 @@ export const updateWorkeOrderStatus = action
         .filter((wo) => currentStatus == '5' || wo.prevStatus !== currentStatus)
         .filter((wo) => currentStatus == '5' || currentStatus > wo.prevStatus)
 
+      //* not allow to proceed work orders with selected line item that does not have available or sufficient available to order for the requested qty
+      const errors: CommonOperationError[] = []
+
       const updatedWorkOrders = await db.$transaction(async (tx) => {
         //* update work orders then create work order status updates
         const result = await Promise.all(
@@ -1196,7 +1218,7 @@ export const updateWorkeOrderStatus = action
         )
 
         //* credit stock`
-        await Promise.all(
+        const creditStocks = await Promise.all(
           changedWorkOrders.map((wo) =>
             creditStock({
               tx,
@@ -1207,6 +1229,25 @@ export const updateWorkeOrderStatus = action
             })
           )
         )
+
+        if (creditStocks && creditStocks.length > 0) {
+          const errors = creditStocks
+            .map((cs) => cs?.errors ?? null)
+            .filter((e) => e !== null)
+            .filter((e) => e.entries.length > 0)
+
+          if (errors.length > 0) {
+            const error = {
+              error: true,
+              status: 400,
+              message: 'Failed to perform work order status update!',
+              action: 'CREDIT_STOCK',
+              errors,
+            }
+
+            throw error
+          }
+        }
 
         return result
       })
@@ -1236,15 +1277,19 @@ export const updateWorkeOrderStatus = action
         message: 'Work order status updated successfully!',
         action: 'UPDATE_WORK_ORDER_STATUS',
         data: { workOrders: updatedWorkOrders, appliedStatus: currentStatus },
+        errors,
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
+
+      const errors = error?.errors ?? []
 
       return {
         error: true,
         status: 500,
-        message: error instanceof Error ? error.message : 'Something went wrong!',
+        message: error ? error?.message : 'Something went wrong!',
         action: 'UPDATE_WORK_ORDER_STATUS',
+        errors,
       }
     }
   })

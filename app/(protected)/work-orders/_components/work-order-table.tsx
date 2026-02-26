@@ -26,6 +26,8 @@ import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import { safeParseInt } from '@/utils'
 import { NotificationContext } from '@/context/notification'
+import { CommonOperationError } from '@/types/common'
+import CommonOperationErrorDataGrid from '@/components/common-operation-error-datagrid'
 
 type WorkOrderTableProps = { workOrders: Awaited<ReturnType<typeof getWorkOrders>> }
 type DataSource = Awaited<ReturnType<typeof getWorkOrders>>
@@ -56,7 +58,11 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
   const [showUpdateStatusForm, setShowUpdateStatusForm] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
 
+  const [showUpdateStatusErrors, setShowUpdateStatusErrors] = useState(false)
+  const [updateStatusErrors, setUpdateStatusErrors] = useState<CommonOperationError[]>([])
+
   const dataGridRef = useRef<DataGridRef | null>(null)
+  const updateStatusErrorDataGridRef = useRef<DataGridRef | null>(null)
 
   const deleteWorkOrderData = useAction(deleteWorkOrder)
   const restoreWorkOrderData = useAction(restoreWorkOrder)
@@ -380,6 +386,8 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
               onClose={handleCloseUpdateStatusForm}
               filterStatus={workOrderToUpdateInfo.status}
               isStatusError={workOrderToUpdateInfo.isStatusError}
+              setShowUpdateStatusErrors={setShowUpdateStatusErrors}
+              setUpdateStatusErrors={setUpdateStatusErrors}
             />
           </Popup>
 
@@ -397,6 +405,19 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             description={`Are you sure you want to restore this work order with id "${rowData?.code}"?`}
             onConfirm={() => handleConfirmRestore(rowData?.code)}
             onCancel={() => setShowRestoreConfirmation(false)}
+          />
+
+          <CommonOperationErrorDataGrid
+            title='Update Work Order Status Errors'
+            description='There was an error encountered while updating the work order status.'
+            isOpen={showUpdateStatusErrors}
+            setIsOpen={setShowUpdateStatusErrors}
+            data={updateStatusErrors}
+            dataGridRef={updateStatusErrorDataGridRef}
+            detailsChildren={<Column dataField='id' dataType='number' caption='#' alignment='center' />}
+            detailsColumns={['id']}
+            uniqueKey='WORK-ORDER-STATUS-UPDATE'
+            titleRowAdditionalText='Work Order Line Items'
           />
         </PageContentWrapper>
       </FormProvider>
