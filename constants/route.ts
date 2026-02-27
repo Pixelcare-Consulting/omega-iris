@@ -36,4 +36,4 @@ export const protectedRoutes = [
  */
 export const authApiPrefix = '/api/auth'
 
-export const DEFAULT_SIGNIN_REDIRECT = '/dashboard'
+export const DEFAULT_SIGNIN_REDIRECT = '/project/individuals' //* temporary redirect - but should be  /dashboard
