@@ -47,7 +47,10 @@ export default function SwitchField<T extends FieldValues>({
             return (
               <FormItem
                 {...extendedProps?.formItem}
-                className={cn('flex flex-row items-center justify-between rounded-lg border p-4', extendedProps?.formLabel?.className)}
+                className={cn(
+                  'flex h-full flex-row items-center justify-between rounded-lg border p-4',
+                  extendedProps?.formLabel?.className
+                )}
               >
                 <div className='space-y-0.5'>
                   {!isHideLabel && label && (
@@ -73,7 +76,10 @@ export default function SwitchField<T extends FieldValues>({
 
           case 'centered':
             return (
-              <FormItem {...extendedProps?.formItem} className={cn('flex flex-col items-center justify-center rounded-lg border p-4')}>
+              <FormItem
+                {...extendedProps?.formItem}
+                className={cn('flex h-full flex-col items-center justify-center rounded-lg border p-4')}
+              >
                 <Switch
                   isValid={isValid}
                   value={field.value}

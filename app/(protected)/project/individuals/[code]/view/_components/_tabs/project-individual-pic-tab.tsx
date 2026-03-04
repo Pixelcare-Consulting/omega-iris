@@ -159,6 +159,8 @@ export default function ProjectIndividualPicTab({ projectCode, pics, users }: Pr
           <Column dataField='location' dataType='string' />
           <Column dataField='lastIpAddress' dataType='string' caption='Last IP Address' />
           <Column dataField='lastSignin' dataType='string' caption='Last Signin' cellRender={lastSigninCellRender} />
+          <Column dataField='createdAt' dataType='datetime' caption='Created At' />
+          <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
           <Column type='buttons' minWidth={100} fixed fixedPosition='right' caption='Actions'>
             <Button icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />

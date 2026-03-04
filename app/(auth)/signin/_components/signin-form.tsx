@@ -168,7 +168,7 @@ export default function SigninForm() {
         maxWidth={600}
       >
         <div className='pt-4'>
-          <h2 className='mb-1.5 text-center text-lg font-semibold'>Authenticating</h2>
+          <h2 className='mb-1.5 text-center text-lg font-semibold'>Authentication</h2>
           {isLoading && <p className='mb-7 text-center text-sm text-slate-400'>Please wait while we authenticate you...</p>}
 
           {error && (
@@ -230,7 +230,7 @@ export default function SigninForm() {
         </ToolbarItem>
       </Popup>
 
-      <Popup visible={showReminder} dragEnabled={false} showCloseButton={false} showTitle={false} height={415} maxWidth={580}>
+      <Popup visible={showReminder} dragEnabled={false} showCloseButton={false} showTitle={false} height={415} maxWidth={645}>
         <div className='pt-4'>
           <h2 className='mb-1.5 text-center text-lg font-semibold'>Welcome to the New IRIS Portal</h2>
 
@@ -238,10 +238,14 @@ export default function SigninForm() {
 
           <p className='mb-3 text-sm'>
             To access our old portal kindly use this link:{' '}
-            <a className='!text-blue-500 hover:underline' href='https://iris-legacy.omegagti.com' target='_blank' rel='noreferrer'>
-              https://iris-legacy.omegagti.com
+            <a className='!text-blue-500 hover:underline' href='https://iris.omegagti.com' target='_self' rel='noreferrer'>
+              https://iris.omegagti.com
             </a>{' '}
-            until <b>March 13, 2026</b>.
+          </p>
+
+          <p className='mb-3 text-sm'>
+            Starting <b>March 9, 2026 (8:00 AM PST)</b>, your existing project inventories will be transferred to this new portal where you
+            can place your new work orders. You can still access our old portal for viewing previous work orders.
           </p>
 
           <p className='mb-3 text-sm'>
@@ -249,9 +253,7 @@ export default function SigninForm() {
             your migration to our new IRIS Portal.
           </p>
 
-          <p className='mb-3 text-sm'>
-            If you already have migrated your account/projects, please use the new credentials provided to you here.
-          </p>
+          <p className='mb-3 text-sm'>You may use the new credentials provided to you here.</p>
 
           <p>Thank you!</p>
           <p className='font-bold'>-Omega GTI</p>

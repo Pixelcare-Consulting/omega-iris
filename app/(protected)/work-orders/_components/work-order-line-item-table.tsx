@@ -30,7 +30,13 @@ import { useFormContext, useWatch } from 'react-hook-form'
 import Separator from '@/components/separator'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import { handleOnRowPrepared } from '@/utils/devextreme'
-import { DATAGRID_DEFAULT_PAGE_SIZE, DATAGRID_PAGE_SIZES, DEFAULT_COLUMN_MIN_WIDTH, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
+import {
+  DATAGRID_DEFAULT_PAGE_SIZE,
+  DATAGRID_PAGE_SIZES,
+  DEFAULT_COLUMN_MIN_WIDTH,
+  DEFAULT_CURRENCY_FORMAT,
+  DEFAULT_NUMBER_FORMAT,
+} from '@/constants/devextreme'
 import { WORK_ORDER_STATUS_VALUE_MAP, WorkOrderForm, WorkOrderItemForm } from '@/schema/work-order'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
@@ -340,6 +346,9 @@ export default function WorkOrderLineItemTable({
             cost,
             qty,
             isDelivered: li?.isDelivered,
+            siteLocation: pItem?.siteLocation || '',
+            subLocation2: pItem?.subLocation2 || '',
+            subLocation3: pItem?.subLocation3 || '',
           }
         })
         .filter((item) => item !== null)
@@ -407,6 +416,59 @@ export default function WorkOrderLineItemTable({
           <Column dataField='FirmName' dataType='string' caption='Manufacturer' allowEditing={false} />
           <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
           <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} />
+
+          {!isBusinessPartner ? (
+            <>
+              <Column dataField='dateCode' dataType='string' caption='Date Code' allowEditing={false} />
+              <Column dataField='countryOfOrigin' dataType='string' caption='Country Of Origin' allowEditing={false} />
+              <Column dataField='lotCode' dataType='string' caption='Lot Code' allowEditing={false} />
+              <Column dataField='palletNo' dataType='string' caption='Pallet No' allowEditing={false} />
+              <Column dataField='siteLocation' dataType='string' caption='Site Location' allowEditing={false} />
+              <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' allowEditing={false} />
+              <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' allowEditing={false} />
+              <Column dataField='dateReceived' dataType='datetime' caption='Date Received' allowEditing={false} />
+              <Column dataField='dateReceivedBy' dataType='string' caption='Date Received By' allowEditing={false} />
+              <Column dataField='packagingType' dataType='string' caption='Packaging Type' allowEditing={false} />
+              <Column dataField='spq' dataType='string' caption='SPQ' allowEditing={false} />
+              <Column
+                dataField='cost'
+                dataType='number'
+                caption='Cost'
+                alignment='left'
+                format={DEFAULT_CURRENCY_FORMAT}
+                allowEditing={false}
+              />
+
+              <Column
+                dataField='stockIn'
+                dataType='number'
+                caption='Stock-In (In Process)'
+                alignment='left'
+                format={DEFAULT_NUMBER_FORMAT}
+                allowEditing={false}
+              />
+              <Column
+                dataField='stockOut'
+                dataType='number'
+                caption='Stock-Out (Delivered)'
+                alignment='left'
+                format={DEFAULT_NUMBER_FORMAT}
+                allowEditing={false}
+              />
+
+              <Column
+                dataField='totalStock'
+                dataType='number'
+                caption='Total Stock'
+                alignment='left'
+                format={DEFAULT_NUMBER_FORMAT}
+                allowEditing={false}
+              />
+
+              <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} />
+            </>
+          ) : null}
+
           <Column
             dataField='availableToOrder'
             dataType='number'
@@ -437,7 +499,7 @@ export default function WorkOrderLineItemTable({
             />
           </Column>
 
-          <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
+          <Column type='buttons' minWidth={100} fixed fixedPosition='right' caption='Actions'>
             <DataGridButton
               icon='trash'
               onClick={handleDelete}

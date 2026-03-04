@@ -15,7 +15,13 @@ import { Column, DataGridRef } from 'devextreme-react/data-grid'
 
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
-import { WORK_ORDER_STATUS_OPTIONS, type WorkOrderForm, workOrderFormSchema, workOrderStatusUpdateFormSchema } from '@/schema/work-order'
+import {
+  WORK_ORDER_STATUS_OPTIONS,
+  WORK_ORDER_STATUS_VALUE_MAP,
+  type WorkOrderForm,
+  workOrderFormSchema,
+  workOrderStatusUpdateFormSchema,
+} from '@/schema/work-order'
 import LoadingButton from '@/components/loading-button'
 import { getWorkOrderByCode, upsertWorkOrder } from '@/actions/work-order'
 import { CommonOperationError, PageMetadata } from '@/types/common'
@@ -290,7 +296,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
             onHiding={() => setShowUpdateStatusForm(false)}
             width={undefined}
             maxWidth={1200}
-            height={currentStatus !== '5' ? 410 : 750}
+            height={safeParseInt(currentStatus) != WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery'] ? 410 : 750}
           >
             <WorkOrderUpdateStatusForm
               isOpen={showUpdateStatusForm}
@@ -350,7 +356,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                 />
               </CanView>
 
-              {safeParseInt(workOrder.status) < 6 && (
+              {safeParseInt(workOrder.status) < WORK_ORDER_STATUS_VALUE_MAP['Delivered'] && (
                 <CanView subject='p-work-orders' action='update status'>
                   <Item
                     location='after'

@@ -6,6 +6,7 @@ import { Prisma } from '@prisma/client'
 import { paramsSchema } from '@/schema/common'
 import {
   deleteWorkOrderLineItemFormSchema,
+  partialWorkOrderStatusUpdateFormSchema,
   upsertWorkOrderLineItemFormSchema,
   upsertWorkOrderLineItemsFormSchema,
   WORK_ORDER_STATUS_OPTIONS,
@@ -1207,6 +1208,7 @@ export const updateWorkeOrderStatus = action
                       currentStatus,
                       comments,
                       createdBy: userId,
+                      updatedBy: userId,
                       trackingNum,
                     },
                   },
@@ -1290,6 +1292,123 @@ export const updateWorkeOrderStatus = action
         message: error ? error?.message : 'Something went wrong!',
         action: 'UPDATE_WORK_ORDER_STATUS',
         errors,
+      }
+    }
+  })
+
+export const updatePartialWorkOrderStatusUpdate = action
+  .use(authenticationMiddleware)
+  .schema(partialWorkOrderStatusUpdateFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { code, comments, trackingNum } = parsedInput
+    const { userId } = ctx
+
+    const workOrderInclude = {
+      projectIndividual: {
+        include: {
+          projectIndividualCustomers: {
+            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          projectIndividualPics: {
+            //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    } satisfies Prisma.WorkOrderInclude
+
+    try {
+      const workOrderStatusUpdate = await db.workOrderStatusUpdate.findUnique({
+        where: { code },
+        include: {
+          workOrder: {
+            include: workOrderInclude,
+          },
+        },
+      })
+
+      if (!workOrderStatusUpdate)
+        return {
+          error: true,
+          status: 404,
+          message: 'Work order status update log not found!',
+          action: 'UPDATE_PARTIAL_WORK_ORDER_STATUS_UPDATE',
+        }
+
+      // const assignedPics = workOrderStatusUpdate.workOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
+      // const owner = workOrderStatusUpdate.workOrder.userCode
+
+      await db.workOrderStatusUpdate.update({
+        where: { code },
+        data: { comments, trackingNum, updatedBy: userId },
+      })
+
+      // //* create notifications
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES['WORK ORDERS'],
+      //   title: 'Work Order Status Update Logs Updated',
+      //   message: `A work order status update log (#${workOrderStatusUpdate.code}) from  work order (#${workOrderStatusUpdate.workOrderCode}) was updated by ${ctx.fullName}.`,
+      //   link: `/work-orders/${workOrderStatusUpdate.workOrderCode}/view`,
+      //   entityType: 'WorkOrder' as Prisma.ModelName,
+      //   entityCode: workOrderStatusUpdate.code,
+      //   entityId: workOrderStatusUpdate.id,
+      //   userCodes: [owner, ...assignedPics],
+      // })
+
+      return {
+        status: 200,
+        message: 'Work order status update log updated successfully!',
+        action: 'UPDATE_PARTIAL_WORK_ORDER_STATUS_UPDATE',
+      }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'UPDATE_PARTIAL_WORK_ORDER_STATUS_UPDATE',
       }
     }
   })

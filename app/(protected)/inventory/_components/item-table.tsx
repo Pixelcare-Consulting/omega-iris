@@ -469,6 +469,8 @@ export default function ItemTable({ items }: ItemTableProps) {
             calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
           />
           <Column dataField='notes' dataType='string' caption='Notes' />
+          <Column dataField='createdAt' dataType='datetime' caption='Created At' />
+          <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
           <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
             <CanView subject='p-inventory' action='view'>

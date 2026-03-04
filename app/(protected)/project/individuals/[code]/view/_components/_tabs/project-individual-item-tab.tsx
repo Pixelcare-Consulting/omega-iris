@@ -537,6 +537,9 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
 
               <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
 
+              <Column dataField='createdAt' dataType='datetime' caption='Created At' />
+              <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
+
               <Summary>
                 <GroupItem column='item.ItemCode' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
                 {renderCommonSummaryIItems()}

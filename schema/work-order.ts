@@ -139,8 +139,17 @@ export const workOrderStatusUpdateFormSchema = z.object({
   trackingNum: z.string().nullish(),
 })
 
+export const partialWorkOrderStatusUpdateFormSchema = workOrderStatusUpdateFormSchema
+  .pick({
+    comments: true,
+    trackingNum: true,
+    currentStatus: true,
+  })
+  .merge(z.object({ code: z.coerce.number() }))
+
 export type WorkOrderItemForm = z.infer<typeof workOrderItemFormSchema>
 export type WorkOrderLineItemsForm = z.infer<typeof workOrderLineItemsFormSchema>
 export type UpsertWorkOrderLineItemForm = z.infer<typeof upsertWorkOrderLineItemFormSchema>
 export type WorkOrderForm = z.infer<typeof workOrderFormSchema>
 export type WorkOrderStatusUpdateForm = z.infer<typeof workOrderStatusUpdateFormSchema>
+export type PartialWorkOrderStatusUpdateForm = z.infer<typeof partialWorkOrderStatusUpdateFormSchema>

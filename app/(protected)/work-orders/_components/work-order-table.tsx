@@ -315,6 +315,8 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
               calculateCellValue={(rowData) => `${rowData?.user?.fname} ${rowData?.user?.lname}`}
             />
             <Column dataField='user.email' dataType='string' caption='Owner Email' />
+            <Column dataField='createdAt' dataType='datetime' caption='Created At' />
+            <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
             <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
               <CanView subject='p-work-orders' action={['view', 'view (owner)']}>
