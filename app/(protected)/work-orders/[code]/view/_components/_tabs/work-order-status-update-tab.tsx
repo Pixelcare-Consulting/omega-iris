@@ -1,21 +1,47 @@
 'use client'
 
 import LoadPanel from 'devextreme-react/load-panel'
-import { useRef } from 'react'
+import { Dispatch, SetStateAction, useRef, useState } from 'react'
 import ScrollView from 'devextreme-react/scroll-view'
+import Button from 'devextreme-react/button'
+import { Item } from 'devextreme-react/toolbar'
+import { FormProvider, useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import PageHeader from '@/app/(protected)/_components/page-header'
 
 import { useWoStatusUpdatesByWoCode } from '@/hooks/safe-actions/work-order-status-update'
 import { getWoStatusUpdatesByWoCode } from '@/actions/work-order-status-update'
-import { WORK_ORDER_STATUS_OPTIONS } from '@/schema/work-order'
+import {
+  type PartialWorkOrderStatusUpdateForm,
+  partialWorkOrderStatusUpdateFormSchema,
+  WORK_ORDER_STATUS_OPTIONS,
+  WORK_ORDER_STATUS_VALUE_MAP,
+} from '@/schema/work-order'
 import { format } from 'date-fns'
 import { useUserById } from '@/hooks/safe-actions/user'
+import TooltipWrapper from '@/components/tooltip-wrapper'
+import LoadingButton from '@/components/loading-button'
+import { useAction } from 'next-safe-action/hooks'
+import { updatePartialWorkOrderStatusUpdate } from '@/actions/work-order'
+import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
+import ReadOnlyField from '@/components/read-only-field'
+import TextAreaField from '@/components/forms/text-area-field'
+import { safeParseInt } from '@/utils'
+import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
+import Popup from 'devextreme-react/popup'
+import CanView from '@/components/acl/can-view'
 
 type WorkOrderStatusUpdateTabProps = {
+  workOrderCode: number
   statusUpdates: ReturnType<typeof useWoStatusUpdatesByWoCode>
 }
 
-export default function WorkOrderStatusUpdateTab({ statusUpdates }: WorkOrderStatusUpdateTabProps) {
+export default function WorkOrderStatusUpdateTab({ workOrderCode, statusUpdates }: WorkOrderStatusUpdateTabProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const [isOpen, setIsOpen] = useState(false)
+  const [data, setData] = useState<Awaited<ReturnType<typeof getWoStatusUpdatesByWoCode>>[number] | null>(null)
 
   if (statusUpdates.isLoading)
     return (
@@ -37,7 +63,9 @@ export default function WorkOrderStatusUpdateTab({ statusUpdates }: WorkOrderSta
     <ScrollView>
       <div className='mt-4 flex h-full w-full flex-col gap-3'>
         {statusUpdates.data.length > 0 ? (
-          statusUpdates.data.map((update) => <StatusUpdateCard statusUpdate={update} key={update.id} />)
+          statusUpdates.data.map((update) => (
+            <WorkOrderStatusUpdateCard statusUpdate={update} key={update.id} setIsOpen={setIsOpen} setData={setData} />
+          ))
         ) : (
           <div className='flex h-[60vh] w-full items-center justify-center'>
             <div>
@@ -47,42 +75,228 @@ export default function WorkOrderStatusUpdateTab({ statusUpdates }: WorkOrderSta
           </div>
         )}
       </div>
+
+      {data && (
+        <Popup
+          visible={isOpen}
+          dragEnabled={false}
+          showTitle={false}
+          onHiding={() => setIsOpen(false)}
+          maxWidth={700}
+          height={safeParseInt(data.currentStatus) < WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery'] ? 420 : 500}
+        >
+          <PartialWorkOrderStatusUpdateForm workOrderCode={workOrderCode} statusUpdates={statusUpdates} setIsOpen={setIsOpen} data={data} />
+        </Popup>
+      )}
     </ScrollView>
   )
 }
 
-function StatusUpdateCard({ statusUpdate }: { statusUpdate: Awaited<ReturnType<typeof getWoStatusUpdatesByWoCode>>[number] }) {
+type WorkOrderStatusUpdateCardProps = {
+  statusUpdate: Awaited<ReturnType<typeof getWoStatusUpdatesByWoCode>>[number]
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>
+  setData: React.Dispatch<React.SetStateAction<Awaited<ReturnType<typeof getWoStatusUpdatesByWoCode>>[number] | null>>
+}
+
+function WorkOrderStatusUpdateCard({ statusUpdate, setIsOpen, setData }: WorkOrderStatusUpdateCardProps) {
   const prevStatus = WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === statusUpdate?.prevStatus)?.label
   const currentStatus = WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === statusUpdate?.currentStatus)?.label
 
   const createdAt = format(statusUpdate.createdAt, 'MMM dd,yyyy hh:mm a')
   const createdBy = useUserById(statusUpdate.createdBy)
 
+  const updatedAt = format(statusUpdate.updatedAt, 'MMM dd,yyyy hh:mm a')
+  const updatedBy = useUserById(statusUpdate.updatedBy)
+
   const renderValue = (value: ReturnType<typeof useUserById>) => {
     if (value.isLoading) return '...'
     return `${value.data?.fname || ''}${value.data?.lname ? ` ${value.data?.lname}` : ''}`
   }
 
+  const handleEdit = () => {
+    setData(statusUpdate)
+    setIsOpen(true)
+  }
+
   return (
     <div className='flex items-center gap-3 rounded-md border bg-slate-50 p-4'>
       <div className='flex size-10 flex-shrink-0 items-center justify-center rounded-md border bg-white'>
-        <i className='dx-icon-rename text-2xl text-primary' />
+        <i className='dx-icon-contentlayout text-2xl text-primary' />
       </div>
 
-      <div className='flex flex-col gap-1'>
-        <h1 className='text-lg'>
-          Status Changed from "<span className='font-bold uppercase'>{prevStatus}</span>" to "
-          <span className='font-bold uppercase'>{currentStatus}</span>"
-        </h1>
-        <p className='text-slate-500'>
-          Date:{' '}
-          <span className='font-semibold'>
-            {createdAt} AM By <span>{renderValue(createdBy)}</span>
-          </span>
-        </p>
-        <p className='whitespace-pre-line text-slate-500'>Comment: {statusUpdate?.comments || 'N/A'}</p>
-        <p className='whitespace-pre-line text-slate-500'>Tracking Number: {statusUpdate?.trackingNum || 'N/A'}</p>
+      <div className='flex w-full items-center justify-between gap-3'>
+        <div className='flex flex-1 flex-col gap-1'>
+          <h1 className='text-lg'>
+            Status Changed from "<span className='font-bold uppercase'>{prevStatus}</span>" to "
+            <span className='font-bold uppercase'>{currentStatus}</span>"
+          </h1>
+          <p className='text-slate-500'>
+            Created:{' '}
+            {createdBy && (
+              <span className='font-semibold'>
+                {createdAt} {createdBy.data && `By  ${renderValue(createdBy)}`}
+              </span>
+            )}
+          </p>
+          <p className='text-slate-500'>
+            Updated:{' '}
+            <span className='font-semibold'>
+              {updatedAt} {updatedBy.data && `By  ${renderValue(updatedBy)}`}
+            </span>
+          </p>
+
+          {(safeParseInt(statusUpdate.currentStatus) === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery'] ||
+            safeParseInt(statusUpdate.currentStatus) === WORK_ORDER_STATUS_VALUE_MAP['Delivered']) && (
+            <p className='whitespace-pre-line text-slate-500'>Tracking Number: {statusUpdate?.trackingNum || 'N/A'}</p>
+          )}
+
+          <p className='whitespace-pre-line text-slate-500'>Comment: {statusUpdate?.comments || 'N/A'}</p>
+        </div>
+
+        <div>
+          <CanView subject='p-work-orders' action='update status'>
+            <TooltipWrapper label='Edit' targetId='edit-button'>
+              <Button icon='edit' stylingMode='contained' type='default' onClick={handleEdit} />
+            </TooltipWrapper>
+          </CanView>
+        </div>
       </div>
     </div>
+  )
+}
+
+type PartialStatusUpdateFormProps = {
+  workOrderCode: number
+  setIsOpen: Dispatch<SetStateAction<boolean>>
+  data: Awaited<ReturnType<typeof getWoStatusUpdatesByWoCode>>[number]
+  statusUpdates: ReturnType<typeof useWoStatusUpdatesByWoCode>
+}
+
+function PartialWorkOrderStatusUpdateForm({ workOrderCode, setIsOpen, data, statusUpdates }: PartialStatusUpdateFormProps) {
+  const router = useRouter()
+
+  const form = useForm({
+    mode: 'onChange',
+    values: {
+      code: data.code,
+      currentStatus: data.currentStatus,
+      comments: data.comments,
+      trackingNum: data.trackingNum,
+    },
+    resolver: zodResolver(partialWorkOrderStatusUpdateFormSchema),
+  })
+
+  const { executeAsync, isExecuting } = useAction(updatePartialWorkOrderStatusUpdate)
+
+  const createdBy = useUserById(data.createdBy)
+  const updatedBy = useUserById(data.updatedBy)
+  const createdAt = format(data.createdAt, 'MMM dd,yyyy hh:mm a')
+  const updatedAt = format(data.updatedAt, 'MMM dd,yyyy hh:mm a')
+
+  const status = WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === data.currentStatus)?.label
+
+  const handleOnSubmit = async (formData: PartialWorkOrderStatusUpdateForm) => {
+    try {
+      const response = await executeAsync(formData)
+      const result = response?.data
+
+      if (result?.error) {
+        toast.error(result.message)
+        return
+      }
+
+      toast.success(result?.message)
+
+      if (result?.status === 200) {
+        handleClose()
+        router.refresh()
+        statusUpdates.execute({ workOrderCode })
+      }
+    } catch (error) {
+      console.error(error)
+      toast.error('Something went wrong! Please try again later.')
+    }
+  }
+
+  const handleClose = () => {
+    form.reset()
+    setTimeout(() => form.clearErrors(), 100)
+    setIsOpen(false)
+  }
+
+  const renderValue = (value: ReturnType<typeof useUserById>) => {
+    if (!value?.data) return ''
+
+    if (value.isLoading) return '...'
+    return `${value.data?.fname || ''}${value.data?.lname ? ` ${value.data?.lname}` : ''}`
+  }
+
+  return (
+    <FormProvider {...form}>
+      <form className='flex h-fit w-full flex-col gap-3' onSubmit={form.handleSubmit(handleOnSubmit)}>
+        <PageHeader
+          title='Update Work Order Status'
+          description='Update the status of the selected work orders'
+          className='bg-transparent p-0 shadow-none'
+        >
+          <Item location='after' locateInMenu='auto' widget='dxButton'>
+            <Button text='Back' icon='arrowleft' stylingMode='outlined' type='default' onClick={handleClose} />
+          </Item>
+
+          <Item location='after' locateInMenu='auto' widget='dxButton'>
+            <LoadingButton
+              text='Save'
+              type='default'
+              stylingMode='contained'
+              icon='save'
+              useSubmitBehavior
+              isLoading={isExecuting}
+              disabled={isExecuting}
+            />
+          </Item>
+        </PageHeader>
+
+        <PageContentWrapper className='max-h-[calc(100%_-_92px)] shadow-none'>
+          <ScrollView>
+            <div className='grid h-full grid-cols-12 gap-5'>
+              <ReadOnlyField className='col-span-12 md:col-span-6' title='Work Order' value={data.workOrderCode} />
+
+              <ReadOnlyField className='col-span-12 md:col-span-6' title='Status' value={status || ''} />
+
+              <ReadOnlyField className='col-span-12 md:col-span-6' title='Created At' value={createdAt || ''} />
+
+              <ReadOnlyField className='col-span-12 md:col-span-6' title='Created By' value={renderValue(createdBy) || ''} />
+
+              <ReadOnlyField className='col-span-12 md:col-span-6' title='Updated At' value={updatedAt || ''} />
+
+              <ReadOnlyField className='col-span-12 md:col-span-6' title='Updated By' value={renderValue(updatedBy) || ''} />
+
+              {(safeParseInt(data.currentStatus) === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery'] ||
+                safeParseInt(data.currentStatus) === WORK_ORDER_STATUS_VALUE_MAP['Delivered']) && (
+                <div className='col-span-12'>
+                  <TextAreaField
+                    control={form.control}
+                    name='trackingNum'
+                    label='Tracking Number'
+                    isAutoResize
+                    extendedProps={{ textAreaOptions: { maxHeight: 150 } }}
+                  />
+                </div>
+              )}
+
+              <div className='col-span-12'>
+                <TextAreaField
+                  control={form.control}
+                  name='comments'
+                  label='Comments'
+                  isAutoResize
+                  extendedProps={{ textAreaOptions: { maxHeight: 150 } }}
+                />
+              </div>
+            </div>
+          </ScrollView>
+        </PageContentWrapper>
+      </form>
+    </FormProvider>
   )
 }

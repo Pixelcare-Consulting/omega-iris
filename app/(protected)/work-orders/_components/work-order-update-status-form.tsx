@@ -277,7 +277,8 @@ export default function WorkOrderUpdateStatusForm({
                 />
               </div>
 
-              {(currentStatus === '5' || currentStatus === '6') && (
+              {(safeParseInt(currentStatus) === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery'] ||
+                safeParseInt(currentStatus) === WORK_ORDER_STATUS_VALUE_MAP['Delivered']) && (
                 <div className='col-span-12'>
                   <TextAreaField
                     control={form.control}
@@ -299,7 +300,7 @@ export default function WorkOrderUpdateStatusForm({
                 />
               </div>
 
-              {!isStatusError && currentStatus === '5' && (
+              {!isStatusError && safeParseInt(currentStatus) === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery'] && (
                 <>
                   <Separator className='col-span-12' />
                   <ReadOnlyFieldHeader

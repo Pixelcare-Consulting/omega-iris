@@ -172,6 +172,8 @@ export default function UserTable({ users }: UserTableProps) {
           <Column dataField='location' dataType='string' />
           <Column dataField='lastIpAddress' dataType='string' caption='Last IP Address' />
           <Column dataField='lastSignin' dataType='string' caption='Last Signin' cellRender={lastSigninCellRender} />
+          <Column dataField='createdAt' dataType='datetime' caption='Created At' />
+          <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
           <Column type='buttons' fixed fixedPosition='right' minWidth={140} caption='Actions'>
             <CanView subject='p-users' action='view'>

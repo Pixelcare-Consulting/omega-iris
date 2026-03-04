@@ -253,10 +253,11 @@ export default function WorkOrderLineItemForm({
           }
         })
         .filter((item) => item !== null)
+        .filter((item) => (item.availableToOrder < 1 && isBusinessPartner ? false : true))
 
       setProjectItemsDataSource(pItems)
     } else setProjectItemsDataSource([])
-  }, [JSON.stringify(mainFormLineItems), JSON.stringify(projectItems), isOpen])
+  }, [JSON.stringify(mainFormLineItems), JSON.stringify(projectItems), isOpen, isBusinessPartner])
 
   //* set grid key when isOpen state change, grid key will be used to trigger force re-render
   //* set also line items based on mainFormLineItems
@@ -355,7 +356,14 @@ export default function WorkOrderLineItemForm({
 
           <Column dataField='packagingType' dataType='string' caption='Packaging Type' allowEditing={false} />
           <Column dataField='spq' dataType='string' caption='SPQ' allowEditing={false} />
-          <Column dataField='cost' dataType='number' caption='SPQ' alignment='left' format={DEFAULT_CURRENCY_FORMAT} allowEditing={false} />
+          <Column
+            dataField='cost'
+            dataType='number'
+            caption='Cost'
+            alignment='left'
+            format={DEFAULT_CURRENCY_FORMAT}
+            allowEditing={false}
+          />
           <Column
             dataField='availableToOrder'
             dataType='number'
@@ -401,7 +409,6 @@ export default function WorkOrderLineItemForm({
               message='Quantity must be greater than 1 and less than or equal to the available to order'
             />
           </Column>
-          <Column dataField='notes' dataType='string' caption='SPQ' visible={false} allowEditing={false} />
 
           {!isBusinessPartner ? (
             <Column
@@ -413,6 +420,8 @@ export default function WorkOrderLineItemForm({
               allowEditing={false}
             />
           ) : null}
+
+          <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} />
 
           <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
         </CommonDataGrid>

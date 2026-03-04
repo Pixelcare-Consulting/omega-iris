@@ -19,7 +19,10 @@ export const projectItemFormSchema = z
     totalStock: z.coerce.number(),
     dateReceived: z.coerce.date().nullish(),
     dateReceivedBy: z.coerce.number().nullish(),
-    siteLocation: z.string().nullish(),
+    siteLocation: z
+      .string()
+      .nullish()
+      .refine((val) => val !== null && val !== undefined && val.length > 0, { message: 'Site location is required' }),
     subLocation2: z.string().nullish(),
     subLocation3: z.string().nullish(),
     notes: z.string().nullish(),

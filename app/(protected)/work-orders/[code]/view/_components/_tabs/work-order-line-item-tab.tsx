@@ -28,7 +28,7 @@ import { useWoItemsByWoCode } from '@/hooks/safe-actions/work-order-item'
 import AlertDialog from '@/components/alert-dialog'
 import { deleteWorkOrderLineItem, getWorkOrderByCode, upsertWorkOrderLineItem } from '@/actions/work-order'
 import { cn, safeParseFloat, safeParseInt } from '@/utils'
-import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
+import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { WORK_ORDER_STATUS_VALUE_MAP, WorkOrderItemForm } from '@/schema/work-order'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
@@ -68,6 +68,11 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
   const projectItems = useProjecItems(workOrder.projectIndividualCode ?? 0)
 
   const workOrderStatus = useMemo(() => safeParseInt(workOrder?.status), [JSON.stringify(workOrder)])
+
+  const isBusinessPartner = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'business-partner'
+  }, [JSON.stringify(session)])
 
   const isLocked = useMemo(() => {
     return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process']
@@ -120,6 +125,9 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
           qty,
           item: itemMaster,
           isDelivered: woItem?.isDelivered,
+          siteLocation: pItem?.siteLocation || '',
+          subLocation2: pItem?.subLocation2 || '',
+          subLocation3: pItem?.subLocation3 || '',
         }
       })
       .filter((item) => item !== null)
@@ -319,6 +327,58 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
               <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
               <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} />
 
+              {!isBusinessPartner ? (
+                <>
+                  <Column dataField='dateCode' dataType='string' caption='Date Code' allowEditing={false} />
+                  <Column dataField='countryOfOrigin' dataType='string' caption='Country Of Origin' allowEditing={false} />
+                  <Column dataField='lotCode' dataType='string' caption='Lot Code' allowEditing={false} />
+                  <Column dataField='palletNo' dataType='string' caption='Pallet No' allowEditing={false} />
+                  <Column dataField='siteLocation' dataType='string' caption='Site Location' allowEditing={false} />
+                  <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' allowEditing={false} />
+                  <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' allowEditing={false} />
+                  <Column dataField='dateReceived' dataType='datetime' caption='Date Received' allowEditing={false} />
+                  <Column dataField='dateReceivedBy' dataType='string' caption='Date Received By' allowEditing={false} />
+                  <Column dataField='packagingType' dataType='string' caption='Packaging Type' allowEditing={false} />
+                  <Column dataField='spq' dataType='string' caption='SPQ' allowEditing={false} />
+                  <Column
+                    dataField='cost'
+                    dataType='number'
+                    caption='Cost'
+                    alignment='left'
+                    format={DEFAULT_CURRENCY_FORMAT}
+                    allowEditing={false}
+                  />
+
+                  <Column
+                    dataField='stockIn'
+                    dataType='number'
+                    caption='Stock-In (In Process)'
+                    alignment='left'
+                    format={DEFAULT_NUMBER_FORMAT}
+                    allowEditing={false}
+                  />
+                  <Column
+                    dataField='stockOut'
+                    dataType='number'
+                    caption='Stock-Out (Delivered)'
+                    alignment='left'
+                    format={DEFAULT_NUMBER_FORMAT}
+                    allowEditing={false}
+                  />
+
+                  <Column
+                    dataField='totalStock'
+                    dataType='number'
+                    caption='Total Stock'
+                    alignment='left'
+                    format={DEFAULT_NUMBER_FORMAT}
+                    allowEditing={false}
+                  />
+
+                  <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} />
+                </>
+              ) : null}
+
               <Column
                 dataField='availableToOrder'
                 dataType='number'
@@ -326,6 +386,8 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
                 alignment='left'
                 format={DEFAULT_NUMBER_FORMAT}
                 allowEditing={false}
+                fixed
+                fixedPosition='right'
               />
 
               <Column
@@ -336,6 +398,8 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
                 alignment='left'
                 allowEditing={isLocked ? false : true}
                 cssClass={cn(isLocked ? '!bg-slate-100' : '')}
+                fixed
+                fixedPosition='right'
               >
                 <CustomRule
                   validationCallback={(e) => {
@@ -346,7 +410,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
                 />
               </Column>
 
-              <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
+              <Column type='buttons' minWidth={100} fixed fixedPosition='right' caption='Actions'>
                 <CanView subject='p-work-orders' action={['view', 'view (owner)']}>
                   <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
                 </CanView>

@@ -89,7 +89,7 @@ export default function ProjectItemForm({
         totalStock: 0,
         dateReceived: null,
         dateReceivedBy: null,
-        siteLocation: null,
+        siteLocation: '',
         subLocation2: null,
         subLocation3: null,
         notes: null,

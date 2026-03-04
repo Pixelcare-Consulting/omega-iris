@@ -163,6 +163,8 @@ export default function ProjectIndividualSupplierTab({ projectCode, suppliers, b
             caption='Status'
             calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
           />
+          <Column dataField='createdAt' dataType='datetime' caption='Created At' />
+          <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
           <Column type='buttons' minWidth={100} fixed fixedPosition='right' caption='Actions'>
             <Button icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />

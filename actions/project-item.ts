@@ -689,6 +689,7 @@ export const importProjectItems = action
 
         //* check required fields
         if (!row?.['MFG_P/N']) errors.push({ field: 'MFG P/N', message: 'Missing required field' })
+        if (!row?.['Site_Location']) errors.push({ field: 'Site Location', message: 'Missing required field' })
 
         //* check if project code is provided
         if (!projectCode) errors.push({ field: 'Project Code', message: 'Project code not found' })

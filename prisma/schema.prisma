@@ -454,7 +454,7 @@ model ProjectItem {
     stockIn         Decimal?  @default(0)
     stockOut        Decimal?  @default(0)
     totalStock      Decimal?  @default(0)
-    siteLocation    String?
+    siteLocation    String?   @default("")
     subLocation2    String?
     subLocation3    String?
     notes           String?
@@ -537,6 +537,16 @@ model ProjectIndividualPic {
     @@index([userCode])
 }
 
+//* WORK ORDER STATUS
+//? 1 - Open 
+//? 2 - Pending 
+//? 3 - In Process 
+//? 4 - Verified 
+//? 5 - Partial Delivery 
+//? 6 - Delivered 
+//? 7 - Cancelled
+//? 8 - Deleted
+
 model WorkOrder {
     id                      String  @id @default(cuid())
     code                    Int     @unique @default(autoincrement())
@@ -581,7 +591,9 @@ model WorkOrderStatusUpdate {
     trackingNum   String?
 
     createdAt DateTime @default(now())
+    updatedAt DateTime @default(now()) @updatedAt
     createdBy String?
+    updatedBy String?
 
     workOrder WorkOrder @relation(fields: [workOrderCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
 
@@ -619,6 +631,31 @@ model FileAttachment {
 
     @@unique([modulelName, name])
     @@index([modulelName])
+}
+
+//* REPORT TYPE
+//? 1 - Dashboard 
+//? 2 - Paginated 
+//* only 1 default report, which visisble to any users
+model Report {
+    id          String  @id @default(cuid())
+    code        Int     @unique @default(autoincrement())
+    title       String
+    fileName    String  @unique
+    description String?
+    isActive    Boolean @default(true)
+    type        String
+    data        String  @default("")
+    isFeatured  Boolean @default(false)
+    isDefault   Boolean @default(false)
+    isInternal  Boolean @default(false)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
 }
 
 model Settings {
