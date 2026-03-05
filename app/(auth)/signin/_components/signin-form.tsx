@@ -244,7 +244,7 @@ export default function SigninForm() {
           </p>
 
           <p className='mb-3 text-sm'>
-            Starting <b>March 9, 2026 (8:00 AM PST)</b>, your existing project inventories will be transferred to this new portal where you
+            Starting <b>March 16, 2026 (8:00 AM PST)</b>, your existing project inventories will be transferred to this new portal where you
             can place your new work orders. You can still access our old portal for viewing previous work orders.
           </p>
 
