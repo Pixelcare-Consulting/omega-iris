@@ -1,11 +1,12 @@
 module.exports = {
   apps: [
     {
-      name: "omega-iris",
-      script: "node_modules/next/dist/bin/next",
-      max_memory_restart: "16G",
+      name: 'omega-iris',
+      script: 'node_modules/next/dist/bin/next',
+      max_memory_restart: '16G',
       env: {
-        PORT: 3000,
+        PORT: 80,
+        NEXTAUTH_URL: 'https://irisglobal.omegagti.com',
       },
     },
   ],
