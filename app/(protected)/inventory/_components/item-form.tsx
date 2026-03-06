@@ -256,7 +256,7 @@ export default function ItemForm({ pageMetaData, item }: ItemFormProps) {
 
               <div className='col-span-12 grid h-fit grid-cols-12 gap-5 pt-4 md:col-span-12 lg:col-span-9 lg:pt-0'>
                 <div className='col-span-12 md:col-span-6 lg:col-span-6'>
-                  <TextBoxField control={form.control} name='ItemCode' label='Code' />
+                  <TextBoxField control={form.control} name='ItemCode' label='MFG P/N' />
                 </div>
 
                 <div className='col-span-12 md:col-span-6'>
