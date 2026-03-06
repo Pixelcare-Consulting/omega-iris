@@ -57,7 +57,7 @@ export default function ItemOverviewTab({ item }: ItemOverviewTabProps) {
         <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='SAP Fields' description='SAP related fields' />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Code' value={item?.ItemCode || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='MFG P/N' value={item?.ItemCode || ''} />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Manufacturer Code' value={item?.FirmCode || ''} />
 
