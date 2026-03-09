@@ -2,15 +2,17 @@
 
 import ScrollView from 'devextreme-react/scroll-view'
 import { Button } from 'devextreme-react/button'
-import { Item } from 'devextreme-react/toolbar'
+import Toolbar, { Item } from 'devextreme-react/toolbar'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
 import { useParams } from 'next/navigation'
-import { useCallback, useContext, useEffect, useMemo } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 import { CheckBox } from 'devextreme-react/check-box'
+import TabPanel, { Item as TabPanelItem } from 'devextreme-react/tab-panel'
+import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
@@ -30,6 +32,14 @@ import { titleCase } from '@/utils'
 import CanView from '@/components/acl/can-view'
 import can from '@/components/acl/can'
 import { NotificationContext } from '@/context/notification'
+import { useRoleReports } from '@/hooks/safe-actions/role-report'
+import { useDataGridStore } from '@/hooks/use-dx-datagrid'
+import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
+import { useReports } from '@/hooks/safe-actions/report'
+import CommonPageHeaderToolbarItems from '../../_components/common-page-header-toolbar-item'
+import CommonDataGrid from '@/components/common-datagrid'
+import { REPORT_TYPE_LABEL } from '@/schema/report'
+import { hideActionButton } from '@/utils/devextreme'
 
 type RoleFormProps = { pageMetaData: PageMetadata; role: Awaited<ReturnType<typeof getRolesByCode>> }
 
@@ -39,10 +49,19 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
 
   // const notificationContext = useContext(NotificationContext)
 
+  const DATAGRID_STORAGE_KEY = 'dx-datagrid-role-report'
+  const DATAGRID_UNIQUE_KEY = 'role-reports'
+  const dataGridRef = useRef<DataGridRef | null>(null)
+
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
+
   const isCreate = code === 'add' || !role
+  const isReportingDisabled = process.env.NEXT_PUBLIC_DISABLE_REPORTING === 'true'
 
   const permissions = usePermissions()
   const rolePermissions = useRolePermissions(role?.id ?? '')
+  const reports = useReports()
+  const roleReports = useRoleReports(role?.code)
 
   const permissionsWithChildren = useMemo(() => {
     if (permissions.isLoading || permissions.data.length < 1) return []
@@ -64,6 +83,12 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
 
   const name = useWatch({ control: form.control, name: 'name' }) || ''
   const permissionsFormData = useWatch({ control: form.control, name: 'permissions' }) || []
+  const roles = useWatch({ control: form.control, name: 'roles' }) || []
+
+  const selectedRowKeys = useMemo(() => {
+    if (roles.length < 1) return []
+    return roles
+  }, [JSON.stringify(roles)])
 
   const { executeAsync, isExecuting } = useAction(upsertRole)
 
@@ -184,6 +209,42 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
     form.setValue('permissions', newPermissions)
   }
 
+  const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
+    const data = e.row?.data
+    if (!data || !data?.code) return
+    router.push(`/reports/${data?.code}/view`)
+  }, [])
+
+  const handleOnSelectionChange = useCallback((e: DataGridTypes.SelectionChangedEvent) => {
+    //* exclude selection are row with isDefault === true
+    const allowData = e.selectedRowsData.filter((row) => !row.isDefault)
+
+    const values = allowData.map((row) => row.code)
+
+    form.setValue('roles', values)
+    if (values.length > 0) form.clearErrors('roles')
+  }, [])
+
+  function handleOnCellPrepared(e: DataGridTypes.CellPreparedEvent) {
+    const column = e.column as any
+    const data = e.data
+    const cellElement = e.cellElement
+
+    const checkbox = (cellElement?.querySelector('.dx-select-checkbox') as HTMLInputElement) || null
+    const rowType = e.rowType
+
+    if (rowType === 'data') {
+      const isBlocked = data?.deletedAt || data?.deletedBy || data.isDefault
+
+      //* condition when column type is selection
+      if (column?.type === 'selection') {
+        if (isBlocked && checkbox) {
+          checkbox.style.display = 'none' //* hide checkbox if row has deletedAt or deletedBy or isDefault
+        }
+      }
+    }
+  }
+
   //* update role key based on name
   useEffect(() => {
     const result = name ? name.toLowerCase().replaceAll(' ', '-') : ''
@@ -191,7 +252,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
     //eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name])
 
-  //* set permissions
+  //* set permissions & roles
   useEffect(() => {
     if (!role) {
       const pData = permissions.data.filter((p) => !p.isParent)
@@ -204,6 +265,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
         name: '',
         description: null,
         permissions: permissionsInitialValues,
+        roles: [],
       }
 
       form.reset(roleObj)
@@ -211,6 +273,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
     }
 
     let rps: { id: string; actions: string[] }[] = []
+    let rrs: number[] = []
 
     const pdata = permissions.data.filter((p) => !p.isParent)
 
@@ -218,12 +281,34 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
       rps = rolePermissions.data.map((rp) => ({ id: rp.permissionId, actions: rp.actions }))
     } else rps = pdata.map((p) => ({ id: p.id, actions: [] }))
 
-    if (role.key === 'admin') rps = pdata.map((p) => ({ id: p.id, actions: p.allowedActions }))
+    if (role && !roleReports.isLoading && roleReports.data.length > 0) {
+      rrs = roleReports.data.map((rp) => rp.reportCode)
+    } else rrs = []
 
-    const roleObj = { ...role, permissions: rps }
+    if (role.key === 'admin') {
+      rps = pdata.map((p) => ({ id: p.id, actions: p.allowedActions }))
+      rrs = reports.data.map((r) => r.code)
+    }
+
+    const roleObj = { ...role, permissions: rps, roles: rrs }
 
     form.reset(roleObj)
-  }, [isCreate, JSON.stringify(role), JSON.stringify(permissions), JSON.stringify(rolePermissions)])
+  }, [
+    isCreate,
+    JSON.stringify(role),
+    JSON.stringify(permissions),
+    JSON.stringify(rolePermissions),
+    JSON.stringify(reports),
+    JSON.stringify(roleReports),
+  ])
+
+  //* show loading
+  useEffect(() => {
+    if (dataGridRef.current) {
+      if (reports.isLoading || roleReports.isLoading) dataGridRef.current.instance().beginCustomLoading('Loading data...')
+      else dataGridRef.current.instance().endCustomLoading()
+    }
+  }, [reports.isLoading, roleReports.isLoading, dataGridRef.current])
 
   return (
     <FormProvider {...form}>
@@ -293,92 +378,185 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
               </div>
 
               <Separator className='col-span-12' />
-              <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Permissions' description='Set the permissions for this role' />
 
-              <div className='col-span-12 flex flex-col justify-center gap-4'>
-                <div className='flex w-full items-center justify-between border-b pb-4'>
-                  <h2 className='flex items-center gap-1 text-sm font-bold'>
-                    <Icons.shieldCheck className='size-4 shrink-0' /> Full Access
-                  </h2>
+              <div className='col-span-12'>
+                <TabPanel width='100%' height='100%' animationEnabled tabsPosition='top' defaultSelectedIndex={0}>
+                  <TabPanelItem title='Permissions'>
+                    <div className='grid h-full grid-cols-12 gap-5 pt-5'>
+                      <ReadOnlyFieldHeader
+                        className='col-span-12 mb-1'
+                        title='Permissions'
+                        description='Set the permissions for this role'
+                      />
 
-                  <div className='flex items-center gap-2 text-sm'>
-                    <CheckBox
-                      key='role-permission-select-all'
-                      text='Select All'
-                      value={isSelectedAll ? true : isEmpty ? false : null}
-                      onValueChanged={(e) => {
-                        if (!e.event) return
-                        toggleSelectAll()
-                      }}
-                    />
-                  </div>
-                </div>
+                      <div className='col-span-12 flex flex-col justify-center gap-4'>
+                        <div className='flex w-full items-center justify-between border-b pb-4'>
+                          <h2 className='flex items-center gap-1 text-sm font-bold'>
+                            <Icons.shieldCheck className='size-4 shrink-0' /> Full Access
+                          </h2>
 
-                <div className='col-span-12 grid grid-cols-12 divide-y'>
-                  {permissions.isLoading && (
-                    <div className='relative col-span-12 flex h-[240px] w-full items-center justify-center gap-2'>
-                      <Icons.spinner className='size-5 animate-spin text-primary' /> <span>Loading permissions...</span>
-                    </div>
-                  )}
+                          <div className='flex items-center gap-2 text-sm'>
+                            <CheckBox
+                              key='role-permission-select-all'
+                              text='Select All'
+                              value={isSelectedAll ? true : isEmpty ? false : null}
+                              onValueChanged={(e) => {
+                                if (!e.event) return
+                                toggleSelectAll()
+                              }}
+                            />
+                          </div>
+                        </div>
 
-                  {!permissions.isLoading &&
-                    permissionsWithChildren.length > 0 &&
-                    permissionsWithChildren.map((p) => {
-                      if (p.isParent) {
-                        return (
-                          <div key={p.id} className='text-s col-span-12 grid grid-cols-12 py-2 pl-2'>
-                            <div className='col-span-12 mb-2.5'>
-                              <h1 className='text-sm font-semibold'>{p.name}</h1>
+                        <div className='col-span-12 grid grid-cols-12 divide-y'>
+                          {permissions.isLoading && (
+                            <div className='relative col-span-12 flex h-[240px] w-full items-center justify-center gap-2'>
+                              <Icons.spinner className='size-5 animate-spin text-primary' /> <span>Loading permissions...</span>
                             </div>
+                          )}
 
-                            <div className='col-span-12 flex flex-col divide-y'>
-                              {p.children.map((pChild) => (
-                                <div key={`${p.id}-${pChild.id}`} className='col-span-12 grid grid-cols-12 p-2 hover:bg-slate-400/10'>
+                          {!permissions.isLoading &&
+                            permissionsWithChildren.length > 0 &&
+                            permissionsWithChildren.map((p) => {
+                              if (p.isParent) {
+                                return (
+                                  <div key={p.id} className='text-s col-span-12 grid grid-cols-12 py-2 pl-2'>
+                                    <div className='col-span-12 mb-2.5'>
+                                      <h1 className='text-sm font-semibold'>{p.name}</h1>
+                                    </div>
+
+                                    <div className='col-span-12 flex flex-col divide-y'>
+                                      {p.children.map((pChild) => (
+                                        <div
+                                          key={`${p.id}-${pChild.id}`}
+                                          className='col-span-12 grid grid-cols-12 p-2 hover:bg-slate-400/10'
+                                        >
+                                          <div className='col-span-4 flex flex-col justify-center'>
+                                            <h2 className='text-sm font-semibold'>{pChild.name}</h2>
+                                            <p className='-mt-0.5 text-xs text-slate-400'>{pChild.description}</p>
+                                          </div>
+
+                                          <div className='col-span-8 grid grid-cols-4 items-center gap-4'>
+                                            {pChild.allowedActions.map((action, i) => (
+                                              <CheckBox
+                                                className='text-xs capitalize'
+                                                key={`${p.id}-${pChild.id}-${i}`}
+                                                text={action}
+                                                value={isActionSelected(pChild.id, action)}
+                                                onValueChanged={() => toggleAction(pChild.id, action)}
+                                              />
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )
+                              }
+
+                              return (
+                                <div key={p.id} className='text-s b col-span-12 grid grid-cols-12 p-2 hover:bg-slate-400/10'>
                                   <div className='col-span-4 flex flex-col justify-center'>
-                                    <h2 className='text-sm font-semibold'>{pChild.name}</h2>
-                                    <p className='-mt-0.5 text-xs text-slate-400'>{pChild.description}</p>
+                                    <h2 className='text-sm font-semibold'>{p.name}</h2>
+                                    <p className='-mt-0.5 text-xs text-slate-400'>{p.description}</p>
                                   </div>
 
-                                  <div className='col-span-8 grid grid-cols-4 items-center gap-4'>
-                                    {pChild.allowedActions.map((action, i) => (
+                                  <div className='col-span-8 grid grid-cols-6 items-center gap-4'>
+                                    {p.allowedActions.map((action, i) => (
                                       <CheckBox
                                         className='text-xs capitalize'
-                                        key={`${p.id}-${pChild.id}-${i}`}
+                                        key={`${p.id}-${i}`}
                                         text={action}
-                                        value={isActionSelected(pChild.id, action)}
-                                        onValueChanged={() => toggleAction(pChild.id, action)}
+                                        value={isActionSelected(p.id, action)}
+                                        onValueChanged={() => toggleAction(p.id, action)}
                                       />
                                     ))}
                                   </div>
                                 </div>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      }
-
-                      return (
-                        <div key={p.id} className='text-s b col-span-12 grid grid-cols-12 p-2 hover:bg-slate-400/10'>
-                          <div className='col-span-4 flex flex-col justify-center'>
-                            <h2 className='text-sm font-semibold'>{p.name}</h2>
-                            <p className='-mt-0.5 text-xs text-slate-400'>{p.description}</p>
-                          </div>
-
-                          <div className='col-span-8 grid grid-cols-6 items-center gap-4'>
-                            {p.allowedActions.map((action, i) => (
-                              <CheckBox
-                                className='text-xs capitalize'
-                                key={`${p.id}-${i}`}
-                                text={action}
-                                value={isActionSelected(p.id, action)}
-                                onValueChanged={() => toggleAction(p.id, action)}
-                              />
-                            ))}
-                          </div>
+                              )
+                            })}
                         </div>
-                      )
-                    })}
-                </div>
+                      </div>
+                    </div>
+                  </TabPanelItem>
+
+                  <TabPanelItem title='Reports' visible={!isReportingDisabled}>
+                    <Toolbar className='mt-5'>
+                      <CommonPageHeaderToolbarItems
+                        dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
+                        dataGridRef={dataGridRef}
+                        exportOptions={{ isHide: true }}
+                      />
+                    </Toolbar>
+
+                    <PageContentWrapper className='max-h-[calc(100%_-_68px)]'>
+                      <CommonDataGrid
+                        dataGridRef={dataGridRef}
+                        data={reports.data}
+                        isLoading={reports.isLoading || roleReports.isLoading}
+                        storageKey={DATAGRID_STORAGE_KEY}
+                        keyExpr='code'
+                        isSelectionEnable
+                        dataGridStore={dataGridStore}
+                        selectedRowKeys={selectedRowKeys}
+                        callbacks={{ onCellPrepared: handleOnCellPrepared, onSelectionChanged: handleOnSelectionChange }}
+                      >
+                        <Column dataField='code' minWidth={100} dataType='string' caption='ID' sortOrder='asc' />
+                        <Column dataField='title' dataType='string' caption='Title' />
+                        <Column dataField='fileName' dataType='string' caption='File Name' />
+                        <Column dataField='description' dataType='string' caption='Description' />
+                        <Column
+                          dataField='type'
+                          dataType='string'
+                          caption='Type'
+                          calculateCellValue={(rowData) => REPORT_TYPE_LABEL?.[rowData.type as '1' | '2']}
+                        />
+                        <Column
+                          dataField='isActive'
+                          dataType='string'
+                          caption='Status'
+                          calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
+                        />
+                        <Column
+                          dataField='isFeatured'
+                          dataType='string'
+                          caption='Featured'
+                          calculateCellValue={(rowData) => (rowData.isFeatured ? 'Yes' : 'No')}
+                        />
+                        <Column
+                          dataField='isDefault'
+                          dataType='string'
+                          caption='Default'
+                          calculateCellValue={(rowData) => (rowData.isDefault ? 'Yes' : 'No')}
+                        />
+                        <Column
+                          dataField='isInternal'
+                          dataType='string'
+                          caption='Internal'
+                          calculateCellValue={(rowData) => (rowData.isInternal ? 'Yes' : 'No')}
+                        />
+
+                        <Column dataField='createdAt' dataType='datetime' caption='Created At' />
+                        <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
+
+                        <Column type='buttons' fixed fixedPosition='right' minWidth={150} caption='Actions'>
+                          <CanView subject='p-reports' action='view (owner)'>
+                            <DataGridButton
+                              icon='eyeopen'
+                              onClick={handleView}
+                              cssClass='!text-lg'
+                              hint='View'
+                              visible={(opt) => {
+                                const data = opt?.row?.data
+                                return hideActionButton(data?.deletedAt || data?.deletedBy)
+                              }}
+                            />
+                          </CanView>
+                        </Column>
+                      </CommonDataGrid>
+                    </PageContentWrapper>
+                  </TabPanelItem>
+                </TabPanel>
               </div>
             </div>
           </ScrollView>

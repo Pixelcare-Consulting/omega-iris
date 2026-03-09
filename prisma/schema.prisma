@@ -59,6 +59,7 @@ model Role {
 
     users           User[]
     rolePermissions RolePermission[]
+    roleReports     RoleReport[]
 }
 
 model Permission {
@@ -646,7 +647,7 @@ model Report {
     isActive    Boolean @default(true)
     type        String
     data        String  @default("")
-    isFeatured  Boolean @default(false)
+    isFeatured  Boolean @default(true)
     isDefault   Boolean @default(false)
     isInternal  Boolean @default(false)
 
@@ -656,6 +657,28 @@ model Report {
     createdBy String?
     updatedBy String?
     deletedBy String?
+
+    roleReports RoleReport[]
+}
+
+model RoleReport {
+    id         String @id @default(cuid())
+    roleCode   Int
+    reportCode Int
+
+    role   Role   @relation(fields: [roleCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    report Report @relation(fields: [reportCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    @@unique([roleCode, reportCode])
+    @@index([roleCode])
+    @@index([reportCode])
 }
 
 model Settings {

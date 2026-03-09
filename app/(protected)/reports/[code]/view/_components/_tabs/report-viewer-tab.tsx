@@ -1,0 +1,22 @@
+import ScrollView from 'devextreme-react/scroll-view'
+
+import { getReportByCode } from '@/actions/report'
+import dynamic from 'next/dynamic'
+
+type ReportViewerTabProps = {
+  report: NonNullable<Awaited<ReturnType<typeof getReportByCode>>>
+}
+
+const ReportViewer = dynamic(() => import('@/components/report-viewer'), { ssr: false })
+
+export default function ReportViewerTab({ report }: ReportViewerTabProps) {
+  return (
+    <ScrollView className='h-full'>
+      <div className='grid h-full grid-cols-12 gap-5 p-2'>
+        <div className='col-span-12 [&>div]:h-full'>
+          <ReportViewer key={report?.code} type={'1'} data={report?.data} />
+        </div>
+      </div>
+    </ScrollView>
+  )
+}

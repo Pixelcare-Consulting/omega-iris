@@ -1,12 +1,12 @@
-import UnderDevelopment from '@/app/under-development'
+import { getReports } from '@/actions/report'
 import ContentContainer from '../_components/content-container'
+import ReportTable from './_components/report-table'
 import { getCurrentUserAbility } from '@/actions/auth'
-import { getDashboardReports } from '@/actions/report'
-import DashboardReport from './_components/dashboard-report'
+import UnderDevelopment from '@/app/under-development'
 
-export default async function ProtectedDashboardPage() {
+export default async function ReportingPage() {
   const userInfo = await getCurrentUserAbility()
-  const reports = await getDashboardReports(userInfo)
+  const reports = await getReports(userInfo)
 
   if (process.env.NEXT_PUBLIC_DISABLE_REPORTING === 'true') {
     return (
@@ -18,7 +18,7 @@ export default async function ProtectedDashboardPage() {
 
   return (
     <ContentContainer>
-      <DashboardReport reports={reports} />
+      <ReportTable reports={reports} />
     </ContentContainer>
   )
 }

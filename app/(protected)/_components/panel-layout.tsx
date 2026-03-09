@@ -14,7 +14,7 @@ export default function PanelLayout({ user, children }: PanelLayoutProps) {
   if (!user) return null
 
   return (
-    <div>
+    <div id='panel-layout-container'>
       <Header setIsOpen={setIsOpen} user={user} />
       <Sidebar isOpen={isOpen} setIsOpen={setIsOpen}>
         {children}

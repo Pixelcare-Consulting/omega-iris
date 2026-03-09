@@ -22,7 +22,7 @@ export const PERMISSIONS_CODES = {
   PROJECTS: 'p-projects',
   'PROJECT GROUPS': 'p-projects-groups',
   'PROJECT INDIVIDUALS': 'p-projects-individuals',
-  REPORTING: 'p-reporting',
+  REPORTS: 'p-reports',
   ROLES: 'p-roles',
   SETTINGS: 'p-settings',
   USERS: 'p-users',
