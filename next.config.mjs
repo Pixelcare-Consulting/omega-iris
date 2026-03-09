@@ -6,11 +6,7 @@ const nextConfig = {
     serverComponentsExternalPackages: ['pino', 'pino-pretty'],
     serverActions: {
       bodySizeLimit: '50MB',
-    },
-    experimental: {
-      serverActions: {
-        allowedOrigins: ['172.16.5.126', 'irisglobal.omegagti.com'],
-      },
+      allowedOrigins: ['172.16.5.126', 'irisglobal.omegagti.com'],
     },
   },
 }
