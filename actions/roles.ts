@@ -41,7 +41,7 @@ export const upsertRole = action
   .use(authenticationMiddleware)
   .schema(roleFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, permissions, ...data } = parsedInput
+    const { code, permissions, roles, ...data } = parsedInput
     const { userId } = ctx
 
     try {
@@ -62,6 +62,14 @@ export const upsertRole = action
           //* create new role permissions
           await tx.rolePermission.createMany({
             data: permissions.filter((p) => p.actions.length > 0).map((p) => ({ roleId: role.id, permissionId: p.id, actions: p.actions })),
+          })
+
+          //* delete the existing role reports records
+          await tx.roleReport.deleteMany({ where: { roleCode: code } })
+
+          //* create new role reports
+          await tx.roleReport.createMany({
+            data: roles.map((r) => ({ roleCode: code, reportCode: r })),
           })
 
           return role
@@ -96,6 +104,11 @@ export const upsertRole = action
           rolePermissions: {
             createMany: {
               data: permissions.filter((p) => p.actions.length > 0).map((p) => ({ permissionId: p.id, actions: p.actions })),
+            },
+          },
+          roleReports: {
+            createMany: {
+              data: roles.map((r) => ({ reportCode: r })),
             },
           },
         },

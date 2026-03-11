@@ -138,7 +138,7 @@ export default function ProjectGroupPicTab({ projectGroupCode, pics, users }: Pr
           isSelectionEnable
           dataGridStore={dataGridStore}
           selectedRowKeys={selectedRowKeys}
-          callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChange }}
+          callbacks={{ onSelectionChanged: handleOnSelectionChange }}
         >
           <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
           <Column dataField='username' dataType='string' />

@@ -16,7 +16,8 @@
     "db:pull": "pnpm prisma db pull",
     "db:generate": "pnpm prisma generate",
     "db:reset": "pnpm prisma migrate reset --skip-generate && pnpm db-push",
-    "db:studio": "pnpm prisma studio --browser none"
+    "db:studio": "pnpm prisma studio --browser none",
+    "db:seed": "pnpm prisma db seed"
   },
   "dependencies": {
     "@auth/core": "0.38.0",
@@ -24,7 +25,7 @@
     "@casl/ability": "6.4.0",
     "@casl/react": "3.1.0",
     "@hookform/resolvers": "^5.0.1",
-    "@prisma/client": "^6.5.0",
+    "@prisma/client": "6.5.0",
     "@react-pdf/renderer": "4.3.0",
     "axios": "^1.9.0",
     "bcryptjs": "^3.0.2",
@@ -36,7 +37,6 @@
     "date-fns-tz": "^3.2.0",
     "devextreme": "25.1",
     "devextreme-react": "25.1",
-    "dotenv": "^16.4.7",
     "exceljs": "^4.4.0",
     "file-saver-es": "^2.0.5",
     "ini": "^5.0.0",
@@ -97,6 +97,7 @@
     "prisma": "^6.5.0",
     "tailwindcss": "^3.4.1",
     "tailwindcss-animate": "^1.0.7",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   },
   "keywords": [
@@ -107,6 +108,9 @@
     "react",
     "next.js"
   ],
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "author": "Pixlcare Consulting",
   "license": "ISC",
   "description": ""
