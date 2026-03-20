@@ -417,11 +417,11 @@ export default function WorkOrderLineItemTable({
           <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
 
           <Column dataField='FirmName' dataType='string' caption='Manufacturer' allowEditing={false} visible={false} />
-          <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} visible={false} />
+          <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
           <Column dataField='mfr' dataType='string' caption='MFR' allowEditing={false} />
           <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
 
-          <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} />
+          <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} visible={false} />
 
           {!isBusinessPartner ? (
             <>

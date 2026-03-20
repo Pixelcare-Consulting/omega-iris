@@ -488,13 +488,13 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
               <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} />
 
-              <Column dataField='item.ItemCode' dataType='string' caption='MFG P/N' visible={false} />
+              <Column dataField='item.ItemCode' dataType='string' caption='MFG P/N' />
               <Column dataField='item.FirmName' dataType='string' caption='Manufacturer' visible={false} />
               <Column dataField='mfr' dataType='string' caption='MFR' />
               <Column dataField='desc' dataType='string' caption='Desc' />
 
               <Column dataField='partNumber' dataType='string' caption='Part Number' />
-              <Column dataField='item.ItemName' dataType='string' caption='Description' />
+              <Column dataField='item.ItemName' dataType='string' caption='Description' visible={false} />
               <Column dataField='dateCode' minWidth={75} dataType='string' caption='DC' />
               <Column dataField='countryOfOrigin' minWidth={75} dataType='string' caption='COO' />
               <Column dataField='lotCode' dataType='string' caption='Lot Code' />
