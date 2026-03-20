@@ -93,6 +93,8 @@ export default function ProjectItemForm({
         subLocation2: null,
         subLocation3: null,
         notes: null,
+        mfr: null,
+        desc: null,
       }
     }
 
@@ -398,6 +400,14 @@ export default function ProjectItemForm({
                   label='Total Stock'
                   extendedProps={{ numberBoxOptions: { format: DEFAULT_NUMBER_FORMAT } }}
                 />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <TextBoxField control={form.control} name='mfr' label='MFR' description='Temporary manufacturer field' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <TextBoxField control={form.control} name='desc' label='Desc' description='Temporary description field' />
               </div>
 
               <div className='col-span-12'>

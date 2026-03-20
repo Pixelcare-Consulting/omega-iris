@@ -731,6 +731,8 @@ export const importProjectItems = action
           subLocation3: row?.['Sub_Location3'] || null,
           dateReceived: row?.['Date_Received'] ? parse(row?.['Date_Received'], 'MM/dd/yyyy', new Date()) : null,
           dateReceivedBy: safeParseInt(row?.['Received_By']) || null,
+          mfr: row?.['MFR'] || null,
+          desc: row?.['Desc'] || null,
           createdBy: userId,
           updatedBy: userId,
         }

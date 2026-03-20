@@ -459,6 +459,9 @@ model ProjectItem {
     subLocation3    String?
     notes           String?
 
+    mfr  String? //* temporary field manufacturer field
+    desc String? //* temporary field description field
+
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
     deletedAt DateTime?
