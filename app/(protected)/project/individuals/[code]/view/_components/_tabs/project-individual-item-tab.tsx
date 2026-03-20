@@ -315,6 +315,8 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
         'Sub_Location3',
         'Date_Received',
         'Received_By',
+        'MFR',
+        'Desc',
       ]
 
       const batchSize = 100
@@ -485,8 +487,12 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
             >
               <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
               <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} />
-              <Column dataField='item.ItemCode' dataType='string' caption='MFG P/N' />
-              <Column dataField='item.FirmName' dataType='string' caption='Manufacturer' />
+
+              <Column dataField='item.ItemCode' dataType='string' caption='MFG P/N' visible={false} />
+              <Column dataField='item.FirmName' dataType='string' caption='Manufacturer' visible={false} />
+              <Column dataField='mfr' dataType='string' caption='MFR' />
+              <Column dataField='desc' dataType='string' caption='Desc' />
+
               <Column dataField='partNumber' dataType='string' caption='Part Number' />
               <Column dataField='item.ItemName' dataType='string' caption='Description' />
               <Column dataField='dateCode' minWidth={75} dataType='string' caption='DC' />
@@ -536,6 +542,8 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               ) : null}
 
               <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
+
+              <Column dataField='notes' dataType='string' caption='Notes' />
 
               <Column dataField='createdAt' dataType='datetime' caption='Created At' />
               <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />

@@ -349,6 +349,8 @@ export default function WorkOrderLineItemTable({
             siteLocation: pItem?.siteLocation || '',
             subLocation2: pItem?.subLocation2 || '',
             subLocation3: pItem?.subLocation3 || '',
+            mfr: pItem?.mfr || '',
+            desc: pItem?.desc || '',
           }
         })
         .filter((item) => item !== null)
@@ -413,8 +415,12 @@ export default function WorkOrderLineItemTable({
             alignment='left'
           />
           <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
-          <Column dataField='FirmName' dataType='string' caption='Manufacturer' allowEditing={false} />
-          <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
+
+          <Column dataField='FirmName' dataType='string' caption='Manufacturer' allowEditing={false} visible={false} />
+          <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} visible={false} />
+          <Column dataField='mfr' dataType='string' caption='MFR' allowEditing={false} />
+          <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
+
           <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} />
 
           {!isBusinessPartner ? (
