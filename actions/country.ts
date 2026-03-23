@@ -7,7 +7,7 @@ import { SAP_BASE_URL } from '@/constants/sap'
 export async function getCountries() {
   try {
     return callSapServiceLayerApi({
-      url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query8')/List`,
+      url: `${SAP_BASE_URL}/b1s/v1/Countries?$select=Code,Name`,
       headers: { Prefer: 'odata.maxpagesize=999' },
     })
   } catch (error) {
