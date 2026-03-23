@@ -2,7 +2,7 @@
 
 import z from 'zod'
 import { Prisma } from '@prisma/client'
-import { isAfter, isSameDay, parse } from 'date-fns'
+import { format, isAfter, isSameDay, parse } from 'date-fns'
 
 import { paramsSchema } from '@/schema/common'
 import {
@@ -16,7 +16,7 @@ import {
 } from '@/schema/business-partner'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
-import { chunkArray, safeParseInt } from '@/utils'
+import { chunkArray, safeParseFloat, safeParseInt } from '@/utils'
 import logger from '@/utils/logger'
 import { callSapServiceLayerApi } from './sap-service-layer'
 import { SAP_BASE_URL } from '@/constants/sap'
@@ -607,11 +607,13 @@ export async function getBpMaster(cardType: string) {
       for (let i = 0; i <= totalPage; i++) {
         const skip = i * PER_PAGE //* offset
 
+        //* sap standard api url
+        const url = `${SAP_BASE_URL}/b1s/v1/$crossjoin(BusinessPartners,BusinessPartnerGroups,PaymentTermsTypes,Currencies)?$expand=BusinessPartners($select=CardCode,CardName,CardType,GroupCode,PayTermsGrpCode,ShipToDefault,BilltoDefault,Address,ZipCode,MailAddress,MailZipCode,Phone1,ContactPerson,Currency,U_VendorCode,U_OMEG_QBRelated,U_OMEG_AcctType,U_Portal_Sync,U_ApprovalStatus,CreateDate,UpdateDate,CurrentAccountBalance,OpenChecksBalance,CompanyPrivate),BusinessPartnerGroups($select=Code,Name,Type),PaymentTermsTypes($select=GroupNumber,PaymentTermsGroupName),Currencies($select=Code,Name)&$filter=BusinessPartners/GroupCode eq BusinessPartnerGroups/Code and BusinessPartners/PayTermsGrpCode eq PaymentTermsTypes/GroupNumber and BusinessPartners/Currency eq Currencies/Code  and (BusinessPartners/CardType eq 'cCustomer' or BusinessPartners/CardType eq 'cLead')&$skip=${skip}&$orderby=BusinessPartners/CardCode asc`
+
         //* create request
         const request = callSapServiceLayerApi({
-          url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query1')/List?&$skip=${skip}`,
+          url,
           headers: { Prefer: `odata.maxpagesize=${PER_PAGE}` },
-          data: { ParamList: "CardTypeFrom='C'&CardTypeTo='L'&CardCodeFrom=''&CardCodeTo=''" },
         })
 
         //* push request to the requestsPromises array
@@ -621,11 +623,15 @@ export async function getBpMaster(cardType: string) {
       for (let i = 0; i <= totalPage; i++) {
         const skip = i * PER_PAGE //* offset
 
+        const cardTypeValue = BUSINESS_PARTNER_STD_API_VALUES_MAP[cardType] || 'cLid'
+
+        //* sap standard api url
+        const url = `${SAP_BASE_URL}/b1s/v1/$crossjoin(BusinessPartners,BusinessPartnerGroups,PaymentTermsTypes,Currencies)?$expand=BusinessPartners($select=CardCode,CardName,CardType,GroupCode,PayTermsGrpCode,ShipToDefault,BilltoDefault,Address,ZipCode,MailAddress,MailZipCode,Phone1,ContactPerson,Currency,U_VendorCode,U_OMEG_QBRelated,U_OMEG_AcctType,U_Portal_Sync,U_ApprovalStatus,CreateDate,UpdateDate,CurrentAccountBalance,OpenChecksBalance,CompanyPrivate),BusinessPartnerGroups($select=Code,Name,Type),PaymentTermsTypes($select=GroupNumber,PaymentTermsGroupName),Currencies($select=Code,Name)&$filter=BusinessPartners/GroupCode eq BusinessPartnerGroups/Code and BusinessPartners/PayTermsGrpCode eq PaymentTermsTypes/GroupNumber and BusinessPartners/Currency eq Currencies/Code and (BusinessPartners/CardType eq '${cardTypeValue}')&$skip=${skip}&$orderby=BusinessPartners/CardCode asc`
+
         //* create request
         const request = callSapServiceLayerApi({
-          url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query1')/List?&$skip=${skip}`,
+          url,
           headers: { Prefer: `odata.maxpagesize=${PER_PAGE}` },
-          data: { ParamList: `CardTypeFrom='${cardType}'&CardTypeTo='${cardType}'&CardCodeFrom=''&CardCodeTo=''` },
         })
 
         //* push request to the requestsPromises array
@@ -636,10 +642,7 @@ export async function getBpMaster(cardType: string) {
     //* fetch all bp master from sap in parallel
     const bpMaster = await Promise.all(requestsPromises)
 
-    return bpMaster
-      .flatMap((res) => res?.value || [])
-      .filter(Boolean)
-      .sort((a, b) => a?.CardCode - b?.CardCode)
+    return bpMaster.flatMap((res) => res?.value || []).filter(Boolean)
   } catch (error) {
     console.log({ error })
     logger.error(error, 'Failed to fetch bp master from SAP')
@@ -847,17 +850,59 @@ export const syncFromSap = action
       //* do an upsert operation
       //*  filter the records where CreatedDate === lastSyncDate or  CreateDate > lastSyncDate or UpdateDate === lastSyncDate or UpdateDate > lastSyncDate
       const filteredSapBpMasters =
-        bpMaster?.filter((row: any) => {
-          const createDate = row?.CreateDate ? parse(row?.CreateDate, 'yyyyMMdd', new Date()) : null
-          const updateDate = row?.UpdateDate ? parse(row?.UpdateDate, 'yyyyMMdd', new Date()) : null
+        bpMaster
+          ?.map((row: any) => {
+            const bp = row?.['BusinessPartners']
+            const bpGroup = row?.['BusinessPartnerGroups']
+            const paymentTerm = row?.['PaymentTermsTypes']
+            const currencies = row?.['Currencies']
 
-          const isCreateDateSameDay = createDate ? isSameDay(createDate, lastSyncDate) : false
-          const isUpdateDateSameDay = updateDate ? isSameDay(updateDate, lastSyncDate) : false
-          const isCreateDateAfter = createDate ? isAfter(createDate, lastSyncDate) : false
-          const isUpdateDateAfter = updateDate ? isAfter(updateDate, lastSyncDate) : false
+            if (!bp || !bp?.CardCode) return null
 
-          return isCreateDateSameDay || isUpdateDateSameDay || isCreateDateAfter || isUpdateDateAfter
-        }) || []
+            const bpData = {
+              Address: bp?.Address || null,
+              Balance: safeParseFloat(bp?.CurrentAccountBalance),
+              BillToDef: bp?.BilltoDefault || null,
+              CardCode: bp?.CardCode,
+              CardName: bp?.CardName,
+              CardType: bp?.CardType,
+              ChecksBal: safeParseFloat(bp?.OpenChecksBalance),
+              CmpPrivate: bp?.CompanyPrivate || null,
+              CntctPrsn: bp?.ContactPerson || null,
+              CreateDate: bp?.CreateDate ? format(parse(bp?.CreateDate, 'yyyy-MM-dd', new Date()), 'yyyyMMdd') : null,
+              CurrName: currencies?.Name || null,
+              Currency: currencies?.Code || null,
+              GroupCode: bpGroup?.code || null,
+              GroupName: bpGroup?.Name || null,
+              GroupNum: paymentTerm?.GroupNumber || null,
+              MailAddres: bp?.MailAddress || null,
+              MailZipCod: bp?.MailZipCode || null,
+              Phone1: bp?.Phone1 || null,
+              PymntGroup: paymentTerm?.PaymentTermsGroupName || null,
+              ShipToDef: bp?.ShipToDefault || null,
+              U_ApprovalStatus: bp?.U_ApprovalStatus || null,
+              U_OMEG_AcctType: bp?.U_OMEG_AcctType || null,
+              U_OMEG_QBRelated: bp?.U_OMEG_QBRelated || null,
+              U_Portal_Sync: bp?.U_Portal_Sync || null,
+              U_VendorCode: bp?.U_VendorCode || null,
+              UpdateDate: bp?.UpdateDate ? format(parse(bp?.UpdateDate, 'yyyy-MM-dd', new Date()), 'yyyyMMdd') : null,
+              ZipCode: bp?.ZipCode || null,
+            }
+
+            return bpData
+          })
+          ?.filter((row) => row !== null)
+          ?.filter((row: any) => {
+            const createDate = row?.CreateDate ? parse(row?.CreateDate, 'yyyyMMdd', new Date()) : null
+            const updateDate = row?.UpdateDate ? parse(row?.UpdateDate, 'yyyyMMdd', new Date()) : null
+
+            const isCreateDateSameDay = createDate ? isSameDay(createDate, lastSyncDate) : false
+            const isUpdateDateSameDay = updateDate ? isSameDay(updateDate, lastSyncDate) : false
+            const isCreateDateAfter = createDate ? isAfter(createDate, lastSyncDate) : false
+            const isUpdateDateAfter = updateDate ? isAfter(updateDate, lastSyncDate) : false
+
+            return isCreateDateSameDay || isUpdateDateSameDay || isCreateDateAfter || isUpdateDateAfter
+          }) || []
 
       const nameMap = new Map<string, string>()
       const addressMap = new Map<string, any[]>()
