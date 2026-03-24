@@ -387,14 +387,14 @@ export default function WorkOrderLineItemForm({
           }}
         >
           <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' allowEditing={false} sortOrder='asc' />
+          <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
 
-          <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} visible={false} />
           <Column dataField='FirmName' dataType='string' caption='Manufacturer' allowEditing={false} visible={false} />
           <Column dataField='mfr' dataType='string' caption='MFR' allowEditing={false} />
           <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
 
           <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
-          <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} />
+          <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} visible={false} />
           <Column dataField='dateCode' dataType='string' caption='Date Code' allowEditing={false} />
           <Column dataField='countryOfOrigin' dataType='string' caption='Country Of Origin' allowEditing={false} />
           <Column dataField='lotCode' dataType='string' caption='Lot Code' allowEditing={false} />
@@ -477,7 +477,7 @@ export default function WorkOrderLineItemForm({
             />
           ) : null}
 
-          <Column dataField='notes' dataType='string' caption='SPQ' visible={false} allowEditing={false} />
+          <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} />
 
           <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
         </CommonDataGrid>

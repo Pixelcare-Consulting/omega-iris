@@ -11,9 +11,8 @@ export async function getStates(countryCode: string) {
 
   try {
     return await callSapServiceLayerApi({
-      url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query7')/List`,
+      url: `${SAP_BASE_URL}/b1s/v1/States?$select=Code,Name&$filter=Country eq '${countryCode}'`,
       headers: { Prefer: 'odata.maxpagesize=999' },
-      data: { ParamList: `Country='${countryCode}'` },
     })
   } catch (error) {
     console.error(error)

@@ -9,7 +9,7 @@ import { itemFormSchema, syncToSapFormSchema } from '@/schema/item'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
-import { safeParseFloat } from '@/utils'
+import { chunkArray, safeParseFloat } from '@/utils'
 import { callSapServiceLayerApi } from './sap-service-layer'
 import { SAP_BASE_URL } from '@/constants/sap'
 import { importFormSchema } from '@/schema/import'
@@ -394,7 +394,7 @@ export async function getItemMaster() {
 
       //* create request
       const request = callSapServiceLayerApi({
-        url: `${SAP_BASE_URL}/b1s/v1/$crossjoin(Items,ItemGroups,Manufacturers)?$expand=Items($select=ItemCode,ItemName,ItemsGroupCode,Manufacturer,ManageBatchNumbers,PurchaseItemsPerUnit,U_MPN,U_MSL,CreateDate,UpdateDate,U_Portal_Sync),ItemGroups($select=Number,GroupName),Manufacturers($select=Code,ManufacturerName)&$filter=Items/ItemsGroupCode eq ItemGroups/Number and Items/Manufacturer eq Manufacturers/Code and Items/U_Portal_Sync eq 'Y'&$top=${PER_PAGE}&$skip=${skip}&$orderby=ItemCode asc`,
+        url: `${SAP_BASE_URL}/b1s/v1/$crossjoin(Items,ItemGroups,Manufacturers)?$expand=Items($select=ItemCode,ItemName,ItemsGroupCode,Manufacturer,ManageBatchNumbers,PurchaseItemsPerUnit,U_MPN,U_MSL,CreateDate,UpdateDate,U_Portal_Sync),ItemGroups($select=Number,GroupName),Manufacturers($select=Code,ManufacturerName)&$filter=Items/ItemsGroupCode eq ItemGroups/Number and Items/Manufacturer eq Manufacturers/Code and Items/U_Portal_Sync eq 'Y'&$skip=${skip}&$orderby=ItemCode asc`,
         headers: { Prefer: `odata.maxpagesize=${PER_PAGE}` },
       })
 
@@ -616,17 +616,20 @@ export const syncFromSap = action.use(authenticationMiddleware).action(async ({ 
         .filter((row) => row !== null)
     }
 
-    //* perform upsert and  update the sync meta
-    await db.$transaction(async (tx) => {
-      //* upsert items
-      await Promise.all(getUpsertPromises(filteredSapItemMasters, tx))
+    //* chunk transactions
+    const chunks = chunkArray(filteredSapItemMasters, 10)
 
-      //* upsert sync meta
-      await tx.syncMeta.upsert({
-        where: { code: SYNC_META_CODE },
-        create: { code: SYNC_META_CODE, description: 'Last item master synced date', lastSyncAt: new Date() },
-        update: { code: SYNC_META_CODE, description: 'Last item master synced date', lastSyncAt: new Date() },
+    for (const chunk of chunks) {
+      await db.$transaction(async (tx) => {
+        await Promise.all(getUpsertPromises(chunk, tx))
       })
+    }
+
+    //* upsert sync meta
+    await db.syncMeta.upsert({
+      where: { code: SYNC_META_CODE },
+      create: { code: SYNC_META_CODE, description: 'Last item master synced date', lastSyncAt: new Date() },
+      update: { code: SYNC_META_CODE, description: 'Last item master synced date', lastSyncAt: new Date() },
     })
 
     //* create notification
