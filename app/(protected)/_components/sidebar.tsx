@@ -105,7 +105,7 @@ export default function Sidebar({ isOpen, setIsOpen, children }: SidebarProps) {
       </main>
 
       <Template name='menu'>
-        <div className='bg-primary-black mt-[0.5px] flex h-[calc(100vh_-_52.5px)] w-[248px] flex-col shadow-md'>
+        <div className='mt-[0.5px] flex h-[calc(100vh_-_52.5px)] w-[248px] flex-col bg-primary-black shadow-md'>
           <div className='flex min-h-full flex-1 overflow-auto py-2'>
             <TreeView
               className='sidebar-treeview'

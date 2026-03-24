@@ -18,7 +18,7 @@ export default async function ProtectedDashboardPage() {
 
   return (
     <ContentContainer>
-      <DashboardReport reports={reports} />
+      <DashboardReport reports={reports} params={{ UserCode: userInfo?.userCode }} />
     </ContentContainer>
   )
 }

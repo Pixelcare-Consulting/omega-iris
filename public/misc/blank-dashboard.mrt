@@ -4,350 +4,769 @@
   <Dictionary Ref="1" type="Dictionary" isKey="true">
     <BusinessObjects isList="true" count="0" />
     <Databases isList="true" count="1">
-      <PostgreSQL Ref="2" type="Stimulsoft.Report.Dictionary.StiPostgreSQLDatabase" isKey="true">
-        <Alias>PostgreSQL</Alias>
-        <ConnectionStringEncrypted>4xZpANNWem1iCJyFReQlHsJQzctIXWOZQU/93GgN4T/IVM3LaVajhWtJ4fRqAG53i2L5oc1ou/VsSdnYRXS0Y55S+0nGTPvB4xh59Mps8mPEVGXCxRhL3fBNqY3qcKBj3Vppy2FdAd3qGP3cZHB3G4B42wlFXdOF7Ajx8E4Q43vZyNGhZ1bzrflDuXBicWU/xtazD1AFo4HsSf3x62jket/u0aE=</ConnectionStringEncrypted>
-        <Name>PostgreSQL</Name>
-      </PostgreSQL>
+      <OMEGADB_DEV Ref="2" type="Stimulsoft.Report.Dictionary.StiPostgreSQLDatabase" isKey="true">
+        <Alias>OMEGADB_DEV</Alias>
+        <ConnectionStringEncrypted>42D3AmJaSZltW6U06ijjL9UYwSvJcdOB6Qj9vcOIIT/cVP/J5Ri7jOJbpdxjAKA/0VR5CUhL2QnhG9Xc6yViXsNeZQlPGNnVbEzd+GFA9mfUXMsJxUox6ekT7fTKPWAX1Fb1LWZLAc1sWM0=</ConnectionStringEncrypted>
+        <Name>OMEGADB_DEV</Name>
+      </OMEGADB_DEV>
     </Databases>
-    <DataSources isList="true" count="16">
+    <DataSources isList="true" count="29">
       <Account Ref="3" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
         <Alias>Account</Alias>
         <Columns isList="true" count="12">
+          <value>userId,System.String</value>
+          <value>providerAccountId,System.String</value>
+          <value>scope,System.String</value>
+          <value>expires_at,System.Int32</value>
+          <value>provider,System.String</value>
+          <value>token_type,System.String</value>
+          <value>access_token,System.String</value>
           <value>refresh_token,System.String</value>
-          <value>createdAt,System.DateTime</value>
-          <value>type,System.String</value>
           <value>id_token,System.String</value>
           <value>updatedAt,System.DateTime</value>
-          <value>provider,System.String</value>
-          <value>expires_at,System.Int32</value>
-          <value>scope,System.String</value>
-          <value>providerAccountId,System.String</value>
-          <value>userId,System.String</value>
-          <value>access_token,System.String</value>
-          <value>token_type,System.String</value>
+          <value>type,System.String</value>
+          <value>createdAt,System.DateTime</value>
         </Columns>
         <CommandTimeout>30</CommandTimeout>
         <Dictionary isRef="1" />
-        <Key>7466d8d75d3747fdbbd8245d4ab4cc01</Key>
+        <Key>0eb73f603acd4971b53737dd1b34bdb2</Key>
         <Name>Account</Name>
-        <NameInSource>PostgreSQL</NameInSource>
+        <NameInSource>OMEGADB_DEV</NameInSource>
         <Parameters isList="true" count="0" />
         <SqlCommand>select * from "public"."Account"</SqlCommand>
       </Account>
-      <ActivityLog Ref="4" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
-        <Alias>ActivityLog</Alias>
-        <Columns isList="true" count="12">
-          <value>id,System.String</value>
-          <value>action,System.String</value>
-          <value>details,System.String</value>
-          <value>userAgent,System.String</value>
-          <value>user,System.String</value>
-          <value>ipAddress,System.String</value>
-          <value>severity,System.String</value>
-          <value>eventType,System.String</value>
-          <value>timestamp,System.DateTime</value>
-          <value>updatedAt,System.DateTime</value>
-          <value>metadata,System.String</value>
+      <Address Ref="4" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>Address</Alias>
+        <Columns isList="true" count="24">
+          <value>ZipCode,System.String</value>
+          <value>Block,System.String</value>
+          <value>AddrType,System.String</value>
+          <value>BuildingFloorRoom,System.String</value>
+          <value>CountryCode,System.String</value>
+          <value>CardCode,System.String</value>
           <value>createdAt,System.DateTime</value>
-        </Columns>
-        <CommandTimeout>30</CommandTimeout>
-        <Dictionary isRef="1" />
-        <Key>82770f9837204e0289db1a5af972e58f</Key>
-        <Name>ActivityLog</Name>
-        <NameInSource>PostgreSQL</NameInSource>
-        <Parameters isList="true" count="0" />
-        <SqlCommand>select * from "public"."ActivityLog"</SqlCommand>
-      </ActivityLog>
-      <Customer Ref="5" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
-        <Alias>Customer</Alias>
-        <Columns isList="true" count="11">
-          <value>address,System.String</value>
-          <value>updatedAt,System.DateTime</value>
-          <value>createdAt,System.DateTime</value>
-          <value>name,System.String</value>
-          <value>phone,System.String</value>
-          <value>id,System.String</value>
-          <value>email,System.String</value>
-          <value>status,System.String</value>
-          <value>country,System.String</value>
-          <value>registrationDate,System.DateTime</value>
-          <value>city,System.String</value>
-        </Columns>
-        <CommandTimeout>30</CommandTimeout>
-        <Dictionary isRef="1" />
-        <Key>77d0bf834b064b8a849bcf20efb9e0be</Key>
-        <Name>Customer</Name>
-        <NameInSource>PostgreSQL</NameInSource>
-        <Parameters isList="true" count="0" />
-        <SqlCommand>select * from "public"."Customer"</SqlCommand>
-      </Customer>
-      <Inventory Ref="6" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
-        <Alias>Inventory</Alias>
-        <Columns isList="true" count="8">
-          <value>productId,System.String</value>
-          <value>reservedQuantity,System.Int32</value>
-          <value>updatedAt,System.DateTime</value>
-          <value>lastUpdated,System.DateTime</value>
-          <value>stockQuantity,System.Int32</value>
-          <value>id,System.String</value>
-          <value>location,System.String</value>
-          <value>createdAt,System.DateTime</value>
-        </Columns>
-        <CommandTimeout>30</CommandTimeout>
-        <Dictionary isRef="1" />
-        <Key>56dfc274246a4851bc07b1bad1d059bd</Key>
-        <Name>Inventory</Name>
-        <NameInSource>PostgreSQL</NameInSource>
-        <Parameters isList="true" count="0" />
-        <SqlCommand>select * from "public"."Inventory"</SqlCommand>
-      </Inventory>
-      <Order Ref="7" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
-        <Alias>Order</Alias>
-        <Columns isList="true" count="8">
-          <value>updatedAt,System.DateTime</value>
-          <value>shippingAddress,System.String</value>
-          <value>totalAmount,System.Decimal</value>
-          <value>id,System.String</value>
-          <value>orderDate,System.DateTime</value>
-          <value>createdAt,System.DateTime</value>
-          <value>customerId,System.String</value>
-          <value>status,System.String</value>
-        </Columns>
-        <CommandTimeout>30</CommandTimeout>
-        <Dictionary isRef="1" />
-        <Key>f1f926527e8c47b5ab15fc4a7a2095c0</Key>
-        <Name>Order</Name>
-        <NameInSource>PostgreSQL</NameInSource>
-        <Parameters isList="true" count="0" />
-        <SqlCommand>select * from "public"."Order"</SqlCommand>
-      </Order>
-      <OrderItem Ref="8" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
-        <Alias>OrderItem</Alias>
-        <Columns isList="true" count="8">
-          <value>orderId,System.String</value>
-          <value>unitPrice,System.Decimal</value>
-          <value>updatedAt,System.DateTime</value>
-          <value>totalPrice,System.Decimal</value>
-          <value>quantity,System.Int32</value>
-          <value>id,System.String</value>
-          <value>productId,System.String</value>
-          <value>createdAt,System.DateTime</value>
-        </Columns>
-        <CommandTimeout>30</CommandTimeout>
-        <Dictionary isRef="1" />
-        <Key>6333f6ca64754434b59a02a0bc69cee6</Key>
-        <Name>OrderItem</Name>
-        <NameInSource>PostgreSQL</NameInSource>
-        <Parameters isList="true" count="0" />
-        <SqlCommand>select * from "public"."OrderItem"</SqlCommand>
-      </OrderItem>
-      <Permission Ref="9" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
-        <Alias>Permission</Alias>
-        <Columns isList="true" count="10">
-          <value>deletedBy,System.String</value>
-          <value>code,System.String</value>
-          <value>createdAt,System.DateTime</value>
+          <value>CountryName,System.String</value>
+          <value>Street,System.String</value>
+          <value>Address3,System.String</value>
+          <value>City,System.String</value>
+          <value>StateCode,System.String</value>
           <value>createdBy,System.String</value>
+          <value>StreetNo,System.String</value>
+          <value>Address2,System.String</value>
+          <value>deletedBy,System.String</value>
+          <value>GlobalLocationNumber,System.String</value>
+          <value>deletedAt,System.DateTime</value>
+          <value>County,System.String</value>
+          <value>AddressName,System.String</value>
           <value>updatedAt,System.DateTime</value>
-          <value>description,System.String</value>
           <value>id,System.String</value>
-          <value>name,System.String</value>
+          <value>StateName,System.String</value>
           <value>updatedBy,System.String</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>bdad48b22e084ce29a7c43a573403c1a</Key>
+        <Name>Address</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."Address"</SqlCommand>
+      </Address>
+      <BusinessPartner Ref="5" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>BusinessPartner</Alias>
+        <Columns isList="true" count="25">
+          <value>GroupName,System.String</value>
+          <value>AcctType,System.String</value>
+          <value>GroupCode,System.Int32</value>
+          <value>GroupNum,System.Int32</value>
+          <value>code,System.Int32</value>
+          <value>syncStatus,System.String</value>
+          <value>updatedBy,System.String</value>
+          <value>deletedBy,System.String</value>
+          <value>CmpPrivate,System.String</value>
+          <value>createdBy,System.String</value>
+          <value>ShipToDef,System.String</value>
+          <value>PymntGroup,System.String</value>
+          <value>createdAt,System.DateTime</value>
+          <value>CardName,System.String</value>
+          <value>CardType,System.String</value>
+          <value>CurrName,System.String</value>
+          <value>isActive,System.Boolean</value>
+          <value>Phone1,System.String</value>
+          <value>CurrCode,System.String</value>
+          <value>CntctPrsn,System.String</value>
+          <value>BillToDef,System.String</value>
+          <value>deletedAt,System.DateTime</value>
+          <value>CardCode,System.String</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>id,System.String</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>ec54930786b94be386d23a0a2545ded9</Key>
+        <Name>BusinessPartner</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."BusinessPartner"</SqlCommand>
+      </BusinessPartner>
+      <Contact Ref="6" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>Contact</Alias>
+        <Columns isList="true" count="17">
+          <value>Position,System.String</value>
+          <value>Phone2,System.String</value>
+          <value>deletedBy,System.String</value>
+          <value>FirstName,System.String</value>
+          <value>Phone1,System.String</value>
+          <value>MobilePhone,System.String</value>
+          <value>LastName,System.String</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>CardCode,System.String</value>
+          <value>updatedBy,System.String</value>
+          <value>createdAt,System.DateTime</value>
+          <value>ContactName,System.String</value>
+          <value>createdBy,System.String</value>
+          <value>Email,System.String</value>
+          <value>id,System.String</value>
+          <value>Title,System.String</value>
           <value>deletedAt,System.DateTime</value>
         </Columns>
         <CommandTimeout>30</CommandTimeout>
         <Dictionary isRef="1" />
-        <Key>ff6c02488dde4196b0cf05b694c0721b</Key>
+        <Key>ac53e15b48374389b3345a4a19f2783b</Key>
+        <Name>Contact</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."Contact"</SqlCommand>
+      </Contact>
+      <FileAttachment Ref="7" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>FileAttachment</Alias>
+        <Columns isList="true" count="12">
+          <value>refCode,System.Int32</value>
+          <value>uploadedAt,System.DateTime</value>
+          <value>size,System.Int32</value>
+          <value>id,System.String</value>
+          <value>type,System.String</value>
+          <value>path,System.String</value>
+          <value>modulelName,System.String</value>
+          <value>name,System.String</value>
+          <value>uploadedBy,System.String</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>updatedBy,System.String</value>
+          <value>code,System.Int32</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>7c18e1a20e5d4649a77c556d1c704299</Key>
+        <Name>FileAttachment</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."FileAttachment"</SqlCommand>
+      </FileAttachment>
+      <Item Ref="8" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>Item</Alias>
+        <Columns isList="true" count="19">
+          <value>syncStatus,System.String</value>
+          <value>id,System.String</value>
+          <value>createdAt,System.DateTime</value>
+          <value>ItemCode,System.String</value>
+          <value>notes,System.String</value>
+          <value>ItmsGrpNam,System.String</value>
+          <value>isActive,System.Boolean</value>
+          <value>thumbnail,System.String</value>
+          <value>ItmsGrpCod,System.Int32</value>
+          <value>deletedBy,System.String</value>
+          <value>Price,System.Decimal</value>
+          <value>createdBy,System.String</value>
+          <value>updatedBy,System.String</value>
+          <value>deletedAt,System.DateTime</value>
+          <value>FirmName,System.String</value>
+          <value>ItemName,System.String</value>
+          <value>code,System.Int32</value>
+          <value>FirmCode,System.Int32</value>
+          <value>updatedAt,System.DateTime</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>71be755a18144af3bf43edc4e12fa9c3</Key>
+        <Name>Item</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."Item"</SqlCommand>
+      </Item>
+      <ItemWarehouseInventory Ref="9" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>ItemWarehouseInventory</Alias>
+        <Columns isList="true" count="15">
+          <value>itemCode,System.Int32</value>
+          <value>id,System.String</value>
+          <value>updatedBy,System.String</value>
+          <value>warehouseCode,System.Int32</value>
+          <value>committed,System.Int32</value>
+          <value>available,System.Int32</value>
+          <value>ordered,System.Int32</value>
+          <value>inStock,System.Int32</value>
+          <value>deletedBy,System.String</value>
+          <value>isLocked,System.Boolean</value>
+          <value>createdBy,System.String</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>code,System.Int32</value>
+          <value>createdAt,System.DateTime</value>
+          <value>deletedAt,System.DateTime</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>daf5c28b9a6d410c8481137d52c11317</Key>
+        <Name>ItemWarehouseInventory</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."ItemWarehouseInventory"</SqlCommand>
+      </ItemWarehouseInventory>
+      <Notification Ref="10" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>Notification</Alias>
+        <Columns isList="true" count="20">
+          <value>entityCode,System.Int32</value>
+          <value>metaData,System.String</value>
+          <value>isInternal,System.Boolean</value>
+          <value>title,System.String</value>
+          <value>id,System.String</value>
+          <value>message,System.String</value>
+          <value>expiresAt,System.DateTime</value>
+          <value>entityType,System.String</value>
+          <value>entityId,System.String</value>
+          <value>excludeRoleKeys,System.String</value>
+          <value>link,System.String</value>
+          <value>isGlobal,System.Boolean</value>
+          <value>createdAt,System.DateTime</value>
+          <value>code,System.Int32</value>
+          <value>excludeRoleCodes,System.String</value>
+          <value>userCodes,System.String</value>
+          <value>roleKeys,System.String</value>
+          <value>createdBy,System.String</value>
+          <value>roleCodes,System.String</value>
+          <value>excludeUserCodes,System.String</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>4ea31f6bf08d4dc2b056691552da3343</Key>
+        <Name>Notification</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."Notification"</SqlCommand>
+      </Notification>
+      <NotificationReceipt Ref="11" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>NotificationReceipt</Alias>
+        <Columns isList="true" count="6">
+          <value>code,System.Int32</value>
+          <value>readAt,System.DateTime</value>
+          <value>deletedAt,System.DateTime</value>
+          <value>userCode,System.Int32</value>
+          <value>id,System.String</value>
+          <value>notificationCode,System.Int32</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>87271fa33a9548a8a8ae22513a315063</Key>
+        <Name>NotificationReceipt</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."NotificationReceipt"</SqlCommand>
+      </NotificationReceipt>
+      <Permission Ref="12" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>Permission</Alias>
+        <Columns isList="true" count="13">
+          <value>parentId,System.String</value>
+          <value>createdAt,System.DateTime</value>
+          <value>name,System.String</value>
+          <value>allowedActions,System.String</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>description,System.String</value>
+          <value>id,System.String</value>
+          <value>createdBy,System.String</value>
+          <value>code,System.String</value>
+          <value>deletedAt,System.DateTime</value>
+          <value>updatedBy,System.String</value>
+          <value>isParent,System.Boolean</value>
+          <value>deletedBy,System.String</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>e7fe4573fac7480faa2d53287ed744b0</Key>
         <Name>Permission</Name>
-        <NameInSource>PostgreSQL</NameInSource>
+        <NameInSource>OMEGADB_DEV</NameInSource>
         <Parameters isList="true" count="0" />
         <SqlCommand>select * from "public"."Permission"</SqlCommand>
       </Permission>
-      <Product Ref="10" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
-        <Alias>Product</Alias>
-        <Columns isList="true" count="10">
-          <value>id,System.String</value>
-          <value>description,System.String</value>
-          <value>createdAt,System.DateTime</value>
-          <value>supplierId,System.String</value>
-          <value>category,System.String</value>
-          <value>sku,System.String</value>
-          <value>stockQuantity,System.Int32</value>
-          <value>unitPrice,System.Decimal</value>
-          <value>updatedAt,System.DateTime</value>
-          <value>name,System.String</value>
-        </Columns>
-        <CommandTimeout>30</CommandTimeout>
-        <Dictionary isRef="1" />
-        <Key>e7c5f2c9823a4a0184d11ff8a8cc550b</Key>
-        <Name>Product</Name>
-        <NameInSource>PostgreSQL</NameInSource>
-        <Parameters isList="true" count="0" />
-        <SqlCommand>select * from "public"."Product"</SqlCommand>
-      </Product>
-      <Profile Ref="11" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+      <Profile Ref="13" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
         <Alias>Profile</Alias>
-        <Columns isList="true" count="9">
+        <Columns isList="true" count="10">
+          <value>code,System.Int32</value>
+          <value>deletedBy,System.String</value>
+          <value>createdAt,System.DateTime</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>createdBy,System.String</value>
+          <value>userCode,System.Int32</value>
           <value>deletedAt,System.DateTime</value>
           <value>updatedBy,System.String</value>
           <value>details,System.String</value>
-          <value>createdBy,System.String</value>
-          <value>deletedBy,System.String</value>
-          <value>createdAt,System.DateTime</value>
           <value>id,System.String</value>
-          <value>userId,System.String</value>
-          <value>updatedAt,System.DateTime</value>
         </Columns>
         <CommandTimeout>30</CommandTimeout>
         <Dictionary isRef="1" />
-        <Key>4174c733036244a887acfa8cf4c5ea57</Key>
+        <Key>5e1c52ba4a8143d4a65a1ad6124b0c70</Key>
         <Name>Profile</Name>
-        <NameInSource>PostgreSQL</NameInSource>
+        <NameInSource>OMEGADB_DEV</NameInSource>
         <Parameters isList="true" count="0" />
         <SqlCommand>select * from "public"."Profile"</SqlCommand>
       </Profile>
-      <Role Ref="12" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
-        <Alias>Role</Alias>
+      <ProjectGroup Ref="14" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>ProjectGroup</Alias>
         <Columns isList="true" count="11">
           <value>description,System.String</value>
+          <value>code,System.Int32</value>
+          <value>isActive,System.Boolean</value>
           <value>updatedAt,System.DateTime</value>
           <value>updatedBy,System.String</value>
+          <value>deletedAt,System.DateTime</value>
           <value>id,System.String</value>
           <value>createdAt,System.DateTime</value>
-          <value>createdBy,System.String</value>
-          <value>isSystem,System.Boolean</value>
           <value>deletedBy,System.String</value>
+          <value>createdBy,System.String</value>
           <value>name,System.String</value>
-          <value>code,System.String</value>
-          <value>deletedAt,System.DateTime</value>
         </Columns>
         <CommandTimeout>30</CommandTimeout>
         <Dictionary isRef="1" />
-        <Key>86f953b8652c4415aff59a0f27fe662b</Key>
+        <Key>b24c0051f8404aada715bf906319d114</Key>
+        <Name>ProjectGroup</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."ProjectGroup"</SqlCommand>
+      </ProjectGroup>
+      <ProjectGroupPic Ref="15" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>ProjectGroupPic</Alias>
+        <Columns isList="true" count="9">
+          <value>deletedAt,System.DateTime</value>
+          <value>updatedBy,System.String</value>
+          <value>createdBy,System.String</value>
+          <value>deletedBy,System.String</value>
+          <value>userCode,System.Int32</value>
+          <value>id,System.String</value>
+          <value>createdAt,System.DateTime</value>
+          <value>projectGroupCode,System.Int32</value>
+          <value>updatedAt,System.DateTime</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>309ecabceb574a0894dc95b1fcc189e2</Key>
+        <Name>ProjectGroupPic</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."ProjectGroupPic"</SqlCommand>
+      </ProjectGroupPic>
+      <ProjectIndividual Ref="16" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>ProjectIndividual</Alias>
+        <Columns isList="true" count="12">
+          <value>name,System.String</value>
+          <value>deletedAt,System.DateTime</value>
+          <value>updatedBy,System.String</value>
+          <value>groupCode,System.Int32</value>
+          <value>id,System.String</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>createdBy,System.String</value>
+          <value>createdAt,System.DateTime</value>
+          <value>description,System.String</value>
+          <value>code,System.Int32</value>
+          <value>deletedBy,System.String</value>
+          <value>isActive,System.Boolean</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>067f9b5bbe954366b79ebf5238ace905</Key>
+        <Name>ProjectIndividual</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."ProjectIndividual"</SqlCommand>
+      </ProjectIndividual>
+      <ProjectIndividualCustomer Ref="17" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>ProjectIndividualCustomer</Alias>
+        <Columns isList="true" count="9">
+          <value>createdBy,System.String</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>userCode,System.Int32</value>
+          <value>id,System.String</value>
+          <value>projectIndividualCode,System.Int32</value>
+          <value>deletedAt,System.DateTime</value>
+          <value>updatedBy,System.String</value>
+          <value>deletedBy,System.String</value>
+          <value>createdAt,System.DateTime</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>1b458ab34b92469ca15cb5973633bbee</Key>
+        <Name>ProjectIndividualCustomer</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."ProjectIndividualCustomer"</SqlCommand>
+      </ProjectIndividualCustomer>
+      <ProjectIndividualPic Ref="18" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>ProjectIndividualPic</Alias>
+        <Columns isList="true" count="9">
+          <value>createdAt,System.DateTime</value>
+          <value>deletedBy,System.String</value>
+          <value>userCode,System.Int32</value>
+          <value>id,System.String</value>
+          <value>projectIndividualCode,System.Int32</value>
+          <value>updatedBy,System.String</value>
+          <value>deletedAt,System.DateTime</value>
+          <value>createdBy,System.String</value>
+          <value>updatedAt,System.DateTime</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>2152eade5b3e419d95bec486bc962998</Key>
+        <Name>ProjectIndividualPic</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."ProjectIndividualPic"</SqlCommand>
+      </ProjectIndividualPic>
+      <ProjectIndividualSupplier Ref="19" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>ProjectIndividualSupplier</Alias>
+        <Columns isList="true" count="9">
+          <value>id,System.String</value>
+          <value>createdAt,System.DateTime</value>
+          <value>createdBy,System.String</value>
+          <value>deletedBy,System.String</value>
+          <value>supplierCode,System.String</value>
+          <value>updatedBy,System.String</value>
+          <value>deletedAt,System.DateTime</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>projectIndividualCode,System.Int32</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>5b2fea086ca04518bb6b3ca2b7e0486b</Key>
+        <Name>ProjectIndividualSupplier</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."ProjectIndividualSupplier"</SqlCommand>
+      </ProjectIndividualSupplier>
+      <ProjectItem Ref="20" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>ProjectItem</Alias>
+        <Columns isList="true" count="28">
+          <value>updatedAt,System.DateTime</value>
+          <value>siteLocation,System.String</value>
+          <value>subLocation3,System.String</value>
+          <value>warehouseCode,System.Int32</value>
+          <value>dateReceived,System.DateTime</value>
+          <value>cost,System.Decimal</value>
+          <value>code,System.Int32</value>
+          <value>palletNo,System.String</value>
+          <value>spq,System.String</value>
+          <value>totalStock,System.Decimal</value>
+          <value>packagingType,System.String</value>
+          <value>updatedBy,System.String</value>
+          <value>deletedAt,System.DateTime</value>
+          <value>createdBy,System.String</value>
+          <value>subLocation2,System.String</value>
+          <value>dateCode,System.String</value>
+          <value>lotCode,System.String</value>
+          <value>dateReceivedBy,System.Int32</value>
+          <value>itemCode,System.Int32</value>
+          <value>id,System.String</value>
+          <value>notes,System.String</value>
+          <value>projectIndividualCode,System.Int32</value>
+          <value>createdAt,System.DateTime</value>
+          <value>partNumber,System.String</value>
+          <value>stockIn,System.Decimal</value>
+          <value>deletedBy,System.String</value>
+          <value>stockOut,System.Decimal</value>
+          <value>countryOfOrigin,System.String</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>2396a753c8dd4f8ea738bbddcd10e99e</Key>
+        <Name>ProjectItem</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."ProjectItem"</SqlCommand>
+      </ProjectItem>
+      <Report Ref="21" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>Report</Alias>
+        <Columns isList="true" count="17">
+          <value>createdBy,System.String</value>
+          <value>description,System.String</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>deletedBy,System.String</value>
+          <value>isInternal,System.Boolean</value>
+          <value>code,System.Int32</value>
+          <value>isDefault,System.Boolean</value>
+          <value>createdAt,System.DateTime</value>
+          <value>deletedAt,System.DateTime</value>
+          <value>title,System.String</value>
+          <value>type,System.String</value>
+          <value>isFeatured,System.Boolean</value>
+          <value>fileName,System.String</value>
+          <value>updatedBy,System.String</value>
+          <value>id,System.String</value>
+          <value>isActive,System.Boolean</value>
+          <value>data,System.String</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>fed9515ad2a2465fbcfd3dd169032854</Key>
+        <Name>Report</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."Report"</SqlCommand>
+      </Report>
+      <Role Ref="22" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>Role</Alias>
+        <Columns isList="true" count="11">
+          <value>deletedBy,System.String</value>
+          <value>code,System.Int32</value>
+          <value>key,System.String</value>
+          <value>createdAt,System.DateTime</value>
+          <value>createdBy,System.String</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>id,System.String</value>
+          <value>description,System.String</value>
+          <value>updatedBy,System.String</value>
+          <value>deletedAt,System.DateTime</value>
+          <value>name,System.String</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>39de8b6656c245688d7380d255bc0ff2</Key>
         <Name>Role</Name>
-        <NameInSource>PostgreSQL</NameInSource>
+        <NameInSource>OMEGADB_DEV</NameInSource>
         <Parameters isList="true" count="0" />
         <SqlCommand>select * from "public"."Role"</SqlCommand>
       </Role>
-      <RolePermissions Ref="13" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
-        <Alias>RolePermissions</Alias>
+      <RolePermission Ref="23" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>RolePermission</Alias>
         <Columns isList="true" count="3">
           <value>permissionId,System.String</value>
-          <value>actions,System.String</value>
           <value>roleId,System.String</value>
+          <value>actions,System.String</value>
         </Columns>
         <CommandTimeout>30</CommandTimeout>
         <Dictionary isRef="1" />
-        <Key>35fc9a8a5d0a42bba145421ce48cfec7</Key>
-        <Name>RolePermissions</Name>
-        <NameInSource>PostgreSQL</NameInSource>
+        <Key>a03cba15ac504132992b44a9083a481d</Key>
+        <Name>RolePermission</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
         <Parameters isList="true" count="0" />
-        <SqlCommand>select * from "public"."RolePermissions"</SqlCommand>
-      </RolePermissions>
-      <RoleSettings Ref="14" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
-        <Alias>RoleSettings</Alias>
-        <Columns isList="true" count="3">
-          <value>role,System.String</value>
-          <value>settings,System.String</value>
-          <value>id,System.String</value>
-        </Columns>
-        <CommandTimeout>30</CommandTimeout>
-        <Dictionary isRef="1" />
-        <Key>a05a8bd9cdfe4d868bcd05bb89beadf7</Key>
-        <Name>RoleSettings</Name>
-        <NameInSource>PostgreSQL</NameInSource>
-        <Parameters isList="true" count="0" />
-        <SqlCommand>select * from "public"."RoleSettings"</SqlCommand>
-      </RoleSettings>
-      <Sale Ref="15" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
-        <Alias>Sale</Alias>
-        <Columns isList="true" count="11">
-          <value>saleDate,System.DateTime</value>
-          <value>id,System.String</value>
-          <value>productId,System.String</value>
-          <value>status,System.String</value>
-          <value>totalAmount,System.Decimal</value>
-          <value>region,System.String</value>
-          <value>unitPrice,System.Decimal</value>
-          <value>quantity,System.Int32</value>
-          <value>updatedAt,System.DateTime</value>
-          <value>createdAt,System.DateTime</value>
-          <value>customerId,System.String</value>
-        </Columns>
-        <CommandTimeout>30</CommandTimeout>
-        <Dictionary isRef="1" />
-        <Key>c16ace374a034e00a3a524cdc3b81cbf</Key>
-        <Name>Sale</Name>
-        <NameInSource>PostgreSQL</NameInSource>
-        <Parameters isList="true" count="0" />
-        <SqlCommand>select * from "public"."Sale"</SqlCommand>
-      </Sale>
-      <Settings Ref="16" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
-        <Alias>Settings</Alias>
-        <Columns isList="true" count="6">
-          <value>updatedBy,System.String</value>
-          <value>updatedAt,System.DateTime</value>
+        <SqlCommand>select * from "public"."RolePermission"</SqlCommand>
+      </RolePermission>
+      <RoleReport Ref="24" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>RoleReport</Alias>
+        <Columns isList="true" count="9">
           <value>id,System.String</value>
           <value>createdAt,System.DateTime</value>
-          <value>data,System.String</value>
           <value>createdBy,System.String</value>
+          <value>deletedBy,System.String</value>
+          <value>reportCode,System.Int32</value>
+          <value>updatedBy,System.String</value>
+          <value>deletedAt,System.DateTime</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>roleCode,System.Int32</value>
         </Columns>
         <CommandTimeout>30</CommandTimeout>
         <Dictionary isRef="1" />
-        <Key>023291a85a514a25845c6252aad35697</Key>
+        <Key>a6c20728135f43bbbc799760c6561075</Key>
+        <Name>RoleReport</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."RoleReport"</SqlCommand>
+      </RoleReport>
+      <Settings Ref="25" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>Settings</Alias>
+        <Columns isList="true" count="11">
+          <value>isGlobal,System.Boolean</value>
+          <value>updatedBy,System.String</value>
+          <value>roleCode,System.Int32</value>
+          <value>deletedBy,System.String</value>
+          <value>createdBy,System.String</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>code,System.Int32</value>
+          <value>id,System.String</value>
+          <value>data,System.String</value>
+          <value>createdAt,System.DateTime</value>
+          <value>deletedAt,System.DateTime</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>bc7a64b90619451ba8513bd1e343e6a3</Key>
         <Name>Settings</Name>
-        <NameInSource>PostgreSQL</NameInSource>
+        <NameInSource>OMEGADB_DEV</NameInSource>
         <Parameters isList="true" count="0" />
         <SqlCommand>select * from "public"."Settings"</SqlCommand>
       </Settings>
-      <User Ref="17" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
-        <Alias>User</Alias>
-        <Columns isList="true" count="16">
-          <value>updatedBy,System.String</value>
-          <value>password,System.String</value>
-          <value>deletedAt,System.DateTime</value>
-          <value>roleId,System.String</value>
+      <SyncMeta Ref="26" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>SyncMeta</Alias>
+        <Columns isList="true" count="10">
+          <value>deletedBy,System.String</value>
+          <value>code,System.String</value>
           <value>createdAt,System.DateTime</value>
-          <value>name,System.String</value>
-          <value>lastActiveAt,System.DateTime</value>
           <value>updatedAt,System.DateTime</value>
           <value>createdBy,System.String</value>
-          <value>email,System.String</value>
-          <value>profileId,System.String</value>
-          <value>isActive,System.Boolean</value>
-          <value>emailVerified,System.DateTime</value>
-          <value>deletedBy,System.String</value>
+          <value>updatedBy,System.String</value>
+          <value>deletedAt,System.DateTime</value>
+          <value>description,System.String</value>
           <value>id,System.String</value>
-          <value>isOnline,System.Boolean</value>
+          <value>lastSyncAt,System.DateTime</value>
         </Columns>
         <CommandTimeout>30</CommandTimeout>
         <Dictionary isRef="1" />
-        <Key>085e7d8d05e64b05a9e2776044b5ef52</Key>
+        <Key>841e27cad12449c0911ff32d1184b292</Key>
+        <Name>SyncMeta</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."SyncMeta"</SqlCommand>
+      </SyncMeta>
+      <User Ref="27" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>User</Alias>
+        <Columns isList="true" count="22">
+          <value>createdAt,System.DateTime</value>
+          <value>username,System.String</value>
+          <value>emailVerified,System.DateTime</value>
+          <value>isOnline,System.Boolean</value>
+          <value>fname,System.String</value>
+          <value>deletedAt,System.DateTime</value>
+          <value>supplierCode,System.String</value>
+          <value>id,System.String</value>
+          <value>email,System.String</value>
+          <value>password,System.String</value>
+          <value>deletedBy,System.String</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>lname,System.String</value>
+          <value>customerCode,System.String</value>
+          <value>lastSignin,System.DateTime</value>
+          <value>createdBy,System.String</value>
+          <value>location,System.String</value>
+          <value>code,System.Int32</value>
+          <value>updatedBy,System.String</value>
+          <value>isActive,System.Boolean</value>
+          <value>lastIpAddress,System.String</value>
+          <value>roleCode,System.Int32</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>b96869fb89a44420bbfc505368a10dae</Key>
         <Name>User</Name>
-        <NameInSource>PostgreSQL</NameInSource>
+        <NameInSource>OMEGADB_DEV</NameInSource>
         <Parameters isList="true" count="0" />
         <SqlCommand>select * from "public"."User"</SqlCommand>
       </User>
-      <UserSettings Ref="18" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
-        <Alias>UserSettings</Alias>
-        <Columns isList="true" count="7">
-          <value>dashboardSettings,System.String</value>
-          <value>updatedAt,System.DateTime</value>
-          <value>systemSettings,System.String</value>
-          <value>id,System.String</value>
+      <Warehouse Ref="28" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>Warehouse</Alias>
+        <Columns isList="true" count="29">
+          <value>deletedAt,System.DateTime</value>
           <value>createdAt,System.DateTime</value>
-          <value>roleSettings,System.String</value>
-          <value>userId,System.String</value>
+          <value>name,System.String</value>
+          <value>address2,System.String</value>
+          <value>gln,System.String</value>
+          <value>id,System.String</value>
+          <value>block,System.String</value>
+          <value>isEnableBinLocations,System.Boolean</value>
+          <value>description,System.String</value>
+          <value>isDefault,System.Boolean</value>
+          <value>zipCode,System.String</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>taxOffice,System.String</value>
+          <value>isNettable,System.Boolean</value>
+          <value>countryRegion,System.String</value>
+          <value>address1,System.String</value>
+          <value>isActive,System.Boolean</value>
+          <value>federalTaxId,System.String</value>
+          <value>address3,System.String</value>
+          <value>city,System.String</value>
+          <value>deletedBy,System.String</value>
+          <value>createdBy,System.String</value>
+          <value>code,System.Int32</value>
+          <value>updatedBy,System.String</value>
+          <value>buildingFloorRoom,System.String</value>
+          <value>streetNo,System.String</value>
+          <value>state,System.String</value>
+          <value>streetPoBox,System.String</value>
+          <value>county,System.String</value>
         </Columns>
         <CommandTimeout>30</CommandTimeout>
         <Dictionary isRef="1" />
-        <Key>81948bef1c9740e28e8ad7d222761b79</Key>
-        <Name>UserSettings</Name>
-        <NameInSource>PostgreSQL</NameInSource>
+        <Key>089b7ef01f4f4a0390bac49859410da7</Key>
+        <Name>Warehouse</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
         <Parameters isList="true" count="0" />
-        <SqlCommand>select * from "public"."UserSettings"</SqlCommand>
-      </UserSettings>
+        <SqlCommand>select * from "public"."Warehouse"</SqlCommand>
+      </Warehouse>
+      <WorkOrder Ref="29" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>WorkOrder</Alias>
+        <Columns isList="true" count="21">
+          <value>createdBy,System.String</value>
+          <value>alternativeShippingAddr,System.String</value>
+          <value>status,System.String</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>deletedBy,System.String</value>
+          <value>purchaseOrderCode,System.Int32</value>
+          <value>code,System.Int32</value>
+          <value>createdAt,System.DateTime</value>
+          <value>salesOrderCode,System.Int32</value>
+          <value>shippingAddrCode,System.String</value>
+          <value>alternativeBillingAddr,System.String</value>
+          <value>deletedAt,System.DateTime</value>
+          <value>projectIndividualCode,System.Int32</value>
+          <value>billingAddrCode,System.String</value>
+          <value>comments,System.String</value>
+          <value>userCode,System.Int32</value>
+          <value>customerPo,System.String</value>
+          <value>updatedBy,System.String</value>
+          <value>id,System.String</value>
+          <value>isAlternativeAddr,System.Boolean</value>
+          <value>isInternal,System.Boolean</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>d78953873b0f40dea6d20e59339544ae</Key>
+        <Name>WorkOrder</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."WorkOrder"</SqlCommand>
+      </WorkOrder>
+      <WorkOrderItem Ref="30" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>WorkOrderItem</Alias>
+        <Columns isList="true" count="4">
+          <value>workOrderCode,System.Int32</value>
+          <value>isDelivered,System.Boolean</value>
+          <value>qty,System.Decimal</value>
+          <value>projectItemCode,System.Int32</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>a777abd54490449fbe668cc21fa9d796</Key>
+        <Name>WorkOrderItem</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."WorkOrderItem"</SqlCommand>
+      </WorkOrderItem>
+      <WorkOrderStatusUpdate Ref="31" type="Stimulsoft.Report.Dictionary.StiPostgreSQLSource" isKey="true">
+        <Alias>WorkOrderStatusUpdate</Alias>
+        <Columns isList="true" count="11">
+          <value>id,System.String</value>
+          <value>prevStatus,System.String</value>
+          <value>trackingNum,System.String</value>
+          <value>createdAt,System.DateTime</value>
+          <value>workOrderCode,System.Int32</value>
+          <value>createdBy,System.String</value>
+          <value>comments,System.String</value>
+          <value>currentStatus,System.String</value>
+          <value>updatedAt,System.DateTime</value>
+          <value>code,System.Int32</value>
+          <value>updatedBy,System.String</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Key>78a00a6ec84a4ae68082fda120693285</Key>
+        <Name>WorkOrderStatusUpdate</Name>
+        <NameInSource>OMEGADB_DEV</NameInSource>
+        <Parameters isList="true" count="0" />
+        <SqlCommand>select * from "public"."WorkOrderStatusUpdate"</SqlCommand>
+      </WorkOrderStatusUpdate>
     </DataSources>
     <Relations isList="true" count="0" />
     <Report isRef="0" />
@@ -357,13 +776,13 @@
   </Dictionary>
   <EngineVersion>EngineV2</EngineVersion>
   <GlobalizationStrings isList="true" count="0" />
-  <Key>b05d685975804d00a42638b60da0ad6e</Key>
+  <Key>701679711a36454ead92736071e50dd2</Key>
   <MetaTags isList="true" count="0" />
   <Pages isList="true" count="1">
-    <Dashboard1 Ref="19" type="Stimulsoft.Dashboard.Components.StiDashboard" isKey="true">
+    <Dashboard1 Ref="32" type="Stimulsoft.Dashboard.Components.StiDashboard" isKey="true">
       <Components isList="true" count="0" />
       <Expressions isList="true" count="0" />
-      <Guid>0bdd6c643583418db8ee75548231c118</Guid>
+      <Guid>8346f2eb2ccb4a75870ac27b4d235896</Guid>
       <Name>Dashboard1</Name>
       <Report isRef="0" />
     </Dashboard1>
@@ -379,14 +798,14 @@
     <value>Stimulsoft.Report.Dll</value>
   </ReferencedAssemblies>
   <ReportAlias>Report</ReportAlias>
-  <ReportAuthor>Pixelcare Dev 1</ReportAuthor>
-  <ReportChanged>2/24/2026 9:44:47 AM</ReportChanged>
-  <ReportCreated>2/23/2026 4:34:24 PM</ReportCreated>
-  <ReportFile>D:\pixelcare\omega-iris\public\misc\blank-dashboard.mrt</ReportFile>
-  <ReportGuid>2fe441a13bbe4e3a8ae37d9e90aad5db</ReportGuid>
+  <ReportAuthor>afif syakiran</ReportAuthor>
+  <ReportChanged>3/9/2026 8:22:51 PM</ReportChanged>
+  <ReportCreated>3/9/2026 6:25:26 PM</ReportCreated>
+  <ReportFile>E:\stimulsoft-files\dev\blank-dashboard.mrt</ReportFile>
+  <ReportGuid>62b8ca821e524a35afa466c8408299b3</ReportGuid>
   <ReportName>Report</ReportName>
   <ReportUnit>Inches</ReportUnit>
-  <ReportVersion>2025.4.1.0</ReportVersion>
+  <ReportVersion>2026.1.4.0</ReportVersion>
   <Script>using System;
 using System.Drawing;
 using System.Windows.Forms;

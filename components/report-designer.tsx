@@ -11,6 +11,7 @@ export const REPORT_DESIGNER_ID = 'StiDesigner'
 type ExtendedProps = {
   data?: any
   config?: ReportDesignerConfig
+  params?: Record<string, any>
 }
 
 type ReportDesignerProps = (
@@ -19,8 +20,8 @@ type ReportDesignerProps = (
 ) &
   ExtendedProps
 
-export default function ReportDesigner({ type, designerProps, data, config }: ReportDesignerProps) {
-  const reportDesigner = useReportDesigner(type, data, config)
+export default function ReportDesigner({ type, designerProps, data, config, params }: ReportDesignerProps) {
+  const reportDesigner = useReportDesigner(type, data, config, params)
 
   if (!reportDesigner?.report || !reportDesigner.options || !reportDesigner.isReady) return null
 

@@ -87,6 +87,13 @@ export async function getReportByCode(code: number) {
   }
 }
 
+export const getReportsByCodeClient = action
+  .use(authenticationMiddleware)
+  .schema(paramsSchema)
+  .action(async ({ parsedInput }) => {
+    return getReportByCode(parsedInput.code)
+  })
+
 export const upsertReport = action
   .use(authenticationMiddleware)
   .schema(reportFormSchema)

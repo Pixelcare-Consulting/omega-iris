@@ -10,16 +10,18 @@ import PageContentWrapper from '../../_components/page-content-wrapper'
 import { Badge } from '@/components/badge'
 import dynamic from 'next/dynamic'
 import { Icons } from '@/components/icons'
+import { getCurrentUserAbility } from '@/actions/auth'
 
 type DashboardReportProps = {
   reports: Awaited<ReturnType<typeof getDashboardReports>>
+  params?: Record<string, any>
 }
 
 const ReportViewer = dynamic(() => import('@/components/report-viewer'), { ssr: false })
 
 const SELECTED_DASHBOARD_REPORT_KEY = 'selected-dashboard-report'
 
-export default function DashboardReport({ reports }: DashboardReportProps) {
+export default function DashboardReport({ reports, params }: DashboardReportProps) {
   const [selected, setSelected] = useState<number | null>(null)
 
   const selectedReport = useMemo(() => {
@@ -92,7 +94,7 @@ export default function DashboardReport({ reports }: DashboardReportProps) {
       <PageContentWrapper className='h-[calc(100vh_-_100px)]'>
         <div className='h-full [&>div]:h-full'>
           {reports.length > 0 ? (
-            <ReportViewer key={selectedReport?.code} type={'1'} data={selectedReport?.data} />
+            <ReportViewer key={selectedReport?.code} type={'1'} data={selectedReport?.data} params={params} />
           ) : (
             <div className='flex items-center justify-center'>
               <div className='flex flex-col items-center justify-center'>

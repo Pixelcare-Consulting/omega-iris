@@ -15,7 +15,7 @@ export type ReportViewerTypeMap = {
   }
 }
 
-export function useReportViewer<T extends keyof ReportViewerTypeMap>(type: T, data?: any) {
+export function useReportViewer<T extends keyof ReportViewerTypeMap>(type: T, data?: any, params?: Record<string, any>) {
   const isMounted = useRef(false)
   const reportREf = useRef<ReportViewerTypeMap[T]['report'] | null>(null)
 
@@ -36,6 +36,18 @@ export function useReportViewer<T extends keyof ReportViewerTypeMap>(type: T, da
           //* load report
           if (data) report.load(data)
           else report.loadFile(REPORT_BLANK_SRC['1'])
+
+          //* compile first - this fully initializes the dictionary and variables
+
+          //* inject parameters
+          if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+              const variables = report.dictionary.variables
+              const variable = variables.getByName(key)
+              console.log({ key, value, variables, variable })
+              if (variable) variable.value = value
+            })
+          }
 
           //* set web server url
           stiDashboardRptViewer.StiOptions.WebServer.url = process.env.NEXT_PUBLIC_REPORT_SERVER_URL!
@@ -68,6 +80,16 @@ export function useReportViewer<T extends keyof ReportViewerTypeMap>(type: T, da
           if (data) report.load(data)
           else report.loadFile(REPORT_BLANK_SRC['2'])
 
+          //* inject parameters using valueObject - correct JS API
+          if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+              const variables = report.dictionary?.variables
+              const variable = variables?.getByName(key)
+              console.log({ key, value, variables, variable })
+              if (variable) variable.value = value
+            })
+          }
+
           //* set web server url!
           stiPaginatedRptViewer.StiOptions.WebServer.url = process.env.NEXT_PUBLIC_REPORT_SERVER_URL!
 
@@ -80,7 +102,7 @@ export function useReportViewer<T extends keyof ReportViewerTypeMap>(type: T, da
           options.toolbar.showFullScreenButton = false
           options.toolbar.showOpenButton = false
 
-          if (isMounted.current && isReady) {
+          if (isMounted.current) {
             setReport(report)
             setOptions(options)
           }

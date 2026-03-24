@@ -23,7 +23,8 @@ export type ReportDesignerConfig = {
 export function useReportDesigner<T extends keyof ReportDesignerTypeMap>(
   type: T,
   data?: any,
-  { isHideSaveButton = false, isHideSaveAsButton = false }: ReportDesignerConfig = {}
+  { isHideSaveButton = false, isHideSaveAsButton = false }: ReportDesignerConfig = {},
+  params?: Record<string, any>
 ) {
   const isMounted = useRef(false)
   const reportREf = useRef<ReportDesignerTypeMap[T]['report'] | null>(null)
@@ -45,6 +46,15 @@ export function useReportDesigner<T extends keyof ReportDesignerTypeMap>(
           //* load report
           if (data) report.load(data)
           else report.loadFile(REPORT_BLANK_SRC['1'])
+
+          //* inject parameters
+          if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+              const variables = report.dictionary.variables
+              const variable = variables.getByName(key)
+              if (variable) variable.value = value
+            })
+          }
 
           //* set web server url
           stiDashboardRptDesigner.StiOptions.WebServer.url = process.env.NEXT_PUBLIC_REPORT_SERVER_URL!
@@ -70,7 +80,6 @@ export function useReportDesigner<T extends keyof ReportDesignerTypeMap>(
           }
         }
         break
-
       case '2':
         {
           const paginatedModule = await import('stimulsoft-reports-js-react/designer')
@@ -82,6 +91,15 @@ export function useReportDesigner<T extends keyof ReportDesignerTypeMap>(
           //* load report
           if (data) report.load(data)
           else report.loadFile(REPORT_BLANK_SRC['2'])
+
+          //* inject parameters
+          if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+              const variables = report.dictionary.variables
+              const variable = variables.getByName(key)
+              if (variable) variable.value = value
+            })
+          }
 
           //* set web server url!
           stiPaginatedRptDesigner.StiOptions.WebServer.url = process.env.NEXT_PUBLIC_REPORT_SERVER_URL!

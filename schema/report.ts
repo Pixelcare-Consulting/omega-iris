@@ -11,6 +11,8 @@ export const REPORT_TYPE_LABEL = {
 } as const
 
 export const REPORT_BLANK_SRC = {
+  // '1': '/misc/test-blank-dashboard.mrt',
+  // '2': '/misc/test-blank-paginated.mrt',
   '1': '/misc/blank-dashboard.mrt',
   '2': '/misc/blank-paginated.mrt',
 }

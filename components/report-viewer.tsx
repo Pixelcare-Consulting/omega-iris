@@ -8,13 +8,14 @@ export type PaginatedReportViewerProps = React.ComponentProps<typeof PaginatedVi
 
 type ExtendedProps = {
   data?: any
+  params?: Record<string, any>
 }
 
 type ReportViewerProps = ({ type: '1'; viewerProps?: DashboardRptViewerProps } | { type: '2'; viewerProps?: PaginatedReportViewerProps }) &
   ExtendedProps
 
-export default function ReportViewer({ type, viewerProps, data }: ReportViewerProps) {
-  const reportViewer = useReportViewer(type, data)
+export default function ReportViewer({ type, viewerProps, data, params }: ReportViewerProps) {
+  const reportViewer = useReportViewer(type, data, params)
 
   if (!reportViewer?.report || !reportViewer.options || !reportViewer.isReady) return null
 
