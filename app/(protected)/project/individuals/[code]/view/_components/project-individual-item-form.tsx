@@ -418,7 +418,7 @@ export default function ProjectItemForm({
               <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Location' description='Item location details' />
 
               <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <TextBoxField control={form.control} name='siteLocation' label='Site Location' />
+                <TextBoxField control={form.control} name='siteLocation' label='Site Location' isRequired />
               </div>
 
               <div className='col-span-12 md:col-span-6 lg:col-span-4'>

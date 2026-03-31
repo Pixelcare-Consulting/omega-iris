@@ -60,6 +60,7 @@ export function useReportViewer<T extends keyof ReportViewerTypeMap>(type: T, da
           options.toolbar.showAboutButton = false
           options.toolbar.showFullScreenButton = false
           options.toolbar.showOpenButton = false
+          options.appearance.parametersPanelColumnsCount = 3
 
           if (isMounted.current && isReady) {
             setReport(report)
@@ -101,6 +102,7 @@ export function useReportViewer<T extends keyof ReportViewerTypeMap>(type: T, da
           options.toolbar.showAboutButton = false
           options.toolbar.showFullScreenButton = false
           options.toolbar.showOpenButton = false
+          options.appearance.parametersPanelColumnsCount = 3
 
           if (isMounted.current) {
             setReport(report)
