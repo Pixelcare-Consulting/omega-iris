@@ -75,7 +75,10 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
 
   const { executeAsync, isExecuting } = useAction(upsertUser)
 
-  const customers = useBps('C', process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' ? true : false)
+  const customers = useBps(
+    ['C', ...(process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' ? [] : ['L'])],
+    process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' ? true : false
+  )
   const roles = useRoles()
 
   const handleOnSubmit = async (formData: UserForm) => {
