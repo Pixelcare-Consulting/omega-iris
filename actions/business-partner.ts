@@ -842,7 +842,7 @@ export const syncFromSap = action
         return {
           error: true,
           status: 404,
-          message: `Failed to fetch ${cardType === 'L' || cardType === 'C' ? 'customer' : 'supplier'} master from SAP!`,
+          message: `No ${cardType === 'L' || cardType === 'C' ? 'customer' : 'supplier'} records available for sync.`,
           action: 'SYNC_FROM_SAP',
         }
       }
