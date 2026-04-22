@@ -95,7 +95,7 @@ export default function WorkOrderLineItemForm({
 
     const values = allowData.map((row) => ({
       projectItemCode: row.projectItemCode,
-      qty: row.qty,
+      qty: row.qty > 0 ? row.qty : row.availableToOrder,
       maxQty: row.availableToOrder,
       isDelivered: false,
     }))
@@ -108,6 +108,16 @@ export default function WorkOrderLineItemForm({
         return prev.map((pItem) => ({
           ...pItem,
           qty: currentDeselectedRowKeys.includes(pItem.projectItemCode) ? 0 : pItem.qty,
+        }))
+      })
+    }
+
+    //* if values > 1 then set the qty based on availableToOrder and update the projectItemsDataSource
+    if (values.length > 0) {
+      setProjectItemsDataSource((prev) => {
+        return prev.map((pItem) => ({
+          ...pItem,
+          qty: values.find((v) => v.projectItemCode === pItem.projectItemCode)?.qty ?? pItem.qty,
         }))
       })
     }

@@ -76,7 +76,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
   const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([])
 
   const users = useUsers()
-  const itemMasters = useItems(true)
+  const itemMasters = useItems(process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' ? true : false)
 
   const dataGridRef = useRef<DataGridRef | null>(null)
   const importErrorDataGridRef = useRef<DataGridRef | null>(null)
