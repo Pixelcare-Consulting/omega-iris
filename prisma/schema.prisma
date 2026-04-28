@@ -8,22 +8,23 @@ generator client {
 }
 
 model User {
-    id            String    @id @default(cuid())
-    code          Int       @unique @default(autoincrement())
-    username      String    @unique
-    fname         String
-    lname         String
-    email         String    @unique
-    emailVerified DateTime?
-    password      String    @default("")
-    roleCode      Int
-    isOnline      Boolean   @default(false)
-    isActive      Boolean   @default(true)
-    location      String?
-    lastIpAddress String?
-    lastSignin    DateTime?
-    customerCode  String?
-    supplierCode  String?
+    id                       String    @id @default(cuid())
+    code                     Int       @unique @default(autoincrement())
+    username                 String    @unique
+    fname                    String
+    lname                    String
+    email                    String    @unique
+    emailVerified            DateTime?
+    password                 String    @default("")
+    roleCode                 Int
+    isOnline                 Boolean   @default(false)
+    isActive                 Boolean   @default(true)
+    location                 String?
+    lastIpAddress            String?
+    lastSignin               DateTime?
+    isDefaultPasswordChanged Boolean   @default(false)
+    customerCode             String?
+    supplierCode             String?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt

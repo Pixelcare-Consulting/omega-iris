@@ -26,6 +26,7 @@ export type ExtendedUser = {
   isActive: boolean
   isOAuth: boolean
   sapSession: SapAuthCookies | null
+  isDefaultPasswordChanged: boolean
 }
 
 declare module 'next-auth' {
@@ -62,6 +63,7 @@ export const callbacks: NextAuthConfig['callbacks'] = {
           emailVerified: true,
           isActive: true,
           isOnline: true,
+          isDefaultPasswordChanged: true,
           role: {
             include: {
               rolePermissions: {
@@ -76,7 +78,7 @@ export const callbacks: NextAuthConfig['callbacks'] = {
 
       const existingAccount = await db.account.findFirst({ where: { userId: existingUser.id } })
 
-      const { id, code, username, fname, lname, email, emailVerified, isActive, isOnline, role } = existingUser
+      const { id, code, username, fname, lname, email, emailVerified, isActive, isOnline, isDefaultPasswordChanged, role } = existingUser
 
       //* user - fields only available after login and for the next subsequent calls it will be undefined
       //* trigger authenticate SAP only once after login, on subsequent calls it will not be triggered
@@ -125,6 +127,7 @@ export const callbacks: NextAuthConfig['callbacks'] = {
         rolePermissions,
         isActive,
         isOnline,
+        isDefaultPasswordChanged,
         isOAuth: !!existingAccount,
         sapSession: null,
       }

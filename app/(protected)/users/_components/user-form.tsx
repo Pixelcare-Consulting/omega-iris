@@ -40,7 +40,16 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
   const isCreate = code === 'add' || !user
 
   const values = useMemo(() => {
-    if (user) return { ...user, roleKey: user.role.key, password: '', confirmPassword: '', newPassword: '', newConfirmPassword: '' }
+    if (user)
+      return {
+        ...user,
+        roleKey: user.role.key,
+        password: '',
+        confirmPassword: '',
+        newPassword: '',
+        newConfirmPassword: '',
+        isForceToChangePassword: user.isDefaultPasswordChanged ? false : true,
+      }
 
     if (isCreate) {
       return {
@@ -59,6 +68,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
         newConfirmPassword: '',
         customerCode: '',
         supplierCode: '',
+        isForceToChangePassword: true,
       }
     }
 
@@ -243,6 +253,15 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                   </div>
                 </>
               )}
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <SwitchField
+                  control={form.control}
+                  name='isForceToChangePassword'
+                  label='Force To change Password'
+                  description='Required the user to change their password upon next login'
+                />
+              </div>
 
               {roleKey && roleKey === 'business-partner' && (
                 <>

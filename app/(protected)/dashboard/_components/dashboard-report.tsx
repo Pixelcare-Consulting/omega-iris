@@ -103,7 +103,7 @@ export default function DashboardReport({ reports, params, userInfo }: Dashboard
               <ReportViewer key={selectedReport?.code} type={'1'} data={selectedReport?.data} params={params} />
             ) : (
               <div className='flex items-center justify-center'>
-                <div className='flex flex-col items-center justify-center'>
+                <div className='flex h-[calc(100vh_-210px)] flex-col items-center justify-center'>
                   <Icons.triangleAlert className='size-14 text-red-500' />
                   <div className='mt-2.5 flex flex-col items-center justify-center gap-1'>
                     <h1 className='text-center text-xl font-bold text-red-500'>Dashboad Reports Not Available</h1>

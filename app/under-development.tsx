@@ -1,3 +1,5 @@
+'use client'
+
 import { Icons } from '@/components/icons'
 import { cn } from '@/utils'
 import React from 'react'

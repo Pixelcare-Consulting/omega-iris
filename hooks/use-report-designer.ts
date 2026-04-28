@@ -1,7 +1,9 @@
 'use client'
 
+import { getStimulsoftLicenseKeyClient } from '@/actions/stimulsoft'
 import { DashboardRptDesignerProps, PaginatedRptDesignerProps } from '@/components/report-designer'
 import { REPORT_BLANK_SRC, ReportType } from '@/schema/report'
+import { useAction } from 'next-safe-action/hooks'
 import { useEffect, useRef, useState } from 'react'
 
 export type ReportDesignerTypeMap = {
@@ -33,15 +35,22 @@ export function useReportDesigner<T extends keyof ReportDesignerTypeMap>(
   const [options, setOptions] = useState<ReportDesignerTypeMap[T]['options']>()
   const [isReady, setIsReady] = useState(false)
 
+  const stimulsoftlicenseKeyData = useAction(getStimulsoftLicenseKeyClient)
+
   const load = async (type: ReportType) => {
     switch (type) {
       case '1':
         {
           const dashboardModule = await import('stimulsoft-dashboards-js-react/designer')
+          const stimulsoftlicenseKeyDataResponse = await stimulsoftlicenseKeyData.executeAsync()
           const stiDashboardRptDesigner = dashboardModule.Stimulsoft
 
           const report = new stiDashboardRptDesigner.Report.StiReport()
           const options = new stiDashboardRptDesigner.Designer.StiDesignerOptions()
+          const licenseKey = stimulsoftlicenseKeyDataResponse?.data
+
+          //* license activation
+          if (licenseKey) stiDashboardRptDesigner.Base.StiLicense.key = licenseKey
 
           //* load report
           if (data) report.load(data)
@@ -83,10 +92,15 @@ export function useReportDesigner<T extends keyof ReportDesignerTypeMap>(
       case '2':
         {
           const paginatedModule = await import('stimulsoft-reports-js-react/designer')
+          const stimulsoftlicenseKeyDataResponse = await stimulsoftlicenseKeyData.executeAsync()
           const stiPaginatedRptDesigner = paginatedModule.Stimulsoft
 
           const report = new stiPaginatedRptDesigner.Report.StiReport()
           const options = new stiPaginatedRptDesigner.Designer.StiDesignerOptions()
+          const licenseKey = stimulsoftlicenseKeyDataResponse?.data
+
+          //* license activation
+          if (licenseKey) stiPaginatedRptDesigner.Base.StiLicense.key = licenseKey
 
           //* load report
           if (data) report.load(data)
