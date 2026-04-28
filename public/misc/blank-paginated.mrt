@@ -6,7 +6,7 @@
     <Databases isList="true" count="1">
       <OMEGA_DB Ref="2" type="Stimulsoft.Report.Dictionary.StiPostgreSQLDatabase" isKey="true">
         <Alias>OMEGA_DB</Alias>
-        <ConnectionStringEncrypted>43yt60Zd0x3iX9Xcw1z2F9Vg2cPGTNmFy1uxCOoEYmvDVlMox2h7mOkV7cxNXKQPi3pl60Zdm4XpE9lYYEz2XtFWgQhNXNPVbFvh9OkQYkbD8mXjxltDnGxKuQ==</ConnectionStringEncrypted>
+        <ConnectionStringEncrypted>42rz60YK0x3iX9XUw1xiF9VU2cNhXdnIRVuxCGEEdWuBYFMoSGh7mOkVpezqXOFji1L3Lc0Dm6TpWrnMYHj2Z41WyQNPWkPNb2EVzOoY4EbT8nfpzUsB9eFQ1fQ=</ConnectionStringEncrypted>
         <Key>1283007eefbd48eb90c569a4468112a5</Key>
         <Name>OMEGA_DB</Name>
       </OMEGA_DB>
