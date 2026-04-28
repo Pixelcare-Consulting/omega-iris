@@ -243,7 +243,7 @@ export const upsertPi = action
           db.projectIndividualCustomer.deleteMany({ where: { projectIndividualCode: code } }),
 
           //* create new project individual customers
-          db.projectIndividualCustomer.createManyAndReturn({
+          db.projectIndividualCustomer.createMany({
             data: customers.map((c) => ({ projectIndividualCode: code, userCode: c })),
           }),
 
@@ -251,7 +251,7 @@ export const upsertPi = action
           db.projectIndividualSupplier.deleteMany({ where: { projectIndividualCode: code } }),
 
           //* create new project individual suppliers
-          db.projectIndividualSupplier.createManyAndReturn({
+          db.projectIndividualSupplier.createMany({
             data: suppliers.map((s) => ({ projectIndividualCode: code, supplierCode: s })),
           }),
 
@@ -259,7 +259,7 @@ export const upsertPi = action
           db.projectIndividualPic.deleteMany({ where: { projectIndividualCode: code } }),
 
           //* create new project individual pics
-          db.projectIndividualPic.createManyAndReturn({
+          db.projectIndividualPic.createMany({
             data: pics.map((p) => ({ projectIndividualCode: code, userCode: p })),
           }),
         ])

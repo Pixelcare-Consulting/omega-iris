@@ -11,6 +11,7 @@ type PageHeaderProps = {
   description?: string
   descriptionClassName?: string
   children?: React.ReactNode
+  badge?: React.ReactNode
 }
 
 export default function PageHeader({
@@ -21,6 +22,7 @@ export default function PageHeader({
   description,
   descriptionClassName,
   children,
+  badge,
 }: PageHeaderProps) {
   return (
     <header className={cn('rounded-md bg-primary-black/5 px-4 py-3 shadow-md', className)}>
@@ -30,8 +32,13 @@ export default function PageHeader({
             location='before'
             render={() => (
               <div className='hidden max-w-2xl flex-1 lg:inline-block'>
-                <h1 className={cn('text-base font-bold tracking-tight sm:text-lg md:text-lg lg:text-left lg:text-xl', titleClassName)}>
-                  {title}
+                <h1
+                  className={cn(
+                    'flex items-center gap-2 text-base font-bold tracking-tight sm:text-lg md:text-lg lg:text-left lg:text-xl',
+                    titleClassName
+                  )}
+                >
+                  {title} {badge}
                 </h1>
                 <div className={cn('line-clamp-1 text-slate-500 md:text-sm lg:text-left', descriptionClassName)}>{description}</div>
               </div>

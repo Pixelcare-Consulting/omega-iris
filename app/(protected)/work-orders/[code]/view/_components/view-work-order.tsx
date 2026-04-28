@@ -21,12 +21,16 @@ import CanView from '@/components/acl/can-view'
 import { safeParseInt } from '@/utils'
 import { useFileAttachmentsByRefCode } from '@/hooks/safe-actions/file-attachment'
 import WorkOrderAttachmentTab from './_tabs/work-order-attachment-tab'
+import { useReportByCode } from '@/hooks/safe-actions/report'
+import WorkOrderReportViewerTab from './_tabs/work-order-report-viewer-tab'
+import { getReportByCode } from '@/actions/report'
 
 type ViewWorkOrderProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
+  report: Awaited<ReturnType<typeof getReportByCode>>
 }
 
-export default function ViewWorkOrder({ workOrder }: ViewWorkOrderProps) {
+export default function ViewWorkOrder({ workOrder, report }: ViewWorkOrderProps) {
   const router = useRouter()
 
   const status = safeParseInt(workOrder.status)
@@ -73,7 +77,7 @@ export default function ViewWorkOrder({ workOrder }: ViewWorkOrderProps) {
         )}
       </PageHeader>
 
-      <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
+      <PageContentWrapper className='h-[calc(100vh_-_150px)]'>
         <TabPanel width='100%' height='100%' animationEnabled tabsPosition='top' defaultSelectedIndex={0}>
           <TabPanelITem title='Overview'>
             <WorkOrderOverviewTab
@@ -94,6 +98,10 @@ export default function ViewWorkOrder({ workOrder }: ViewWorkOrderProps) {
 
           <TabPanelITem title='Attachments'>
             <WorkOrderAttachmentTab workOrder={workOrder} fileAttachments={fileAttachments} />
+          </TabPanelITem>
+
+          <TabPanelITem title='Report'>
+            <WorkOrderReportViewerTab workOrder={workOrder} report={report} />
           </TabPanelITem>
 
           {/* <TabPanelITem title='Sales Order'>

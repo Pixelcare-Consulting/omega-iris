@@ -27,7 +27,7 @@ Omga GTI Inventory Management System
 #### Basic Settings
 
 - Base size: **Normal**
-- Accent color: **rgba(237, 28, 36, 1)**
+- Accent color: **rgba(237, 28, 36, 1)** - **#ED1C24**
 - Text color: **rgba(2, 6, 23, 1)** `slate-950`
 - Page background color: **rgba(255, 255, 255, 1)** `white`
 - Component background color: **rgba(255, 255, 255, 1)** `white`

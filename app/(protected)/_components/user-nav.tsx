@@ -20,11 +20,7 @@ export default function UserNav({ user }: UserNavProps) {
   const router = useRouter()
 
   const handleSignOut = async () => {
-    await signOut({
-      redirect: false,
-      callbackUrl: '/login',
-    })
-
+    await signOut({ redirect: false })
     window.location.assign('/signin')
   }
 

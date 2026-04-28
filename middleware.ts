@@ -17,15 +17,22 @@ const { auth } = NextAuth({
 
 export default auth((req) => {
   const { nextUrl } = req
-  const isAuthenticated = !!req.auth
+  const session = req.auth
+  const isAuthenticated = !!session
 
   const isApiAuthRoute = nextUrl.pathname.startsWith(authApiPrefix)
   const isAuthRoute = authRoutes.includes(nextUrl.pathname)
   const isProtectedRoute = protectedRoutes.some((route) => nextUrl.pathname.startsWith(route))
   const isRootPage = nextUrl.pathname === '/'
+  const isChangePasswordPage = nextUrl.pathname === '/change-password'
 
   //* if the request is for an API route, pass it to the next handler
   if (isApiAuthRoute) return NextResponse.next()
+
+  // //* if its isAuthenticated and isDefaultPasswordChanged and its not , redirect to changed default password page
+  if (isAuthenticated && !session?.user?.isDefaultPasswordChanged && !isChangePasswordPage) {
+    return NextResponse.redirect(new URL(`/change-password?isForceToChangePassword=true`, nextUrl))
+  }
 
   //* if its root page
   if (isRootPage) {
@@ -35,7 +42,8 @@ export default auth((req) => {
 
   //* if the request is for an auth route, check if the user is authenticated, if authenticated redirect to the default signin redirect, if not proceed to the next handler
   if (isAuthRoute) {
-    if (isAuthenticated) return NextResponse.redirect(new URL(DEFAULT_SIGNIN_REDIRECT, nextUrl))
+    if (isAuthenticated && !isChangePasswordPage) return NextResponse.redirect(new URL(DEFAULT_SIGNIN_REDIRECT, nextUrl))
+    else if (!isAuthenticated && isChangePasswordPage) return NextResponse.redirect(new URL('/signin', nextUrl))
     return NextResponse.next()
   }
 

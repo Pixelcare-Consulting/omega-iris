@@ -13,6 +13,7 @@ import {
   X,
   XCircle,
   ClipboardList,
+  UserX2,
 } from 'lucide-react'
 
 export const Icons = {
@@ -30,4 +31,5 @@ export const Icons = {
   xCircle: XCircle,
   msgSquareText: MessageSquareText,
   clipboadList: ClipboardList,
+  userX: UserX2,
 }

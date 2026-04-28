@@ -10,7 +10,7 @@ export const publicRoutes = ['/examples', '/unauthorized']
  * These routes does not require authentication.
  * @type {string[]}
  */
-export const authRoutes = ['/signin']
+export const authRoutes = ['/signin', '/change-password']
 
 /**
  * An array of routes that are accessible to authenticated users.
@@ -21,12 +21,13 @@ export const protectedRoutes = [
   '/dashboard',
   '/users',
   '/profile',
-  '/security/roles',
+  '/roles',
+  '/customers',
+  '/suppliers',
   '/project/groups',
   '/project/individuals',
-  '/inventories',
   '/inventory',
-  '/warehouses',
+  '/work-orders',
 ]
 
 /**
@@ -36,4 +37,4 @@ export const protectedRoutes = [
  */
 export const authApiPrefix = '/api/auth'
 
-export const DEFAULT_SIGNIN_REDIRECT = '/project/individuals' //* temporary redirect - but should be  /dashboard
+export const DEFAULT_SIGNIN_REDIRECT = '/dashboard'

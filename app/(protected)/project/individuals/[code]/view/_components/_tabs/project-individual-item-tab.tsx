@@ -93,6 +93,11 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
     return session.user.roleKey === 'business-partner'
   }, [JSON.stringify(session)])
 
+  const isAdmin = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'admin'
+  }, [JSON.stringify(session)])
+
   const thumbnailCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
     const data = e.data as DataSource[number]
     const thumbnail = data.item.thumbnail
@@ -435,7 +440,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
       {!isViewMode ? (
         <div className='flex h-full w-full flex-col'>
           <Toolbar className='mt-5'>
-            {selectedRowKeys.length > 0 && (
+            {selectedRowKeys.length > 0 && isAdmin && (
               <Item location='after' locateInMenu='auto' widget='dxMenu'>
                 <Tooltip
                   target='#update-status'
@@ -481,7 +486,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               isLoading={items.isLoading}
               storageKey={DATAGRID_STORAGE_KEY}
               keyExpr='code'
-              isSelectionEnable
+              isSelectionEnable={isAdmin ? true : false}
               dataGridStore={dataGridStore}
               callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChanged }}
             >

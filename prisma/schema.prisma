@@ -8,22 +8,23 @@ generator client {
 }
 
 model User {
-    id            String    @id @default(cuid())
-    code          Int       @unique @default(autoincrement())
-    username      String    @unique
-    fname         String
-    lname         String
-    email         String    @unique
-    emailVerified DateTime?
-    password      String    @default("")
-    roleCode      Int
-    isOnline      Boolean   @default(false)
-    isActive      Boolean   @default(true)
-    location      String?
-    lastIpAddress String?
-    lastSignin    DateTime?
-    customerCode  String?
-    supplierCode  String?
+    id                       String    @id @default(cuid())
+    code                     Int       @unique @default(autoincrement())
+    username                 String    @unique
+    fname                    String
+    lname                    String
+    email                    String    @unique
+    emailVerified            DateTime?
+    password                 String    @default("")
+    roleCode                 Int
+    isOnline                 Boolean   @default(false)
+    isActive                 Boolean   @default(true)
+    location                 String?
+    lastIpAddress            String?
+    lastSignin               DateTime?
+    isDefaultPasswordChanged Boolean   @default(false)
+    customerCode             String?
+    supplierCode             String?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -59,6 +60,7 @@ model Role {
 
     users           User[]
     rolePermissions RolePermission[]
+    roleReports     RoleReport[]
 }
 
 model Permission {
@@ -293,7 +295,7 @@ model Item {
     FirmName   String?
     ItmsGrpCod Int?
     ItmsGrpNam String?
-    Price      Decimal?
+    Price      Decimal? @db.Decimal(18, 2)
 
     syncStatus String @default("pending") //* pending, synced 
 
@@ -450,10 +452,10 @@ model ProjectItem {
     spq             String?
     dateReceived    DateTime?
     dateReceivedBy  Int?
-    cost            Decimal?  @default(0)
-    stockIn         Decimal?  @default(0)
-    stockOut        Decimal?  @default(0)
-    totalStock      Decimal?  @default(0)
+    cost            Decimal?  @default(0) @db.Decimal(18, 2)
+    stockIn         Decimal?  @default(0) @db.Decimal(18, 2)
+    stockOut        Decimal?  @default(0) @db.Decimal(18, 2)
+    totalStock      Decimal?  @default(0) @db.Decimal(18, 2)
     siteLocation    String?   @default("")
     subLocation2    String?
     subLocation3    String?
@@ -606,7 +608,7 @@ model WorkOrderStatusUpdate {
 model WorkOrderItem {
     workOrderCode   Int
     projectItemCode Int
-    qty             Decimal? @default(0)
+    qty             Decimal? @default(0) @db.Decimal(18, 2)
     isDelivered     Boolean  @default(false)
 
     workOrder   WorkOrder   @relation(fields: [workOrderCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
@@ -649,7 +651,7 @@ model Report {
     isActive    Boolean @default(true)
     type        String
     data        String  @default("")
-    isFeatured  Boolean @default(false)
+    isFeatured  Boolean @default(true)
     isDefault   Boolean @default(false)
     isInternal  Boolean @default(false)
 
@@ -659,6 +661,28 @@ model Report {
     createdBy String?
     updatedBy String?
     deletedBy String?
+
+    roleReports RoleReport[]
+}
+
+model RoleReport {
+    id         String @id @default(cuid())
+    roleCode   Int
+    reportCode Int
+
+    role   Role   @relation(fields: [roleCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    report Report @relation(fields: [reportCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    @@unique([roleCode, reportCode])
+    @@index([roleCode])
+    @@index([reportCode])
 }
 
 model Settings {
@@ -692,3 +716,36 @@ model SyncMeta {
 }
 
 //* add model system logs
+
+//* dimension tables
+//* date dimension table
+model DimDate {
+    id   Int      @id @default(autoincrement())
+    date DateTime @unique @db.Date //* actual calendar date
+
+    day       Int //* 1-31
+    dayOfWeek Int //* 0-6 (Sunday-Saturday)
+    dayName   String //* Sunday-Saturday
+
+    weekOfYear Int //* week number within the year
+    isoWeek    Int //* ISO-8601 standard week number
+
+    month     Int //* 1-12
+    monthName String //* January-December
+
+    quarter  Int //* 1-4
+    halfYear Int //* 1-2
+    year     Int //* Calendar year
+
+    isWeekend    Boolean //* indicates if the day is saturday or sunday
+    isMonthStart Boolean //* indicates if the day is the first day of the month
+    isMonthEnd   Boolean //* indicates if the day is the last day of the month
+    isYearStart  Boolean //* indicates if the day is the first day of the year
+    isYearEnd    Boolean //* indicates if the day is the last day of the year
+
+    createdAt DateTime @default(now())
+
+    @@index([year])
+    @@index([year, month])
+    @@index([year, weekOfYear])
+}

@@ -4,7 +4,7 @@ import { Button } from 'devextreme-react/button'
 import { Item } from 'devextreme-react/toolbar'
 import { useRouter } from 'nextjs-toploader/app'
 import { Tooltip } from 'devextreme-react/tooltip'
-import TabPanel, { Item as TabPanelITem } from 'devextreme-react/tab-panel'
+import TabPanel, { Item as TabPanelItem } from 'devextreme-react/tab-panel'
 
 import { getRolesByCode } from '@/actions/roles'
 import PageHeader from '@/app/(protected)/_components/page-header'
@@ -56,9 +56,9 @@ export default function ViewRole({ role }: ViewRolesProps) {
 
       <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
         <TabPanel width='100%' height='100%' animationEnabled tabsPosition='top' defaultSelectedIndex={0}>
-          <TabPanelITem title='Overview'>
+          <TabPanelItem title='Overview'>
             <RolesOverviewTab role={role} />
-          </TabPanelITem>
+          </TabPanelItem>
 
           {/* <TabPanelITem title='Permissions'>
             <UnderDevelopment className='h-[60vh]' />

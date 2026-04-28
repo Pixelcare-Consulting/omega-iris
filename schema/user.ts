@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+export const DEFAULT_USER_PASSWORD = 'omeg@123'
+
 //* Zod Schema
 export const userFormSchema = z
   .object({
@@ -18,6 +20,7 @@ export const userFormSchema = z
     newConfirmPassword: z.string().nullish(),
     customerCode: z.string().nullish(),
     supplierCode: z.string().nullish(),
+    isForceToChangePassword: z.boolean().nullish(),
   })
   //TODO: Customer is not required for now, uncomment this when customer is required
   // .refine(
@@ -112,6 +115,8 @@ export const basicInfoFormSchema = z.object({
 
 export const changePasswordFormSchema = z
   .object({
+    isForceToChangePassword: z.boolean().nullish(),
+    defaultPassword: z.string().nullish(),
     code: z.coerce.number(),
     oldPassword: z.string().min(8, { message: 'Old password must be at least 8 characters long' }).nullish(),
     newPassword: z.string().min(8, { message: 'New password must be at least 8 characters long' }).nullish(),
@@ -169,6 +174,13 @@ export const changePasswordFormSchema = z
       return true
     },
     { message: "New confirm passwords don't match", path: ['newConfirmPassword'] }
+  )
+  .refine(
+    (formObj) => {
+      if (formObj.isForceToChangePassword && formObj.defaultPassword) return formObj.defaultPassword !== formObj.newPassword
+      return true
+    },
+    { message: 'Please do not use the default password as new password', path: ['newPassword'] }
   )
 
 export type UserForm = z.infer<typeof userFormSchema>

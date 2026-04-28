@@ -144,7 +144,7 @@ export const upsertUser = action
   .use(authenticationMiddleware)
   .schema(userFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, password, confirmPassword, newPassword, newConfirmPassword, roleKey, ...data } = parsedInput
+    const { code, password, confirmPassword, newPassword, newConfirmPassword, roleKey, isForceToChangePassword, ...data } = parsedInput
     const { userId } = ctx
 
     try {
@@ -188,7 +188,7 @@ export const upsertUser = action
 
         const updatedUser = await db.user.update({
           where: { code },
-          data: { ...data, password: hashedPassword, updatedBy: userId },
+          data: { ...data, password: hashedPassword, updatedBy: userId, isDefaultPasswordChanged: isForceToChangePassword ? false : true },
         })
 
         //* create notification
@@ -218,6 +218,7 @@ export const upsertUser = action
           profile: {
             create: { details: {} },
           },
+          isDefaultPasswordChanged: isForceToChangePassword ? false : true,
         },
         include: { role: true },
       })
@@ -320,7 +321,7 @@ export const changePassword = action
   .use(authenticationMiddleware)
   .schema(changePasswordFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, oldPassword, newPassword } = parsedInput
+    const { code, oldPassword, newPassword, isForceToChangePassword } = parsedInput
     const { userId } = ctx
 
     try {
@@ -331,7 +332,7 @@ export const changePassword = action
 
       let hashedPassword = user.password
 
-      if (oldPassword && newPassword) {
+      if (oldPassword && newPassword && !isForceToChangePassword) {
         //* if old password is provided, check if it matches the current password
         if (user.password) {
           const isPasswordMatch = await bcrypt.compare(oldPassword, user.password)
@@ -342,9 +343,20 @@ export const changePassword = action
         hashedPassword = await bcrypt.hash(newPassword, 10)
       }
 
+      if (isForceToChangePassword && newPassword) {
+        //* if new password is provided, and isForceToChangePassword = true means user is force to change their password, then hash the new password
+        hashedPassword = await bcrypt.hash(newPassword, 10)
+      }
+
       const updatedUser = await db.user.update({
         where: { code },
-        data: { password: hashedPassword, updatedBy: userId },
+        data: {
+          password: hashedPassword,
+          updatedBy: userId,
+          ...(isForceToChangePassword && {
+            isDefaultPasswordChanged: true,
+          }),
+        },
       })
 
       //* create notification
@@ -363,7 +375,7 @@ export const changePassword = action
         status: 200,
         message: 'Password changed successfully!',
         data: { user: updatedUser },
-        action: 'UPDATE_PROFILE_CHANGE_PASSWORD',
+        action: isForceToChangePassword ? 'CHANGED_DEFAULT_PASSWORD' : 'UPDATE_PROFILE_CHANGE_PASSWORD',
       }
     } catch (error) {
       console.error(error)

@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "es2017",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -23,9 +19,7 @@
       }
     ],
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     },
     "baseUrl": "."
   },
@@ -38,14 +32,12 @@
     "types/**/*.d.ts",
     "components/**/*.tsx",
     "components/**/*.ts",
-    "lib/**/*.ts",
+    "utils/**/*.ts",
     "app/**/*.tsx",
     "app/**/*.ts",
     "prisma/**/*.ts",
     "prisma/**/*.tsx",
     "next.config.mjs"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

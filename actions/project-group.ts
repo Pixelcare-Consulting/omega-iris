@@ -146,7 +146,7 @@ export const upsertPg = action
           db.projectGroupPic.deleteMany({ where: { projectGroupCode: code } }),
 
           //* create new project group pics
-          db.projectGroupPic.createManyAndReturn({
+          db.projectGroupPic.createMany({
             data: pics.map((p) => ({ projectGroupCode: code, userCode: p })),
           }),
         ])

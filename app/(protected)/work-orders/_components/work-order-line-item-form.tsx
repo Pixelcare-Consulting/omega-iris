@@ -2,7 +2,7 @@ import { useSession } from 'next-auth/react'
 import { useForm, useFormContext, useWatch, useFormState } from 'react-hook-form'
 import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Item } from 'devextreme-react/toolbar'
-import { Column, CustomRule, DataGridRef, DataGridTypes, Editing } from 'devextreme-react/data-grid'
+import { Column, CustomRule, DataGridRef, DataGridTypes, Editing, GroupItem, Summary, TotalItem } from 'devextreme-react/data-grid'
 import Button from 'devextreme-react/button'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -209,6 +209,59 @@ export default function WorkOrderLineItemForm({
   const handleOnSubmit = (formData: WorkOrderLineItemsForm) => {
     mainForm.setValue('lineItems', formData.lineItems)
     handleClose()
+  }
+
+  const renderCommonSummaryIItems = () => {
+    return (
+      <>
+        <GroupItem
+          column='availableToOrder'
+          summaryType='sum'
+          displayFormat='{0}'
+          valueFormat={DEFAULT_NUMBER_FORMAT}
+          showInGroupFooter={false}
+          alignByColumn={true}
+        />
+        <GroupItem
+          column='stockIn'
+          summaryType='sum'
+          displayFormat='{0}'
+          valueFormat={DEFAULT_NUMBER_FORMAT}
+          showInGroupFooter={false}
+          alignByColumn={true}
+        />
+        <GroupItem
+          column='stockOut'
+          summaryType='sum'
+          displayFormat='{0}'
+          valueFormat={DEFAULT_NUMBER_FORMAT}
+          showInGroupFooter={false}
+          alignByColumn={true}
+        />
+        <GroupItem
+          column='totalStock'
+          summaryType='sum'
+          displayFormat='{0}'
+          valueFormat={DEFAULT_NUMBER_FORMAT}
+          showInGroupFooter={false}
+          alignByColumn={true}
+        />
+        <GroupItem
+          column='qty'
+          summaryType='sum'
+          displayFormat='{0}'
+          valueFormat={DEFAULT_NUMBER_FORMAT}
+          showInGroupFooter={false}
+          alignByColumn={true}
+        />
+
+        <TotalItem column='availableToOrder' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+        <TotalItem column='stockIn' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+        <TotalItem column='stockOut' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+        <TotalItem column='totalStock' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+        <TotalItem column='qty' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+      </>
+    )
   }
 
   //* set local state project items data source combined with the data of the line items e.g qty, isDelivered, etc
@@ -438,6 +491,21 @@ export default function WorkOrderLineItemForm({
           ) : null}
 
           <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} />
+
+          <Summary>
+            <GroupItem column='ItemCode' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+            {renderCommonSummaryIItems()}
+          </Summary>
+
+          <Summary>
+            <GroupItem column='FirmName' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+            {renderCommonSummaryIItems()}
+          </Summary>
+
+          <Summary>
+            <GroupItem column='partNumber' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+            {renderCommonSummaryIItems()}
+          </Summary>
 
           <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
         </CommonDataGrid>
