@@ -14,6 +14,7 @@ import { signInUser } from '@/actions/auth'
 import { type SigninForm, signinFormSchema } from '@/schema/auth'
 import TextBoxField from '@/components/forms/text-box-field'
 import LoadingButton from '@/components/loading-button'
+import { DEFAULT_SIGNIN_REDIRECT } from '@/constants/route'
 
 const MAXIMUM_SECONDS = 10
 const MAXIMUM_COUNTDOWN = 5
@@ -58,7 +59,12 @@ export default function SigninForm() {
       const result = response?.data
 
       if (result && !result.error) {
-        const { redirectUrl, sapConnection } = result
+        const { redirectUrl, sapConnection, role } = result
+
+        if (role && role.key === 'business-partner') {
+          window.location.assign(DEFAULT_SIGNIN_REDIRECT)
+          return
+        }
 
         setSapConnectionStatus(sapConnection?.sapConnectionStatus)
         setSapErrorMessage(sapConnection?.sapErrorMessage)

@@ -1,6 +1,6 @@
 'use client'
 
-import { getStimulsoftLicenseKeyClient } from '@/actions/stimulsoft'
+import { getStimulsoftDashboardLicenseKeyClient, getStimulsoftPaginatedLicenseKeyClient } from '@/actions/stimulsoft'
 import { DashboardRptViewerProps, PaginatedReportViewerProps } from '@/components/report-viewer'
 import { REPORT_BLANK_SRC, ReportType } from '@/schema/report'
 import { useAction } from 'next-safe-action/hooks'
@@ -25,19 +25,20 @@ export function useReportViewer<T extends keyof ReportViewerTypeMap>(type: T, da
   const [options, setOptions] = useState<ReportViewerTypeMap[T]['options']>()
   const [isReady, setIsReady] = useState(false)
 
-  const stimulsoftlicenseKeyData = useAction(getStimulsoftLicenseKeyClient)
+  const stimulsoftDashboardlicenseKeyData = useAction(getStimulsoftDashboardLicenseKeyClient)
+  const stimulsoftPaginatedlicenseKeyData = useAction(getStimulsoftPaginatedLicenseKeyClient)
 
   const load = async (type: ReportType) => {
     switch (type) {
       case '1':
         {
           const dashboardModule = await import('stimulsoft-dashboards-js-react/viewer')
-          const stimulsoftlicenseKeyDataResponse = await stimulsoftlicenseKeyData.executeAsync()
+          const stimulsoftDashboardlicenseKeyDataResponse = await stimulsoftDashboardlicenseKeyData.executeAsync()
           const stiDashboardRptViewer = dashboardModule.Stimulsoft
 
           const report = new stiDashboardRptViewer.Report.StiReport()
           const options = new stiDashboardRptViewer.Viewer.StiViewerOptions()
-          const licenseKey = stimulsoftlicenseKeyDataResponse?.data
+          const licenseKey = stimulsoftDashboardlicenseKeyDataResponse?.data
 
           //* license activation
           if (licenseKey) stiDashboardRptViewer.Base.StiLicense.key = licenseKey
@@ -79,12 +80,12 @@ export function useReportViewer<T extends keyof ReportViewerTypeMap>(type: T, da
       case '2':
         {
           const paginatedModule = await import('stimulsoft-reports-js-react/viewer')
-          const stimulsoftlicenseKeyDataResponse = await stimulsoftlicenseKeyData.executeAsync()
+          const stimulsoftPaginatedlicenseKeyDataResponse = await stimulsoftPaginatedlicenseKeyData.executeAsync()
           const stiPaginatedRptViewer = paginatedModule.Stimulsoft
 
           const report = new stiPaginatedRptViewer.Report.StiReport()
           const options = new stiPaginatedRptViewer.Viewer.StiViewerOptions()
-          const licenseKey = stimulsoftlicenseKeyDataResponse?.data
+          const licenseKey = stimulsoftPaginatedlicenseKeyDataResponse?.data
 
           //* license activation
           if (licenseKey) stiPaginatedRptViewer.Base.StiLicense.key = licenseKey
