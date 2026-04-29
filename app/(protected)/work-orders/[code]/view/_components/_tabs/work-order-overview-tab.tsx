@@ -70,7 +70,7 @@ export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAdd
       <div className='grid grid-cols-12 gap-5 p-3 py-5'>
         <ReadOnlyFieldHeader className='col-span-12' title='Overview' description='Work order overview information' />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='ID' value={workOrder.code}>
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Work Order #' value={workOrder.code}>
           <Copy value={workOrder.code} />
         </ReadOnlyField>
 

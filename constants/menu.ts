@@ -114,7 +114,7 @@ export const navigation: NavItem[] = [
   // },
   {
     id: uuidv4(),
-    text: 'Inventory',
+    text: 'Item Master Data',
     icon: 'packagebox',
     path: '/inventory',
     selected: false,

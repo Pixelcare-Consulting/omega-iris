@@ -21,7 +21,7 @@ export default function ViewItem({ item }: ViewItemProps) {
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
-      <PageHeader title='Inventory Details' description='View the comprehensive details of this inventory item.'>
+      <PageHeader title='Item Master Details' description='View the comprehensive details of this item master.'>
         <Item location='after' locateInMenu='auto' widget='dxButton'>
           <Tooltip target='#back-button' contentRender={() => 'Back'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />
           <Button
