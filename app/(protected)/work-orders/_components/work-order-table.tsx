@@ -293,7 +293,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
               onSelectionChanged: handleOnSelectionChanged,
             }}
           >
-            <Column dataField='code' dataType='string' minWidth={100} caption='ID' />
+            <Column dataField='code' dataType='string' minWidth={100} caption='Work Order #' />
             <Column dataField='projectIndividual.name' dataType='string' caption='Project' />
             <Column dataField='projectIndividual.projectGroup.name' dataType='string' caption='Project Group' />
             <Column

@@ -491,7 +491,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChanged }}
             >
               <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
-              <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} />
+              <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} visible={false} />
 
               <Column dataField='item.ItemCode' dataType='string' caption='MFG P/N' />
               <Column dataField='item.FirmName' dataType='string' caption='Manufacturer' visible={false} />
@@ -504,16 +504,20 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               <Column dataField='countryOfOrigin' minWidth={75} dataType='string' caption='COO' />
               <Column dataField='lotCode' dataType='string' caption='Lot Code' />
               <Column dataField='palletNo' dataType='string' caption='Pallet No' />
+              <Column dataField='siteLocation' dataType='string' caption='Site Location' />
+              <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' />
+              <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' />
               {/* <Column dataField='warehouse.name' dataType='string' caption='Warehouse' /> */}
 
               {!isBusinessPartner && (
                 <>
-                  <Column dataField='dateReceived' dataType='datetime' caption='Date Received' />
+                  <Column dataField='dateReceived' dataType='datetime' caption='Date Received' visible={false} />
                   <Column
                     dataField='dateReceivedBy'
                     dataType='string'
                     caption='Date Received By'
                     calculateCellValue={dateReceivedByCalculatedCellValue}
+                    visible={false}
                   />
                 </>
               )}
@@ -526,6 +530,8 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
                 caption='Available To Order'
                 alignment='left'
                 format={DEFAULT_NUMBER_FORMAT}
+                fixed
+                fixedPosition='right'
               />
               <Column
                 dataField='stockIn'
@@ -548,10 +554,10 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
 
               <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
 
-              <Column dataField='notes' dataType='string' caption='Notes' />
+              <Column dataField='notes' dataType='string' caption='Notes' visible={false} />
 
-              <Column dataField='createdAt' dataType='datetime' caption='Created At' />
-              <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
+              <Column dataField='createdAt' dataType='datetime' caption='Created At' visible={false} />
+              <Column dataField='updatedAt' dataType='datetime' caption='Updated At' visible={false} />
 
               <Summary>
                 <GroupItem column='item.ItemCode' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />

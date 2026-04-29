@@ -376,8 +376,8 @@ export default function ItemTable({ items }: ItemTableProps) {
   return (
     <div className='h-full w-full space-y-5'>
       <PageHeader
-        title='Inventory'
-        description='Manage and track your inventory effectively'
+        title='Item Master'
+        description='Manage and track your item master effectively'
         isLoading={syncToSapData.isExecuting || syncFromSapData.isExecuting}
       >
         {selectedRowKeys.length > 0 && (
@@ -436,7 +436,7 @@ export default function ItemTable({ items }: ItemTableProps) {
           isLoading={isLoading || importData.isExecuting || syncToSapData.isExecuting || syncFromSapData.isExecuting}
           isEnableImport
           onImport={handleImport}
-          addButton={{ text: 'Add Inventory', onClick: () => router.push('/inventory/add'), subjects: 'p-inventory', actions: 'create' }}
+          addButton={{ text: 'Add Item Master', onClick: () => router.push('/inventory/add'), subjects: 'p-inventory', actions: 'create' }}
           customs={{ exportToExcel }}
           importOptions={{ subjects: 'p-inventory', actions: 'import', isLoading: importDependenciesIsLoading }}
           exportOptions={{ subjects: 'p-inventory', actions: 'export' }}
@@ -531,7 +531,7 @@ export default function ItemTable({ items }: ItemTableProps) {
       <AlertDialog
         isOpen={showDeleteConfirmation}
         title='Are you sure?'
-        description={`Are you sure you want to delete this inventory item named "${rowData?.ItemName}"?`}
+        description={`Are you sure you want to delete this item master named "${rowData?.ItemName}"?`}
         onConfirm={() => handleConfirmDelete(rowData?.code)}
         onCancel={() => setShowDeleteConfirmation(false)}
       />
@@ -539,7 +539,7 @@ export default function ItemTable({ items }: ItemTableProps) {
       <AlertDialog
         isOpen={showRestoreConfirmation}
         title='Are you sure?'
-        description={`Are you sure you want to restore this inventory item named "${rowData?.ItemName}"?`}
+        description={`Are you sure you want to restore this item master named "${rowData?.ItemName}"?`}
         onConfirm={() => handleConfirmRestore(rowData?.code)}
         onCancel={() => setShowRestoreConfirmation(false)}
       />

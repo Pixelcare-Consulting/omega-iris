@@ -10,8 +10,9 @@ export default async function InventoryPage({ params }: { params: { code: string
   const item = await getItemByCode(parseInt(code))
 
   const getPageMetadata = () => {
-    if (!item || !item?.code || code == 'add') return { title: 'Add Item', description: 'Fill in the form to create a new item.' }
-    return { title: 'Edit Item', description: "Edit the form to update this item's information." }
+    if (!item || !item?.code || code == 'add')
+      return { title: 'Add Item Master', description: 'Fill in the form to create a new item master.' }
+    return { title: 'Edit Item Master', description: "Edit the form to update this item master's information." }
   }
 
   if (code !== 'add' && !item) notFound()
