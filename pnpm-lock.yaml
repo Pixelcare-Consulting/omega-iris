@@ -30,8 +30,8 @@ importers:
         specifier: 4.3.0
         version: 4.3.0(react@18.3.1)
       axios:
-        specifier: ^1.9.0
-        version: 1.13.1
+        specifier: 1.14.0
+        version: 1.14.0
       bcryptjs:
         specifier: ^3.0.2
         version: 3.0.2
@@ -132,17 +132,17 @@ importers:
         specifier: ^2.0.3
         version: 2.0.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       stimulsoft-dashboards-js:
-        specifier: ^2026.1.4
-        version: 2026.1.4(@azure/core-client@1.10.1)
+        specifier: ^2026.2.1
+        version: 2026.2.1(@azure/core-client@1.10.1)(@types/node@20.19.24)
       stimulsoft-dashboards-js-react:
-        specifier: ^2026.1.4
-        version: 2026.1.4
+        specifier: ^2026.2.1
+        version: 2026.2.1
       stimulsoft-reports-js:
-        specifier: ^2026.1.4
-        version: 2026.1.4(@azure/core-client@1.10.1)
+        specifier: ^2026.2.1
+        version: 2026.2.1(@azure/core-client@1.10.1)(@types/node@20.19.24)
       stimulsoft-reports-js-react:
-        specifier: ^2026.1.4
-        version: 2026.1.4
+        specifier: ^2026.2.1
+        version: 2026.2.1
       tailwind-merge:
         specifier: ^3.0.2
         version: 3.3.1
@@ -1079,8 +1079,8 @@ packages:
     peerDependencies:
       tailwindcss: '>=3.0.0 || insiders || >=4.0.0-alpha.20 || >=4.0.0-beta.1'
 
-  '@tediousjs/connection-string@0.6.0':
-    resolution: {integrity: sha512-GxlsW354Vi6QqbUgdPyQVcQjI7cZBdGV5vOYVYuCVDTylx2wl3WHR2HlhcxxHTrMigbelpXsdcZso+66uxPfow==}
+  '@tediousjs/connection-string@1.1.0':
+    resolution: {integrity: sha512-z9ZBWEG+8pIB5V1zYzlRPXx0oRJ5H7coPnMQK8EZOw03UTPI9Umn6viL36f5w+CuqkKsnCM50RVStpjZmR0Bng==}
 
   '@tybys/wasm-util@0.10.1':
     resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
@@ -1320,6 +1320,7 @@ packages:
   '@xmldom/xmldom@0.9.8':
     resolution: {integrity: sha512-p96FSY54r+WJ50FIOsCOjyj/wavs8921hG5+kVMmZgKcvIKxMXHTrjNJvRgWa/zuX3B6t2lijLNFaOyuxUH+2A==}
     engines: {node: '>=14.6'}
+    deprecated: this version has critical issues, please update to the latest version
 
   abort-controller@3.0.0:
     resolution: {integrity: sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==}
@@ -1464,8 +1465,8 @@ packages:
     resolution: {integrity: sha512-ilYanEU8vxxBexpJd8cWM4ElSQq4QctCLKih0TSfjIfCQTeyH/6zVrmIJfLPrKTKJRbiG+cfnZbQIjAlJmF1jQ==}
     engines: {node: '>=4'}
 
-  axios@1.13.1:
-    resolution: {integrity: sha512-hU4EGxxt+j7TQijx1oYdAjw4xuIp1wRQSsbMFwSthCWeBQur1eF+qJ5iQ5sN3Tw8YRzQNKb8jszgBdMDVqwJcw==}
+  axios@1.14.0:
+    resolution: {integrity: sha512-3Y8yrqLSwjuzpXuZ0oIYZ/XGgLwUIBU3uLvbcpb0pidD9ctpShJd43KSlEEkVQg6DS0G9NKyzOvBfUtDKEyHvQ==}
 
   axobject-query@4.1.0:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
@@ -2260,8 +2261,8 @@ packages:
     resolution: {integrity: sha512-gIXjKqtFuWEgzFRJA9WCQeSJLZDjgJUOMCMzxtvFq/37KojM1BFGufqsCy0r4qSQmYLsZYMeyRqzIWOMup03sw==}
     engines: {node: '>=14'}
 
-  form-data@4.0.4:
-    resolution: {integrity: sha512-KrGhL9Q4zjj0kiUt5OO4Mr/A/jlI2jDYs5eHBpYHPcBEVSiipAvn2Ko2HnPe20rmcuuvMHNdZFp+4IlGTMF0Ow==}
+  form-data@4.0.5:
+    resolution: {integrity: sha512-8RipRLol37bNs2bhoV67fiTEvdTrbMUYcFTiy3+wuuOnUog2QBHCZWXDRijWQfAkhBj2Uf5UnVaiWwA5vdd82w==}
     engines: {node: '>= 6'}
 
   frac@1.1.2:
@@ -2950,8 +2951,8 @@ packages:
     resolution: {integrity: sha512-h0AZ9A7IDVwwHyMxmdMXKy+9oNlF0zFoahHiX3vQ8e3KFcSP3VmsmfvtRSuLPxmyv2vjIDxqty8smTgie/SNRQ==}
     engines: {node: '>=20.19.0'}
 
-  mongodb@7.1.0:
-    resolution: {integrity: sha512-kMfnKunbolQYwCIyrkxNJFB4Ypy91pYqua5NargS/f8ODNSJxT03ZU3n1JqL4mCzbSih8tvmMEMLpKTT7x5gCg==}
+  mongodb@7.2.0:
+    resolution: {integrity: sha512-F/2+BMZtLVhY30ioZp0dAmZ+IRZMBqI+nrv6t5+9/1AIwCa8sMRC3jBf81lpxMhnZgqq8CoUD503Z1oZWq1/sw==}
     engines: {node: '>=20.19.0'}
     peerDependencies:
       '@aws-sdk/credential-providers': ^3.806.0
@@ -2980,14 +2981,16 @@ packages:
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
-  mssql@12.2.0:
-    resolution: {integrity: sha512-lwwLHAqcWOz8okjboQpIEp5OghUFGJhuuQZS3+WF1ZXbaEaCEGKOfiQET3w/5Xz0tyZfDNCQVCm9wp5GwXut6g==}
-    engines: {node: '>=18'}
+  mssql@12.5.0:
+    resolution: {integrity: sha512-nTbhxS1qi5SPwuKygwfRzmp2p6e/2v37ZFzvwvMf27wRSI+09J7J2pP7zaAUzqT4znMyHYBrcUyxkjSeeNyDTg==}
+    engines: {node: '>=18.19.0'}
     hasBin: true
 
-  mysql2@3.17.4:
-    resolution: {integrity: sha512-RnfuK5tyIuaiPMWOCTTl4vQX/mQXqSA8eoIbwvWccadvPGvh+BYWWVecInMS5s7wcLUkze8LqJzwB/+A4uwuAA==}
+  mysql2@3.22.3:
+    resolution: {integrity: sha512-uWWxvZSRvRhtBdh2CdcuK83YcOfPdmEeEYB069bAmPnV93QApDGVPuvCQOLjlh7tYHEWdgQPrn6kosDxHBVLkA==}
     engines: {node: '>= 8.0'}
+    peerDependencies:
+      '@types/node': '>= 8'
 
   mz@2.7.0:
     resolution: {integrity: sha512-z81GNO7nnYMEhrGh9LeymoE4+Yr0Wn5McHIZMK5cfQCl+NDX08sCZgUc9/6MHni9IWuFLm1Z3HTCXu2z9fN62Q==}
@@ -3533,8 +3536,9 @@ packages:
   prop-types@15.8.1:
     resolution: {integrity: sha512-oj87CgZICdulUohogVAR7AjlC0327U4el4L6eAvOqCeudMDVU0NThNaV+b9Df4dXgSP1gXMTnPdhfe/2qDH5cg==}
 
-  proxy-from-env@1.1.0:
-    resolution: {integrity: sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==}
+  proxy-from-env@2.1.0:
+    resolution: {integrity: sha512-cJ+oHTW1VAEa8cJslgmUZrc+sjRKgAKl3Zyse6+PV38hZe/V6Z14TbCuXcan9F9ghlz4QrFr2c92TNF82UkYHA==}
+    engines: {node: '>=10'}
 
   pump@3.0.3:
     resolution: {integrity: sha512-todwxLMY7/heScKmntwQG8CXVkWUOdYxIvY2s0VWAAMh/nd8SoYiRaKjlr7+iCs984f2P8zvrfWcDDYVb73NfA==}
@@ -3880,20 +3884,20 @@ packages:
     resolution: {integrity: sha512-UhDfHmA92YAlNnCfhmq0VeNL5bDbiZGg7sZ2IvPsXubGkiNa9EC+tUTsjBRsYUAz87btI6/1wf4XoVvQ3uRnmQ==}
     engines: {node: '>=18'}
 
-  stimulsoft-dashboards-js-react@2026.1.4:
-    resolution: {integrity: sha512-FaVYb3cwxg1I20Ucj6EisXFb4j9Tp23AJozZNf5lioD6QZMukY2AQONBF6P9DTl7W/gzQ4gF0+c8G1AtC9hXxg==}
+  stimulsoft-dashboards-js-react@2026.2.1:
+    resolution: {integrity: sha512-TXDXncFtNFO0gLR85tjPtWiWGFV4KSzIOEvqrnisg+ofxb1CnshPhqcm2tKuJRh7NwPI3bW9WB0ud5JslO1hWw==}
 
-  stimulsoft-dashboards-js@2026.1.4:
-    resolution: {integrity: sha512-PZLs7O60fQ06zOf1nX3K3xevtt6pfOiJGSAWwH16Fr3EKt4lrkwR9ICgM1dfHj6rrwppeFwq0MdLkSR/puXUTQ==}
+  stimulsoft-dashboards-js@2026.2.1:
+    resolution: {integrity: sha512-uaHMNqQC1S+HTX9C+C6zVZo0bTJBp+TuNS7JqIq9HLcOewgHCJ0U1dTk6KvdbixFQoAadvUY8E11SgtB1mHXtw==}
 
-  stimulsoft-data-adapter@2026.1.4:
-    resolution: {integrity: sha512-zataysarHthKVcPTcxl/igdhn8VZGslQUHlYfcpleIPbxoN105kIz2/y2jh77vqn14gpNC96ZoqLamXFIS80FA==}
+  stimulsoft-data-adapter@2026.2.1:
+    resolution: {integrity: sha512-xWLlLcOQuB0k8JdEZgzpC+UnXqbW5UCWds5ikzu8pxqGplfsPUrRPBuz64Mi/CsM/otWwgPTkj075ZA8f6iwiQ==}
 
-  stimulsoft-reports-js-react@2026.1.4:
-    resolution: {integrity: sha512-CKGvOSH27+49ztVY1PRAUPb3CYnq/TSP11jVE1d/QcRVtCtLuewQxgrba4e45a2akhsvXyIIiUTZmi2PXDeF2Q==}
+  stimulsoft-reports-js-react@2026.2.1:
+    resolution: {integrity: sha512-SEDuGmC/ZVNOFouTiYnhgxHrPa5FujPadAr4J76d16mZlxv2FeRqVE96vpL7+gdFatoByAMExs35GQOlEdaFiw==}
 
-  stimulsoft-reports-js@2026.1.4:
-    resolution: {integrity: sha512-GnWL1CtqC4I7wqSKP9XeZIF+2G92BF9h0rrho/OWzNKpNfPts37ImZFirBAAy7eO9sdcvl6UqYQb6pn6zzDHPA==}
+  stimulsoft-reports-js@2026.2.1:
+    resolution: {integrity: sha512-OFx/O3t6sLmb5iDhznNg4gTBwx4QR1l06uQQ8wNbH4gT8qpcNEfI/dv67qIyf0UqUFqzDnyeku+EdtyNrPgsDw==}
 
   stop-iteration-iterator@1.1.0:
     resolution: {integrity: sha512-eLoXW/DHyl62zxY4SCaIgnRhuMr6ri4juEYARS8E6sCEqzKpOiE521Ucofdx+KnDZl5xmvGYaaKCk5FEOxJCoQ==}
@@ -4123,8 +4127,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  tzdata@1.0.47:
-    resolution: {integrity: sha512-a/qlKCJgp+S6naLr4wr6oIPRiFaJ0wOY5hcNZ/GJhjAjq8uihaVs0rTJ1Jmp4M2UmZ/FKAkeJsmjJf9kQ4Tq6g==}
+  tzdata@1.0.49:
+    resolution: {integrity: sha512-J2C/XN+xQseAeUFzRsOxyNPspJEtIT7KhBMKQC2ljd3LW4qm2KVAavC+OPpUYwD26dk4FpnmyJRPnNZ8lrArVA==}
 
   unbox-primitive@1.1.0:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
@@ -5110,7 +5114,7 @@ snapshots:
       postcss-selector-parser: 6.0.10
       tailwindcss: 3.4.18(tsx@4.21.0)
 
-  '@tediousjs/connection-string@0.6.0': {}
+  '@tediousjs/connection-string@1.1.0': {}
 
   '@tybys/wasm-util@0.10.1':
     dependencies:
@@ -5532,11 +5536,11 @@ snapshots:
 
   axe-core@4.11.0: {}
 
-  axios@1.13.1:
+  axios@1.14.0:
     dependencies:
       follow-redirects: 1.15.11
-      form-data: 4.0.4
-      proxy-from-env: 1.1.0
+      form-data: 4.0.5
+      proxy-from-env: 2.1.0
     transitivePeerDependencies:
       - debug
 
@@ -6520,7 +6524,7 @@ snapshots:
       cross-spawn: 7.0.6
       signal-exit: 4.1.0
 
-  form-data@4.0.4:
+  form-data@4.0.5:
     dependencies:
       asynckit: 0.4.0
       combined-stream: 1.0.8
@@ -7210,7 +7214,7 @@ snapshots:
       '@types/whatwg-url': 13.0.0
       whatwg-url: 14.2.0
 
-  mongodb@7.1.0:
+  mongodb@7.2.0:
     dependencies:
       '@mongodb-js/saslprep': 1.4.6
       bson: 7.2.0
@@ -7218,9 +7222,9 @@ snapshots:
 
   ms@2.1.3: {}
 
-  mssql@12.2.0(@azure/core-client@1.10.1):
+  mssql@12.5.0(@azure/core-client@1.10.1):
     dependencies:
-      '@tediousjs/connection-string': 0.6.0
+      '@tediousjs/connection-string': 1.1.0
       commander: 11.1.0
       debug: 4.4.3
       tarn: 3.0.2
@@ -7229,8 +7233,9 @@ snapshots:
       - '@azure/core-client'
       - supports-color
 
-  mysql2@3.17.4:
+  mysql2@3.22.3(@types/node@20.19.24):
     dependencies:
+      '@types/node': 20.19.24
       aws-ssl-profiles: 1.1.2
       denque: 2.1.0
       generate-function: 2.3.1
@@ -7696,7 +7701,7 @@ snapshots:
       object-assign: 4.1.1
       react-is: 16.13.1
 
-  proxy-from-env@1.1.0: {}
+  proxy-from-env@2.1.0: {}
 
   pump@3.0.3:
     dependencies:
@@ -8091,23 +8096,24 @@ snapshots:
 
   stdin-discarder@0.2.2: {}
 
-  stimulsoft-dashboards-js-react@2026.1.4:
+  stimulsoft-dashboards-js-react@2026.2.1:
     dependencies:
       react: 19.2.0
 
-  stimulsoft-dashboards-js@2026.1.4(@azure/core-client@1.10.1):
+  stimulsoft-dashboards-js@2026.2.1(@azure/core-client@1.10.1)(@types/node@20.19.24):
     dependencies:
       '@napi-rs/canvas': 0.1.88
       '@xmldom/xmldom': 0.9.8
       canvg: 4.0.3
       jimp-compact: 0.16.1-2
       node-machine-id: 1.1.12
-      stimulsoft-data-adapter: 2026.1.4(@azure/core-client@1.10.1)
+      stimulsoft-data-adapter: 2026.2.1(@azure/core-client@1.10.1)(@types/node@20.19.24)
       xmldoc: 1.3.0
     transitivePeerDependencies:
       - '@aws-sdk/credential-providers'
       - '@azure/core-client'
       - '@mongodb-js/zstd'
+      - '@types/node'
       - gcp-metadata
       - kerberos
       - mongodb-client-encryption
@@ -8116,19 +8122,20 @@ snapshots:
       - socks
       - supports-color
 
-  stimulsoft-data-adapter@2026.1.4(@azure/core-client@1.10.1):
+  stimulsoft-data-adapter@2026.2.1(@azure/core-client@1.10.1)(@types/node@20.19.24):
     dependencies:
       limber-firebird-client: 3.0.17
-      mongodb: 7.1.0
-      mssql: 12.2.0(@azure/core-client@1.10.1)
-      mysql2: 3.17.4
+      mongodb: 7.2.0
+      mssql: 12.5.0(@azure/core-client@1.10.1)
+      mysql2: 3.22.3(@types/node@20.19.24)
       oracledb: 6.10.0
       pg: 8.20.0
-      tzdata: 1.0.47
+      tzdata: 1.0.49
     transitivePeerDependencies:
       - '@aws-sdk/credential-providers'
       - '@azure/core-client'
       - '@mongodb-js/zstd'
+      - '@types/node'
       - gcp-metadata
       - kerberos
       - mongodb-client-encryption
@@ -8137,23 +8144,24 @@ snapshots:
       - socks
       - supports-color
 
-  stimulsoft-reports-js-react@2026.1.4:
+  stimulsoft-reports-js-react@2026.2.1:
     dependencies:
       react: 19.2.0
 
-  stimulsoft-reports-js@2026.1.4(@azure/core-client@1.10.1):
+  stimulsoft-reports-js@2026.2.1(@azure/core-client@1.10.1)(@types/node@20.19.24):
     dependencies:
       '@napi-rs/canvas': 0.1.88
       '@xmldom/xmldom': 0.9.8
       canvg: 4.0.3
       jimp-compact: 0.16.1-2
       node-machine-id: 1.1.12
-      stimulsoft-data-adapter: 2026.1.4(@azure/core-client@1.10.1)
+      stimulsoft-data-adapter: 2026.2.1(@azure/core-client@1.10.1)(@types/node@20.19.24)
       xmldoc: 1.3.0
     transitivePeerDependencies:
       - '@aws-sdk/credential-providers'
       - '@azure/core-client'
       - '@mongodb-js/zstd'
+      - '@types/node'
       - gcp-metadata
       - kerberos
       - mongodb-client-encryption
@@ -8454,7 +8462,7 @@ snapshots:
 
   typescript@5.9.3: {}
 
-  tzdata@1.0.47: {}
+  tzdata@1.0.49: {}
 
   unbox-primitive@1.1.0:
     dependencies:
