@@ -96,7 +96,16 @@ export const signInUser = action.schema(signinFormSchema).action(async ({ parsed
       message: 'Signin successful!',
       action: 'SIGNIN_USER',
       redirectUrl: callbackUrl || DEFAULT_SIGNIN_REDIRECT,
-      sapConnection: { sapConnectionStatus, sapErrorMessage },
+      sapConnection: {
+        sapConnectionStatus,
+        sapErrorMessage,
+      },
+      role: {
+        id: user.role.id,
+        key: user.role.key,
+        name: user.role.name,
+        code: user.role.code,
+      },
     }
   } catch (err) {
     if (err instanceof AuthError) {
