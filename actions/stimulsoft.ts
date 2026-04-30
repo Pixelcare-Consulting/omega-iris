@@ -1,4 +1,4 @@
-'server'
+'use server'
 
 import { action } from '@/utils/safe-action'
 
