@@ -32,6 +32,8 @@ type DataGridCallbacks = {
   onRowUpdated?: (e: DataGridTypes.RowUpdatedEvent<any, any>) => void
   onRowPrepared?: (e: DataGridTypes.RowPreparedEvent) => void
   onEditorPreparing?: (e: DataGridTypes.EditorPreparingEvent) => void
+  onInitialized?: (e: DataGridTypes.InitializedEvent) => void
+  onOptionsChanged?: (e: DataGridTypes.OptionChangedEvent) => void
 }
 
 type CommonDataGridProps<T extends Record<string, any>> = {
@@ -64,6 +66,7 @@ export default function CommonDataGrid<T extends Record<string, any>>({
   isSelectSingle,
   dataGridStore,
   pageSize,
+  filterValue,
 }: CommonDataGridProps<T>) {
   return (
     <DataGrid
@@ -87,9 +90,12 @@ export default function CommonDataGrid<T extends Record<string, any>>({
       onCellPrepared={callbacks?.onCellPrepared}
       onAdaptiveDetailRowPreparing={handleOnAdaptiveDetailRowPreparing}
       onEditorPreparing={callbacks?.onEditorPreparing}
+      onInitialized={callbacks?.onInitialized}
+      onOptionChanged={callbacks?.onOptionsChanged}
       wordWrapEnabled
       columnAutoWidth={false}
       columnMinWidth={DEFAULT_COLUMN_MIN_WIDTH}
+      filterValue={filterValue}
     >
       {children}
 

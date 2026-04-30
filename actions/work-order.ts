@@ -41,15 +41,47 @@ export async function getWorkOrders(userInfo: Awaited<ReturnType<typeof getCurre
   const { userId, userCode, ability, roleKey } = userInfo
 
   try {
+    let allowedProjects: { code: number }[] = []
     const canViewAll = ability?.can('view', 'p-work-orders')
     const canViweOwned = ability?.can('view (owner)', 'p-work-orders')
 
+    //* get allowed project for performance optimization, we wont get deep joins in the work order query
+    //* only get allowed project if canViewAll is false and canViweOwned is true
+    if (ability && !canViewAll && canViweOwned) {
+      allowedProjects = await db.projectIndividual.findMany({
+        where: {
+          OR: [
+            {
+              projectGroup: {
+                projectGroupPics: {
+                  some: { userCode },
+                },
+              },
+            },
+            {
+              projectIndividualPics: {
+                some: { userCode },
+              },
+            },
+            {
+              projectIndividualCustomers: {
+                some: { userCode },
+              },
+            },
+          ],
+        },
+        select: { code: true },
+      })
+    }
+
+    //* canViweOwned means can view all work orders if you are assigned to the project individual as pic,
+    //* or customer, or are selected as owner of the work order or you created the work order, or a project group pic of the project
     const where: Prisma.WorkOrderWhereInput | undefined =
       !ability || canViewAll
         ? undefined
         : canViweOwned
           ? {
-              OR: [{ userCode }, { projectIndividual: { projectIndividualPics: { some: { userCode } } } }, { createdBy: userId }],
+              OR: [{ userCode }, { createdBy: userId }, { projectIndividualCode: { in: allowedProjects.map((pi) => pi.code) } }],
               ...(roleKey === 'business-partner' ? { isInternal: false } : {}),
             }
           : { userCode: -1 }

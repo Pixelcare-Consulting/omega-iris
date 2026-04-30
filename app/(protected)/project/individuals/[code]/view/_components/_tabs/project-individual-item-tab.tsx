@@ -44,6 +44,7 @@ import { NotificationContext } from '@/context/notification'
 import { useForm } from 'react-hook-form'
 import { deleteProjectItemsFormSchema } from '@/schema/project-item'
 import LoadingButton from '@/components/loading-button'
+import CanView from '@/components/acl/can-view'
 
 type ProjectIndividualItemTabProps = {
   projectCode: number
@@ -427,6 +428,31 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
     )
   }
 
+  //* apply filter to the column — only non-zero values will be checked for availableToOrder
+  useEffect(() => {
+    const instance = dataGridRef.current?.instance()
+
+    if (!instance || items.data.length < 1 || items.isLoading) return
+
+    //* get all unique non-zero values from the data
+    const nonZeroValues = [...new Set(items.data.map((item) => item.availableToOrder).filter((val) => val !== 0 && val != null))]
+
+    //* apply filter
+    //? KNWON BUG: if nonZeroValues === zero, and in the actual data there are rows with zero availableToOrder this will still show up when you toggle header filter to show the zero values and you toggle it back it wont hide it anymore
+    //? if nonZeroValues > 1 you can toggle the zero values back and forth without any issues
+    if (nonZeroValues.length === 0) {
+      instance.columnOption('availableToOrder', {
+        filterValues: [0],
+        filterType: 'exclude',
+      })
+    } else {
+      instance.columnOption('availableToOrder', {
+        filterValues: nonZeroValues,
+        filterType: 'include',
+      })
+    }
+  }, [items.data, items.isLoading])
+
   //* show loading
   useEffect(() => {
     if (dataGridRef.current) {
@@ -440,25 +466,21 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
       {!isViewMode ? (
         <div className='flex h-full w-full flex-col'>
           <Toolbar className='mt-5'>
-            {selectedRowKeys.length > 0 && isAdmin && (
-              <Item location='after' locateInMenu='auto' widget='dxMenu'>
-                <Tooltip
-                  target='#update-status'
-                  contentRender={() => 'Update Status'}
-                  showEvent='mouseenter'
-                  hideEvent='mouseleave'
-                  position='top'
-                />
-                <LoadingButton
-                  id='update-status'
-                  icon='trash'
-                  isLoading={isLoading || importData.isExecuting || deleteProjectItemsData.isExecuting}
-                  text={`${selectedRowKeys.length} : Delete`}
-                  type='default'
-                  stylingMode='outlined'
-                  onClick={() => setShowDeleleteSelectedConfirmation(true)}
-                />
-              </Item>
+            {selectedRowKeys.length > 0 && (
+              <CanView subject='p-projects-individual-inventory' action='delete'>
+                <Item location='after' locateInMenu='auto' widget='dxMenu'>
+                  <Tooltip target='#delete' contentRender={() => 'Delete'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />
+                  <LoadingButton
+                    id='delete'
+                    icon='trash'
+                    isLoading={isLoading || importData.isExecuting || deleteProjectItemsData.isExecuting}
+                    text={`${selectedRowKeys.length} : Delete`}
+                    type='default'
+                    stylingMode='outlined'
+                    onClick={() => setShowDeleleteSelectedConfirmation(true)}
+                  />
+                </Item>
+              </CanView>
             )}
 
             <CommonPageHeaderToolbarItems
@@ -467,13 +489,16 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               isLoading={isLoading || importData.isExecuting}
               isEnableImport
               onImport={handleImport}
-              importOptions={{ isHide: isBusinessPartner }}
               addButton={{
                 text: 'Add Item',
                 onClick: handleAdd,
                 isHide: isBusinessPartner,
+                subjects: 'p-projects-individual-inventory',
+                actions: 'create',
               }}
               customs={{ exportToExcel }}
+              importOptions={{ isHide: isBusinessPartner, subjects: 'p-projects-individual-inventory', actions: 'import' }}
+              exportOptions={{ subjects: 'p-projects-individual-inventory', actions: 'export' }}
             />
 
             {stats && stats.progress && isLoading ? <ProgressBar min={0} max={100} showStatus={false} value={stats.progress} /> : null}
@@ -486,7 +511,9 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               isLoading={items.isLoading}
               storageKey={DATAGRID_STORAGE_KEY}
               keyExpr='code'
-              isSelectionEnable={isAdmin ? true : false}
+              isSelectionEnable={
+                CanView({ isReturnBoolean: true, subject: 'p-projects-individual-inventory', action: ['delete'] }) ? true : false
+              }
               dataGridStore={dataGridStore}
               callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChanged }}
             >
@@ -575,38 +602,46 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               </Summary>
 
               <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
-                <DataGridButton
-                  icon='eyeopen'
-                  onClick={handleView}
-                  cssClass='!text-lg'
-                  hint='View'
-                  visible={(opt) => {
-                    const data = opt?.row?.data
-                    return hideActionButton(data?.deletedAt || data?.deletedBy)
-                  }}
-                />
-                <DataGridButton
-                  icon='edit'
-                  onClick={handleEdit}
-                  cssClass='!text-lg'
-                  hint='Edit'
-                  visible={(opt) => {
-                    const data = opt?.row?.data
-                    return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner)
-                  }}
-                />
-                <DataGridButton
-                  icon='trash'
-                  onClick={handleDelete}
-                  cssClass='!text-lg !text-red-500'
-                  hint='Delete'
-                  visible={(opt) => {
-                    const data = opt?.row?.data
-                    return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner)
-                  }}
-                />
+                <CanView subject='p-projects-individual-inventory' action='view'>
+                  <DataGridButton
+                    icon='eyeopen'
+                    onClick={handleView}
+                    cssClass='!text-lg'
+                    hint='View'
+                    visible={(opt) => {
+                      const data = opt?.row?.data
+                      return hideActionButton(data?.deletedAt || data?.deletedBy)
+                    }}
+                  />
+                </CanView>
 
-                <DataGridButton
+                <CanView subject='p-projects-individual-inventory' action='edit'>
+                  <DataGridButton
+                    icon='edit'
+                    onClick={handleEdit}
+                    cssClass='!text-lg'
+                    hint='Edit'
+                    visible={(opt) => {
+                      const data = opt?.row?.data
+                      return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner)
+                    }}
+                  />
+                </CanView>
+
+                <CanView subject='p-projects-individual-inventory' action='delete'>
+                  <DataGridButton
+                    icon='trash'
+                    onClick={handleDelete}
+                    cssClass='!text-lg !text-red-500'
+                    hint='Delete'
+                    visible={(opt) => {
+                      const data = opt?.row?.data
+                      return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner)
+                    }}
+                  />
+                </CanView>
+
+                {/* <DataGridButton
                   icon='undo'
                   onClick={handleRestore}
                   cssClass='!text-lg !text-blue-500'
@@ -626,7 +661,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
                     const data = opt?.row?.data
                     return showActionButton((data?.deletedAt || data?.deletedBy) && !isBusinessPartner)
                   }}
-                />
+                /> */}
               </Column>
             </CommonDataGrid>
 

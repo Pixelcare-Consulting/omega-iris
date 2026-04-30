@@ -37,7 +37,7 @@ RETURNS TABLE (
     "mfr"                   TEXT,
     "desc"                  TEXT,
     --* item columns
-    "ItemCode"              TEXT,
+    "Mpn"                   TEXT,
     "ItemName"              TEXT,
     "FirmCode"              INT,
     "FirmName"              TEXT,
