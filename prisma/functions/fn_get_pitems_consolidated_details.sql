@@ -31,6 +31,12 @@ RETURNS TABLE (
 LANGUAGE plpgsql
 AS $$
 BEGIN
+    --* Return empty if no filters are provided
+    IF p_project_name IS NULL AND p_project_group_name IS NULL AND p_mpn IS NULL
+       AND p_description IS NULL AND p_manufacturer IS NULL THEN
+        RETURN;
+    END IF;
+
     RETURN QUERY
     SELECT
 		T3."code",
