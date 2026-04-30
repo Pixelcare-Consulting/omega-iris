@@ -28,11 +28,13 @@ import { safeParseInt } from '@/utils'
 import { NotificationContext } from '@/context/notification'
 import { CommonOperationError } from '@/types/common'
 import CommonOperationErrorDataGrid from '@/components/common-operation-error-datagrid'
+import { useSession } from 'next-auth/react'
 
 type WorkOrderTableProps = { workOrders: Awaited<ReturnType<typeof getWorkOrders>> }
 type DataSource = Awaited<ReturnType<typeof getWorkOrders>>
 
 export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
+  const { data: session } = useSession()
   const router = useRouter()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-work-order'
@@ -73,6 +75,11 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     if (workOrderToUpdate.length < 1) return []
     return workOrderToUpdate.map((wo) => wo.code)
   }, [JSON.stringify(workOrderToUpdate)])
+
+  const isBusinessPartner = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'business-partner'
+  }, [JSON.stringify(session)])
 
   const workOrderToUpdateInfo = useMemo(() => {
     //* return isStatusError = 'true' if selected work order has different status, all should be the same status will be 'false'
@@ -302,12 +309,16 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
               caption='Status'
               calculateCellValue={(data) => WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === data.status)?.label}
             />
-            <Column
-              dataField='isInternal'
-              dataType='string'
-              caption='Internal'
-              calculateCellValue={(data) => (data?.isInternal ? 'Yes' : 'No')}
-            />
+
+            {!isBusinessPartner && (
+              <Column
+                dataField='isInternal'
+                dataType='string'
+                caption='Internal'
+                calculateCellValue={(data) => (data?.isInternal ? 'Yes' : 'No')}
+              />
+            )}
+
             <Column
               dataField='owner'
               dataType='string'

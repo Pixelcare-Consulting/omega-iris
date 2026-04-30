@@ -331,6 +331,32 @@ export default function WorkOrderLineItemForm({
     form.setValue('lineItems', mainFormLineItems)
   }, [isOpen, form])
 
+  //* apply filter to the column — only non-zero values will be checked for availableToOrder
+  useEffect(() => {
+    const instance = dataGridRef.current?.instance()
+    if (!instance) return
+
+    //* get all unique non-zero values from the data
+    const nonZeroValues = [
+      ...new Set(projectItemsDataSource.map((item) => item.availableToOrder).filter((val) => val !== 0 && val != null)),
+    ]
+
+    //* apply filter
+    //? KNWON BUG: if nonZeroValues === zero, and in the actual data there are rows with zero availableToOrder this will still show up when you toggle header filter to show the zero values and you toggle it back it wont hide it anymore
+    //? if nonZeroValues > 1 you can toggle the zero values back and forth without any issues
+    if (nonZeroValues.length === 0) {
+      instance.columnOption('availableToOrder', {
+        filterValues: [0],
+        filterType: 'exclude',
+      })
+    } else {
+      instance.columnOption('availableToOrder', {
+        filterValues: nonZeroValues,
+        filterType: 'include',
+      })
+    }
+  }, [projectItemsDataSource])
+
   //* show loading
   useEffect(() => {
     if (dataGridRef.current) {

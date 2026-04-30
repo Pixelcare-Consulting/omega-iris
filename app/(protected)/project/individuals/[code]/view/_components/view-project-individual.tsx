@@ -97,9 +97,11 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
             </>
           )}
 
-          <TabPanelITem title='Inventory'>
-            <ProjectIndividualItemTab projectCode={projectIndividual.code} projectName={projectIndividual.name} items={items} />
-          </TabPanelITem>
+          <CanView subject='p-projects-individual-inventory' action='view'>
+            <TabPanelITem title='Inventory'>
+              <ProjectIndividualItemTab projectCode={projectIndividual.code} projectName={projectIndividual.name} items={items} />
+            </TabPanelITem>
+          </CanView>
         </TabPanel>
       </PageContentWrapper>
     </div>

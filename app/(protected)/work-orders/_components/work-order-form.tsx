@@ -423,7 +423,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                   isRequired
                   extendedProps={{
                     selectBoxOptions: {
-                      disabled: session?.user.roleKey !== 'admin',
+                      disabled: isBusinessPartner,
                       itemRender: (params) => {
                         return commonItemRender({
                           title: `${params.fullName} ${params?.customerCode ? `(${params?.customerCode})` : ''}`,
