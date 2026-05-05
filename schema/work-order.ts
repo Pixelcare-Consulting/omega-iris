@@ -147,6 +147,11 @@ export const partialWorkOrderStatusUpdateFormSchema = workOrderStatusUpdateFormS
   })
   .merge(z.object({ code: z.coerce.number() }))
 
+export const toggleWorkOrderInternalSchema = z.object({
+  code: z.coerce.number(),
+  isInternal: z.boolean(),
+})
+
 export type WorkOrderItemForm = z.infer<typeof workOrderItemFormSchema>
 export type WorkOrderLineItemsForm = z.infer<typeof workOrderLineItemsFormSchema>
 export type UpsertWorkOrderLineItemForm = z.infer<typeof upsertWorkOrderLineItemFormSchema>

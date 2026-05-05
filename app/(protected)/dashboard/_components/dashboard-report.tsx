@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Item } from 'devextreme-react/toolbar'
 import SelectBox, { SelectBoxTypes } from 'devextreme-react/select-box'
-import ScrollView from 'devextreme-react/scroll-view'
+import ScrollView, { ScrollViewRef } from 'devextreme-react/scroll-view'
 
 import { getDashboardReports } from '@/actions/report'
 import PageHeader from '../../_components/page-header'
@@ -24,6 +24,7 @@ const SELECTED_DASHBOARD_REPORT_KEY = 'selected-dashboard-report'
 
 export default function DashboardReport({ reports, params, userInfo }: DashboardReportProps) {
   const [selected, setSelected] = useState<number | null>(null)
+  const scrollRef = useRef<ScrollViewRef>(null)
 
   const localStorageKey = useMemo(() => {
     return `${userInfo?.userCode}-${SELECTED_DASHBOARD_REPORT_KEY}`
@@ -96,26 +97,28 @@ export default function DashboardReport({ reports, params, userInfo }: Dashboard
         </Item>
       </PageHeader>
 
-      <ScrollView className='h-[calc(100vh_-175px)]'>
-        <PageContentWrapper className='h-full bg-primary-black/5'>
-          <div className='h-full [&>div]:h-full'>
-            {reports.length > 0 ? (
-              <ReportViewer key={selectedReport?.code} type={'1'} data={selectedReport?.data} params={params} />
-            ) : (
-              <div className='flex items-center justify-center'>
-                <div className='flex h-[calc(100vh_-210px)] flex-col items-center justify-center'>
-                  <Icons.triangleAlert className='size-14 text-red-500' />
-                  <div className='mt-2.5 flex flex-col items-center justify-center gap-1'>
-                    <h1 className='text-center text-xl font-bold text-red-500'>Dashboad Reports Not Available</h1>
-                    <p className='text-center text-sm text-slate-500 dark:text-slate-400'>
-                      Please contact your administrator to enable this feature.
-                    </p>
-                  </div>
+      <ScrollView
+        ref={scrollRef}
+        showScrollbar='onHover'
+        className='[&_.dx-scrollable-scrollbar] h-[calc(100vh_-175px)] rounded-md bg-primary-black/5 shadow-md'
+      >
+        <div className='p-4' tabIndex={0}>
+          {reports.length > 0 ? (
+            <ReportViewer key={selectedReport?.code} type={'1'} data={selectedReport?.data} params={params} />
+          ) : (
+            <div className='flex items-center justify-center'>
+              <div className='flex h-[calc(100vh_-210px)] flex-col items-center justify-center'>
+                <Icons.triangleAlert className='size-14 text-red-500' />
+                <div className='mt-2.5 flex flex-col items-center justify-center gap-1'>
+                  <h1 className='text-center text-xl font-bold text-red-500'>Dashboad Reports Not Available</h1>
+                  <p className='text-center text-sm text-slate-500 dark:text-slate-400'>
+                    Please contact your administrator to enable this feature.
+                  </p>
                 </div>
               </div>
-            )}
-          </div>
-        </PageContentWrapper>
+            </div>
+          )}
+        </div>
       </ScrollView>
     </div>
   )

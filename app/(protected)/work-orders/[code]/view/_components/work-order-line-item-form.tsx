@@ -214,6 +214,22 @@ export default function WorkOrderLineItemForm({
     [JSON.stringify(projectItemsDataSource), JSON.stringify(currLineItems), JSON.stringify(lineItems)]
   )
 
+  const handleOnContentReady = useCallback((e: DataGridTypes.ContentReadyEvent) => {
+    const instance = e.component
+
+    if (!instance) return
+
+    const existing = instance.columnOption('availableToOrder', 'filterValues')
+
+    //* only add filter if it does not exist
+    if (existing === undefined) {
+      instance.columnOption('availableToOrder', {
+        filterValues: [0],
+        filterType: 'exclude',
+      })
+    }
+  }, [])
+
   const handleClose = useCallback(() => {
     form.reset()
     setIsOpen(false)
@@ -300,6 +316,7 @@ export default function WorkOrderLineItemForm({
             siteLocation: pItem?.siteLocation || '',
             subLocation2: pItem?.subLocation2 || '',
             subLocation3: pItem?.subLocation3 || '',
+            owner: pItem?.owner || '',
             mfr: pItem?.mfr || '',
             desc: pItem?.desc || '',
           }
@@ -384,6 +401,7 @@ export default function WorkOrderLineItemForm({
             onSelectionChanged: handleOnSelectionChanged,
             onRowUpdated: handleOnRowUpdated,
             onEditorPreparing: handleOnEditorPreparing,
+            onContentReady: handleOnContentReady,
           }}
         >
           <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' allowEditing={false} sortOrder='asc' />
@@ -393,6 +411,7 @@ export default function WorkOrderLineItemForm({
           <Column dataField='mfr' dataType='string' caption='MFR' allowEditing={false} />
           <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
 
+          <Column dataField='owner' dataType='string' caption='Owner' allowEditing={false} />
           <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
           <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} visible={false} />
           <Column dataField='dateCode' dataType='string' caption='Date Code' allowEditing={false} />
@@ -429,6 +448,7 @@ export default function WorkOrderLineItemForm({
             allowEditing={false}
             fixed
             fixedPosition='right'
+            filterType='exclude'
           />
           <Column
             dataField='stockIn'

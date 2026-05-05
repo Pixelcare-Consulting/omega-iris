@@ -144,7 +144,8 @@ export const upsertUser = action
   .use(authenticationMiddleware)
   .schema(userFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, password, confirmPassword, newPassword, newConfirmPassword, roleKey, isForceToChangePassword, ...data } = parsedInput
+    const { code, password, confirmPassword, newPassword, newConfirmPassword, roleKey, isForceToChangePassword, isLocked, ...data } =
+      parsedInput
     const { userId } = ctx
 
     try {
@@ -182,13 +183,20 @@ export const upsertUser = action
 
         let hashedPassword = user.password
 
-        if (newPassword) {
-          hashedPassword = await bcrypt.hash(newPassword, 10)
-        }
+        if (newPassword) hashedPassword = await bcrypt.hash(newPassword, 10)
+
+        const isBeingUnlocked = user.isLocked && !isLocked
 
         const updatedUser = await db.user.update({
           where: { code },
-          data: { ...data, password: hashedPassword, updatedBy: userId, isDefaultPasswordChanged: isForceToChangePassword ? false : true },
+          data: {
+            ...data,
+            password: hashedPassword,
+            updatedBy: userId,
+            isDefaultPasswordChanged: isForceToChangePassword ? false : true,
+            isLocked: isLocked ? true : false,
+            failedLoginAttempts: isBeingUnlocked ? 0 : user.failedLoginAttempts,
+          },
         })
 
         //* create notification
@@ -215,10 +223,9 @@ export const upsertUser = action
           password: hashedPassword,
           createdBy: userId,
           updatedBy: userId,
-          profile: {
-            create: { details: {} },
-          },
+          profile: { create: { details: {} } },
           isDefaultPasswordChanged: isForceToChangePassword ? false : true,
+          isLocked: isLocked ? true : false,
         },
         include: { role: true },
       })

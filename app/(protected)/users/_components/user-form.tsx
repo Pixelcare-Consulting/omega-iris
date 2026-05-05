@@ -69,6 +69,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
         customerCode: '',
         supplierCode: '',
         isForceToChangePassword: true,
+        isLocked: false,
       }
     }
 
@@ -261,6 +262,10 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                   label='Force To change Password'
                   description='Required the user to change their password upon next login'
                 />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <SwitchField control={form.control} name='isLocked' label='Locked' description='Locked user cannot sign in' />
               </div>
 
               {roleKey && roleKey === 'business-partner' && (

@@ -264,6 +264,22 @@ export default function WorkOrderLineItemForm({
     )
   }
 
+  const handleOnContentReady = useCallback((e: DataGridTypes.ContentReadyEvent) => {
+    const instance = e.component
+
+    if (!instance) return
+
+    const existing = instance.columnOption('availableToOrder', 'filterValues')
+
+    //* only add filter if it does not exist
+    if (existing === undefined) {
+      instance.columnOption('availableToOrder', {
+        filterValues: [0],
+        filterType: 'exclude',
+      })
+    }
+  }, [])
+
   //* set local state project items data source combined with the data of the line items e.g qty, isDelivered, etc
   useEffect(() => {
     if (!isOpen) return
@@ -313,6 +329,7 @@ export default function WorkOrderLineItemForm({
             siteLocation: pItem?.siteLocation || '',
             subLocation2: pItem?.subLocation2 || '',
             subLocation3: pItem?.subLocation3 || '',
+            owner: pItem?.owner || '',
             mfr: pItem?.mfr || '',
             desc: pItem?.desc || '',
           }
@@ -330,32 +347,6 @@ export default function WorkOrderLineItemForm({
     setGridKey(uuidv4())
     form.setValue('lineItems', mainFormLineItems)
   }, [isOpen, form])
-
-  //* apply filter to the column — only non-zero values will be checked for availableToOrder
-  useEffect(() => {
-    const instance = dataGridRef.current?.instance()
-    if (!instance) return
-
-    //* get all unique non-zero values from the data
-    const nonZeroValues = [
-      ...new Set(projectItemsDataSource.map((item) => item.availableToOrder).filter((val) => val !== 0 && val != null)),
-    ]
-
-    //* apply filter
-    //? KNWON BUG: if nonZeroValues === zero, and in the actual data there are rows with zero availableToOrder this will still show up when you toggle header filter to show the zero values and you toggle it back it wont hide it anymore
-    //? if nonZeroValues > 1 you can toggle the zero values back and forth without any issues
-    if (nonZeroValues.length === 0) {
-      instance.columnOption('availableToOrder', {
-        filterValues: [0],
-        filterType: 'exclude',
-      })
-    } else {
-      instance.columnOption('availableToOrder', {
-        filterValues: nonZeroValues,
-        filterType: 'include',
-      })
-    }
-  }, [projectItemsDataSource])
 
   //* show loading
   useEffect(() => {
@@ -423,6 +414,7 @@ export default function WorkOrderLineItemForm({
             onSelectionChanged: handleOnSelectionChanged,
             onRowUpdated: handleOnRowUpdated,
             onEditorPreparing: handleOnEditorPreparing,
+            onContentReady: handleOnContentReady,
           }}
         >
           <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' allowEditing={false} sortOrder='asc' />
@@ -432,6 +424,7 @@ export default function WorkOrderLineItemForm({
           <Column dataField='mfr' dataType='string' caption='MFR' allowEditing={false} />
           <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
 
+          <Column dataField='owner' dataType='string' caption='Owner' allowEditing={false} />
           <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
           <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} visible={false} />
           <Column dataField='dateCode' dataType='string' caption='Date Code' allowEditing={false} />
@@ -468,6 +461,7 @@ export default function WorkOrderLineItemForm({
             allowEditing={false}
             fixed
             fixedPosition='right'
+            filterType='exclude'
           />
           <Column
             dataField='stockIn'

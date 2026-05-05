@@ -26,6 +26,7 @@ export const projectItemFormSchema = z
     subLocation2: z.string().nullish(),
     subLocation3: z.string().nullish(),
     notes: z.string().nullish(),
+    owner: z.string().nullish(),
     mfr: z.string().nullish(),
     desc: z.string().nullish(),
   })

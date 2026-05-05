@@ -61,8 +61,8 @@ BEGIN
         T0."createdAt",
         T0."updatedAt",
         T0."deletedAt",
-        T0."createdBy",
-        T0."updatedBy",
+        CONCAT_WS(' ', T6."fname", T6."lname")  AS "createdBy",  --* user full name
+        CONCAT_WS(' ', T7."fname", T7."lname")  AS "updatedBy",   --* user full name
         T0."deletedBy",
         --* project individual
         T1."name"                          AS "projectName",
@@ -89,6 +89,12 @@ BEGIN
         LEFT JOIN "BusinessPartner" T5          
         ON T5."CardCode" = T3."customerCode"
         AND T5."deletedAt" IS NULL    
+    LEFT JOIN "User" T6
+        ON T6."id" = T0."createdBy"   --* match via id
+        AND T6."deletedAt" IS NULL
+    LEFT JOIN "User" T7
+        ON T7."id" = T0."updatedBy"   --* match via id
+        AND T7."deletedAt" IS NULL            
     WHERE
         T0."code" = p_work_order_code
         AND T0."deletedAt" IS NULL;

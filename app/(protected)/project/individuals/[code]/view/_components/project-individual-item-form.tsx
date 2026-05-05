@@ -93,6 +93,7 @@ export default function ProjectItemForm({
         subLocation2: null,
         subLocation3: null,
         notes: null,
+        owner: null,
         mfr: null,
         desc: null,
       }
@@ -331,6 +332,10 @@ export default function ProjectItemForm({
 
               <Separator className='col-span-12' />
               <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Project Item' description='Project item details' />
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <TextBoxField control={form.control} name='owner' label='Owner' />
+              </div>
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                 <TextBoxField control={form.control} name='partNumber' label='Part Number' />

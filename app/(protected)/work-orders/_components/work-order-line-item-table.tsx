@@ -349,6 +349,7 @@ export default function WorkOrderLineItemTable({
             siteLocation: pItem?.siteLocation || '',
             subLocation2: pItem?.subLocation2 || '',
             subLocation3: pItem?.subLocation3 || '',
+            owner: pItem?.owner || '',
             mfr: pItem?.mfr || '',
             desc: pItem?.desc || '',
           }
@@ -414,8 +415,9 @@ export default function WorkOrderLineItemTable({
             allowEditing={false}
             alignment='left'
           />
-          <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
 
+          <Column dataField='owner' dataType='string' caption='Owner' allowEditing={false} />
+          <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
           <Column dataField='FirmName' dataType='string' caption='Manufacturer' allowEditing={false} visible={false} />
           <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
           <Column dataField='mfr' dataType='string' caption='MFR' allowEditing={false} />
