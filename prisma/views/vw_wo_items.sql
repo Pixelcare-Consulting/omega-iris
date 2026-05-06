@@ -9,6 +9,7 @@ SELECT
         T1."id"                     AS "projectItemId",
         T1."itemCode",
         T1."warehouseCode",
+        T1."owner",
         T1."partNumber",
         T1."dateCode",
         T1."countryOfOrigin",
