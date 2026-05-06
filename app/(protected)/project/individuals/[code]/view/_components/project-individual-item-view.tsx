@@ -46,7 +46,7 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
   // }, [JSON.stringify(itemMasterWarehouseInventory), warehouse?.code])
 
   return (
-    <ScrollView>
+    <ScrollView useNative>
       <div className='grid h-full w-full grid-cols-12 gap-5 p-3 py-5'>
         <ReadOnlyFieldHeader
           className='col-span-12'
@@ -96,6 +96,12 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
         <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Project Item' description='Project item details' />
 
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='ID' value={data.code}>
+          <Copy value={data.code} />
+        </ReadOnlyField>
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Owner' value={data?.owner || ''} />
+
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Part Number' value={data?.partNumber || ''} />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Date Code' value={data?.dateCode || ''} />
@@ -141,6 +147,20 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
             value={formatNumber(safeParseFloat(data?.totalStock), DEFAULT_NUMBER_FORMAT)}
           />
         )}
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='MFR'
+          value={data?.mfr || ''}
+          description='Temporary manufacturer field'
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Description'
+          value={data?.desc || ''}
+          description='Temporary description field'
+        />
 
         <ReadOnlyField className='col-span-12' title='Notes' value={data?.notes || ''} />
 

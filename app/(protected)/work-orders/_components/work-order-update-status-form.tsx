@@ -237,7 +237,7 @@ export default function WorkOrderUpdateStatusForm({
         </PageHeader>
 
         <PageContentWrapper className='max-h-[calc(100%_-_92px)] shadow-none'>
-          <ScrollView>
+          <ScrollView useNative>
             {/* <FormDebug form={form} /> */}
 
             <div className='grid h-full grid-cols-12 gap-5'>

@@ -63,7 +63,7 @@ export default function WorkOrderLineItemView({ data, onClose }: WorkOrderLineIt
   //   )
 
   return (
-    <ScrollView>
+    <ScrollView useNative>
       <div className='grid h-full w-full grid-cols-12 gap-5 p-3 py-5'>
         <ReadOnlyFieldHeader
           className='col-span-12'

@@ -21,6 +21,7 @@ export const userFormSchema = z
     customerCode: z.string().nullish(),
     supplierCode: z.string().nullish(),
     isForceToChangePassword: z.boolean().nullish(),
+    isLocked: z.boolean().nullish(),
   })
   //TODO: Customer is not required for now, uncomment this when customer is required
   // .refine(

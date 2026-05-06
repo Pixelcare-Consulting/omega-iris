@@ -93,7 +93,7 @@ export default function ViewWorkOrder({ workOrder, report }: ViewWorkOrderProps)
           </TabPanelITem>
 
           <TabPanelITem title='Status Updates'>
-            <WorkOrderStatusUpdateTab workOrderCode={workOrder.code} statusUpdates={workOrderStatusUpdates} />
+            <WorkOrderStatusUpdateTab workOrder={workOrder} statusUpdates={workOrderStatusUpdates} />
           </TabPanelITem>
 
           <TabPanelITem title='Attachments'>

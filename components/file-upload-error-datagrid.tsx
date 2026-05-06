@@ -15,6 +15,7 @@ import DataGrid, {
   Item,
   Pager,
   Paging,
+  Scrolling,
 } from 'devextreme-react/data-grid'
 import { Popup } from 'devextreme-react/popup'
 
@@ -63,6 +64,7 @@ export default function FileUploadErrorDataGrid({
         <Column dataField='message' dataType='string' caption='Message' alignment='center' />
         <Pager visible={true} showInfo displayMode='full' showNavigationButtons />
         <Paging defaultPageSize={DATAGRID_DEFAULT_PAGE_SIZE} />
+        <Scrolling mode='standard' useNative />
       </DataGrid>
     )
   }, [])
@@ -210,6 +212,7 @@ export default function FileUploadErrorDataGrid({
             showNavigationButtons
           />
           <Paging defaultPageSize={DATAGRID_DEFAULT_PAGE_SIZE} />
+          <Scrolling mode='standard' useNative />
 
           <Toolbar>
             <Item

@@ -14,6 +14,7 @@ import logger from '@/utils/logger'
 import { cookies } from 'next/headers'
 import { getSapServiceLayerToken } from './sap-auth'
 import { buildAbilityFor } from '@/utils/acl'
+import { safeParseInt } from '@/utils'
 
 export async function getCurrentUser() {
   const session = await auth()
@@ -55,8 +56,14 @@ export const signInUser = action.schema(signinFormSchema).action(async ({ parsed
   try {
     const user = await getUserByEmail(email)
 
+    //* Check if user exists
     if (!user || !user.email || !user.password) {
       return { error: true, code: 401, message: 'User does not exist!', action: 'SIGNIN_USER' }
+    }
+
+    //* check if user is locked
+    if (user.isLocked) {
+      return { error: true, code: 401, message: 'Account is locked!. Please contact your administrator.', action: 'SIGNIN_USER' }
     }
 
     //* Clean up any existing session tokens
@@ -77,7 +84,7 @@ export const signInUser = action.schema(signinFormSchema).action(async ({ parsed
     //* update user
     await db.user.update({
       where: { code: user.code },
-      data: { lastIpAddress: ip, location: location, lastSignin: new Date() },
+      data: { lastIpAddress: ip, location: location, lastSignin: new Date(), failedLoginAttempts: 0 },
     })
 
     //* Authenticate with SAP Service Layer after successful application login'
@@ -110,12 +117,30 @@ export const signInUser = action.schema(signinFormSchema).action(async ({ parsed
   } catch (err) {
     if (err instanceof AuthError) {
       const authError = err as any
-
-      console.log({ authError })
+      const maxSigninAttempts = safeParseInt(process.env.SIGNIN_MAXIMUM_ATTEMPTS) || 5
 
       switch (authError?.code) {
-        case 'credentials':
+        case 'credentials': {
+          const user = await getUserByEmail(email)
+
+          //* if user exist, not locked and user's failed sigin attempts does not reach the limit, then increase failed signin attempts
+          if (user && !user.isLocked && user.failedLoginAttempts < maxSigninAttempts) {
+            await db.user.update({
+              where: { code: user.code },
+              data: { failedLoginAttempts: { increment: 1 } },
+            })
+          }
+
+          //* if user exist , not locked  and user's failed sigin attempts reach the limit, then lock the user
+          if (user && !user.isLocked && user.failedLoginAttempts >= maxSigninAttempts - 1) {
+            await db.user.update({
+              where: { code: user.code },
+              data: { isLocked: true },
+            })
+          }
+
           return { error: true, status: 401, message: 'Invalid Credentials!', action: 'SIGNIN_USER' }
+        }
         default:
           return { error: true, status: 500, message: 'Failed to login! Please try again later.', action: 'SIGNIN_USER' }
       }

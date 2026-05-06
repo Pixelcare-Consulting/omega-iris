@@ -1,27 +1,6 @@
---* Get work order status updates by workOrderCode with status names
-CREATE OR REPLACE FUNCTION fn_get_wo_status_updates_by_code(
-    p_work_order_code INT
-)
-RETURNS TABLE (
-    "id"                TEXT,
-    "code"              INT,
-    "workOrderCode"     INT,
-    "prevStatus"        TEXT,
-    "prevStatusName"    TEXT,
-    "currentStatus"     TEXT,
-    "currentStatusName" TEXT,
-    "comments"          TEXT,
-    "trackingNum"       TEXT,
-    "createdAt"         TIMESTAMP,
-    "updatedAt"         TIMESTAMP,
-    "createdBy"         TEXT,
-    "updatedBy"         TEXT
-)
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    RETURN QUERY
-    SELECT
+
+CREATE OR REPLACE VIEW "vw_wo_status_updates" AS
+     SELECT
         T0."id",
         T0."code",
         T0."workOrderCode",
@@ -46,11 +25,4 @@ BEGIN
     LEFT JOIN "User" T4
         ON T4."id" = T0."updatedBy"   --* match via id
         AND T4."deletedAt" IS NULL
-    WHERE
-        T0."workOrderCode" = p_work_order_code
-    ORDER BY T0."createdAt" ASC;
-END;
-$$;
-
---* sample query execution
-SELECT * FROM fn_get_wo_status_updates_by_code(16);
+	ORDER BY T0."createdAt" ASC;	

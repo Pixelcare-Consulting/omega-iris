@@ -19,7 +19,7 @@ type CustomerOverviewTabProps = {
 
 export default function CustomerOverviewTab({ customer }: CustomerOverviewTabProps) {
   return (
-    <ScrollView>
+    <ScrollView useNative>
       <div className='grid grid-cols-12 gap-5 p-3 py-5'>
         <ReadOnlyFieldHeader className='col-span-12' title='Overview' description='Customer overview information' />
 

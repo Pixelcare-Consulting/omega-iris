@@ -256,6 +256,22 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
     setSelectedRowKeys(e.selectedRowKeys)
   }
 
+  const handleOnContentReady = useCallback((e: DataGridTypes.ContentReadyEvent) => {
+    const instance = e.component
+
+    if (!instance) return
+
+    const existing = instance.columnOption('availableToOrder', 'filterValues')
+
+    //* only add filter if it does not exist
+    if (existing === undefined) {
+      instance.columnOption('availableToOrder', {
+        filterValues: [0],
+        filterType: 'exclude',
+      })
+    }
+  }, [])
+
   const exportToExcel = (fileName: string, component?: dxDataGrid<any, any> | null, selectedRowsOnly = false) => {
     if (!component) return
 
@@ -305,24 +321,25 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
     try {
       const headers: string[] = [
         'ID',
+        'Owner',
         'MFG_P/N',
         'Part_Number',
+        'MFR',
+        'Desc',
         'Date_Code',
         'Country_Origin',
         'Lot_Code',
         'Pallet_No',
-        'Packaging_Type',
-        'SPQ',
-        'Cost',
-        'Total_Stock',
-        'Notes',
         'Site_Location',
         'Sub_Location2',
         'Sub_Location3',
         'Date_Received',
         'Received_By',
-        'MFR',
-        'Desc',
+        'Packaging_Type',
+        'SPQ',
+        'Cost',
+        'Total_Stock',
+        'Notes',
       ]
 
       const batchSize = 100
@@ -428,31 +445,6 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
     )
   }
 
-  //* apply filter to the column — only non-zero values will be checked for availableToOrder
-  useEffect(() => {
-    const instance = dataGridRef.current?.instance()
-
-    if (!instance || items.data.length < 1 || items.isLoading) return
-
-    //* get all unique non-zero values from the data
-    const nonZeroValues = [...new Set(items.data.map((item) => item.availableToOrder).filter((val) => val !== 0 && val != null))]
-
-    //* apply filter
-    //? KNWON BUG: if nonZeroValues === zero, and in the actual data there are rows with zero availableToOrder this will still show up when you toggle header filter to show the zero values and you toggle it back it wont hide it anymore
-    //? if nonZeroValues > 1 you can toggle the zero values back and forth without any issues
-    if (nonZeroValues.length === 0) {
-      instance.columnOption('availableToOrder', {
-        filterValues: [0],
-        filterType: 'exclude',
-      })
-    } else {
-      instance.columnOption('availableToOrder', {
-        filterValues: nonZeroValues,
-        filterType: 'include',
-      })
-    }
-  }, [items.data, items.isLoading])
-
   //* show loading
   useEffect(() => {
     if (dataGridRef.current) {
@@ -515,20 +507,21 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
                 CanView({ isReturnBoolean: true, subject: 'p-projects-individual-inventory', action: ['delete'] }) ? true : false
               }
               dataGridStore={dataGridStore}
-              callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChanged }}
+              callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChanged, onContentReady: handleOnContentReady }}
             >
               <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
               <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} visible={false} />
+              <Column dataField='owner' dataType='string' caption='Owner' />
 
               <Column dataField='item.ItemCode' dataType='string' caption='MFG P/N' />
+              <Column dataField='partNumber' dataType='string' caption='Part Number' />
               <Column dataField='item.FirmName' dataType='string' caption='Manufacturer' visible={false} />
               <Column dataField='mfr' dataType='string' caption='MFR' />
+              <Column dataField='item.ItemName' dataType='string' caption='Description' visible={false} />
               <Column dataField='desc' dataType='string' caption='Desc' />
 
-              <Column dataField='partNumber' dataType='string' caption='Part Number' />
-              <Column dataField='item.ItemName' dataType='string' caption='Description' visible={false} />
               <Column dataField='dateCode' minWidth={75} dataType='string' caption='DC' />
-              <Column dataField='countryOfOrigin' minWidth={75} dataType='string' caption='COO' />
+              <Column dataField='countryOfOrigin' minWidth={80} dataType='string' caption='COO' />
               <Column dataField='lotCode' dataType='string' caption='Lot Code' />
               <Column dataField='palletNo' dataType='string' caption='Pallet No' />
               <Column dataField='siteLocation' dataType='string' caption='Site Location' />
@@ -551,6 +544,14 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
 
               <Column dataField='packagingType' dataType='string' caption='Packaging Type' />
               <Column dataField='spq' dataType='string' caption='SPQ' />
+              <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
+
+              {!isBusinessPartner ? (
+                <Column dataField='totalStock' dataType='number' caption='Total Stock' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
+              ) : null}
+
+              <Column dataField='notes' dataType='string' caption='Notes' visible={false} />
+
               <Column
                 dataField='availableToOrder'
                 dataType='number'
@@ -559,6 +560,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
                 format={DEFAULT_NUMBER_FORMAT}
                 fixed
                 fixedPosition='right'
+                filterType='exclude'
               />
               <Column
                 dataField='stockIn'
@@ -574,14 +576,6 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
                 alignment='left'
                 format={DEFAULT_NUMBER_FORMAT}
               />
-
-              {!isBusinessPartner ? (
-                <Column dataField='totalStock' dataType='number' caption='Total Stock' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
-              ) : null}
-
-              <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
-
-              <Column dataField='notes' dataType='string' caption='Notes' visible={false} />
 
               <Column dataField='createdAt' dataType='datetime' caption='Created At' visible={false} />
               <Column dataField='updatedAt' dataType='datetime' caption='Updated At' visible={false} />

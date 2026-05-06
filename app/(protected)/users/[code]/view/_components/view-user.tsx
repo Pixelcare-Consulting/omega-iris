@@ -25,8 +25,8 @@ type ViewUserProps = {
 export default function ViewUser({ user }: ViewUserProps) {
   const router = useRouter()
 
-  const projects = usePis()
-  const piCustomers = usePiCustomerByUserCode(user.role.key === 'business-partner' ? user.code : undefined)
+  // const projects = usePis()
+  // const piCustomers = usePiCustomerByUserCode(user.role.key === 'business-partner' ? user.code : undefined)
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
@@ -77,7 +77,7 @@ export default function ViewUser({ user }: ViewUserProps) {
             badge='SAP'
             visible={user.role.key === 'business-partner' && user?.customerCode ? true : false}
           >
-            <ScrollView>
+            <ScrollView useNative>
               <UnderDevelopment className='h-[60vh]' />
             </ScrollView>
           </TabPanelITem> */}
@@ -87,7 +87,7 @@ export default function ViewUser({ user }: ViewUserProps) {
             badge='SAP'
             visible={user.role.key === 'business-partner' && user?.supplierCode ? true : false}
           >
-            <ScrollView>
+            <ScrollView useNative>
               <UnderDevelopment className='h-[60vh]' />
             </ScrollView>
           </TabPanelITem> */}

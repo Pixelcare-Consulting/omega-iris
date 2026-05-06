@@ -15,6 +15,7 @@ import DataGrid, {
   Item,
   Pager,
   Paging,
+  Scrolling,
 } from 'devextreme-react/data-grid'
 import { Popup } from 'devextreme-react/popup'
 
@@ -72,6 +73,7 @@ export default function CommonOperationErrorDataGrid({
         {detailsChildren}
         <Column dataField='message' dataType='string' caption='Message' alignment='center' />
         <Pager visible={true} showInfo displayMode='full' showNavigationButtons />
+        <Scrolling mode='standard' useNative />
         <Paging defaultPageSize={DATAGRID_DEFAULT_PAGE_SIZE} />
       </DataGrid>
     )
@@ -233,6 +235,7 @@ export default function CommonOperationErrorDataGrid({
             showNavigationButtons
           />
           <Paging defaultPageSize={DATAGRID_DEFAULT_PAGE_SIZE} />
+          <Scrolling mode='standard' useNative />
 
           <Toolbar>
             <Item

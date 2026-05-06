@@ -16,7 +16,7 @@ type UserOverviewTabProps = {
 
 export default function UserOverviewTab({ user }: UserOverviewTabProps) {
   return (
-    <ScrollView>
+    <ScrollView useNative>
       <div className='grid grid-cols-12 gap-5 p-3 py-5'>
         <ReadOnlyFieldHeader className='col-span-12' title='Overview' description='User overview information' />
 
@@ -35,6 +35,14 @@ export default function UserOverviewTab({ user }: UserOverviewTabProps) {
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Role' value={user.role.name} />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Status' value={user.isActive ? 'Active' : 'Inactive'} />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Force To change Password'
+          value={user.isDefaultPasswordChanged ? 'No' : 'Yes'}
+        />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Locked' value={user.isLocked ? 'Yes' : 'No'} />
 
         <Separator className='col-span-12' orientation='horizontal' />
 

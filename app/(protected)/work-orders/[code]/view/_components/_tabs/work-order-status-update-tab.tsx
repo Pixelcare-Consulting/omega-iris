@@ -1,7 +1,7 @@
 'use client'
 
 import LoadPanel from 'devextreme-react/load-panel'
-import { Dispatch, SetStateAction, useRef, useState } from 'react'
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react'
 import ScrollView from 'devextreme-react/scroll-view'
 import Button from 'devextreme-react/button'
 import { Item } from 'devextreme-react/toolbar'
@@ -22,7 +22,7 @@ import { useUserById } from '@/hooks/safe-actions/user'
 import TooltipWrapper from '@/components/tooltip-wrapper'
 import LoadingButton from '@/components/loading-button'
 import { useAction } from 'next-safe-action/hooks'
-import { updatePartialWorkOrderStatusUpdate } from '@/actions/work-order'
+import { getWorkOrderByCode, updatePartialWorkOrderStatusUpdate } from '@/actions/work-order'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import ReadOnlyField from '@/components/read-only-field'
 import TextAreaField from '@/components/forms/text-area-field'
@@ -33,15 +33,37 @@ import Popup from 'devextreme-react/popup'
 import CanView from '@/components/acl/can-view'
 
 type WorkOrderStatusUpdateTabProps = {
-  workOrderCode: number
   statusUpdates: ReturnType<typeof useWoStatusUpdatesByWoCode>
+  workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
 }
 
-export default function WorkOrderStatusUpdateTab({ workOrderCode, statusUpdates }: WorkOrderStatusUpdateTabProps) {
+export default function WorkOrderStatusUpdateTab({ workOrder, statusUpdates }: WorkOrderStatusUpdateTabProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   const [isOpen, setIsOpen] = useState(false)
   const [data, setData] = useState<Awaited<ReturnType<typeof getWoStatusUpdatesByWoCode>>[number] | null>(null)
+  const [statusUpdatesWithInitialUpdate, setStatusUpdatesWithInitialUpdate] = useState<Awaited<ReturnType<typeof getWoStatusUpdatesByWoCode>>>([]) //prettier-ignore
+
+  useEffect(() => {
+    if (workOrder && !statusUpdates.isLoading) {
+      const initialUpdate = {
+        id: 'initial',
+        code: -1,
+        createdAt: workOrder.createdAt,
+        updatedAt: workOrder.createdAt,
+        createdBy: workOrder.createdBy,
+        updatedBy: workOrder.createdBy,
+        comments: workOrder.comments,
+        workOrderCode: workOrder.code,
+        prevStatus: '',
+        currentStatus: '1',
+        trackingNum: null,
+      }
+
+      const updatedData = [...statusUpdates.data, initialUpdate]
+      setStatusUpdatesWithInitialUpdate(updatedData)
+    }
+  }, [statusUpdates.data, statusUpdates.isLoading, workOrder])
 
   if (statusUpdates.isLoading)
     return (
@@ -60,11 +82,17 @@ export default function WorkOrderStatusUpdateTab({ workOrderCode, statusUpdates 
     )
 
   return (
-    <ScrollView>
+    <ScrollView useNative>
       <div className='mt-4 flex h-full w-full flex-col gap-3'>
-        {statusUpdates.data.length > 0 ? (
-          statusUpdates.data.map((update) => (
-            <WorkOrderStatusUpdateCard statusUpdate={update} key={update.id} setIsOpen={setIsOpen} setData={setData} />
+        {statusUpdatesWithInitialUpdate.length > 0 ? (
+          statusUpdatesWithInitialUpdate.map((update) => (
+            <WorkOrderStatusUpdateCard
+              workOrder={workOrder}
+              statusUpdate={update}
+              key={update.id}
+              setIsOpen={setIsOpen}
+              setData={setData}
+            />
           ))
         ) : (
           <div className='flex h-[60vh] w-full items-center justify-center'>
@@ -85,7 +113,12 @@ export default function WorkOrderStatusUpdateTab({ workOrderCode, statusUpdates 
           maxWidth={700}
           height={safeParseInt(data.currentStatus) < WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery'] ? 420 : 500}
         >
-          <PartialWorkOrderStatusUpdateForm workOrderCode={workOrderCode} statusUpdates={statusUpdates} setIsOpen={setIsOpen} data={data} />
+          <PartialWorkOrderStatusUpdateForm
+            workOrderCode={workOrder.code}
+            statusUpdates={statusUpdates}
+            setIsOpen={setIsOpen}
+            data={data}
+          />
         </Popup>
       )}
     </ScrollView>
@@ -93,12 +126,13 @@ export default function WorkOrderStatusUpdateTab({ workOrderCode, statusUpdates 
 }
 
 type WorkOrderStatusUpdateCardProps = {
+  workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
   statusUpdate: Awaited<ReturnType<typeof getWoStatusUpdatesByWoCode>>[number]
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>
   setData: React.Dispatch<React.SetStateAction<Awaited<ReturnType<typeof getWoStatusUpdatesByWoCode>>[number] | null>>
 }
 
-function WorkOrderStatusUpdateCard({ statusUpdate, setIsOpen, setData }: WorkOrderStatusUpdateCardProps) {
+function WorkOrderStatusUpdateCard({ workOrder, statusUpdate, setIsOpen, setData }: WorkOrderStatusUpdateCardProps) {
   const prevStatus = WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === statusUpdate?.prevStatus)?.label
   const currentStatus = WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === statusUpdate?.currentStatus)?.label
 
@@ -127,8 +161,8 @@ function WorkOrderStatusUpdateCard({ statusUpdate, setIsOpen, setData }: WorkOrd
       <div className='flex w-full items-center justify-between gap-3'>
         <div className='flex flex-1 flex-col gap-1'>
           <h1 className='text-lg'>
-            Status Changed from "<span className='font-bold uppercase'>{prevStatus}</span>" to "
-            <span className='font-bold uppercase'>{currentStatus}</span>"
+            Status Changed from "<span className='font-bold uppercase'>{prevStatus || 'N/A'}</span>" to "
+            <span className='font-bold uppercase'>{currentStatus || 'N/A'}</span>"
           </h1>
           <p className='text-slate-500'>
             Created:{' '}
@@ -150,13 +184,15 @@ function WorkOrderStatusUpdateCard({ statusUpdate, setIsOpen, setData }: WorkOrd
             <p className='whitespace-pre-line text-slate-500'>Tracking Number: {statusUpdate?.trackingNum || 'N/A'}</p>
           )}
 
+          {statusUpdate.code === -1 && <p className='whitespace-pre-line text-slate-500'>Customer PO: {workOrder?.customerPo || 'N/A'}</p>}
+
           <p className='whitespace-pre-line text-slate-500'>Comment: {statusUpdate?.comments || 'N/A'}</p>
         </div>
 
         <div>
           <CanView subject='p-work-orders' action='update status'>
             <TooltipWrapper label='Edit' targetId='edit-button'>
-              <Button icon='edit' stylingMode='contained' type='default' onClick={handleEdit} />
+              <Button icon='edit' stylingMode='contained' type='default' onClick={handleEdit} disabled={statusUpdate.code === -1} />
             </TooltipWrapper>
           </CanView>
         </div>
@@ -257,7 +293,7 @@ function PartialWorkOrderStatusUpdateForm({ workOrderCode, setIsOpen, data, stat
         </PageHeader>
 
         <PageContentWrapper className='max-h-[calc(100%_-_92px)] shadow-none'>
-          <ScrollView>
+          <ScrollView useNative>
             <div className='grid h-full grid-cols-12 gap-5'>
               <ReadOnlyField className='col-span-12 md:col-span-6' title='Work Order' value={data.workOrderCode} />
 

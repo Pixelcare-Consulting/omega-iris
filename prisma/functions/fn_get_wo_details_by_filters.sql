@@ -41,6 +41,14 @@ RETURNS TABLE (
 LANGUAGE plpgsql
 AS $$
 BEGIN
+    --* Return empty if no filters are provided
+    IF p_part_number IS NULL AND p_mpn IS NULL AND p_project_name IS NULL
+       AND p_project_group_name IS NULL AND p_customer_po IS NULL AND p_tracking_num IS NULL
+       AND p_status IS NULL THEN
+        RETURN;
+    END IF;
+
+
     RETURN QUERY
     SELECT DISTINCT
         T0."id",

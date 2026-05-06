@@ -2,7 +2,7 @@
 
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { MouseEvent, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
@@ -10,15 +10,17 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Item } from 'devextreme-react/toolbar'
 import Tooltip from 'devextreme-react/tooltip'
 import Popup from 'devextreme-react/popup'
+import Button from 'devextreme-react/button'
+import { useSession } from 'next-auth/react'
 
-import { deleteWorkOrder, getWorkOrders, restoreWorkOrder } from '@/actions/work-order'
+import { deleteWorkOrder, getWorkOrders, restoreWorkOrder, toggleWorkOrderInternal } from '@/actions/work-order'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import AlertDialog from '@/components/alert-dialog'
 import CommonDataGrid from '@/components/common-datagrid'
-import { WORK_ORDER_STATUS_OPTIONS, workOrderStatusUpdateFormSchema } from '@/schema/work-order'
+import { WORK_ORDER_STATUS_OPTIONS, WORK_ORDER_STATUS_VALUE_MAP, workOrderStatusUpdateFormSchema } from '@/schema/work-order'
 import LoadingButton from '@/components/loading-button'
 import WorkOrderUpdateStatusForm from './work-order-update-status-form'
 import CanView from '@/components/acl/can-view'
@@ -28,7 +30,6 @@ import { safeParseInt } from '@/utils'
 import { NotificationContext } from '@/context/notification'
 import { CommonOperationError } from '@/types/common'
 import CommonOperationErrorDataGrid from '@/components/common-operation-error-datagrid'
-import { useSession } from 'next-auth/react'
 
 type WorkOrderTableProps = { workOrders: Awaited<ReturnType<typeof getWorkOrders>> }
 type DataSource = Awaited<ReturnType<typeof getWorkOrders>>
@@ -58,6 +59,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false)
   const [showUpdateStatusForm, setShowUpdateStatusForm] = useState(false)
+  const [showToggleInternalConfirmation, setShowToggleInternalConfirmation] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
 
   const [showUpdateStatusErrors, setShowUpdateStatusErrors] = useState(false)
@@ -68,6 +70,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
 
   const deleteWorkOrderData = useAction(deleteWorkOrder)
   const restoreWorkOrderData = useAction(restoreWorkOrder)
+  const toggleInternalData = useAction(toggleWorkOrderInternal)
 
   const workOrderToUpdate = useWatch({ control: form.control, name: 'workOrders' }) || []
 
@@ -133,6 +136,16 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     [setShowRestoreConfirmation, setRowData]
   )
 
+  const handleToggleInternal = useCallback(
+    (params: any) => {
+      const data = params?.data
+      if (!data) return
+      setShowToggleInternalConfirmation(true)
+      setRowData(data)
+    },
+    [setShowToggleInternalConfirmation, setRowData]
+  )
+
   const handleConfirmDelete = (code?: number) => {
     if (!code) return
 
@@ -191,12 +204,61 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     })
   }
 
+  const handleOnContentReady = useCallback((e: DataGridTypes.ContentReadyEvent) => {
+    const instance = e.component
+
+    if (!instance) return
+
+    const existing = instance.columnOption('status', 'filterValues')
+
+    const cancelled = WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === String(WORK_ORDER_STATUS_VALUE_MAP['Cancelled']))?.label
+
+    //* only add filter if it does not exist
+    if (existing === undefined) {
+      instance.columnOption('status', {
+        filterValues: [cancelled],
+        filterType: 'exclude',
+      })
+    }
+  }, [])
+
+  const handleConfirmToggleInternal = (code?: number, isInternal?: boolean) => {
+    if (!code) return
+
+    setShowToggleInternalConfirmation(false)
+
+    toast.promise(toggleInternalData.executeAsync({ code, isInternal: !isInternal }), {
+      loading: 'Updating work order internal ...',
+      success: (response) => {
+        const result = response?.data
+
+        if (!response || !result) throw { message: 'Failed to update work order internal!', unExpectedError: true }
+
+        if (!result.error) {
+          setTimeout(() => {
+            router.refresh()
+            // notificationContext?.handleRefresh()
+          }, 1500)
+
+          return result.message
+        }
+
+        throw { message: result.message, expectedError: true }
+      },
+      error: (err: Error & { expectedError: boolean }) => {
+        return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
+      },
+    })
+  }
+
   const handleOnSelectionChanged = useCallback(
     (e: DataGridTypes.SelectionChangedEvent) => {
       const instance = e.component
 
-      //* exclude selection are row with status >= 6 or has deletedAt or deletedBy
-      const allowData = e.selectedRowsData.filter((row) => safeParseInt(row?.status) < 6 && !row?.deletedAt && !row?.deletedBy)
+      //* exclude selection are row with status >= cancelled or has deletedAt or deletedBy
+      const allowData = e.selectedRowsData.filter(
+        (row) => safeParseInt(row?.status) < WORK_ORDER_STATUS_VALUE_MAP.Cancelled && !row?.deletedAt && !row?.deletedBy
+      )
 
       const values = allowData.map((workOrder) => ({
         code: workOrder.code,
@@ -220,7 +282,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     const rowType = e.rowType
 
     if (rowType === 'data') {
-      const isBlocked = data?.deletedAt || data?.deletedBy || safeParseInt(data?.status) >= 6
+      const isBlocked = data?.deletedAt || data?.deletedBy || safeParseInt(data?.status) > WORK_ORDER_STATUS_VALUE_MAP['Delivered']
 
       //* condition when column type is selection
       if (column?.type === 'selection') {
@@ -298,6 +360,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
               onCellPrepared: handleOnCellPrepared,
               onRowClick: handleView,
               onSelectionChanged: handleOnSelectionChanged,
+              onContentReady: handleOnContentReady,
             }}
           >
             <Column dataField='code' dataType='string' minWidth={100} caption='Work Order #' />
@@ -308,6 +371,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
               dataType='string'
               caption='Status'
               calculateCellValue={(data) => WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === data.status)?.label}
+              filterType='exclude'
             />
 
             {!isBusinessPartner && (
@@ -329,7 +393,32 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             <Column dataField='createdAt' dataType='datetime' caption='Created At' />
             <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
-            <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
+            <Column type='buttons' minWidth={150} fixed fixedPosition='right' caption='Actions'>
+              <CanView subject='p-work-orders' action='update internal'>
+                <DataGridButton
+                  render={(params) => {
+                    const data = params.data
+                    const isInternal = data?.isInternal
+
+                    if (!data) return null
+
+                    return (
+                      <div
+                        onClick={() => handleToggleInternal(params)}
+                        className='dx-link cursor-pointer'
+                        title={isInternal ? 'No Internal' : 'Yes Internal'}
+                      >
+                        <i className={`dx-icon ${isInternal ? 'dx-icon-unlock' : 'dx-icon-lock'} !text-lg !text-blue-500`} />
+                      </div>
+                    )
+                  }}
+                  visible={(opt) => {
+                    const data = opt?.row?.data
+                    return hideActionButton(data?.deletedAt || data?.deletedBy)
+                  }}
+                />
+              </CanView>
+
               <CanView subject='p-work-orders' action={['view', 'view (owner)']}>
                 <DataGridButton
                   icon='eyeopen'
@@ -409,7 +498,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
           <AlertDialog
             isOpen={showDeleteConfirmation}
             title='Are you sure?'
-            description={`Are you sure you want to delete this work order with id "${rowData?.code}"?`}
+            description={`Are you sure you want to delete this work order with work order # "${rowData?.code}"?`}
             onConfirm={() => handleConfirmDelete(rowData?.code)}
             onCancel={() => setShowDeleteConfirmation(false)}
           />
@@ -417,9 +506,17 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
           <AlertDialog
             isOpen={showRestoreConfirmation}
             title='Are you sure?'
-            description={`Are you sure you want to restore this work order with id "${rowData?.code}"?`}
+            description={`Are you sure you want to restore this work order with work order # "${rowData?.code}"?`}
             onConfirm={() => handleConfirmRestore(rowData?.code)}
             onCancel={() => setShowRestoreConfirmation(false)}
+          />
+
+          <AlertDialog
+            isOpen={showToggleInternalConfirmation}
+            title='Are you sure?'
+            description={`Are you sure you want to update internal field to "${rowData?.isInternal ? 'No' : 'Yes'}" for this work order with work order # "${rowData?.code}"?`}
+            onConfirm={() => handleConfirmToggleInternal(rowData?.code, rowData?.isInternal)}
+            onCancel={() => setShowToggleInternalConfirmation(false)}
           />
 
           <CommonOperationErrorDataGrid

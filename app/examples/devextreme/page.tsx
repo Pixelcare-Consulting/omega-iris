@@ -247,7 +247,7 @@ export default function DevExtremeExamplePage() {
         <Column dataField='quantity' dataType='number' caption='Quantity' />
 
         <Selection mode='single' />
-        <Scrolling mode='virtual' />
+        <Scrolling mode='virtual' useNative />
         <Paging enabled={true} pageSize={10} />
         <FilterRow visible={true} />
       </DataGrid>

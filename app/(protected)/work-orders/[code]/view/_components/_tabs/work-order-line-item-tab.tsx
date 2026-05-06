@@ -128,6 +128,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
           siteLocation: pItem?.siteLocation || '',
           subLocation2: pItem?.subLocation2 || '',
           subLocation3: pItem?.subLocation3 || '',
+          owner: pItem?.owner || '',
           mfr: pItem?.mfr || '',
           desc: pItem?.desc || '',
         }
@@ -324,12 +325,14 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
                 allowEditing={false}
                 alignment='left'
               />
+
+              <Column dataField='owner' dataType='string' caption='Owner' allowEditing={false} />
+              <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
               <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
               <Column dataField='FirmName' dataType='string' caption='Manufacturer' allowEditing={false} visible={false} />
-              <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
               <Column dataField='mfr' dataType='string' caption='MFR' allowEditing={false} />
-              <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
               <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} visible={false} />
+              <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
 
               {!isBusinessPartner ? (
                 <>
@@ -354,6 +357,17 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
                   />
 
                   <Column
+                    dataField='totalStock'
+                    dataType='number'
+                    caption='Total Stock'
+                    alignment='left'
+                    format={DEFAULT_NUMBER_FORMAT}
+                    allowEditing={false}
+                  />
+
+                  <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} />
+
+                  <Column
                     dataField='stockIn'
                     dataType='number'
                     caption='Stock-In (In Process)'
@@ -369,17 +383,6 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
                     format={DEFAULT_NUMBER_FORMAT}
                     allowEditing={false}
                   />
-
-                  <Column
-                    dataField='totalStock'
-                    dataType='number'
-                    caption='Total Stock'
-                    alignment='left'
-                    format={DEFAULT_NUMBER_FORMAT}
-                    allowEditing={false}
-                  />
-
-                  <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} />
                 </>
               ) : null}
 

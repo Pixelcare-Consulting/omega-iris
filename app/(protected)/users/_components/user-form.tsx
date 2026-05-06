@@ -69,6 +69,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
         customerCode: '',
         supplierCode: '',
         isForceToChangePassword: true,
+        isLocked: false,
       }
     }
 
@@ -169,7 +170,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
         </PageHeader>
 
         <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
-          <ScrollView>
+          <ScrollView useNative>
             {/* <FormDebug form={form} /> */}
 
             <div className='grid h-full grid-cols-12 gap-5 px-6 py-8'>
@@ -261,6 +262,10 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                   label='Force To change Password'
                   description='Required the user to change their password upon next login'
                 />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <SwitchField control={form.control} name='isLocked' label='Locked' description='Locked user cannot sign in' />
               </div>
 
               {roleKey && roleKey === 'business-partner' && (

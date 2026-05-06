@@ -23,6 +23,8 @@ model User {
     lastIpAddress            String?
     lastSignin               DateTime?
     isDefaultPasswordChanged Boolean   @default(false)
+    isLocked                 Boolean   @default(false)
+    failedLoginAttempts      Int       @default(0) //* failed login attempts will be reset to 0 when user is unlocked and succesfully signin
     customerCode             String?
     supplierCode             String?
 
@@ -460,6 +462,7 @@ model ProjectItem {
     subLocation2    String?
     subLocation3    String?
     notes           String?
+    owner           String?
 
     mfr  String? //* temporary field manufacturer field
     desc String? //* temporary field description field

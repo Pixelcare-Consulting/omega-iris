@@ -93,6 +93,7 @@ export default function ProjectItemForm({
         subLocation2: null,
         subLocation3: null,
         notes: null,
+        owner: null,
         mfr: null,
         desc: null,
       }
@@ -209,7 +210,7 @@ export default function ProjectItemForm({
         <Column dataField='ItemName' dataType='string' caption='Description' />
 
         <Selection mode='single' />
-        <Scrolling mode='virtual' />
+        <Scrolling mode='virtual' useNative />
         <Paging enabled={true} pageSize={10} />
         <FilterRow visible={true} />
       </DataGrid>
@@ -240,7 +241,7 @@ export default function ProjectItemForm({
         </PageHeader>
 
         <PageContentWrapper className='max-h-[calc(100%_-_92px)] shadow-none'>
-          <ScrollView>
+          <ScrollView useNative>
             {/* <FormDebug form={form} /> */}
 
             <div className='grid h-full grid-cols-12 gap-5 py-2 pr-4'>
@@ -331,6 +332,10 @@ export default function ProjectItemForm({
 
               <Separator className='col-span-12' />
               <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Project Item' description='Project item details' />
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <TextBoxField control={form.control} name='owner' label='Owner' />
+              </div>
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                 <TextBoxField control={form.control} name='partNumber' label='Part Number' />

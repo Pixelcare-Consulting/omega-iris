@@ -7,6 +7,7 @@ import { paramsSchema } from '@/schema/common'
 import {
   deleteWorkOrderLineItemFormSchema,
   partialWorkOrderStatusUpdateFormSchema,
+  toggleWorkOrderInternalSchema,
   upsertWorkOrderLineItemFormSchema,
   upsertWorkOrderLineItemsFormSchema,
   WORK_ORDER_STATUS_OPTIONS,
@@ -223,9 +224,9 @@ export async function creditStock(params: CreditStockParams) {
 
     const lineItems = existingWorkOrder.workOrderItems
 
-    //* only credit stocks-in only when new status is 'In Process' and old is between 'Open' and 'Pending'
+    //* only credit stocks-in only when new status is 'In Process' and old status is between 'Open' and 'Pending'
     if (
-      oldStatus >= WORK_ORDER_STATUS_VALUE_MAP.Open &&
+      oldStatus >= WORK_ORDER_STATUS_VALUE_MAP['Open'] &&
       oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Pending'] &&
       newStatus == WORK_ORDER_STATUS_VALUE_MAP['In Process']
     ) {
@@ -387,11 +388,27 @@ export async function creditStock(params: CreditStockParams) {
       //* if oldStatus is between or equal 'Partial Delivery' and 'Delivered' and then cancel or delete, then rollback stock
       //* only process line items that has isDelivered = true
       if (oldStatus >= WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery'] && oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Delivered']) {
-        const lineItemsToProcess = lineItems.filter((li) => li.isDelivered)
+        const deliveredLineItems = lineItems.filter((li) => li.isDelivered)
+        const inProcessLineItems = lineItems.filter((li) => !li.isDelivered)
+
+        //* if old status is 'Partial Delivery', revert stock from stock-in (In-process)
+        if (oldStatus === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery']) {
+          await Promise.all(
+            inProcessLineItems.map((li) => {
+              const pItem = li.projectItem
+              const qty = safeParseInt(li.qty)
+
+              return tx.projectItem.update({
+                where: { code: pItem.code },
+                data: { stockIn: { decrement: qty } },
+              })
+            })
+          )
+        }
 
         //* update isDelivered to false of work order items
         await Promise.all(
-          lineItemsToProcess.map((li) => {
+          deliveredLineItems.map((li) => {
             return tx.workOrderItem.update({
               where: {
                 workOrderCode_projectItemCode: {
@@ -405,7 +422,7 @@ export async function creditStock(params: CreditStockParams) {
         )
 
         await Promise.all(
-          lineItemsToProcess.map((li) => {
+          deliveredLineItems.map((li) => {
             const pItem = li.projectItem
             const qty = safeParseInt(li.qty)
 
@@ -1472,6 +1489,107 @@ export const updatePartialWorkOrderStatusUpdate = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'UPDATE_PARTIAL_WORK_ORDER_STATUS_UPDATE',
+      }
+    }
+  })
+
+export const toggleWorkOrderInternal = action
+  .use(authenticationMiddleware)
+  .schema(toggleWorkOrderInternalSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { code, isInternal } = parsedInput
+    const { userId } = ctx
+
+    const include = {
+      projectIndividual: {
+        include: {
+          projectIndividualCustomers: {
+            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          projectIndividualPics: {
+            //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    } satisfies Prisma.WorkOrderInclude
+
+    try {
+      const workOrder = await db.workOrder.findUnique({ where: { code }, include })
+
+      if (!workOrder) return { error: true, status: 404, message: 'Work order not found!', action: 'TOGGLE_WORK_ORDER_INTERNAL' }
+
+      const assignedPics = workOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
+      const owner = workOrder.userCode
+
+      //* update work order
+      await db.workOrder.update({
+        where: { code },
+        data: { isInternal, updatedBy: userId },
+      })
+
+      // //* create notifications
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES['WORK ORDERS'],
+      //   title: 'Work Order Internal Field Updated',
+      //   message: `A Work Order internal field (#${workOrder.code}) was updated by ${ctx.fullName}.`,
+      //   link: `/work-orders/${workOrder.code}/view`,
+      //   entityType: 'WorkOrder' as Prisma.ModelName,
+      //   entityCode: workOrder.code,
+      //   entityId: workOrder.id,
+      //   userCodes: [owner, ...assignedPics],
+      // })
+
+      return { status: 200, message: 'Work order internal updated successfully!', action: 'TOGGLE_WORK_ORDER_INTERNAL' }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'TOGGLE_WORK_ORDER_INTERNAL',
       }
     }
   })

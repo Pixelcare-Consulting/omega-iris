@@ -234,7 +234,7 @@ export default function WorkOrderAttachmentTab({ workOrder, fileAttachments }: W
       onSelectionChanged={() => form.reset()}
     >
       <TabPanelITem icon='upload'>
-        <ScrollView>
+        <ScrollView useNative>
           <div className='grid h-full w-full grid-cols-12 gap-5 p-5'>
             <div className='col-span-12 flex h-[540px] flex-col items-start gap-4'>
               <div className='flex w-full flex-wrap items-center justify-between gap-4'>
