@@ -418,15 +418,15 @@ export default function WorkOrderLineItemForm({
           }}
         >
           <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' allowEditing={false} sortOrder='asc' />
+          <Column dataField='owner' dataType='string' caption='Owner' allowEditing={false} />
           <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
+          <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
 
           <Column dataField='FirmName' dataType='string' caption='Manufacturer' allowEditing={false} visible={false} />
           <Column dataField='mfr' dataType='string' caption='MFR' allowEditing={false} />
+          <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} visible={false} />
           <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
 
-          <Column dataField='owner' dataType='string' caption='Owner' allowEditing={false} />
-          <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
-          <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} visible={false} />
           <Column dataField='dateCode' dataType='string' caption='Date Code' allowEditing={false} />
           <Column dataField='countryOfOrigin' dataType='string' caption='Country Of Origin' allowEditing={false} />
           <Column dataField='lotCode' dataType='string' caption='Lot Code' allowEditing={false} />
@@ -452,6 +452,20 @@ export default function WorkOrderLineItemForm({
             format={DEFAULT_CURRENCY_FORMAT}
             allowEditing={false}
           />
+
+          {!isBusinessPartner ? (
+            <Column
+              dataField='totalStock'
+              dataType='number'
+              caption='Total Stock'
+              alignment='left'
+              format={DEFAULT_NUMBER_FORMAT}
+              allowEditing={false}
+            />
+          ) : null}
+
+          <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} />
+
           <Column
             dataField='availableToOrder'
             dataType='number'
@@ -498,19 +512,6 @@ export default function WorkOrderLineItemForm({
               message='Quantity must be greater than 1 and less than or equal to the available to order'
             />
           </Column>
-
-          {!isBusinessPartner ? (
-            <Column
-              dataField='totalStock'
-              dataType='number'
-              caption='Total Stock'
-              alignment='left'
-              format={DEFAULT_NUMBER_FORMAT}
-              allowEditing={false}
-            />
-          ) : null}
-
-          <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} />
 
           <Summary>
             <GroupItem column='ItemCode' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />

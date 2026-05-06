@@ -101,6 +101,7 @@ export default function DashboardReport({ reports, params, userInfo }: Dashboard
         ref={scrollRef}
         showScrollbar='onHover'
         className='[&_.dx-scrollable-scrollbar] h-[calc(100vh_-175px)] rounded-md bg-primary-black/5 shadow-md'
+        useNative
       >
         <div className='p-4' tabIndex={0}>
           {reports.length > 0 ? (

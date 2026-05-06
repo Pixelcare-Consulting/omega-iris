@@ -714,6 +714,7 @@ export const importProjectItems = action
         //* reshape data
         const toCreate: Prisma.ProjectItemCreateManyInput = {
           code: safeParseInt(row?.['ID']) || -1,
+          owner: row?.['Owner'] || null,
           itemCode: baseItem?.code!,
           projectIndividualCode: projectCode!,
           partNumber: row?.['Part_Number'] || null,

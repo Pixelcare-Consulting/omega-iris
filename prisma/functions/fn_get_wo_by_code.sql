@@ -47,7 +47,7 @@ BEGIN
         T0."projectIndividualCode",
         T0."userCode",
         T0."status",
-        T4."name"                          AS "statusName",  --* from vw_work_order_status view
+        T4."name"                          AS "statusName",  --* from vw_wo_status view
         T0."isInternal",
         T0."billingAddrCode",
         T0."shippingAddrCode",
@@ -84,7 +84,7 @@ BEGIN
     INNER JOIN "User" T3
         ON T3."code" = T0."userCode"
         AND T3."deletedAt" IS NULL
-    LEFT JOIN "vw_work_order_status" T4          
+    LEFT JOIN "vw_wo_status" T4          
         ON T4."value" = T0."status"
         LEFT JOIN "BusinessPartner" T5          
         ON T5."CardCode" = T3."customerCode"

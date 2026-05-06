@@ -17,7 +17,7 @@ export default function WorkOrderReportViewerTab({ workOrder, report }: ReportVi
   if (!report || !report?.data || !workOrder?.code) return null
 
   return (
-    <ScrollView className='h-full'>
+    <ScrollView className='h-full' useNative>
       <div className='grid h-full grid-cols-12 gap-5 p-2'>
         <div className='col-span-12 [&>div]:h-full'>
           <ReportViewer key={report?.code} type={'2'} data={report?.data} params={{ WorkOrderCode: workOrder?.code }} />

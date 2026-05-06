@@ -211,13 +211,12 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
 
     const existing = instance.columnOption('status', 'filterValues')
 
-    const deleted = WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === String(WORK_ORDER_STATUS_VALUE_MAP['Deleted']))?.label
     const cancelled = WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === String(WORK_ORDER_STATUS_VALUE_MAP['Cancelled']))?.label
 
     //* only add filter if it does not exist
     if (existing === undefined) {
       instance.columnOption('status', {
-        filterValues: [deleted, cancelled],
+        filterValues: [cancelled],
         filterType: 'exclude',
       })
     }

@@ -91,7 +91,7 @@ function DataGridExample() {
           <FilterRow visible={showFilterRow} />
           <HeaderFilter visible={showHeaderFilter} allowSearch />
           <Sorting mode='multiple' />
-          <Scrolling mode='standard' />
+          <Scrolling mode='standard' useNative />
           <ColumnChooser enabled mode='select' allowSearch />
           <FilterPanel visible={showFilterBuilderPanel} />
           <Grouping contextMenuEnabled={enableGroupingContextMenu} />

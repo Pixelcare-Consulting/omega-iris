@@ -46,7 +46,7 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
   // }, [JSON.stringify(itemMasterWarehouseInventory), warehouse?.code])
 
   return (
-    <ScrollView>
+    <ScrollView useNative>
       <div className='grid h-full w-full grid-cols-12 gap-5 p-3 py-5'>
         <ReadOnlyFieldHeader
           className='col-span-12'

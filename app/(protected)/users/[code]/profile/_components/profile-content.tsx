@@ -18,7 +18,7 @@ export default function ProfileContent({ user }: ProfileContentProps) {
     <div className='flex h-full w-full flex-col gap-5'>
       <PageHeader title={`${fullName}'s Profile`} description='View and edit your profile information' />
 
-      <ScrollView className='flex max-h-[calc(100%_-_92px)]'>
+      <ScrollView className='flex max-h-[calc(100%_-_92px)]' useNative>
         <ProfileBasicInfoForm user={user} />
         <ProfileChangePasswordForm user={user} />
       </ScrollView>

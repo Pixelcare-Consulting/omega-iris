@@ -28,7 +28,7 @@ export default function WorkOrderAttachmentView({ data, onClose }: WorkOrderAtta
   }
 
   return (
-    <ScrollView>
+    <ScrollView useNative>
       <div className='grid h-full w-full grid-cols-12 gap-5 p-5'>
         <ReadOnlyFieldHeader
           className='col-span-12'

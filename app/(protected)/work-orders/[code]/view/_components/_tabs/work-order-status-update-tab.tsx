@@ -82,7 +82,7 @@ export default function WorkOrderStatusUpdateTab({ workOrder, statusUpdates }: W
     )
 
   return (
-    <ScrollView>
+    <ScrollView useNative>
       <div className='mt-4 flex h-full w-full flex-col gap-3'>
         {statusUpdatesWithInitialUpdate.length > 0 ? (
           statusUpdatesWithInitialUpdate.map((update) => (
@@ -293,7 +293,7 @@ function PartialWorkOrderStatusUpdateForm({ workOrderCode, setIsOpen, data, stat
         </PageHeader>
 
         <PageContentWrapper className='max-h-[calc(100%_-_92px)] shadow-none'>
-          <ScrollView>
+          <ScrollView useNative>
             <div className='grid h-full grid-cols-12 gap-5'>
               <ReadOnlyField className='col-span-12 md:col-span-6' title='Work Order' value={data.workOrderCode} />
 

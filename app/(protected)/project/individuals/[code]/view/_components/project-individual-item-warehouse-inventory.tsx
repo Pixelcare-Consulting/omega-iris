@@ -67,7 +67,7 @@ export default function ProjectIndividualItemWarehouseInventory({ itemWarehouseI
           <Editing mode='cell' allowUpdating={false} allowAdding={false} allowDeleting={false} />
           <SearchPanel visible highlightCaseSensitive={false} />
           <Sorting mode='multiple' />
-          <Scrolling mode='standard' />
+          <Scrolling mode='standard' useNative />
 
           <Toolbar>
             <Item name='searchPanel' location='after' />

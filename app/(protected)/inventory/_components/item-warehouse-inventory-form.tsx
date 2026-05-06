@@ -82,7 +82,7 @@ export default function ItemWarehouseInventoryForm({ isLoading }: ItemWarehouseI
           <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
           <SearchPanel visible highlightCaseSensitive={false} />
           <Sorting mode='multiple' />
-          <Scrolling mode='standard' />
+          <Scrolling mode='standard' useNative />
 
           <Toolbar>
             <Item name='searchPanel' location='after' />

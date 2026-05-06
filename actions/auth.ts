@@ -132,7 +132,7 @@ export const signInUser = action.schema(signinFormSchema).action(async ({ parsed
           }
 
           //* if user exist , not locked  and user's failed sigin attempts reach the limit, then lock the user
-          if (user && !user.isLocked && user.failedLoginAttempts >= maxSigninAttempts) {
+          if (user && !user.isLocked && user.failedLoginAttempts >= maxSigninAttempts - 1) {
             await db.user.update({
               where: { code: user.code },
               data: { isLocked: true },

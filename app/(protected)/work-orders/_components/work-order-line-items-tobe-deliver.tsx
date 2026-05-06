@@ -183,7 +183,7 @@ function WorkOrderLineItemsTobeDeliver({ workOrderCodes, showConfirmation, setSh
           <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
           <SearchPanel visible highlightCaseSensitive={false} />
           <Sorting mode='multiple' />
-          <Scrolling mode='standard' />
+          <Scrolling mode='standard' useNative />
           <ColumnFixing enabled />
 
           <Toolbar>

@@ -321,24 +321,25 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
     try {
       const headers: string[] = [
         'ID',
+        'Owner',
         'MFG_P/N',
         'Part_Number',
+        'MFR',
+        'Desc',
         'Date_Code',
         'Country_Origin',
         'Lot_Code',
         'Pallet_No',
-        'Packaging_Type',
-        'SPQ',
-        'Cost',
-        'Total_Stock',
-        'Notes',
         'Site_Location',
         'Sub_Location2',
         'Sub_Location3',
         'Date_Received',
         'Received_By',
-        'MFR',
-        'Desc',
+        'Packaging_Type',
+        'SPQ',
+        'Cost',
+        'Total_Stock',
+        'Notes',
       ]
 
       const batchSize = 100
@@ -510,17 +511,17 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
             >
               <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
               <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} visible={false} />
+              <Column dataField='owner' dataType='string' caption='Owner' />
 
               <Column dataField='item.ItemCode' dataType='string' caption='MFG P/N' />
+              <Column dataField='partNumber' dataType='string' caption='Part Number' />
               <Column dataField='item.FirmName' dataType='string' caption='Manufacturer' visible={false} />
               <Column dataField='mfr' dataType='string' caption='MFR' />
+              <Column dataField='item.ItemName' dataType='string' caption='Description' visible={false} />
               <Column dataField='desc' dataType='string' caption='Desc' />
 
-              <Column dataField='owner' dataType='string' caption='Owner' />
-              <Column dataField='partNumber' dataType='string' caption='Part Number' />
-              <Column dataField='item.ItemName' dataType='string' caption='Description' visible={false} />
               <Column dataField='dateCode' minWidth={75} dataType='string' caption='DC' />
-              <Column dataField='countryOfOrigin' minWidth={75} dataType='string' caption='COO' />
+              <Column dataField='countryOfOrigin' minWidth={80} dataType='string' caption='COO' />
               <Column dataField='lotCode' dataType='string' caption='Lot Code' />
               <Column dataField='palletNo' dataType='string' caption='Pallet No' />
               <Column dataField='siteLocation' dataType='string' caption='Site Location' />
@@ -543,6 +544,14 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
 
               <Column dataField='packagingType' dataType='string' caption='Packaging Type' />
               <Column dataField='spq' dataType='string' caption='SPQ' />
+              <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
+
+              {!isBusinessPartner ? (
+                <Column dataField='totalStock' dataType='number' caption='Total Stock' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
+              ) : null}
+
+              <Column dataField='notes' dataType='string' caption='Notes' visible={false} />
+
               <Column
                 dataField='availableToOrder'
                 dataType='number'
@@ -567,14 +576,6 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
                 alignment='left'
                 format={DEFAULT_NUMBER_FORMAT}
               />
-
-              {!isBusinessPartner ? (
-                <Column dataField='totalStock' dataType='number' caption='Total Stock' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
-              ) : null}
-
-              <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
-
-              <Column dataField='notes' dataType='string' caption='Notes' visible={false} />
 
               <Column dataField='createdAt' dataType='datetime' caption='Created At' visible={false} />
               <Column dataField='updatedAt' dataType='datetime' caption='Updated At' visible={false} />

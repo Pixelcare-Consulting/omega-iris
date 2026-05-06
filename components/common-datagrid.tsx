@@ -108,7 +108,7 @@ export default function CommonDataGrid<T extends Record<string, any>>({
       <GroupPanel visible={dataGridStore.showGroupPanel} />
       <ColumnFixing enabled />
       <Sorting mode='multiple' />
-      <Scrolling mode='virtual' rowRenderingMode='standard' columnRenderingMode='standard' />
+      <Scrolling mode='virtual' rowRenderingMode='standard' columnRenderingMode='standard' useNative />
       <ColumnChooser mode='select' allowSearch width={300} />
       <Export formats={['xlsx']} />
       {isSelectionEnable && <Selection mode={isSelectSingle ? 'single' : 'multiple'} />}

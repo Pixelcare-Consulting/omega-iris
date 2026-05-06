@@ -417,13 +417,12 @@ export default function WorkOrderLineItemTable({
           />
 
           <Column dataField='owner' dataType='string' caption='Owner' allowEditing={false} />
+          <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
           <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
           <Column dataField='FirmName' dataType='string' caption='Manufacturer' allowEditing={false} visible={false} />
-          <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
           <Column dataField='mfr' dataType='string' caption='MFR' allowEditing={false} />
-          <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
-
           <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} visible={false} />
+          <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
 
           {!isBusinessPartner ? (
             <>
@@ -448,6 +447,17 @@ export default function WorkOrderLineItemTable({
               />
 
               <Column
+                dataField='totalStock'
+                dataType='number'
+                caption='Total Stock'
+                alignment='left'
+                format={DEFAULT_NUMBER_FORMAT}
+                allowEditing={false}
+              />
+
+              <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} />
+
+              <Column
                 dataField='stockIn'
                 dataType='number'
                 caption='Stock-In (In Process)'
@@ -463,17 +473,6 @@ export default function WorkOrderLineItemTable({
                 format={DEFAULT_NUMBER_FORMAT}
                 allowEditing={false}
               />
-
-              <Column
-                dataField='totalStock'
-                dataType='number'
-                caption='Total Stock'
-                alignment='left'
-                format={DEFAULT_NUMBER_FORMAT}
-                allowEditing={false}
-              />
-
-              <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} />
             </>
           ) : null}
 
@@ -535,7 +534,7 @@ export default function WorkOrderLineItemTable({
           <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
           <SearchPanel visible highlightCaseSensitive={false} />
           <Sorting mode='multiple' />
-          <Scrolling mode='standard' />
+          <Scrolling mode='standard' useNative />
           <ColumnFixing enabled />
 
           <Toolbar>

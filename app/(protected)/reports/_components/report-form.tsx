@@ -228,7 +228,7 @@ export default function ReportForm({ pageMetaData, report }: ReportFormProps) {
               </PageHeader>
 
               <PageContentWrapper className='max-h-[calc(100%_-_92px)] shadow-none'>
-                <ScrollView>
+                <ScrollView useNative>
                   <div className='grid h-full grid-cols-12 gap-5'>
                     {/* <FormDebug form={form} /> */}
 

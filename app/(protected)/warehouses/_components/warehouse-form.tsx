@@ -131,7 +131,7 @@ export default function WarehouseForm({ pageMetaData, warehouse }: WarehouseForm
         </PageHeader>
 
         <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
-          <ScrollView>
+          <ScrollView useNative>
             {/* <FormDebug form={form} /> */}
 
             <div className='grid h-full grid-cols-12 gap-5 px-6 py-8'>

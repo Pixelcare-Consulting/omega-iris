@@ -37,7 +37,7 @@ export default function NotificationList({ notifications, setIsOpen, isLoading, 
 
   return (
     <div className='flex flex-col'>
-      <ScrollView height={500}>
+      <ScrollView height={500} useNative>
         <div className='divide-y'>
           {notifications.data.map((nItem) => {
             const Comp = nItem?.link ? Link : 'div'

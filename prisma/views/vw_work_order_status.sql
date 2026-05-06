@@ -1,5 +1,5 @@
 --* Create view for work order status
-CREATE OR REPLACE VIEW "vw_work_order_status" AS
+CREATE OR REPLACE VIEW "vw_wo_status" AS
 SELECT *
 FROM (
     VALUES
