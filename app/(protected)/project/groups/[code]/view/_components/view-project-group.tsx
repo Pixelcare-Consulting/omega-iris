@@ -10,7 +10,6 @@ import { getPgByCode } from '@/actions/project-group'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import ProjectGroupOverviewTab from './_tabs/project-group-overview-tab'
-import UnderDevelopment from '@/app/under-development'
 import { usePisByGroupCode } from '@/hooks/safe-actions/project-individual'
 import ProjectGroupProjectsTab from './_tabs/project-group-projects-tab'
 import CanView from '@/components/acl/can-view'
@@ -63,7 +62,7 @@ export default function ViewProjectGroup({ projectGroup }: ViewProjectGroupProps
         </CanView>
       </PageHeader>
 
-      <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
+      <PageContentWrapper className='h-[calc(100vh_-_180px)]'>
         <TabPanel width='100%' height='100%' animationEnabled tabsPosition='top' defaultSelectedIndex={0}>
           <TabPanelITem title='Overview'>
             <ProjectGroupOverviewTab projectGroup={projectGroup} />

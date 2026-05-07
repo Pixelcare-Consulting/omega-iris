@@ -304,7 +304,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
             />
           </Toolbar>
 
-          <PageContentWrapper className='max-h-[calc(100%_-_68px)]'>
+          <div className='min-h-0 flex-1 p-4'>
             <CommonDataGrid
               dataGridRef={dataGridRef}
               data={woItems}
@@ -471,7 +471,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
               onConfirm={() => handleConfirm(workOrder.code, rowData?.projectItemCode || 0)}
               onCancel={() => setShowConfirmation(false)}
             />
-          </PageContentWrapper>
+          </div>
         </div>
       ) : rowData ? (
         <WorkOrderLineItemView data={rowData} onClose={handleClose} />

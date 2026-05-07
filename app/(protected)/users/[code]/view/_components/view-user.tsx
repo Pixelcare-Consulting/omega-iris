@@ -12,7 +12,7 @@ import { getUserByCode } from '@/actions/users'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import UserOverviewTab from './_tabs/user-overview-tab'
-import UnderDevelopment from '@/app/under-development'
+import UnderDevelopment from '@/components/under-development'
 import CanView from '@/components/acl/can-view'
 import { usePiCustomerByUserCode } from '@/hooks/safe-actions/project-individual-customer'
 import { usePis } from '@/hooks/safe-actions/project-individual'
@@ -62,7 +62,7 @@ export default function ViewUser({ user }: ViewUserProps) {
         </CanView>
       </PageHeader>
 
-      <PageContentWrapper className='max-h-[calc(100%_-_68px)]'>
+      <PageContentWrapper className='h-[calc(100vh_-_180px)]'>
         <TabPanel width='100%' height='100%' animationEnabled tabsPosition='top' defaultSelectedIndex={0}>
           <TabPanelITem title='Overview'>
             <UserOverviewTab user={user} />

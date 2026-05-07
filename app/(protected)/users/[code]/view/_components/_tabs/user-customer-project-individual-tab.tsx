@@ -140,7 +140,7 @@ export default function UserCustomerProjectIndividualTab({ userCode, projects, p
         <CommonPageHeaderToolbarItems dataGridUniqueKey={DATAGRID_UNIQUE_KEY} dataGridRef={dataGridRef} />
       </Toolbar>
 
-      <PageContentWrapper className='max-h-[calc(100%_-_68px)]'>
+      <PageContentWrapper className='h-[calc(100vh_-_180px)]'>
         <CommonDataGrid
           dataGridRef={dataGridRef}
           data={projects.data}

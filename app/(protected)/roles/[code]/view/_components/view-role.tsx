@@ -10,7 +10,7 @@ import { getRolesByCode } from '@/actions/roles'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import RolesOverviewTab from './_tabs/role-overview-tab'
-import UnderDevelopment from '@/app/under-development'
+import UnderDevelopment from '@/components/under-development'
 import CanView from '@/components/acl/can-view'
 
 type ViewRolesProps = {
@@ -54,7 +54,7 @@ export default function ViewRole({ role }: ViewRolesProps) {
         </CanView>
       </PageHeader>
 
-      <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
+      <PageContentWrapper className='h-[calc(100vh_-_180px)]'>
         <TabPanel width='100%' height='100%' animationEnabled tabsPosition='top' defaultSelectedIndex={0}>
           <TabPanelItem title='Overview'>
             <RolesOverviewTab role={role} />

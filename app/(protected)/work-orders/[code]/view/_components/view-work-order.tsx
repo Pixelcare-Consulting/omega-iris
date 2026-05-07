@@ -10,7 +10,7 @@ import { getWorkOrderByCode } from '@/actions/work-order'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import WorkOrderOverviewTab from './_tabs/work-order-overview-tab'
-import UnderDevelopment from '@/app/under-development'
+import UnderDevelopment from '@/components/under-development'
 import { useWoItemsByWoCode } from '@/hooks/safe-actions/work-order-item'
 import WorkOrderLineItemTab from './_tabs/work-order-line-item-tab'
 import { useWoStatusUpdatesByWoCode } from '@/hooks/safe-actions/work-order-status-update'
@@ -77,7 +77,7 @@ export default function ViewWorkOrder({ workOrder, report }: ViewWorkOrderProps)
         )}
       </PageHeader>
 
-      <PageContentWrapper className='h-[calc(100vh_-_150px)]'>
+      <PageContentWrapper className='h-[calc(100vh_-_180px)]'>
         <TabPanel width='100%' height='100%' animationEnabled tabsPosition='top' defaultSelectedIndex={0}>
           <TabPanelITem title='Overview'>
             <WorkOrderOverviewTab

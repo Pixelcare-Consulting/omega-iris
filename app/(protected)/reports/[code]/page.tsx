@@ -4,7 +4,7 @@ import { getReportByCode } from '@/actions/report'
 import ContentContainer from '@/app/(protected)/_components/content-container'
 import { REPORT_TYPE_LABEL } from '@/schema/report'
 import dynamic from 'next/dynamic'
-import UnderDevelopment from '@/app/under-development'
+import UnderDevelopment from '@/components/under-development'
 
 const ReportForm = dynamic(() => import('../_components/report-form'), { ssr: false })
 

@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 
 import { getBpByCode } from '@/actions/business-partner'
 import ContentContainer from '@/app/(protected)/_components/content-container'
-import ViewCustomer from './_components/view-customer'
+import ViewCustomer from './_components/view-supplier'
 
 export default async function SupplierViewPage({ params }: { params: { code: string } }) {
   const { code } = params

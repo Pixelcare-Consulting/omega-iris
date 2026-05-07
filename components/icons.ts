@@ -14,10 +14,12 @@ import {
   XCircle,
   ClipboardList,
   UserX2,
+  Loader,
 } from 'lucide-react'
 
 export const Icons = {
   spinner: LoaderCircle,
+  spinner2: Loader,
   login: LogIn,
   logout: LogOut,
   check: Check,

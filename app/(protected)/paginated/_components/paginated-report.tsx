@@ -5,15 +5,15 @@ import { Item } from 'devextreme-react/toolbar'
 import SelectBox, { SelectBoxTypes } from 'devextreme-react/select-box'
 import ScrollView, { ScrollViewRef } from 'devextreme-react/scroll-view'
 
-import { getDashboardReports } from '@/actions/report'
+import { getPaginatedReports } from '@/actions/report'
 import PageHeader from '../../_components/page-header'
 import { Badge } from '@/components/badge'
 import dynamic from 'next/dynamic'
 import { Icons } from '@/components/icons'
 import ReportInitializing from '@/components/report-initializing'
 
-type DashboardReportProps = {
-  reports: Awaited<ReturnType<typeof getDashboardReports>>
+type PaginatedReportProps = {
+  reports: Awaited<ReturnType<typeof getPaginatedReports>>
   params?: Record<string, any>
   userInfo?: { userId?: string; userCode?: number; roleCode?: number; roleKey?: string; roleName?: string }
 }
@@ -23,15 +23,15 @@ const ReportViewer = dynamic(() => import('@/components/report-viewer'), {
   loading: () => <ReportInitializing className='h-[calc(100vh_-210px)]' />,
 })
 
-const SELECTED_DASHBOARD_REPORT_KEY = 'selected-dashboard-report'
+const SELECTED_PAGINATED_REPORT_KEY = 'selected-paginated-report'
 
-export default function DashboardReport({ reports, params, userInfo }: DashboardReportProps) {
+export default function PaginatedReport({ reports, params, userInfo }: PaginatedReportProps) {
   const [selected, setSelected] = useState<number | null>(null)
   const scrollRef = useRef<ScrollViewRef>(null)
 
   const localStorageKey = useMemo(() => {
-    return `${userInfo?.userCode}-${SELECTED_DASHBOARD_REPORT_KEY}`
-  }, [SELECTED_DASHBOARD_REPORT_KEY, userInfo?.userCode])
+    return `${userInfo?.userCode}-${SELECTED_PAGINATED_REPORT_KEY}`
+  }, [SELECTED_PAGINATED_REPORT_KEY, userInfo?.userCode])
 
   const selectedReport = useMemo(() => {
     if (!selected) return null
@@ -54,7 +54,7 @@ export default function DashboardReport({ reports, params, userInfo }: Dashboard
     )
   }
 
-  //* set selectedDashboardReport if lsKey is in local storage exists
+  //* set selectedPaginatedReport if lsKey is in local storage exists
   useEffect(() => {
     const selected = localStorage.getItem(localStorageKey)
 
@@ -77,14 +77,14 @@ export default function DashboardReport({ reports, params, userInfo }: Dashboard
   return (
     <div className='flex h-full flex-col gap-5'>
       <PageHeader
-        title='Dashboard'
-        description='Select a dashboard report to view insights and analytics.'
+        title='Paginated'
+        description='Select a paginated report to view insights.'
         badge={selectedReport ? <Badge>{selectedReport.title}</Badge> : undefined}
       >
         <Item location='after' widget='dxSelectBox'>
           <SelectBox
-            searchEnabled
             dataSource={reports}
+            searchEnabled
             labelMode='hidden'
             value={selected}
             placeholder='Select a report...'
@@ -110,7 +110,7 @@ export default function DashboardReport({ reports, params, userInfo }: Dashboard
               <div className='flex h-[calc(100vh_-210px)] flex-col items-center justify-center'>
                 <Icons.triangleAlert className='size-14 text-red-500' />
                 <div className='mt-2.5 flex flex-col items-center justify-center gap-1'>
-                  <h1 className='text-center text-xl font-bold text-red-500'>Dashboard Reports Not Available</h1>
+                  <h1 className='text-center text-xl font-bold text-red-500'>Paginated Reports Not Available</h1>
                   <p className='text-center text-sm text-slate-500 dark:text-slate-400'>
                     Please contact your administrator to enable this feature.
                   </p>

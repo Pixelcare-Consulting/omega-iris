@@ -32,12 +32,12 @@ export default function SupplierContactTab({ contacts }: SupplierContactTabProps
   }, [contacts.isLoading, dataGridRef.current])
 
   return (
-    <>
+    <div className='flex h-full w-full flex-col'>
       <Toolbar className='mt-5'>
         <CommonPageHeaderToolbarItems dataGridUniqueKey={DATAGRID_UNIQUE_KEY} dataGridRef={dataGridRef} />
       </Toolbar>
 
-      <PageContentWrapper className='max-h-[calc(100%_-_68px)]'>
+      <div className='min-h-0 flex-1 p-4'>
         <CommonDataGrid
           dataGridRef={dataGridRef}
           data={contacts.data}
@@ -60,7 +60,7 @@ export default function SupplierContactTab({ contacts }: SupplierContactTabProps
           <Column dataField='Phone2' dataType='string' caption='Tel 2' />
           <Column dataField='MobilePhone' dataType='string' caption='Mobile Phone' />
         </CommonDataGrid>
-      </PageContentWrapper>
-    </>
+      </div>
+    </div>
   )
 }

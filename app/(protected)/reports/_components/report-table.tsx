@@ -18,7 +18,7 @@ import CommonDataGrid from '@/components/common-datagrid'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
-import { REPORT_TYPE_LABEL } from '@/schema/report'
+import { REPORT_TYPE_LABEL, ReportType } from '@/schema/report'
 import { NotificationContext } from '@/context/notification'
 import Tooltip from 'devextreme-react/tooltip'
 import Menu from 'devextreme-react/menu'
@@ -146,12 +146,12 @@ export default function ReportTable({ reports }: ReportTableProps) {
     })
   }
 
-  const handleConfirmMarkAsDefault = (code?: number, isDefault?: boolean) => {
-    if (!code) return
+  const handleConfirmMarkAsDefault = (type?: string, code?: number, isDefault?: boolean) => {
+    if (!code || !type) return
 
     setShowMarkAsDefaultConfirmation(false)
 
-    toast.promise(markAsDefaultReportData.executeAsync({ code, isDefault: isDefault ?? false }), {
+    toast.promise(markAsDefaultReportData.executeAsync({ type, code, isDefault: isDefault ?? false }), {
       loading: 'Marking report as default...',
       success: (response) => {
         const result = response?.data
@@ -370,9 +370,9 @@ export default function ReportTable({ reports }: ReportTableProps) {
       <AlertDialog
         isOpen={showMarkAsDefaultConfirmation}
         title='Are you sure?'
-        description={`Are you sure you want to mark this report titled  "${rowData?.title}" as default?`}
-        onConfirm={() => handleConfirmMarkAsDefault(rowData?.code, true)}
-        onCancel={() => setShowRestoreConfirmation(false)}
+        description={`Are you sure you want to mark this report titled  "${rowData?.title}" as default for the "${REPORT_TYPE_LABEL[rowData?.type as ReportType]}" report?`}
+        onConfirm={() => handleConfirmMarkAsDefault(rowData?.type, rowData?.code, true)}
+        onCancel={() => setShowMarkAsDefaultConfirmation(false)}
       />
     </div>
   )

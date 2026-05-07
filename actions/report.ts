@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client'
 import { paramsSchema } from '@/schema/common'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
-import { markReportAsDefaultSchema, reportFormSchema } from '@/schema/report'
+import { markReportAsDefaultSchema, REPORT_TYPE_LABEL, reportFormSchema, ReportType } from '@/schema/report'
 import { getCurrentUserAbility } from './auth'
 
 const COMMON_REPORT_ORDER_BY = { code: 'asc' } satisfies Prisma.ReportOrderByWithRelationInput
@@ -68,9 +68,38 @@ export async function getDashboardReports(userInfo: Awaited<ReturnType<typeof ge
   }
 }
 
-export const getDashboardReportsClient = action.use(authenticationMiddleware).action(async ({ ctx }) => {
-  return getDashboardReports(ctx)
-})
+export async function getPaginatedReports(userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
+  if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
+
+  const { roleCode, roleKey } = userInfo
+
+  try {
+    //* if role is business partner, get the non internal reports otherwise get internal reports
+    //* get the report assigned based on the role
+    //* make sure all reports are isFeatured is true and type '1' which is dashboard, and still active
+
+    const where: Prisma.ReportWhereInput = {
+      type: '2',
+      isActive: true,
+      ...(roleKey !== 'admin' ? (roleKey !== 'business-partner' ? {} : { isInternal: false }) : {}),
+      OR: [
+        { isDefault: true },
+        {
+          isFeatured: true,
+          ...(roleKey !== 'admin' ? { roleReports: { some: { roleCode } } } : {}),
+        },
+      ],
+    }
+
+    return db.report.findMany({
+      where,
+      orderBy: { title: 'asc' },
+    })
+  } catch (error) {
+    console.error(error)
+    return []
+  }
+}
 
 export const getReportsClient = action.use(authenticationMiddleware).action(async ({ ctx }) => {
   return getReports(ctx)
@@ -282,7 +311,7 @@ export const markAsDefaultReport = action
   .use(authenticationMiddleware)
   .schema(markReportAsDefaultSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, isDefault } = parsedInput
+    const { code, isDefault, type } = parsedInput
     const { userId } = ctx
 
     try {
@@ -290,30 +319,35 @@ export const markAsDefaultReport = action
 
       if (!report) return { error: true, status: 404, message: 'Report not found!', action: 'MARK_REPORT_AS_DEFAULT' }
 
+      //* ensure the provided type matches the report's actual type
+      if (report.type !== type) return { error: true, status: 400, message: 'Report type mismatch.', action: 'MARK_REPORT_AS_DEFAULT' }
+
       if (!isDefault && report.isDefault) {
-        const defaultCount = await db.report.count({ where: { isDefault: true } })
+        //* scope the count to the same type
+        const defaultCount = await db.report.count({ where: { isDefault: true, type } })
 
         if (defaultCount <= 1) {
           return {
             error: true,
             status: 400,
-            message: 'At least one report must remain default.',
+            message: `At least one ${REPORT_TYPE_LABEL[type as ReportType].toLowerCase()} report must remain default.`,
             action: 'MARK_REPORT_AS_DEFAULT',
           }
         }
       }
 
-      await db.$transaction(async () => {
+      await db.$transaction(async (tx) => {
         //* upate report
-        const updatedReport = await db.report.update({
+        const updatedReport = await tx.report.update({
           where: { code },
           data: { isDefault, updatedBy: userId },
         })
 
+        //* only unset defaults within the same type
         //* if updated report is default, update all other default reports to false
         if (updatedReport.isDefault) {
-          await db.report.updateMany({
-            where: { isDefault: true, code: { not: updatedReport.code } },
+          await tx.report.updateMany({
+            where: { isDefault: true, type, code: { not: updatedReport.code } },
             data: { isDefault: false },
           })
         }

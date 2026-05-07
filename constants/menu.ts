@@ -25,6 +25,15 @@ export const navigation: NavItem[] = [
   },
   {
     id: uuidv4(),
+    text: 'Paginated',
+    icon: 'textdocument',
+    path: '/paginated',
+    selected: false,
+    subjects: 'p-paginated',
+    actions: ['view', 'view (owner)'],
+  },
+  {
+    id: uuidv4(),
     text: 'Users',
     icon: 'user',
     path: '/users',

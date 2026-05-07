@@ -489,7 +489,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
                       />
                     </Toolbar>
 
-                    <PageContentWrapper className='max-h-[calc(100%_-_68px)]'>
+                    <PageContentWrapper className='h-[calc(100vh_-_180px)]'>
                       <CommonDataGrid
                         dataGridRef={dataGridRef}
                         data={reports.data}

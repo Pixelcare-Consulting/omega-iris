@@ -1,4 +1,4 @@
-import UnderDevelopment from '@/app/under-development'
+import UnderDevelopment from '@/components/under-development'
 import ContentContainer from '../_components/content-container'
 
 export default function SettingsPage() {

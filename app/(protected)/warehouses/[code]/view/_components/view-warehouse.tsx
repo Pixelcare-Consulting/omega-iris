@@ -10,7 +10,7 @@ import { getWarehouseByCode } from '@/actions/warehouse'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import WarehouseOverviewTab from './_tabs/warehouse-overview-tab'
-import UnderDevelopment from '@/app/under-development'
+import UnderDevelopment from '@/components/under-development'
 
 type ViewWarehouseProps = {
   warehouse: NonNullable<Awaited<ReturnType<typeof getWarehouseByCode>>>

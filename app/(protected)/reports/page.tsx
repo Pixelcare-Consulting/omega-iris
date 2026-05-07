@@ -2,7 +2,7 @@ import { getReports } from '@/actions/report'
 import ContentContainer from '../_components/content-container'
 import ReportTable from './_components/report-table'
 import { getCurrentUserAbility } from '@/actions/auth'
-import UnderDevelopment from '@/app/under-development'
+import UnderDevelopment from '@/components/under-development'
 
 export default async function ReportingPage() {
   const userInfo = await getCurrentUserAbility()
