@@ -63,7 +63,7 @@ export default function ViewReport({ report }: ViewReportProps) {
         </CanView>
       </PageHeader>
 
-      <PageContentWrapper className='h-[calc(100vh_-_150px)]'>
+      <PageContentWrapper className='h-[calc(100vh_-_180px)]'>
         <TabPanel width='100%' height='100%' animationEnabled tabsPosition='top' defaultSelectedIndex={0}>
           <TabPanelITem title='Overview'>
             <ReportOverviewTab report={report} />

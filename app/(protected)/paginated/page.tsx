@@ -1,12 +1,12 @@
 import UnderDevelopment from '@/components/under-development'
 import ContentContainer from '../_components/content-container'
 import { getCurrentUserAbility } from '@/actions/auth'
-import { getDashboardReports } from '@/actions/report'
-import DashboardReport from './_components/dashboard-report'
+import { getPaginatedReports } from '@/actions/report'
+import PaginatedReport from './_components/paginated-report'
 
-export default async function ProtectedDashboardPage() {
+export default async function ProtectedPaginatedPage() {
   const userInfo = await getCurrentUserAbility()
-  const reports = await getDashboardReports(userInfo)
+  const reports = await getPaginatedReports(userInfo)
 
   if (process.env.NEXT_PUBLIC_DISABLE_REPORTING === 'true') {
     return (
@@ -18,7 +18,7 @@ export default async function ProtectedDashboardPage() {
 
   return (
     <ContentContainer>
-      <DashboardReport
+      <PaginatedReport
         reports={reports}
         params={{ UserCode: userInfo?.userCode }}
         userInfo={{

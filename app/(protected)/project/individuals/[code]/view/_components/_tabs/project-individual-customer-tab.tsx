@@ -131,7 +131,7 @@ export default function ProjectIndividualCustomerTab({ projectCode, customers, u
 
       {form?.formState?.errors?.customers && <div className='px-4 text-xs text-red-500'>{form?.formState?.errors?.customers?.message}</div>}
 
-      <PageContentWrapper className='max-h-[calc(100%_-_68px)]'>
+      <div className='min-h-0 flex-1 p-4'>
         <CommonDataGrid
           dataGridRef={dataGridRef}
           data={users.data}
@@ -170,7 +170,7 @@ export default function ProjectIndividualCustomerTab({ projectCode, customers, u
             <Button icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
           </Column>
         </CommonDataGrid>
-      </PageContentWrapper>
+      </div>
     </div>
   )
 }

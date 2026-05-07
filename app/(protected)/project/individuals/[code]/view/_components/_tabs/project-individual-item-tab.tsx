@@ -496,7 +496,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
             {stats && stats.progress && isLoading ? <ProgressBar min={0} max={100} showStatus={false} value={stats.progress} /> : null}
           </Toolbar>
 
-          <PageContentWrapper className='max-h-[calc(100%_-_68px)]'>
+          <div className='min-h-0 flex-1 p-4'>
             <CommonDataGrid
               dataGridRef={dataGridRef}
               data={items.data}
@@ -702,7 +702,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               data={importErrors}
               dataGridRef={importErrorDataGridRef}
             />
-          </PageContentWrapper>
+          </div>
         </div>
       ) : rowData ? (
         <ProjectIndividualItemView data={rowData} onClose={handleClose} />

@@ -5,13 +5,17 @@ import ScrollView from 'devextreme-react/scroll-view'
 import { getWorkOrderByCode } from '@/actions/work-order'
 import dynamic from 'next/dynamic'
 import { getReportByCode } from '@/actions/report'
+import ReportInitializing from '@/components/report-initializing'
 
 type ReportViewerTabProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
   report: Awaited<ReturnType<typeof getReportByCode>>
 }
 
-const ReportViewer = dynamic(() => import('@/components/report-viewer'), { ssr: false })
+const ReportViewer = dynamic(() => import('@/components/report-viewer'), {
+  ssr: false,
+  loading: () => <ReportInitializing className='h-[calc(100vh_-_275px)]' />,
+})
 
 export default function WorkOrderReportViewerTab({ workOrder, report }: ReportViewerTabProps) {
   if (!report || !report?.data || !workOrder?.code) return null

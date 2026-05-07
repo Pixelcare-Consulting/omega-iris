@@ -107,7 +107,7 @@ export default function ProjectGroupPicTab({ projectGroupCode, pics, users }: Pr
   }, [users.isLoading, dataGridRef.current])
 
   return (
-    <>
+    <div className='flex h-full w-full flex-col'>
       <Toolbar className='mt-5'>
         <Item location='after' locateInMenu='auto' widget='dxButton'>
           <Tooltip target='#save-button' contentRender={() => 'Save'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />
@@ -128,7 +128,7 @@ export default function ProjectGroupPicTab({ projectGroupCode, pics, users }: Pr
 
       {form.formState.errors.pics && <div className='px-4 text-xs text-red-500'>{form.formState.errors.pics.message}</div>}
 
-      <PageContentWrapper className='max-h-[calc(100%_-_68px)]'>
+      <div className='min-h-0 flex-1 p-4'>
         <CommonDataGrid
           dataGridRef={dataGridRef}
           data={users.data}
@@ -166,7 +166,7 @@ export default function ProjectGroupPicTab({ projectGroupCode, pics, users }: Pr
             <Button icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
           </Column>
         </CommonDataGrid>
-      </PageContentWrapper>
-    </>
+      </div>
+    </div>
   )
 }

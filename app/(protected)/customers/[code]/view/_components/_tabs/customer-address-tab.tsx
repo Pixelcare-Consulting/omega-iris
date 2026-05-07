@@ -33,12 +33,12 @@ export default function CustomerAddressTab({ addresses }: CustomerAddressTabProp
   }, [addresses.isLoading, dataGridRef.current])
 
   return (
-    <>
+    <div className='flex h-full w-full flex-col'>
       <Toolbar className='mt-5'>
         <CommonPageHeaderToolbarItems dataGridUniqueKey={DATAGRID_UNIQUE_KEY} dataGridRef={dataGridRef} />
       </Toolbar>
 
-      <PageContentWrapper className='max-h-[calc(100%_-_68px)]'>
+      <div className='min-h-0 flex-1 p-4'>
         <CommonDataGrid
           dataGridRef={dataGridRef}
           data={addresses.data}
@@ -67,7 +67,7 @@ export default function CustomerAddressTab({ addresses }: CustomerAddressTabProp
           <Column dataField='StateName' dataType='string' caption='State' />
           <Column dataField='GlobalLocationNumber' dataType='string' caption='GLN' />
         </CommonDataGrid>
-      </PageContentWrapper>
-    </>
+      </div>
+    </div>
   )
 }

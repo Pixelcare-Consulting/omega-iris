@@ -33,6 +33,7 @@ export const reportFormSchema = z.object({
 export const markReportAsDefaultSchema = z.object({
   code: z.coerce.number(),
   isDefault: z.boolean(),
+  type: z.string(),
 })
 
 export type ReportForm = z.infer<typeof reportFormSchema>
