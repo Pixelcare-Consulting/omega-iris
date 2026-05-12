@@ -157,7 +157,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
                 hint='View'
                 visible={(opt) => {
                   const data = opt?.row?.data
-                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                  return hideActionButton(data?.deletedAt || data?.deletedBy || data.key === 'admin')
                 }}
               />
             </CanView>
@@ -170,7 +170,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
                 hint='Edit'
                 visible={(opt) => {
                   const data = opt?.row?.data
-                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                  return hideActionButton(data?.deletedAt || data?.deletedBy || data.key === 'admin')
                 }}
               />
             </CanView>
@@ -183,7 +183,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
                 hint='Delete'
                 visible={(opt) => {
                   const data = opt?.row?.data
-                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                  return hideActionButton(data?.deletedAt || data?.deletedBy || data.key === 'admin')
                 }}
               />
             </CanView>

@@ -76,11 +76,17 @@ export default function WorkOrderLineItemView({ data, onClose }: WorkOrderLineIt
           <Copy value={data?.projectItemCode || ''} />
         </ReadOnlyField>
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Manufacturer' value={data?.FirmName || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Delivered' value={data?.isDelivered ? 'Yes' : 'No'} />
+
+        {/* //* temporarily hide */}
+        {/* <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Manufacturer' value={data?.FirmName || ''} /> */}
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Owner' value={data?.owner || ''} />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='MFG P/N' value={data?.ItemCode || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Description' value={data?.ItemName || ''} />
+        {/* //* temporarily hide */}
+        {/* <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Description' value={data?.ItemName || ''} /> */}
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Part Number' value={data?.partNumber || ''} />
 
@@ -132,6 +138,20 @@ export default function WorkOrderLineItemView({ data, onClose }: WorkOrderLineIt
           className='col-span-12 md:col-span-6 lg:col-span-3'
           title='Quantity'
           value={formatNumber(safeParseFloat(data?.qty), DEFAULT_NUMBER_FORMAT)}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='MFR'
+          value={data?.mfr || ''}
+          description='Temporary manufacturer field'
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Description'
+          value={data?.desc || ''}
+          description='Temporary description field'
         />
 
         <ReadOnlyField className='col-span-12' title='Notes' value={data?.notes || ''} />

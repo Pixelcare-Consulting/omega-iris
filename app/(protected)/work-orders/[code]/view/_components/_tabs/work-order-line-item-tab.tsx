@@ -12,7 +12,7 @@ import {
   Summary,
 } from 'devextreme-react/data-grid'
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import Toolbar from 'devextreme-react/toolbar'
+import Toolbar, { Item } from 'devextreme-react/toolbar'
 import Popup from 'devextreme-react/popup'
 import { useAction } from 'next-safe-action/hooks'
 import { toast } from 'sonner'
@@ -26,7 +26,7 @@ import { subtract } from 'mathjs'
 
 import { useWoItemsByWoCode } from '@/hooks/safe-actions/work-order-item'
 import AlertDialog from '@/components/alert-dialog'
-import { deleteWorkOrderLineItem, getWorkOrderByCode, upsertWorkOrderLineItem } from '@/actions/work-order'
+import { deleteWorkOrderLineItem, deleteWorkOrderLineItems, getWorkOrderByCode, upsertWorkOrderLineItem } from '@/actions/work-order'
 import { cn, safeParseFloat, safeParseInt } from '@/utils'
 import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { WORK_ORDER_STATUS_VALUE_MAP, WorkOrderItemForm } from '@/schema/work-order'
@@ -38,6 +38,8 @@ import CanView from '@/components/acl/can-view'
 import { AbilityContext } from '@/context/ability'
 import { NotificationContext } from '@/context/notification'
 import WorkOrderLineItemForm from '../work-order-line-item-form'
+import Tooltip from 'devextreme-react/tooltip'
+import LoadingButton from '@/components/loading-button'
 
 type WorkOrderLineItemTabProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
@@ -55,12 +57,15 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
   // const notificationContext = useContext(NotificationContext)
   const ability = useContext(AbilityContext)
 
-  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
+  const [showDeleleteSelectedConfirmation, setShowDeleleteSelectedConfirmation] = useState(false)
+  const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [rowData, setRowData] = useState<DataSource | null>(null)
   const [isViewMode, setIsViewMode] = useState(false)
 
-  const { executeAsync } = useAction(deleteWorkOrderLineItem)
+  const deleteWorkOrderLineItemData = useAction(deleteWorkOrderLineItem)
+  const deleteWorkOrderLineItemsData = useAction(deleteWorkOrderLineItems)
   const upsertWorkOrderLineItemClient = useAction(upsertWorkOrderLineItem)
 
   const dataGridRef = useRef<DataGridRef | null>(null)
@@ -167,18 +172,18 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
     (e: DataGridTypes.ColumnButtonClickEvent) => {
       const data = e.row?.data
       if (!data) return
-      setShowConfirmation(true)
+      setShowDeleteConfirmation(true)
       setRowData({ ...data, maxQty: data?.availableToOrder })
     },
-    [setShowConfirmation, setRowData]
+    [setShowDeleteConfirmation, setRowData]
   )
 
-  const handleConfirm = useCallback((workOrderCode: number, projectItemCode: number) => {
+  const handleConfirmDelete = useCallback((workOrderCode: number, projectItemCode: number) => {
     if (!workOrderCode || !projectItemCode) return
 
-    setShowConfirmation(false)
+    setShowDeleteConfirmation(false)
 
-    toast.promise(executeAsync({ workOrderCode, projectItemCode }), {
+    toast.promise(deleteWorkOrderLineItemData.executeAsync({ workOrderCode, projectItemCode }), {
       loading: 'Deleting line item...',
       success: (response) => {
         const result = response?.data
@@ -189,6 +194,39 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
           setTimeout(() => {
             workOrderItems.execute({ workOrderCode: workOrder.code })
             // notificationContext?.handleRefresh()
+            handleClose()
+          }, 1500)
+
+          return result.message
+        }
+
+        throw { message: result.message, expectedError: true }
+      },
+      error: (err: Error & { expectedError: boolean }) => {
+        return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
+      },
+    })
+  }, [])
+
+  const handleConfirmDeleteSelected = useCallback((workOrderCode: number, projectItemCodes: number[]) => {
+    if (!workOrderCode || projectItemCodes.length < 1) return
+
+    setShowDeleleteSelectedConfirmation(false)
+
+    toast.promise(deleteWorkOrderLineItemsData.executeAsync({ workOrderCode, projectItemCodes }), {
+      loading: 'Deleting line items...',
+      success: (response) => {
+        const result = response?.data
+        const instance = dataGridRef?.current?.instance()
+
+        if (!response || !result) throw { message: 'Failed to delete line items!', unExpectedError: true }
+
+        if (!result.error) {
+          setTimeout(() => {
+            if (instance) instance.searchByText('')
+            workOrderItems.execute({ workOrderCode: workOrder.code })
+            // notificationContext?.handleRefresh()
+            setSelectedRowKeys([])
             handleClose()
           }, 1500)
 
@@ -248,6 +286,10 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
     [JSON.stringify(workOrderItems), JSON.stringify(workOrder.code)]
   )
 
+  const handleOnSelectionChanged = (e: DataGridTypes.SelectionChangedEvent) => {
+    setSelectedRowKeys(e.selectedRowKeys)
+  }
+
   const handleOnEditorPreparing = (e: DataGridTypes.EditorPreparingEvent) => {
     if (e.parentType === 'dataRow' && e.dataField === 'qty') {
       e.editorOptions.readOnly = ability.can('edit', 'p-work-orders') ? false : true
@@ -293,6 +335,24 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
       {!isViewMode ? (
         <div className='flex h-full w-full flex-col'>
           <Toolbar className='mt-5'>
+            {selectedRowKeys.length > 0 && (
+              <CanView subject='p-work-orders' action='delete'>
+                <Item location='after' locateInMenu='auto' widget='dxMenu'>
+                  <Tooltip target='#delete' contentRender={() => 'Delete'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />
+
+                  <LoadingButton
+                    id='delete'
+                    icon='trash'
+                    isLoading={deleteWorkOrderLineItemsData.isExecuting}
+                    text={`${selectedRowKeys.length} : Delete`}
+                    type='default'
+                    stylingMode='outlined'
+                    onClick={() => setShowDeleleteSelectedConfirmation(true)}
+                  />
+                </Item>
+              </CanView>
+            )}
+
             <CommonPageHeaderToolbarItems
               dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
               dataGridRef={dataGridRef}
@@ -312,7 +372,14 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
               storageKey={DATAGRID_STORAGE_KEY}
               keyExpr='projectItemCode'
               dataGridStore={dataGridStore}
-              callbacks={{ onRowUpdated: handleOnRowUpdated, onEditorPreparing: handleOnEditorPreparing }}
+              callbacks={{
+                onRowUpdated: handleOnRowUpdated,
+                onEditorPreparing: handleOnEditorPreparing,
+                onSelectionChanged: handleOnSelectionChanged,
+              }}
+              isSelectionEnable={
+                isLocked ? false : true && CanView({ isReturnBoolean: true, subject: 'p-work-orders', action: ['delete'] }) ? true : false
+              }
             >
               <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' sortOrder='asc' allowEditing={false} />
               <Column
@@ -465,11 +532,19 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
             </Popup>
 
             <AlertDialog
-              isOpen={showConfirmation}
+              isOpen={showDeleteConfirmation}
               title='Are you sure?'
               description={`Are you sure you want to delete this item with MFG P/N of "${rowData?.ItemCode}" and has Id of "${rowData?.projectItemCode}"?`}
-              onConfirm={() => handleConfirm(workOrder.code, rowData?.projectItemCode || 0)}
-              onCancel={() => setShowConfirmation(false)}
+              onConfirm={() => handleConfirmDelete(workOrder.code, rowData?.projectItemCode || 0)}
+              onCancel={() => setShowDeleteConfirmation(false)}
+            />
+
+            <AlertDialog
+              isOpen={showDeleleteSelectedConfirmation}
+              title='Are you sure?'
+              description={`Are you sure you want to delete these ${selectedRowKeys.length} line items?`}
+              onConfirm={() => handleConfirmDeleteSelected(workOrder.code, selectedRowKeys)}
+              onCancel={() => setShowDeleleteSelectedConfirmation(false)}
             />
           </div>
         </div>
