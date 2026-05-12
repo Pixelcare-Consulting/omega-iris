@@ -20,6 +20,7 @@ import DataGrid, {
   GroupItem,
   TotalItem,
   Summary,
+  Selection,
 } from 'devextreme-react/data-grid'
 import Button from 'devextreme-react/button'
 import Tooltip from 'devextreme-react/tooltip'
@@ -54,6 +55,7 @@ import { parseExcelFile } from '@/utils/xlsx'
 import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import WorkOrderLineItemForm from './work-order-line-item-form'
+import LoadingButton from '@/components/loading-button'
 
 type WorkOrderLineItemsFormProps = {
   workOrder: Awaited<ReturnType<typeof getWorkOrderByCode>>
@@ -80,7 +82,9 @@ export default function WorkOrderLineItemTable({
 
   const form = useFormContext<WorkOrderForm>()
 
-  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
+  const [showDeleteSelectedConfirmation, setShowDeleteSelectedConfirmation] = useState(false)
+  const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
   const [showImportError, setShowImportError] = useState(false)
@@ -108,20 +112,20 @@ export default function WorkOrderLineItemTable({
     setIsOpen(true)
   }, [])
 
-  const handleDelete = useCallback(
+  const handleSingleDelete = useCallback(
     (e: DataGridTypes.ColumnButtonClickEvent) => {
       const data = e.row?.data
       if (!data) return
-      setShowConfirmation(true)
+      setShowDeleteConfirmation(true)
       setRowData({ ...data, maxQty: data?.availableToOrder })
     },
-    [setShowConfirmation, setRowData]
+    [setShowDeleteConfirmation, setRowData]
   )
 
-  const handleConfirm = useCallback(() => {
+  const handleConfirmDelete = useCallback(() => {
     if (!rowData || !rowData?.projectItemCode) return
 
-    setShowConfirmation(false)
+    setShowDeleteConfirmation(false)
 
     const currentLineItems = [...lineItems]
     const index = currentLineItems.findIndex((li) => li.projectItemCode === rowData?.projectItemCode)
@@ -137,6 +141,22 @@ export default function WorkOrderLineItemTable({
       toast.error('Failed to delete the line item!')
     }
   }, [JSON.stringify(lineItems), JSON.stringify(rowData)])
+
+  const handleConfirmDeleteSelected = useCallback(
+    (codes: number[]) => {
+      if (codes.length === 0) return
+
+      setShowDeleteSelectedConfirmation(false)
+
+      const currentLineItems = [...lineItems]
+      const updatedLineItems = currentLineItems.filter((li) => !codes.includes(li.projectItemCode))
+
+      form.setValue('lineItems', updatedLineItems)
+      if (updatedLineItems.length === 0) setWorkOrderItemsDataSource([])
+      setSelectedRowKeys([])
+    },
+    [JSON.stringify(workOrderItemsDataSource)]
+  )
 
   const handleClose = useCallback(() => {
     setRowData(null)
@@ -164,6 +184,10 @@ export default function WorkOrderLineItemTable({
     },
     [JSON.stringify(workOrderItemsDataSource)]
   )
+
+  const handleOnSelectionChanged = (e: DataGridTypes.SelectionChangedEvent) => {
+    setSelectedRowKeys(e.selectedRowKeys)
+  }
 
   const handleImport = async (file: File) => {
     setIsImporting(true)
@@ -403,6 +427,7 @@ export default function WorkOrderLineItemTable({
           columnAutoWidth={false}
           columnMinWidth={DEFAULT_COLUMN_MIN_WIDTH}
           onRowUpdated={handleOnRowUpdated}
+          onSelectionChanged={handleOnSelectionChanged}
         >
           <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' sortOrder='asc' allowEditing={false} />
           <Column
@@ -509,7 +534,7 @@ export default function WorkOrderLineItemTable({
           <Column type='buttons' minWidth={100} fixed fixedPosition='right' caption='Actions'>
             <DataGridButton
               icon='trash'
-              onClick={handleDelete}
+              onClick={handleSingleDelete}
               cssClass='!text-lg !text-red-500'
               hint='Delete'
               visible={isLocked ? false : true}
@@ -536,9 +561,30 @@ export default function WorkOrderLineItemTable({
           <Sorting mode='multiple' />
           <Scrolling mode='standard' useNative />
           <ColumnFixing enabled />
+          <Selection mode='multiple' />
 
           <Toolbar>
             <Item location='before' name='searchPanel' cssClass='[&>.dx-toolbar-item-content>.dx-datagrid-search-panel]:ml-0' />
+
+            {selectedRowKeys.length > 0 ? (
+              <Item location='after' widget='dxButton'>
+                <Tooltip target='#delete' contentRender={() => 'Delete'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />
+
+                <Button
+                  id='delete-selecteed'
+                  icon='trash'
+                  text={`${selectedRowKeys.length} : Delete`}
+                  type='default'
+                  stylingMode='outlined'
+                  onClick={() => setShowDeleteSelectedConfirmation(true)}
+                  disabled={
+                    !projectCode || isLocked
+                      ? true
+                      : false || isLoading || workOrderItems.isLoading || projectItems.isLoading || isImporting
+                  }
+                />
+              </Item>
+            ) : null}
 
             <Item location='after' widget='dxButton'>
               <Tooltip
@@ -554,7 +600,9 @@ export default function WorkOrderLineItemTable({
                 type='default'
                 stylingMode='contained'
                 onClick={handleAdd}
-                disabled={!projectCode || isLocked ? true : false}
+                disabled={
+                  !projectCode || isLocked ? true : false || isLoading || workOrderItems.isLoading || projectItems.isLoading || isImporting
+                }
               />
             </Item>
 
@@ -577,7 +625,11 @@ export default function WorkOrderLineItemTable({
               />
             </Item>
 
-            <Item location='after' render={() => <input type='file' className='hidden' ref={fileInputRef} onChange={handleFileUpload} />} />
+            <Item
+              visible={false}
+              location='after'
+              render={() => <input type='file' className='hidden' ref={fileInputRef} onChange={handleFileUpload} />}
+            />
           </Toolbar>
 
           <Pager visible allowedPageSizes={DATAGRID_PAGE_SIZES} showInfo displayMode='full' showPageSizeSelector showNavigationButtons />
@@ -603,11 +655,19 @@ export default function WorkOrderLineItemTable({
         />
 
         <AlertDialog
-          isOpen={showConfirmation}
+          isOpen={showDeleteConfirmation}
           title='Are you sure?'
           description={`Are you sure you want to delete this item with MFG P/N of "${rowData?.ItemName}" and has Id of "${rowData?.projectItemCode}"?`}
-          onConfirm={handleConfirm}
-          onCancel={() => setShowConfirmation(false)}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setShowDeleteConfirmation(false)}
+        />
+
+        <AlertDialog
+          isOpen={showDeleteSelectedConfirmation}
+          title='Are you sure?'
+          description={`Are you sure you want to delete these ${selectedRowKeys.length} line items?`}
+          onConfirm={() => handleConfirmDeleteSelected(selectedRowKeys)}
+          onCancel={() => setShowDeleteSelectedConfirmation(false)}
         />
       </div>
     </>

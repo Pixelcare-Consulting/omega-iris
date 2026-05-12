@@ -92,6 +92,11 @@ export const deleteWorkOrderLineItemFormSchema = z.object({
   projectItemCode: z.coerce.number(),
 })
 
+export const deleteWorkOrderLineItemsFormSchema = z.object({
+  workOrderCode: z.coerce.number(),
+  projectItemCodes: z.array(z.coerce.number()).default([]),
+})
+
 export const workOrderFormSchema = z.object({
   code: z.coerce.number(),
   projectIndividualCode: z.coerce.number().min(1, { message: 'Project is required' }),

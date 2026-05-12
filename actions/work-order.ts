@@ -6,6 +6,7 @@ import { Prisma } from '@prisma/client'
 import { paramsSchema } from '@/schema/common'
 import {
   deleteWorkOrderLineItemFormSchema,
+  deleteWorkOrderLineItemsFormSchema,
   partialWorkOrderStatusUpdateFormSchema,
   toggleWorkOrderInternalSchema,
   upsertWorkOrderLineItemFormSchema,
@@ -1187,6 +1188,121 @@ export const deleteWorkOrderLineItem = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'DELETE_WORK_ORDER_LINE_ITEM',
+      }
+    }
+  })
+
+export const deleteWorkOrderLineItems = action
+  .use(authenticationMiddleware)
+  .schema(deleteWorkOrderLineItemsFormSchema)
+  .action(async ({ ctx, parsedInput: data }) => {
+    const include = {
+      projectIndividual: {
+        include: {
+          projectIndividualCustomers: {
+            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          projectIndividualPics: {
+            //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
+            where: {
+              user: {
+                OR: [
+                  {
+                    role: {
+                      rolePermissions: {
+                        some: {
+                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
+                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    role: {
+                      key: 'admin',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    } satisfies Prisma.WorkOrderInclude
+
+    try {
+      const existingWorkOrder = await db.workOrder.findUnique({
+        where: { code: data.workOrderCode },
+        include,
+      })
+
+      if (!existingWorkOrder) {
+        return { error: true, status: 404, message: 'Work order not found!', action: 'DELETE_WORK_ORDER_LINE_ITEMS' }
+      }
+
+      // const assignedPics = existingWorkOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
+      // const owner = existingWorkOrder.userCode
+
+      const workOrderLineItems = await db.workOrderItem.findMany({
+        where: {
+          workOrderCode: data.workOrderCode,
+          projectItemCode: { in: data.projectItemCodes },
+        },
+      })
+
+      if (workOrderLineItems.length < 1) {
+        return { error: true, status: 404, message: 'Selected line items not found!', action: 'DELETE_WORK_ORDER_LINE_ITEMS' }
+      }
+
+      await db.workOrderItem.deleteMany({
+        where: {
+          workOrderCode: data.workOrderCode,
+          projectItemCode: { in: workOrderLineItems.map((li) => li.projectItemCode) },
+        },
+      })
+
+      // //* create notifications
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES['WORK ORDERS'],
+      //   title: 'Work Order Line Item Deleted',
+      //   message: `${workOrderLineItems.length} line item${workOrderLineItems.length === 1 ? 'was' : 's were'} deleted by ${ctx.fullName}.`,
+      //   link: `/work-orders/${data.workOrderCode}/view`,
+      //   entityType: 'WorkOrder' as Prisma.ModelName,
+      //   entityCode: existingWorkOrder.code,
+      //   entityId: existingWorkOrder.id,
+      //   userCodes: [owner, ...assignedPics],
+      // })
+
+      return { status: 200, message: 'Work order deleted successfully!', action: 'DELETE_WORK_ORDER_LINE_ITEMS' }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'DELETE_WORK_ORDER_LINE_ITEMS',
       }
     }
   })

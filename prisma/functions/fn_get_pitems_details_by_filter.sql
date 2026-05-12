@@ -6,7 +6,8 @@ CREATE OR REPLACE FUNCTION fn_get_pitems_details_by_filter(
     p_description        TEXT DEFAULT NULL,
     p_manufacturer       TEXT DEFAULT NULL,
     p_desc               TEXT DEFAULT NULL,
-    p_mfr                TEXT DEFAULT NULL
+    p_mfr                TEXT DEFAULT NULL,
+    p_part_number        TEXT DEFAULT NULL
 )
 RETURNS TABLE (
     --* project item columns
@@ -60,7 +61,7 @@ BEGIN
      --* Return empty if no filters are provided
     IF p_project_name IS NULL AND p_project_group_name IS NULL AND p_mpn IS NULL
        AND p_description IS NULL AND p_manufacturer IS NULL AND p_desc IS NULL
-       AND p_mfr IS NULL THEN
+       AND p_mfr IS NULL AND p_part_number IS NULL THEN
         RETURN;
     END IF;
 
@@ -146,6 +147,8 @@ BEGIN
         AND (p_desc IS NULL OR T0."desc" ILIKE '%' || p_desc || '%')
         --* filter by mfr (temp column)
         AND (p_mfr IS NULL OR T0."mfr" ILIKE '%' || p_mfr || '%')
+        --* filter by part number
+        AND (p_part_number IS NULL OR T0."partNumber" ILIKE '%' || p_part_number || '%')
 ORDER BY T0."code" ASC;
 END;
 $$;
