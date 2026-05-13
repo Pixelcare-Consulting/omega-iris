@@ -561,7 +561,7 @@ export default function WorkOrderLineItemTable({
           <Sorting mode='multiple' />
           <Scrolling mode='standard' useNative />
           <ColumnFixing enabled />
-          <Selection mode='multiple' />
+          {!isLocked ? <Selection mode='multiple' /> : null}
 
           <Toolbar>
             <Item location='before' name='searchPanel' cssClass='[&>.dx-toolbar-item-content>.dx-datagrid-search-panel]:ml-0' />
