@@ -28,13 +28,16 @@ import { useBps } from '@/hooks/safe-actions/business-partner'
 import { commonItemRender } from '@/utils/devextreme'
 import CanView from '@/components/acl/can-view'
 import { NotificationContext } from '@/context/notification'
+import { useSession } from 'next-auth/react'
 
 type UserFormProps = { pageMetaData: PageMetadata; user: Awaited<ReturnType<typeof getUserByCode>> }
 
 export default function UserForm({ pageMetaData, user }: UserFormProps) {
   const router = useRouter()
+
   const { code } = useParams() as { code: string }
 
+  const { data: session } = useSession()
   const notificationContext = useContext(NotificationContext)
 
   const isCreate = code === 'add' || !user
@@ -91,6 +94,17 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
     process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' ? true : false
   )
   const roles = useRoles()
+
+  const isAdmin = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'admin'
+  }, [JSON.stringify(session)])
+
+  const roleOptions = useMemo(() => {
+    if (!roles.data || roles.data.length < 1 || roles.isLoading) return []
+
+    return roles.data.filter((role) => (isAdmin ? true : role.key !== 'admin')).map((role) => role)
+  }, [JSON.stringify(roles), isAdmin])
 
   const handleOnSubmit = async (formData: UserForm) => {
     try {
@@ -192,7 +206,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                 <SelectBoxField
-                  data={roles.data}
+                  data={roleOptions}
                   isLoading={roles.isLoading}
                   control={form.control}
                   name='roleCode'

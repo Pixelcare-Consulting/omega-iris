@@ -3,7 +3,7 @@
 import { deleteUser, getUsers, restoreUser } from '@/actions/users'
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
-import { useCallback, useContext, useRef, useState } from 'react'
+import { useCallback, useContext, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 import { format, isValid } from 'date-fns'
@@ -19,6 +19,7 @@ import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import { NotificationContext } from '@/context/notification'
+import { useSession } from 'next-auth/react'
 
 type UserTableProps = { users: Awaited<ReturnType<typeof getUsers>> }
 type DataSource = Awaited<ReturnType<typeof getUsers>>
@@ -27,6 +28,8 @@ const RANDOM_USERS = Array.from({ length: 100 }).map(() => createRandomUser())
 
 export default function UserTable({ users }: UserTableProps) {
   const router = useRouter()
+
+  const { data: session } = useSession()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-user'
   const DATAGRID_UNIQUE_KEY = 'users'
@@ -42,6 +45,11 @@ export default function UserTable({ users }: UserTableProps) {
   const restoreUserData = useAction(restoreUser)
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
+
+  const isAdmin = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'admin'
+  }, [JSON.stringify(session)])
 
   const lastSigninCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
     const data = e.data as DataSource[number]
@@ -197,7 +205,8 @@ export default function UserTable({ users }: UserTableProps) {
                 hint='Edit'
                 visible={(opt) => {
                   const data = opt?.row?.data
-                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                  const roleKey = data?.role?.key
+                  return hideActionButton(data?.deletedAt || data?.deletedBy || (!isAdmin && roleKey === 'admin'))
                 }}
               />
             </CanView>
@@ -210,7 +219,8 @@ export default function UserTable({ users }: UserTableProps) {
                 hint='Delete'
                 visible={(opt) => {
                   const data = opt?.row?.data
-                  return hideActionButton(data?.deletedAt || data?.deletedBy)
+                  const roleKey = data?.role?.key
+                  return hideActionButton(data?.deletedAt || data?.deletedBy || (!isAdmin && roleKey === 'admin'))
                 }}
               />
             </CanView>
