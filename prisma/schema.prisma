@@ -310,6 +310,11 @@ model Item {
 
     projectItems           ProjectItem[]
     itemWarehouseInventory ItemWarehouseInventory[]
+
+    @@index([deletedAt])
+    @@index([ItemCode(ops: raw("gin_trgm_ops"))], type: Gin)
+    @@index([ItemName(ops: raw("gin_trgm_ops"))], type: Gin)
+    @@index([FirmName(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 model ItemWarehouseInventory {
@@ -391,6 +396,9 @@ model ProjectGroup {
 
     projectIndividuals ProjectIndividual[] @relation()
     projectGroupPics   ProjectGroupPic[]   @relation(name: "ProjectGroup-ProjectGroupPic")
+
+    @@index([deletedAt])
+    @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 model ProjectGroupPic {
@@ -435,6 +443,9 @@ model ProjectIndividual {
     projectIndividualSuppliers ProjectIndividualSupplier[] @relation(name: "ProjectIndividual-ProjectIndividualSupplier")
     items                      ProjectItem[]
     workOrders                 WorkOrder[]
+
+    @@index([deletedAt])
+    @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 //* NOTE: Item must be synced already in SAP before it can be selected for project item 
@@ -483,6 +494,10 @@ model ProjectItem {
 
     @@index([projectIndividualCode])
     @@index([itemCode])
+    @@index([deletedAt])
+    @@index([desc(ops: raw("gin_trgm_ops"))], type: Gin)
+    @@index([mfr(ops: raw("gin_trgm_ops"))], type: Gin)
+    @@index([partNumber(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 model ProjectIndividualCustomer {
