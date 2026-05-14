@@ -151,10 +151,11 @@ export const upsertReport = action
             data: { ...data, title: trimmedTitle, fileName: trimmedFileName, updatedBy: userId },
           })
 
+          //* only unset defaults within the same type
           //* if updated report is default, update all other default reports to false
           if (updatedReport.isDefault) {
             await db.report.updateMany({
-              where: { isDefault: true, code: { not: updatedReport.code } },
+              where: { isDefault: true, type: data.type, code: { not: updatedReport.code } },
               data: { isDefault: false },
             })
           }
@@ -194,10 +195,11 @@ export const upsertReport = action
           },
         })
 
+        //* only unset defaults within the same type
         //* if new report is default, update all other default reports to false
         if (report.isDefault) {
           await db.report.updateMany({
-            where: { isDefault: true, code: { not: report.code } },
+            where: { isDefault: true, type: data.type, code: { not: report.code } },
             data: { isDefault: false },
           })
         }
