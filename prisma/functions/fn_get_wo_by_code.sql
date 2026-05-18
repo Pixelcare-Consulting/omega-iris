@@ -15,7 +15,7 @@ RETURNS TABLE (
     "shippingAddrCode"        TEXT,
     "comments"                TEXT,
     "customerPo"              TEXT,
-    "expectedDeliveryDate"    TIMESTAMP,  
+    "expectedDeliveryDate"    DATE,  
     "salesOrderCode"          INT,
     "purchaseOrderCode"       INT,
     "isAlternativeAddr"       BOOLEAN,
