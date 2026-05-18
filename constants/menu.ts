@@ -109,6 +109,15 @@ export const navigation: NavItem[] = [
         subjects: 'p-projects-individuals',
         actions: ['view', 'view (owner)'],
       },
+      {
+        id: uuidv4(),
+        text: 'Inventory',
+        path: '/project/inventory',
+        selected: false,
+        expanded: false,
+        subjects: 'p-projects-individual-inventory',
+        actions: ['view', 'view (owner)'],
+      },
     ],
   },
   // {

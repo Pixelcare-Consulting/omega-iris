@@ -47,6 +47,7 @@ import { useSession } from 'next-auth/react'
 import WorkOrderUpdateStatusForm from './work-order-update-status-form'
 import { NotificationContext } from '@/context/notification'
 import CommonOperationErrorDataGrid from '@/components/common-operation-error-datagrid'
+import DateBoxField from '@/components/forms/date-box-field'
 
 type WorkOrderFormProps = {
   pageMetaData: PageMetadata
@@ -85,6 +86,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
         shippingAddrCode: null,
         comments: null,
         customerPo: null,
+        expectedDeliveryDate: null,
         isAlternativeAddr: false,
         alternativeBillingAddr: null,
         alternativeShippingAddr: null,
@@ -437,10 +439,14 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                 />
               </div>
 
-              <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Status' value={selectedStatus || ''} />
+              <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Status' value={selectedStatus || ''} />
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <DateBoxField control={form.control} type='date' name='expectedDeliveryDate' label='Expected Delivery Date' />
+              </div>
 
               {session?.user.roleKey !== 'business-partner' && (
-                <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                   <SwitchField control={form.control} name='isInternal' label='Internal' description='Is this an internal work order?' />
                 </div>
               )}

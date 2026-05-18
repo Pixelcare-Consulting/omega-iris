@@ -383,6 +383,10 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
               />
             )}
 
+            <Column dataField='customerPo' dataType='string' caption='Customer PO' />
+
+            <Column dataField='expectedDeliveryDate' dataType='datetime' caption='Exp. Delivery Date' format='M/d/yyyy' />
+
             <Column
               dataField='owner'
               dataType='string'

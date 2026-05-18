@@ -15,6 +15,7 @@ import { WORK_ORDER_STATUS_OPTIONS } from '@/schema/work-order'
 import Separator from '@/components/separator'
 import { useSalesOrderByWorkOrderCode } from '@/hooks/safe-actions/sales-order'
 import { useAddressById } from '@/hooks/safe-actions/address'
+import { format, isValid } from 'date-fns'
 
 type WorkOrderOverviewTabProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
@@ -28,6 +29,7 @@ export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAdd
 
   const fullName = workOrder.user ? `${workOrder?.user?.fname}${workOrder?.user?.lname ? ` ${workOrder?.user?.lname}` : ''}` : ''
   const status = WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === workOrder.status)?.label
+  const expectedDeliveryDate = workOrder.expectedDeliveryDate && isValid(workOrder.expectedDeliveryDate) ? format(workOrder.expectedDeliveryDate, 'MM/dd/yyyy') : '' // prettier-ignore
 
   const getAddressValue = (address: ReturnType<typeof useAddressById>['data']) => {
     if (!address) return ''
@@ -106,9 +108,11 @@ export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAdd
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Internal' value={workOrder.isInternal ? 'Yes' : 'No'} />
 
-        <ReadOnlyField className='col-span-12' title='Customer PO'>
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-9' title='Customer PO'>
           <p className='whitespace-pre-line'>{workOrder.customerPo || ''}</p>
         </ReadOnlyField>
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Expected Delivery Date' value={expectedDeliveryDate} />
 
         <ReadOnlyField className='col-span-12' title='Order Comments'>
           <p className='whitespace-pre-line'>{workOrder.comments || ''}</p>
