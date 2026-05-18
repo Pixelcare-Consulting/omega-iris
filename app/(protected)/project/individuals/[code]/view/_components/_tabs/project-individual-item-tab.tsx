@@ -94,11 +94,6 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
     return session.user.roleKey === 'business-partner'
   }, [JSON.stringify(session)])
 
-  const isAdmin = useMemo(() => {
-    if (!session) return false
-    return session.user.roleKey === 'admin'
-  }, [JSON.stringify(session)])
-
   const thumbnailCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
     const data = e.data as DataSource[number]
     const thumbnail = data.item.thumbnail

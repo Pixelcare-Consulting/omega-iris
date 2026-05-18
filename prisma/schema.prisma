@@ -571,21 +571,22 @@ model ProjectIndividualPic {
 //? 8 - Deleted
 
 model WorkOrder {
-    id                      String  @id @default(cuid())
-    code                    Int     @unique @default(autoincrement())
+    id                      String    @id @default(cuid())
+    code                    Int       @unique @default(autoincrement())
     projectIndividualCode   Int
     userCode                Int
     status                  String
-    isInternal              Boolean @default(false)
+    isInternal              Boolean   @default(false)
     billingAddrCode         String?
     shippingAddrCode        String?
     comments                String?
     customerPo              String?
     salesOrderCode          Int?
     purchaseOrderCode       Int?
-    isAlternativeAddr       Boolean @default(false)
+    isAlternativeAddr       Boolean   @default(false)
     alternativeBillingAddr  String?
     alternativeShippingAddr String?
+    expectedDeliveryDate    DateTime? @db.Date
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt

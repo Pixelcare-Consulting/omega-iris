@@ -113,6 +113,7 @@ export const workOrderFormSchema = z.object({
     .transform((val) => val || null),
   comments: z.string().nullish(),
   customerPo: z.string().nullish(),
+  expectedDeliveryDate: z.date().nullish(),
   isAlternativeAddr: z.boolean(),
   alternativeBillingAddr: z
     .string()

@@ -45,11 +45,11 @@ export async function getWorkOrders(userInfo: Awaited<ReturnType<typeof getCurre
   try {
     let allowedProjects: { code: number }[] = []
     const canViewAll = ability?.can('view', 'p-work-orders')
-    const canViweOwned = ability?.can('view (owner)', 'p-work-orders')
+    const canViewOwned = ability?.can('view (owner)', 'p-work-orders')
 
     //* get allowed project for performance optimization, we wont get deep joins in the work order query
-    //* only get allowed project if canViewAll is false and canViweOwned is true
-    if (ability && !canViewAll && canViweOwned) {
+    //* only get allowed project if canViewAll is false and canViewOwned is true
+    if (ability && !canViewAll && canViewOwned) {
       allowedProjects = await db.projectIndividual.findMany({
         where: {
           OR: [
@@ -76,12 +76,12 @@ export async function getWorkOrders(userInfo: Awaited<ReturnType<typeof getCurre
       })
     }
 
-    //* canViweOwned means can view all work orders if you are assigned to the project individual as pic,
+    //* canViewOwned means can view all work orders if you are assigned to the project individual as pic,
     //* or customer, or are selected as owner of the work order or you created the work order, or a project group pic of the project
     const where: Prisma.WorkOrderWhereInput | undefined =
       !ability || canViewAll
         ? undefined
-        : canViweOwned
+        : canViewOwned
           ? {
               OR: [{ userCode }, { createdBy: userId }, { projectIndividualCode: { in: allowedProjects.map((pi) => pi.code) } }],
               ...(roleKey === 'business-partner' ? { isInternal: false } : {}),
@@ -104,11 +104,11 @@ export async function getWorkOrderByCode(code: number, userInfo: Awaited<ReturnT
     let allowedProjects: { code: number }[] = []
 
     const canViewAll = ability?.can('view', 'p-work-orders')
-    const canViweOwned = ability?.can('view (owner)', 'p-work-orders')
+    const canViewOwned = ability?.can('view (owner)', 'p-work-orders')
 
     //* get allowed project for performance optimization, we wont get deep joins in the work order query
-    //* only get allowed project if canViewAll is false and canViweOwned is true
-    if (ability && !canViewAll && canViweOwned) {
+    //* only get allowed project if canViewAll is false and canViewOwned is true
+    if (ability && !canViewAll && canViewOwned) {
       allowedProjects = await db.projectIndividual.findMany({
         where: {
           OR: [
@@ -138,7 +138,7 @@ export async function getWorkOrderByCode(code: number, userInfo: Awaited<ReturnT
     const where: Prisma.WorkOrderWhereUniqueInput =
       !ability || canViewAll
         ? { code }
-        : canViweOwned
+        : canViewOwned
           ? {
               code,
               OR: [{ userCode }, { createdBy: userId }, { projectIndividualCode: { in: allowedProjects.map((pi) => pi.code) } }],

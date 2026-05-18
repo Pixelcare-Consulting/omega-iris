@@ -14,9 +14,11 @@ import { importFormSchema } from '@/schema/import'
 import { ImportSyncErrorEntry } from '@/types/common'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { createNotification } from './notification'
+import { getCurrentUserAbility } from './auth'
 
 const COMMON_PROJECT_ITEM_INCLUDE = {
   item: true,
+  projectIndividual: { include: { projectGroup: true } },
   dateReceivedByUser: { select: { fname: true, lname: true } },
   warehouse: { select: { code: true, name: true, description: true } },
 } satisfies Prisma.ProjectItemInclude
@@ -44,6 +46,107 @@ export async function getProjecItems(projectCode: number, isHideDeleted = true) 
   } catch (error) {
     console.error(error)
     return []
+  }
+}
+
+export async function getAllProjectItems(userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>, isHideDeleted = true) {
+  if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
+
+  const { userId, userCode, ability } = userInfo
+
+  try {
+    const canViewAll = ability?.can('view', 'p-projects-individual-inventory')
+    const canViewOwned = ability?.can('view (owner)', 'p-projects-individual-inventory')
+
+    //* show all project items if canViewAll is true
+    //* show only project items that are related to the project individual that the user is assigned to which equavalent to canViewOwned is true
+    const result = await db.projectItem.findMany({
+      where: {
+        ...(isHideDeleted ? { deletedAt: null, deletedBy: null } : {}),
+
+        ...(!ability || canViewAll
+          ? {}
+          : canViewOwned
+            ? {
+                projectIndividual: {
+                  OR: [
+                    { projectGroup: { projectGroupPics: { some: { userCode } } } },
+                    { projectIndividualCustomers: { some: { userCode } } },
+                    { projectIndividualPics: { some: { userCode } } },
+                    { createdBy: userId },
+                  ],
+                },
+              }
+            : { projectIndividualCode: -1 }),
+      },
+      include: COMMON_PROJECT_ITEM_INCLUDE,
+      orderBy: COMMON_PROJECT_ITEM_ORDER_BY,
+    })
+
+    return result.map((item) => ({
+      ...item,
+      cost: safeParseFloat(item.cost),
+      availableToOrder: subtract(safeParseFloat(item.totalStock), safeParseFloat(item.stockIn)),
+      stockIn: safeParseInt(item.stockIn),
+      stockOut: safeParseFloat(item.stockOut),
+      totalStock: safeParseFloat(item.totalStock),
+    }))
+  } catch (error) {
+    console.error(error)
+    return []
+  }
+}
+
+export async function getAllProjectItemByCode(
+  code: number,
+  userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>,
+  isHideDeleted = true
+) {
+  if (!code || !userInfo || !userInfo.userId || !userInfo.userCode) return null
+
+  const { userId, userCode, ability } = userInfo
+
+  try {
+    const canViewAll = ability?.can('view', 'p-projects-individual-inventory')
+    const canViewOwned = ability?.can('view (owner)', 'p-projects-individual-inventory')
+
+    //* get project item if canViewAll is true
+    //* get only project item that are related to the project individual that the user is assigned to which equavalent to canViewOwned is true
+    const result = await db.projectItem.findUnique({
+      where: {
+        code,
+        ...(isHideDeleted ? { deletedAt: null, deletedBy: null } : {}),
+        ...(!ability || canViewAll
+          ? {}
+          : canViewOwned
+            ? {
+                projectIndividual: {
+                  OR: [
+                    { projectGroup: { projectGroupPics: { some: { userCode } } } },
+                    { projectIndividualCustomers: { some: { userCode } } },
+                    { projectIndividualPics: { some: { userCode } } },
+                    { createdBy: userId },
+                  ],
+                },
+              }
+            : { projectIndividualCode: -1 }),
+      },
+      include: COMMON_PROJECT_ITEM_INCLUDE,
+    })
+
+    if (!result) return null
+
+    return {
+      ...result,
+      cost: safeParseFloat(result.cost),
+      availableToOrder: subtract(safeParseFloat(result.totalStock), safeParseFloat(result.stockIn)),
+      stockIn: safeParseInt(result.stockIn),
+      stockOut: safeParseFloat(result.stockOut),
+      totalStock: safeParseFloat(result.totalStock),
+    }
+  } catch (error) {
+    console.error(error)
+    return null
   }
 }
 

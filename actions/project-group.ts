@@ -22,12 +22,12 @@ export async function getPgs(userInfo: Awaited<ReturnType<typeof getCurrentUserA
 
   try {
     const canViewAll = ability?.can('view', 'p-projects-groups')
-    const canViweOwned = ability?.can('view (owner)', 'p-projects-groups')
+    const canViewOwned = ability?.can('view (owner)', 'p-projects-groups')
 
     const where: Prisma.ProjectGroupWhereInput | undefined =
       !ability || canViewAll
         ? undefined
-        : canViweOwned
+        : canViewOwned
           ? {
               OR: [
                 { projectGroupPics: { some: { userCode } } },
@@ -56,12 +56,12 @@ export async function getPgByCode(code: number, userInfo: Awaited<ReturnType<typ
 
   try {
     const canViewAll = ability?.can('view', 'p-projects-groups')
-    const canViweOwned = ability?.can('view (owner)', 'p-projects-groups')
+    const canViewOwned = ability?.can('view (owner)', 'p-projects-groups')
 
     const where: Prisma.ProjectGroupWhereUniqueInput =
       !ability || canViewAll
         ? { code }
-        : canViweOwned
+        : canViewOwned
           ? {
               code,
               OR: [

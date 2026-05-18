@@ -33,12 +33,12 @@ export async function getPis(userInfo: Awaited<ReturnType<typeof getCurrentUserA
 
   try {
     const canViewAll = ability?.can('view', 'p-projects-individuals')
-    const canViweOwned = ability?.can('view (owner)', 'p-projects-individuals')
+    const canViewOwned = ability?.can('view (owner)', 'p-projects-individuals')
 
     const where: Prisma.ProjectIndividualWhereInput | undefined =
       !ability || canViewAll
         ? undefined
-        : canViweOwned
+        : canViewOwned
           ? {
               OR: [
                 { projectGroup: { projectGroupPics: { some: { userCode } } } },
@@ -89,12 +89,12 @@ export async function getPiByCode(code: number, userInfo: Awaited<ReturnType<typ
 
   try {
     const canViewAll = ability?.can('view', 'p-projects-individuals')
-    const canViweOwned = ability?.can('view (owner)', 'p-projects-individuals')
+    const canViewOwned = ability?.can('view (owner)', 'p-projects-individuals')
 
     const where: Prisma.ProjectIndividualWhereUniqueInput =
       !ability || canViewAll
         ? { code }
-        : canViweOwned
+        : canViewOwned
           ? {
               code,
               OR: [
