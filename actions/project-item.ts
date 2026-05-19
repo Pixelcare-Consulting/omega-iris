@@ -60,15 +60,17 @@ export async function getAllProjectItems(userInfo: Awaited<ReturnType<typeof get
 
     //* show all project items if canViewAll is true
     //* show only project items that are related to the project individual that the user is assigned to which equavalent to canViewOwned is true
+    //* project individual must be active
     const result = await db.projectItem.findMany({
       where: {
         ...(isHideDeleted ? { deletedAt: null, deletedBy: null } : {}),
 
         ...(!ability || canViewAll
-          ? {}
+          ? { projectIndividual: { isActive: true } }
           : canViewOwned
             ? {
                 projectIndividual: {
+                  isActive: true,
                   OR: [
                     { projectGroup: { projectGroupPics: { some: { userCode } } } },
                     { projectIndividualCustomers: { some: { userCode } } },
@@ -112,15 +114,18 @@ export async function getAllProjectItemByCode(
 
     //* get project item if canViewAll is true
     //* get only project item that are related to the project individual that the user is assigned to which equavalent to canViewOwned is true
+    //* project individual must be active
     const result = await db.projectItem.findUnique({
       where: {
         code,
         ...(isHideDeleted ? { deletedAt: null, deletedBy: null } : {}),
+
         ...(!ability || canViewAll
-          ? {}
+          ? { projectIndividual: { isActive: true } }
           : canViewOwned
             ? {
                 projectIndividual: {
+                  isActive: true,
                   OR: [
                     { projectGroup: { projectGroupPics: { some: { userCode } } } },
                     { projectIndividualCustomers: { some: { userCode } } },

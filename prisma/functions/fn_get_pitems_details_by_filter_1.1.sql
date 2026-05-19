@@ -99,6 +99,7 @@ BEGIN
     INNER JOIN filtered_items T3 ON T3."code" = T0."itemCode"
     WHERE
         T0."deletedAt" IS NULL
+        AND T0."deletedBy" IS NULL 
         AND (p_desc IS NULL OR T0."desc" ILIKE '%' || p_desc || '%')
         AND (p_mfr IS NULL OR T0."mfr" ILIKE '%' || p_mfr || '%')
         AND (p_part_number IS NULL OR T0."partNumber" ILIKE '%' || p_part_number || '%')

@@ -38,6 +38,7 @@ BEGIN
     LEFT JOIN "ProjectItem" T1
         ON T1."projectIndividualCode" = T0."code"
         AND T1."deletedAt" IS NULL
+        AND T1."deletedBy" IS NULL 
         AND (
             v_start_date IS NULL
             OR T1."createdAt" >= v_start_date
@@ -45,8 +46,10 @@ BEGIN
     LEFT JOIN "ProjectGroup" T2
         ON T2."code" = T0."groupCode"
         AND T2."deletedAt" IS NULL
+        AND T2."deletedBy" IS NULL
     WHERE
         T0."deletedAt" IS NULL
+        AND T0."deletedBy" IS NULL
         AND T0."isActive" = TRUE
     GROUP BY
         T0."code",
