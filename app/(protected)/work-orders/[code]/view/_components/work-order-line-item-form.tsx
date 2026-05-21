@@ -26,6 +26,7 @@ import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 import { upsertWorkOrderLineItems } from '@/actions/work-order'
 import { NotificationContext } from '@/context/notification'
+import { differenceInDays } from 'date-fns'
 
 type WorkOrderLineItemsFormProps = {
   workOrderCode: number
@@ -319,6 +320,13 @@ export default function WorkOrderLineItemForm({
             owner: pItem?.owner || '',
             mfr: pItem?.mfr || '',
             desc: pItem?.desc || '',
+            commodities: pItem?.commodities || '',
+            createdAt: pItem?.createdAt,
+            createdBy: pItem?.createdBy,
+            updatedAt: pItem?.updatedAt,
+            updatedBy: pItem?.updatedBy,
+            deletedAt: pItem?.deletedAt,
+            deletedBy: pItem?.deletedBy,
           }
         })
         .filter((item) => item !== null)
@@ -405,17 +413,17 @@ export default function WorkOrderLineItemForm({
           }}
         >
           <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' allowEditing={false} sortOrder='asc' />
+          <Column dataField='owner' dataType='string' caption='Owner' allowEditing={false} />
           <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
-
+          <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
           <Column dataField='FirmName' dataType='string' caption='Manufacturer' allowEditing={false} visible={false} />
           <Column dataField='mfr' dataType='string' caption='MFR' allowEditing={false} />
-          <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
-
-          <Column dataField='owner' dataType='string' caption='Owner' allowEditing={false} />
-          <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
           <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} visible={false} />
-          <Column dataField='dateCode' dataType='string' caption='Date Code' allowEditing={false} />
-          <Column dataField='countryOfOrigin' dataType='string' caption='Country Of Origin' allowEditing={false} />
+          <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
+          <Column dataField='commodities' dataType='string' caption='Commodities' allowEditing={false} />
+
+          <Column dataField='dateCode' dataType='string' caption='DC' allowEditing={false} />
+          <Column dataField='countryOfOrigin' dataType='string' caption='COO' allowEditing={false} />
           <Column dataField='lotCode' dataType='string' caption='Lot Code' allowEditing={false} />
           <Column dataField='palletNo' dataType='string' caption='Pallet No' allowEditing={false} />
           <Column dataField='siteLocation' dataType='string' caption='Site Location' allowEditing={false} />
@@ -424,8 +432,8 @@ export default function WorkOrderLineItemForm({
 
           {!isBusinessPartner ? (
             <>
-              <Column dataField='dateReceived' dataType='datetime' caption='Date Received' allowEditing={false} />
-              <Column dataField='dateReceivedBy' dataType='string' caption='Date Received By' allowEditing={false} />
+              <Column dataField='dateReceived' dataType='datetime' caption='Date Received' allowEditing={false} visible={false} />
+              <Column dataField='dateReceivedBy' dataType='string' caption='Date Received By' allowEditing={false} visible={false} />
             </>
           ) : null}
 
@@ -439,6 +447,20 @@ export default function WorkOrderLineItemForm({
             format={DEFAULT_CURRENCY_FORMAT}
             allowEditing={false}
           />
+
+          {!isBusinessPartner ? (
+            <Column
+              dataField='totalStock'
+              dataType='number'
+              caption='Total Stock'
+              alignment='left'
+              format={DEFAULT_NUMBER_FORMAT}
+              allowEditing={false}
+            />
+          ) : null}
+
+          <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} visible={false} />
+
           <Column
             dataField='availableToOrder'
             dataType='number'
@@ -450,6 +472,7 @@ export default function WorkOrderLineItemForm({
             fixedPosition='right'
             filterType='exclude'
           />
+
           <Column
             dataField='stockIn'
             dataType='number'
@@ -466,6 +489,20 @@ export default function WorkOrderLineItemForm({
             format={DEFAULT_NUMBER_FORMAT}
             allowEditing={false}
           />
+
+          <Column
+            dataField='agingDays'
+            dataType='number'
+            caption='Aging Days'
+            alignment='left'
+            calculateCellValue={(rowData) => (rowData?.createdAt ? differenceInDays(new Date(), rowData?.createdAt) : 0)}
+            format={DEFAULT_NUMBER_FORMAT}
+            allowEditing={false}
+          />
+
+          <Column dataField='createdAt' dataType='datetime' caption='Created At' visible={false} />
+          <Column dataField='updatedAt' dataType='datetime' caption='Updated At' visible={false} />
+
           <Column
             dataField='qty'
             dataType='number'
@@ -485,19 +522,6 @@ export default function WorkOrderLineItemForm({
               message='Quantity must be greater than 1 and less than or equal to the available to order'
             />
           </Column>
-
-          {!isBusinessPartner ? (
-            <Column
-              dataField='totalStock'
-              dataType='number'
-              caption='Total Stock'
-              alignment='left'
-              format={DEFAULT_NUMBER_FORMAT}
-              allowEditing={false}
-            />
-          ) : null}
-
-          <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} />
 
           <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
         </CommonDataGrid>

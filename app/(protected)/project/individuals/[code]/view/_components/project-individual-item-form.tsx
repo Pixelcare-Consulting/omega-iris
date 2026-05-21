@@ -96,6 +96,7 @@ export default function ProjectItemForm({
         owner: null,
         mfr: null,
         desc: null,
+        commodities: null,
       }
     }
 
@@ -342,11 +343,11 @@ export default function ProjectItemForm({
               </div>
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField control={form.control} name='dateCode' label='Date Code' />
+                <TextBoxField control={form.control} name='dateCode' label='DC' />
               </div>
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField control={form.control} name='countryOfOrigin' label='Country Of Origin' />
+                <TextBoxField control={form.control} name='countryOfOrigin' label='COO' />
               </div>
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
@@ -413,6 +414,10 @@ export default function ProjectItemForm({
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                 <TextBoxField control={form.control} name='desc' label='Desc' description='Temporary description field' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <TextBoxField control={form.control} name='commodities' label='Commodities' />
               </div>
 
               <div className='col-span-12'>

@@ -24,6 +24,7 @@ RETURNS TABLE (
     "siteLocation"          TEXT,
     "mfr"                   TEXT,
     "desc"                  TEXT,
+    "commodities"           TEXT,
     --* item columns
     "Mpn"                   TEXT,
     "ItemName"              TEXT,
@@ -88,6 +89,7 @@ BEGIN
         T0."siteLocation",
         T0."mfr",
         T0."desc",
+        T0."commodities",
         --* item
         T3."ItemCode"                       AS "Mpn",
         T3."ItemName",

@@ -474,6 +474,7 @@ model ProjectItem {
     subLocation3    String?
     notes           String?
     owner           String?
+    commodities     String?
 
     mfr  String? //* temporary field manufacturer field
     desc String? //* temporary field description field
