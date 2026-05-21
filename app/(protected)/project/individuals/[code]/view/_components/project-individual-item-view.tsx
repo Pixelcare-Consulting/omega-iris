@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import ScrollView from 'devextreme-react/scroll-view'
 import Button from 'devextreme-react/button'
-import { format, isValid } from 'date-fns'
+import { differenceInDays, format, isValid } from 'date-fns'
 
 import { getProjecItems } from '@/actions/project-item'
 import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
@@ -104,9 +104,9 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Part Number' value={data?.partNumber || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Date Code' value={data?.dateCode || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='DC' value={data?.dateCode || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Country Of Origin' value={data?.countryOfOrigin || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='COO' value={data?.countryOfOrigin || ''} />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Lot Code' value={data?.lotCode || ''} />
 
@@ -157,9 +157,17 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
 
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Description'
+          title='Desc'
           value={data?.desc || ''}
           description='Temporary description field'
+        />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Commodities' value={data?.commodities || ''} />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Aging Days'
+          value={formatNumber(data?.createdAt ? differenceInDays(new Date(), data?.createdAt) : 0, DEFAULT_NUMBER_FORMAT)}
         />
 
         <ReadOnlyField className='col-span-12' title='Notes' value={data?.notes || ''} />

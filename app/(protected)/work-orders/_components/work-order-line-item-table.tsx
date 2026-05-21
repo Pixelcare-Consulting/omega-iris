@@ -26,6 +26,7 @@ import Button from 'devextreme-react/button'
 import Tooltip from 'devextreme-react/tooltip'
 import Popup from 'devextreme-react/popup'
 import { useSession } from 'next-auth/react'
+import { differenceInDays } from 'date-fns'
 
 import { useFormContext, useWatch } from 'react-hook-form'
 import Separator from '@/components/separator'
@@ -376,6 +377,13 @@ export default function WorkOrderLineItemTable({
             owner: pItem?.owner || '',
             mfr: pItem?.mfr || '',
             desc: pItem?.desc || '',
+            commodities: pItem?.commodities || '',
+            createdAt: pItem?.createdAt,
+            createdBy: pItem?.createdBy,
+            updatedAt: pItem?.updatedAt,
+            updatedBy: pItem?.updatedBy,
+            deletedAt: pItem?.deletedAt,
+            deletedBy: pItem?.deletedBy,
           }
         })
         .filter((item) => item !== null)
@@ -448,11 +456,12 @@ export default function WorkOrderLineItemTable({
           <Column dataField='mfr' dataType='string' caption='MFR' allowEditing={false} />
           <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} visible={false} />
           <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
+          <Column dataField='commodities' dataType='string' caption='Commodities' allowEditing={false} />
 
           {!isBusinessPartner ? (
             <>
-              <Column dataField='dateCode' dataType='string' caption='Date Code' allowEditing={false} />
-              <Column dataField='countryOfOrigin' dataType='string' caption='Country Of Origin' allowEditing={false} />
+              <Column dataField='dateCode' dataType='string' caption='DC' allowEditing={false} />
+              <Column dataField='countryOfOrigin' dataType='string' caption='COO' allowEditing={false} />
               <Column dataField='lotCode' dataType='string' caption='Lot Code' allowEditing={false} />
               <Column dataField='palletNo' dataType='string' caption='Pallet No' allowEditing={false} />
               <Column dataField='siteLocation' dataType='string' caption='Site Location' allowEditing={false} />
@@ -500,6 +509,16 @@ export default function WorkOrderLineItemTable({
               />
             </>
           ) : null}
+
+          <Column
+            dataField='agingDays'
+            dataType='number'
+            caption='Aging Days'
+            alignment='left'
+            calculateCellValue={(rowData) => (rowData?.createdAt ? differenceInDays(new Date(), rowData?.createdAt) : 0)}
+            format={DEFAULT_NUMBER_FORMAT}
+            allowEditing={false}
+          />
 
           <Column
             dataField='availableToOrder'

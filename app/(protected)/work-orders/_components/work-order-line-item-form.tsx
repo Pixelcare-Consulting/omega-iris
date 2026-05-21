@@ -5,6 +5,7 @@ import { Item } from 'devextreme-react/toolbar'
 import { Column, CustomRule, DataGridRef, DataGridTypes, Editing, GroupItem, Summary, TotalItem } from 'devextreme-react/data-grid'
 import Button from 'devextreme-react/button'
 import { v4 as uuidv4 } from 'uuid'
+import { differenceInDays } from 'date-fns'
 
 import { WORK_ORDER_STATUS_VALUE_MAP, WorkOrderForm, WorkOrderLineItemsForm, workOrderLineItemsFormSchema } from '@/schema/work-order'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
@@ -332,6 +333,13 @@ export default function WorkOrderLineItemForm({
             owner: pItem?.owner || '',
             mfr: pItem?.mfr || '',
             desc: pItem?.desc || '',
+            commodities: pItem?.commodities || '',
+            createdAt: pItem?.createdAt,
+            createdBy: pItem?.createdBy,
+            updatedAt: pItem?.updatedAt,
+            updatedBy: pItem?.updatedBy,
+            deletedAt: pItem?.deletedAt,
+            deletedBy: pItem?.deletedBy,
           }
         })
         .filter((item) => item !== null)
@@ -426,9 +434,10 @@ export default function WorkOrderLineItemForm({
           <Column dataField='mfr' dataType='string' caption='MFR' allowEditing={false} />
           <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} visible={false} />
           <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
+          <Column dataField='commodities' dataType='string' caption='Commodities' allowEditing={false} />
 
-          <Column dataField='dateCode' dataType='string' caption='Date Code' allowEditing={false} />
-          <Column dataField='countryOfOrigin' dataType='string' caption='Country Of Origin' allowEditing={false} />
+          <Column dataField='dateCode' dataType='string' caption='DC' allowEditing={false} />
+          <Column dataField='countryOfOrigin' dataType='string' caption='COO' allowEditing={false} />
           <Column dataField='lotCode' dataType='string' caption='Lot Code' allowEditing={false} />
           <Column dataField='palletNo' dataType='string' caption='Pallet No' allowEditing={false} />
           <Column dataField='siteLocation' dataType='string' caption='Site Location' allowEditing={false} />
@@ -437,8 +446,8 @@ export default function WorkOrderLineItemForm({
 
           {!isBusinessPartner ? (
             <>
-              <Column dataField='dateReceived' dataType='datetime' caption='Date Received' allowEditing={false} />
-              <Column dataField='dateReceivedBy' dataType='string' caption='Date Received By' allowEditing={false} />
+              <Column dataField='dateReceived' dataType='datetime' caption='Date Received' allowEditing={false} visible={false} />
+              <Column dataField='dateReceivedBy' dataType='string' caption='Date Received By' allowEditing={false} visible={false} />
             </>
           ) : null}
 
@@ -464,7 +473,7 @@ export default function WorkOrderLineItemForm({
             />
           ) : null}
 
-          <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} />
+          <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} visible={false} />
 
           <Column
             dataField='availableToOrder'
@@ -493,6 +502,17 @@ export default function WorkOrderLineItemForm({
             format={DEFAULT_NUMBER_FORMAT}
             allowEditing={false}
           />
+
+          <Column
+            dataField='agingDays'
+            dataType='number'
+            caption='Aging Days'
+            alignment='left'
+            calculateCellValue={(rowData) => (rowData?.createdAt ? differenceInDays(new Date(), rowData?.createdAt) : 0)}
+            format={DEFAULT_NUMBER_FORMAT}
+            allowEditing={false}
+          />
+
           <Column
             dataField='qty'
             dataType='number'

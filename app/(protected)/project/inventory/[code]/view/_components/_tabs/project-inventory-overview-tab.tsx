@@ -1,17 +1,16 @@
 'use client'
 
 import ScrollView from 'devextreme-react/scroll-view'
+import { differenceInDays, format, isValid } from 'date-fns'
+import { useMemo } from 'react'
+import { useSession } from 'next-auth/react'
+import { formatNumber } from 'devextreme/localization'
 
 import ReadOnlyField from '@/components/read-only-field'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Copy from '@/components/copy'
-
 import Separator from '@/components/separator'
 import { getAllProjectItemByCode } from '@/actions/project-item'
-import { format, isValid } from 'date-fns'
-import { useSession } from 'next-auth/react'
-import { useMemo } from 'react'
-import { formatNumber } from 'devextreme/localization'
 import { safeParseFloat } from '@/utils'
 import { DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
@@ -91,13 +90,9 @@ export default function ProjectInventoryOverviewTab({ projectItem }: ProjectInve
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Part Number' value={projectItem?.partNumber || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Date Code' value={projectItem?.dateCode || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='DC' value={projectItem?.dateCode || ''} />
 
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Country Of Origin'
-          value={projectItem?.countryOfOrigin || ''}
-        />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='COO' value={projectItem?.countryOfOrigin || ''} />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Lot Code' value={projectItem?.lotCode || ''} />
 
@@ -152,9 +147,17 @@ export default function ProjectInventoryOverviewTab({ projectItem }: ProjectInve
 
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Description'
+          title='Desc'
           value={projectItem?.desc || ''}
           description='Temporary description field'
+        />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Commodities' value={projectItem?.commodities || ''} />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Aging Days'
+          value={formatNumber(projectItem?.createdAt ? differenceInDays(new Date(), projectItem?.createdAt) : 0, DEFAULT_NUMBER_FORMAT)}
         />
 
         <ReadOnlyField className='col-span-12' title='Notes' value={projectItem?.notes || ''} />
@@ -228,7 +231,7 @@ export default function ProjectInventoryOverviewTab({ projectItem }: ProjectInve
             <Separator className='col-span-12' />
             <ReadOnlyFieldHeader
               className='col-span-12 mt-4'
-              title='Record Meta projectItem'
+              title='Record Meta project Item'
               description='Project item record meta projectItem'
             />
 

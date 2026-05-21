@@ -2,7 +2,7 @@
 
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton, Summary, TotalItem, GroupItem } from 'devextreme-react/data-grid'
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { format } from 'date-fns'
+import { differenceInDays, format } from 'date-fns'
 import Toolbar, { Item } from 'devextreme-react/toolbar'
 import { Anchor, Workbook } from 'exceljs'
 import { exportDataGrid } from 'devextreme/common/export/excel'
@@ -321,6 +321,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
         'Part_Number',
         'MFR',
         'Desc',
+        'Commodities',
         'Date_Code',
         'Country_Origin',
         'Lot_Code',
@@ -514,6 +515,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               <Column dataField='mfr' dataType='string' caption='MFR' />
               <Column dataField='item.ItemName' dataType='string' caption='Description' visible={false} />
               <Column dataField='desc' dataType='string' caption='Desc' />
+              <Column dataField='commodities' dataType='string' caption='Commodities' />
 
               <Column dataField='dateCode' minWidth={75} dataType='string' caption='DC' />
               <Column dataField='countryOfOrigin' minWidth={80} dataType='string' caption='COO' />
@@ -572,6 +574,14 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
                 format={DEFAULT_NUMBER_FORMAT}
               />
 
+              <Column
+                dataField='agingDays'
+                dataType='number'
+                caption='Aging Days'
+                alignment='left'
+                calculateCellValue={(rowData) => (rowData?.createdAt ? differenceInDays(new Date(), rowData?.createdAt) : 0)}
+                format={DEFAULT_NUMBER_FORMAT}
+              />
               <Column dataField='createdAt' dataType='datetime' caption='Created At' visible={false} />
               <Column dataField='updatedAt' dataType='datetime' caption='Updated At' visible={false} />
 

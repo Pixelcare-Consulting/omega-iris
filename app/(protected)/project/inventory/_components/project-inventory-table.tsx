@@ -3,6 +3,7 @@
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton, Summary, TotalItem, GroupItem } from 'devextreme-react/data-grid'
 import { useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { differenceInDays } from 'date-fns'
 
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -147,6 +148,7 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
           <Column dataField='mfr' dataType='string' caption='MFR' />
           <Column dataField='item.ItemName' dataType='string' caption='Description' visible={false} />
           <Column dataField='desc' dataType='string' caption='Desc' />
+          <Column dataField='commodities' dataType='string' caption='Commodities' />
 
           <Column dataField='dateCode' minWidth={75} dataType='string' caption='DC' />
           <Column dataField='countryOfOrigin' minWidth={80} dataType='string' caption='COO' />
@@ -193,6 +195,14 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
           <Column dataField='stockIn' dataType='number' caption='Stock-In (In Process)' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
           <Column dataField='stockOut' dataType='number' caption='Stock-Out (Delivered)' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
 
+          <Column
+            dataField='agingDays'
+            dataType='number'
+            caption='Aging Days'
+            alignment='left'
+            calculateCellValue={(rowData) => (rowData?.createdAt ? differenceInDays(new Date(), rowData?.createdAt) : 0)}
+            format={DEFAULT_NUMBER_FORMAT}
+          />
           <Column dataField='createdAt' dataType='datetime' caption='Created At' visible={false} />
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' visible={false} />
 

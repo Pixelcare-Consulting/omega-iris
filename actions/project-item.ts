@@ -842,6 +842,7 @@ export const importProjectItems = action
           dateReceivedBy: safeParseInt(row?.['Received_By']) || null,
           mfr: row?.['MFR'] || null,
           desc: row?.['Desc'] || null,
+          commodities: row?.['Commodities'] || null,
           createdBy: userId,
           updatedBy: userId,
         }

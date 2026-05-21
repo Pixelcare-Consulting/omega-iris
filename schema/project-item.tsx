@@ -29,6 +29,7 @@ export const projectItemFormSchema = z
     owner: z.string().nullish(),
     mfr: z.string().nullish(),
     desc: z.string().nullish(),
+    commodities: z.string().nullish(),
   })
   .refine(
     (formData) => {
