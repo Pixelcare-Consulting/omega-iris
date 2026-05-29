@@ -14,7 +14,7 @@ import UserOverviewTab from './_tabs/user-overview-tab'
 import UnderDevelopment from '@/components/under-development'
 import CanView from '@/components/acl/can-view'
 import { usePiCustomersByUserCode } from '@/hooks/safe-actions/project-individual-customer'
-import { usePis, usePisBySalesClosure } from '@/hooks/safe-actions/project-individual'
+import { usePis, usePisBySalesCloser } from '@/hooks/safe-actions/project-individual'
 import UserCustomerProjectIndividualTab from './_tabs/user-customer-project-individual-tab'
 import { usePiPicsByUserCode } from '@/hooks/safe-actions/project-individual-pic'
 import UserPicProjectIndividualTab from './_tabs/user-pic-project-individual-tab'
@@ -36,7 +36,7 @@ export default function ViewUser({ user }: ViewUserProps) {
   const piCustomers = usePiCustomersByUserCode(user.role.key === 'business-partner' ? user.code : undefined)
   const piPics = usePiPicsByUserCode(user.role.key !== 'business-partner' ? user.code : undefined)
   const pgPics = usePgPicsByUserCode(user.role.key !== 'business-partner' ? user.code : undefined)
-  const pisClosed = usePisBySalesClosure(user.code)
+  const pisClosed = usePisBySalesCloser(user.code)
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>

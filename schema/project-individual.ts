@@ -9,7 +9,7 @@ export const projectIndividualFormSchema = z.object({
   customers: z.array(z.coerce.number()),
   suppliers: z.array(z.coerce.string()),
   pics: z.array(z.coerce.number()),
-  salesClosure: z.coerce.number().nullish(),
+  salesCloser: z.coerce.number().nullish(),
 })
 
 export const projectIndividualCustomerFormSchema = z.object({

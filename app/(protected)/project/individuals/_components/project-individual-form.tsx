@@ -56,7 +56,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
         customers: [],
         suppliers: [],
         pics: [],
-        salesClosure: null,
+        salesCloser: null,
       }
     }
 
@@ -290,8 +290,8 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                     data={nonCustomerUsers.data}
                     isLoading={nonCustomerUsers.isLoading}
                     control={form.control}
-                    name='salesClosure'
-                    label='Sales Closure'
+                    name='salesCloser'
+                    label='Sales Closer'
                     valueExpr='code'
                     displayExpr={(item) => (item ? `${item?.fname}${item?.lname ? ` ${item?.lname}` : ''}` : '')}
                     searchExpr={['fname', 'lname', 'code', 'email']}

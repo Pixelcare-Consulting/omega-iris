@@ -23,7 +23,7 @@ export default function ProjectIndividualOverviewTab({ projectIndividual }: Proj
     return session.user.roleKey === 'business-partner'
   }, [JSON.stringify(session)])
 
-  const salesClosure = projectIndividual?.userSalesClosure
+  const salesCloser = projectIndividual?.userSalesCloser
 
   return (
     <ScrollView useNative>
@@ -59,8 +59,8 @@ export default function ProjectIndividualOverviewTab({ projectIndividual }: Proj
         {!isBusinessPartner && (
           <ReadOnlyField
             className='col-span-12 md:col-span-6 lg:col-span-3'
-            title='Sales Closure'
-            value={[salesClosure?.fname, salesClosure?.lname].filter(Boolean).join(' ')}
+            title='Sales Closer'
+            value={[salesCloser?.fname, salesCloser?.lname].filter(Boolean).join(' ')}
           />
         )}
 
