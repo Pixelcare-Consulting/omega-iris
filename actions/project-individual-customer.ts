@@ -33,7 +33,7 @@ export const getPiCustomersByProjectCodeClient = action
     return getPiCustomersByProjectCode(data.projectCode)
   })
 
-export async function getPiCustomerByUserCode(userCode?: number | null) {
+export async function getPiCustomersByUserCode(userCode?: number | null) {
   if (!userCode) return []
 
   try {
@@ -48,5 +48,5 @@ export const getPiCustomerByUserCodeClient = action
   .use(authenticationMiddleware)
   .schema(z.object({ userCode: z.number().nullish() }))
   .action(async ({ parsedInput: data }) => {
-    return getPiCustomerByUserCode(data.userCode)
+    return getPiCustomersByUserCode(data.userCode)
   })

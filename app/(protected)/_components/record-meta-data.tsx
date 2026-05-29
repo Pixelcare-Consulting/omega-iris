@@ -18,9 +18,9 @@ export default function RecordMetaData({ createdAt, updatedAt, deletedAt, create
   const updatedByValue = useUserById(updatedBy)
   const deletedByValue = useUserById(deletedBy)
 
-  const renderValue = (value: ReturnType<typeof useUserById>) => {
-    if (value.isLoading) return ''
-    return `${value.data?.fname || ''}${value.data?.lname ? ` ${value.data?.lname}` : ''}`
+  const renderValue = ({ data, isLoading }: ReturnType<typeof useUserById>) => {
+    if (isLoading) return ''
+    return [data?.fname, data?.lname].filter(Boolean).join(' ')
   }
 
   return (

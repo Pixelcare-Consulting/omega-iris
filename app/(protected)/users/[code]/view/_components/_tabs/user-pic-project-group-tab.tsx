@@ -10,61 +10,54 @@ import { isEqual } from 'radash'
 import Tooltip from 'devextreme-react/tooltip'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useSession } from 'next-auth/react'
 
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
-import { CustomerProjectIndividualForm, customerProjectIndividualsFormSchema } from '@/schema/project-individual'
-import { updateCustomerPis } from '@/actions/project-individual'
+import { PicProjectGroupsForm, picProjectGroupsFormSchema } from '@/schema/project-group'
+import { updatePicPgs } from '@/actions/project-group'
 import LoadingButton from '@/components/loading-button'
 import CommonDataGrid from '@/components/common-datagrid'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
-import { usePiCustomersByUserCode } from '@/hooks/safe-actions/project-individual-customer'
-import { usePis } from '@/hooks/safe-actions/project-individual'
+import { usePgPicsByUserCode } from '@/hooks/safe-actions/project-group-pic'
+import { usePgs } from '@/hooks/safe-actions/project-group'
 
-type UserCustomerProjectIndividualTabProps = {
+type UserPicProjectGroupTabProps = {
   userCode: number
-  projects: ReturnType<typeof usePis>
-  piCustomers: ReturnType<typeof usePiCustomersByUserCode>
+  groups: ReturnType<typeof usePgs>
+  pgPics: ReturnType<typeof usePgPicsByUserCode>
 }
 
-export default function UserCustomerProjectIndividualTab({ userCode, projects, piCustomers }: UserCustomerProjectIndividualTabProps) {
+export default function UserPicProjectGroupTab({ userCode, groups, pgPics }: UserPicProjectGroupTabProps) {
   const router = useRouter()
-  const { data: session } = useSession()
 
-  const DATAGRID_STORAGE_KEY = 'dx-datagrid-user-customer-project-individual'
-  const DATAGRID_UNIQUE_KEY = 'user-customer-project-individuals'
+  const DATAGRID_STORAGE_KEY = 'dx-datagrid-user-pic-project-group'
+  const DATAGRID_UNIQUE_KEY = 'user-pic-project-groups'
 
   // const notificationContext = useContext(NotificationContext)
 
-  const isBusinessPartner = useMemo(() => {
-    if (!session) return false
-    return session.user.roleKey === 'business-partner'
-  }, [JSON.stringify(session)])
-
-  const currentAssignedProjects = useMemo(() => {
-    if (piCustomers.isLoading || piCustomers.data.length < 1) return []
-    return piCustomers.data.map((pc) => pc.projectIndividualCode)
-  }, [JSON.stringify(piCustomers)])
+  const currentAssignedGroups = useMemo(() => {
+    if (pgPics.isLoading || pgPics.data.length < 1) return []
+    return pgPics.data.map((pc) => pc.projectGroupCode)
+  }, [JSON.stringify(pgPics)])
 
   const values = useMemo(() => {
-    if (currentAssignedProjects.length < 1) return { code: userCode, projects: [] }
+    if (currentAssignedGroups.length < 1) return { code: userCode, groups: [] }
 
     return {
       code: userCode,
-      projects: currentAssignedProjects,
+      groups: currentAssignedGroups,
     }
-  }, [userCode, JSON.stringify(currentAssignedProjects)])
+  }, [userCode, JSON.stringify(currentAssignedGroups)])
 
   const form = useForm({
     mode: 'onChange',
     values,
-    resolver: zodResolver(customerProjectIndividualsFormSchema),
+    resolver: zodResolver(picProjectGroupsFormSchema),
   })
 
-  const { executeAsync, isExecuting } = useAction(updateCustomerPis)
+  const { executeAsync, isExecuting } = useAction(updatePicPgs)
 
-  const selectedRowKeys = useWatch({ control: form.control, name: 'projects' }) || []
+  const selectedRowKeys = useWatch({ control: form.control, name: 'groups' }) || []
 
   const dataGridRef = useRef<DataGridRef | null>(null)
 
@@ -73,29 +66,29 @@ export default function UserCustomerProjectIndividualTab({ userCode, projects, p
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const data = e.row?.data
     if (!data) return
-    router.push(`/project/individuals/${data.code}/view`)
+    router.push(`/project/groups/${data.code}/view`)
   }, [])
 
   const handleOnSelectionChange = useCallback((e: DataGridTypes.SelectionChangedEvent) => {
     const selectedRowKeys = e.selectedRowKeys
-    form.setValue('projects', selectedRowKeys)
-    if (selectedRowKeys.length > 0) form.clearErrors('projects')
+    form.setValue('groups', selectedRowKeys)
+    if (selectedRowKeys.length > 0) form.clearErrors('groups')
   }, [])
 
-  const handleSave = (formData: CustomerProjectIndividualForm) => {
+  const handleSave = (formData: PicProjectGroupsForm) => {
     if (!formData.code) return
 
     toast.promise(executeAsync(formData), {
-      loading: "Updating projects's customers...",
+      loading: "Updating groups's pics...",
       success: (response) => {
         const result = response?.data
 
-        if (!response || !result) throw { message: "Failed to update projects's customers", expectedError: true }
+        if (!response || !result) throw { message: "Failed to update groups's pics", expectedError: true }
 
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
-            piCustomers.execute({ userCode: userCode })
+            pgPics.execute({ userCode: userCode })
             // notificationContext?.handleRefresh()
           }, 1000)
 
@@ -113,13 +106,18 @@ export default function UserCustomerProjectIndividualTab({ userCode, projects, p
   //* show loading
   useEffect(() => {
     if (dataGridRef.current) {
-      if (projects.isLoading || piCustomers.isLoading) dataGridRef.current.instance().beginCustomLoading('Loading data...')
+      if (groups.isLoading || pgPics.isLoading) dataGridRef.current.instance().beginCustomLoading('Loading data...')
       else dataGridRef.current.instance().endCustomLoading()
     }
-  }, [projects.isLoading, piCustomers.isLoading, dataGridRef.current])
+  }, [groups.isLoading, pgPics.isLoading, dataGridRef.current])
 
   return (
     <div className='flex h-full w-full flex-col'>
+      <p className='tex-xs px-2 pb-2 pt-3 text-center italic text-slate-500'>
+        Note: Assigned PICs to the selected project group(s) will be able to access all individual projects under those selected project
+        group(s).
+      </p>
+
       <Toolbar className='mt-5'>
         <Item location='after' locateInMenu='auto' widget='dxButton'>
           <Tooltip target='#save-button' contentRender={() => 'Save'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />
@@ -127,7 +125,7 @@ export default function UserCustomerProjectIndividualTab({ userCode, projects, p
             id='save-button'
             icon='save'
             text={
-              isEqual(currentAssignedProjects, selectedRowKeys)
+              isEqual(currentAssignedGroups, selectedRowKeys)
                 ? undefined
                 : selectedRowKeys.length > 0
                   ? `${selectedRowKeys.length} selected`
@@ -136,7 +134,7 @@ export default function UserCustomerProjectIndividualTab({ userCode, projects, p
             isLoading={isExecuting}
             type='default'
             stylingMode='contained'
-            disabled={isEqual(currentAssignedProjects.sort(), selectedRowKeys.sort())}
+            disabled={isEqual(currentAssignedGroups.sort(), selectedRowKeys.sort())}
             onClick={() => form.handleSubmit(handleSave)()}
           />
         </Item>
@@ -147,8 +145,8 @@ export default function UserCustomerProjectIndividualTab({ userCode, projects, p
       <div className='min-h-0 flex-1 p-4'>
         <CommonDataGrid
           dataGridRef={dataGridRef}
-          data={projects.data}
-          isLoading={projects.isLoading}
+          data={groups.data}
+          isLoading={groups.isLoading}
           storageKey={DATAGRID_STORAGE_KEY}
           keyExpr='code'
           isSelectionEnable
@@ -159,21 +157,12 @@ export default function UserCustomerProjectIndividualTab({ userCode, projects, p
           <Column dataField='code' minWidth={100} dataType='string' caption='ID' sortOrder='asc' />
           <Column dataField='name' dataType='string' />
           <Column dataField='description' dataType='string' />
-          <Column dataField='projectGroup.name' dataType='string' caption='Group' />
           <Column
             dataField='isActive'
             dataType='string'
             caption='Status'
             calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
           />
-          {!isBusinessPartner && (
-            <Column
-              dataField='userSalesClosure'
-              dataType='string'
-              caption='Sales Closure'
-              calculateCellValue={(rowData) => [rowData.userSalesClosure?.fname, rowData.userSalesClosure?.lname].filter(Boolean).join(' ')}
-            />
-          )}
           <Column dataField='createdAt' dataType='datetime' caption='Created At' />
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 

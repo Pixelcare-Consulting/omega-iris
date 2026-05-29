@@ -13,5 +13,12 @@ export const projectGroupPicFormSchema = z.object({
   pics: z.array(z.coerce.number()),
 })
 
+export const picProjectGroupsFormSchema = z.object({
+  code: z.coerce.number(),
+  groups: z.array(z.coerce.number()),
+})
+
 export type ProjectGroupPicForm = z.infer<typeof projectGroupPicFormSchema>
 export type ProjectGroupForm = z.infer<typeof projectGroupFormSchema>
+
+export type PicProjectGroupsForm = z.infer<typeof picProjectGroupsFormSchema>

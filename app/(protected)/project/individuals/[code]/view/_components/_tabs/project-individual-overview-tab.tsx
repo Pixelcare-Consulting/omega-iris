@@ -1,6 +1,8 @@
 'use client'
 
 import ScrollView from 'devextreme-react/scroll-view'
+import { useSession } from 'next-auth/react'
+import { useMemo } from 'react'
 
 import { getPiByCode } from '@/actions/project-individual'
 import ReadOnlyField from '@/components/read-only-field'
@@ -14,6 +16,15 @@ type ProjectIndividualOverviewTabProps = {
 }
 
 export default function ProjectIndividualOverviewTab({ projectIndividual }: ProjectIndividualOverviewTabProps) {
+  const { data: session } = useSession()
+
+  const isBusinessPartner = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'business-partner'
+  }, [JSON.stringify(session)])
+
+  const salesClosure = projectIndividual?.userSalesClosure
+
   return (
     <ScrollView useNative>
       <div className='grid grid-cols-12 gap-5 p-3 py-5'>
@@ -44,6 +55,14 @@ export default function ProjectIndividualOverviewTab({ projectIndividual }: Proj
           title='Status'
           value={projectIndividual.isActive ? 'Active' : 'Inactive'}
         />
+
+        {!isBusinessPartner && (
+          <ReadOnlyField
+            className='col-span-12 md:col-span-6 lg:col-span-3'
+            title='Sales Closure'
+            value={[salesClosure?.fname, salesClosure?.lname].filter(Boolean).join(' ')}
+          />
+        )}
 
         <ReadOnlyField className='col-span-12' title='Description' value={projectIndividual?.description || ''} />
 

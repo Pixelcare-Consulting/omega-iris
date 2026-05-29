@@ -4,7 +4,7 @@ import z from 'zod'
 import { Prisma } from '@prisma/client'
 
 import { paramsSchema } from '@/schema/common'
-import { projectGroupFormSchema, projectGroupPicFormSchema } from '@/schema/project-group'
+import { picProjectGroupsFormSchema, projectGroupFormSchema, projectGroupPicFormSchema } from '@/schema/project-group'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
@@ -605,6 +605,152 @@ export const updatePgPics = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'UPDATE_PROJECT_GROUP_PICS',
+      }
+    }
+  })
+
+export const updatePicPgs = action
+  .use(authenticationMiddleware)
+  .schema(picProjectGroupsFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { code, groups } = parsedInput
+    const { userId } = ctx
+
+    const include: Prisma.ProjectGroupInclude = {
+      projectGroupPics: {
+        //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
+        where: {
+          user: {
+            OR: [
+              {
+                role: {
+                  rolePermissions: {
+                    some: {
+                      permission: { code: PERMISSIONS_CODES['PROJECT GROUPS'] },
+                      actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
+                    },
+                  },
+                },
+              },
+              {
+                role: {
+                  key: 'admin',
+                },
+              },
+            ],
+          },
+        },
+      },
+    }
+
+    try {
+      const currentAssignedPgs = (
+        await db.projectGroupPic.findMany({
+          where: { userCode: code },
+          select: { projectGroup: { select: { code: true, name: true } } },
+        })
+      ).map((pc) => pc.projectGroup.code)
+
+      const newlyAssignedPgs = groups.filter((pg) => !currentAssignedPgs.includes(pg))
+      const unAssignedPgs = currentAssignedPgs.filter((pg) => !groups.includes(pg))
+
+      const updatedPgs = await db.$transaction(async (tx) => {
+        //* update project groups
+        await tx.projectGroup.updateMany({
+          where: { code: { in: [...newlyAssignedPgs, ...unAssignedPgs] } },
+          data: { updatedBy: userId },
+        })
+
+        //* delete the project group pics which based on the unAssignedPgs
+        await tx.projectGroupPic.deleteMany({
+          where: {
+            projectGroupCode: { in: unAssignedPgs },
+            userCode: code,
+          },
+        })
+
+        //* create the project group pics which based on the newlyAssignedPgs
+        await tx.projectGroupPic.createMany({
+          data: newlyAssignedPgs.map((pi) => ({ projectGroupCode: pi, userCode: code })),
+        })
+
+        return await tx.projectGroup.findMany({
+          where: { code: { in: [...newlyAssignedPgs, ...unAssignedPgs] } },
+          include,
+        })
+      })
+
+      // TODO: Need more testing on this
+      // updatedPgs.forEach((uPg) => {
+      //   void createNotification(ctx, {
+      //     permissionCode: PERMISSIONS_CODES['PROJECT GROUPS'],
+      //     title: 'Project Group Updated',
+      //     message: `A project group (#${uPg.code}) was updated by ${ctx.fullName}.`,
+      //     link: `/project/groups/${uPg.code}/view`,
+      //     entityType: 'ProjectGroup' as Prisma.ModelName,
+      //     entityCode: uPg.code,
+      //     entityId: uPg.id,
+      //     userCodes: [],
+      //   }).then((data) => {
+      //     if (data.error) return
+
+      //     const assignedPics = uPg.projectGroupPics.map((pip) => pip.userCode)
+      //     const isNewlyAssigned = newlyAssignedPgs.includes(uPg.code)
+      //     const isSkipNotify = ctx.userCode === code
+      //     const isUnassigned = unAssignedPgs.includes(uPg.code)
+
+      //     //* create notification for newly assigned pic
+      //     if (isNewlyAssigned) {
+      //       void createNotification(
+      //         ctx,
+      //         {
+      //           permissionCode: PERMISSIONS_CODES['PROJECT GROUPS'],
+      //           title: 'Project Group PIC Assigned',
+      //           message: `You were assigned as a PIC to project group (#${uPg.code}) by ${ctx.fullName}.`,
+      //           link: `/project/groups/${uPg.code}/view`,
+      //           entityType: 'ProjectGroup' as Prisma.ModelName,
+      //           entityCode: uPg.code,
+      //           entityId: uPg.id,
+      //           userCodes: [code, ...assignedPics],
+      //         },
+      //         { skipNotify: isSkipNotify ? false : true }
+      //       )
+      //     }
+
+      //     //* create notification for unassigned pic
+      //     if (isUnassigned) {
+      //       void createNotification(
+      //         ctx,
+      //         {
+      //           permissionCode: PERMISSIONS_CODES['PROJECT GROUPS'],
+      //           title: 'Project Group PIC Unassigned',
+      //           message: `You were unassigned as a PIC to project group (#${uPg.code}) by ${ctx.fullName}.`,
+      //           link: `/project/groups`,
+      //           entityType: 'ProjectGroup' as Prisma.ModelName,
+      //           entityCode: uPg.code,
+      //           entityId: uPg.id,
+      //           userCodes: [code, ...assignedPics],
+      //         },
+      //         { skipNotify: isSkipNotify ? false : true }
+      //       )
+      //     }
+      //   })
+      // })
+
+      return {
+        status: 200,
+        message: `${newlyAssignedPgs.length} project group(s) assigned and ${unAssignedPgs.length} project group(s) unassigned successfully!`,
+        action: 'UPDATE_PIC_PROJECT_GROUPS',
+        data: { projectIndividual: updatedPgs },
+      }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'UPDATE_PIC_PROJECT_GROUPS',
       }
     }
   })

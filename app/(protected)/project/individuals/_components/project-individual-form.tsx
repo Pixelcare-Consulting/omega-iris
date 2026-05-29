@@ -10,6 +10,7 @@ import { useParams } from 'next/navigation'
 import { useContext, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
+import { useSession } from 'next-auth/react'
 
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
@@ -34,6 +35,8 @@ type ProjectIndividualFormProps = { pageMetaData: PageMetadata; projectIndividua
 
 export default function ProjectIndividualForm({ pageMetaData, projectIndividual }: ProjectIndividualFormProps) {
   const router = useRouter()
+  const { data: session } = useSession()
+
   const { code } = useParams() as { code: string }
 
   // const notificationContext = useContext(NotificationContext)
@@ -53,11 +56,17 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
         customers: [],
         suppliers: [],
         pics: [],
+        salesClosure: null,
       }
     }
 
     return undefined
   }, [isCreate, JSON.stringify(projectIndividual)])
+
+  const isAdmin = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'admin'
+  }, [JSON.stringify(session)])
 
   const form = useForm({
     mode: 'onChange',
@@ -274,6 +283,22 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                   extendedProps={{ tagBoxOptions: { itemRender: userItemRender } }}
                 />
               </div>
+
+              {isAdmin && (
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <SelectBoxField
+                    data={nonCustomerUsers.data}
+                    isLoading={nonCustomerUsers.isLoading}
+                    control={form.control}
+                    name='salesClosure'
+                    label='Sales Closure'
+                    valueExpr='code'
+                    displayExpr={(item) => (item ? `${item?.fname}${item?.lname ? ` ${item?.lname}` : ''}` : '')}
+                    searchExpr={['fname', 'lname', 'code', 'email']}
+                    extendedProps={{ selectBoxOptions: { itemRender: userItemRender } }}
+                  />
+                </div>
+              )}
             </div>
           </ScrollView>
         </PageContentWrapper>
