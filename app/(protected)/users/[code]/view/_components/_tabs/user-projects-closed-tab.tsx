@@ -9,10 +9,10 @@ import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import CommonDataGrid from '@/components/common-datagrid'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
-import { usePisBySalesClosure } from '@/hooks/safe-actions/project-individual'
+import { usePisBySalesCloser } from '@/hooks/safe-actions/project-individual'
 
 type UserProjectsClosedTabProps = {
-  projectsClosed: ReturnType<typeof usePisBySalesClosure>
+  projectsClosed: ReturnType<typeof usePisBySalesCloser>
 }
 
 export default function UserProjectsClosedTab({ projectsClosed }: UserProjectsClosedTabProps) {

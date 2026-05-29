@@ -154,7 +154,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
     setIsLoading(true)
 
     try {
-      const headers: string[] = ['Name', 'Description', 'Group_ID', 'Sales_Closure', 'Active']
+      const headers: string[] = ['Name', 'Description', 'Group_ID', 'Sales_Closer', 'Active']
       const batchSize = 10
 
       //* parse excel file
@@ -244,10 +244,10 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
           />
           {!isBusinessPartner && (
             <Column
-              dataField='userSalesClosure'
+              dataField='userSalesCloser'
               dataType='string'
-              caption='Sales Closure'
-              calculateCellValue={(rowData) => [rowData.userSalesClosure?.fname, rowData.userSalesClosure?.lname].filter(Boolean).join(' ')}
+              caption='Sales Closer'
+              calculateCellValue={(rowData) => [rowData.userSalesCloser?.fname, rowData.userSalesCloser?.lname].filter(Boolean).join(' ')}
             />
           )}
 

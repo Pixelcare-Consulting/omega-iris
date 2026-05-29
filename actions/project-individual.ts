@@ -23,7 +23,7 @@ import { createNotification } from './notification'
 
 const COMMON_PROJECT_INDIVIDUAL_INCLUDE = {
   projectGroup: { select: { code: true, name: true } },
-  userSalesClosure: { select: { code: true, fname: true, lname: true } },
+  userSalesCloser: { select: { code: true, fname: true, lname: true } },
 } satisfies Prisma.ProjectIndividualInclude
 
 const COMMON_PROJECT_INDIVIDUAL_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectIndividualOrderByWithRelationInput
@@ -84,12 +84,12 @@ export const getPisByGroupCodeClient = action
     return getPisByGroupCode(parsedInput.groupCode)
   })
 
-export async function getPisBySalesClosure(salesClosure: number) {
-  if (!salesClosure) return []
+export async function getPisBySalesCloser(salesCloser: number) {
+  if (!salesCloser) return []
 
   try {
     return db.projectIndividual.findMany({
-      where: { deletedAt: null, deletedBy: null, salesClosure },
+      where: { deletedAt: null, deletedBy: null, salesCloser },
       include: COMMON_PROJECT_INDIVIDUAL_INCLUDE,
       orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY,
     })
@@ -99,11 +99,11 @@ export async function getPisBySalesClosure(salesClosure: number) {
   }
 }
 
-export const getPisBySalesClosureClient = action
+export const getPisBySalesCloserClient = action
   .use(authenticationMiddleware)
-  .schema(z.object({ salesClosure: z.coerce.number() }))
+  .schema(z.object({ salesCloser: z.coerce.number() }))
   .action(async ({ parsedInput }) => {
-    return getPisBySalesClosure(parsedInput.salesClosure)
+    return getPisBySalesCloser(parsedInput.salesCloser)
   })
 
 export async function getPiByCode(code: number, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
@@ -586,7 +586,7 @@ export const importPis = action
     const { userId } = ctx
 
     const names = data?.map((row) => row?.['Name']?.trim())?.filter(Boolean) || []
-    const salesClosures = data?.map((row) => safeParseInt(row?.['Sales_Closure']))?.filter(Boolean) || []
+    const salesClosers = data?.map((row) => safeParseInt(row?.['Sales_Closer']))?.filter(Boolean) || []
     const groupCodes = data?.map((row) => safeParseInt(row?.['Group_ID']))?.filter(Boolean) || []
 
     try {
@@ -594,14 +594,14 @@ export const importPis = action
       const toBeCreatedNames: string[] = [] //* contains toBeCreated project individual names
 
       //* get existing project individual names
-      const [piNames, piSalesClosures, pgCodes] = await Promise.all([
+      const [piNames, piSalesClosers, pgCodes] = await Promise.all([
         db.projectIndividual.findMany({ where: { name: { in: names } }, select: { name: true } }),
-        db.user.findMany({ where: { code: { in: salesClosures } }, select: { code: true } }),
+        db.user.findMany({ where: { code: { in: salesClosers } }, select: { code: true } }),
         db.projectGroup.findMany({ where: { code: { in: groupCodes } }, select: { code: true } }),
       ])
 
       const existingPiNames = piNames.map((pi) => pi.name)
-      const existingPiSalesClosures = piSalesClosures.map((u) => u.code)
+      const existingPiSalesClosers = piSalesClosers.map((u) => u.code)
       const existingPgCodes = pgCodes.map((pg) => pg.code)
 
       for (let i = 0; i < data.length; i++) {
@@ -609,7 +609,7 @@ export const importPis = action
         const row = data[i]
 
         const trimmedName = row?.['Name']?.trim()
-        const saleClosure = row?.['Sales_Closure']
+        const saleCloser = row?.['Sales_Closer']
         const groupCode = row?.['Group_ID']
 
         //* check required fields
@@ -625,9 +625,9 @@ export const importPis = action
           errors.push({ field: 'Group ID', message: 'Project group does not exist' })
         }
 
-        //* check if  user sales closure does not exist
-        if (saleClosure && !existingPiSalesClosures.includes(safeParseInt(saleClosure))) {
-          errors.push({ field: 'Sales Closure', message: 'User does not exist' })
+        //* check if  user sales closer does not exist
+        if (saleCloser && !existingPiSalesClosers.includes(safeParseInt(saleCloser))) {
+          errors.push({ field: 'Sales Closer', message: 'User does not exist' })
         }
 
         //* if errors array is not empty, then update/push to importErrors
@@ -645,7 +645,7 @@ export const importPis = action
           groupCode: safeParseInt(row?.['Group_ID']) || null,
           description: row?.['Description'] || null,
           isActive: row?.['Active'] === '1' ? true : !row?.['Active'] ? undefined : false,
-          salesClosure: safeParseInt(saleClosure) || null,
+          salesCloser: safeParseInt(saleCloser) || null,
           createdBy: userId,
           updatedBy: userId,
         }

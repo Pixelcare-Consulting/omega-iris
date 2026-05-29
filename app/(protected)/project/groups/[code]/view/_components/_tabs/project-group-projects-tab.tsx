@@ -73,10 +73,10 @@ export default function ProjectGroupProjectsTab({ projects }: ProjectGroupProjec
           />
           {!isBusinessPartner && (
             <Column
-              dataField='userSalesClosure'
+              dataField='userSalesCloser'
               dataType='string'
-              caption='Sales Closure'
-              calculateCellValue={(rowData) => [rowData.userSalesClosure?.fname, rowData.userSalesClosure?.lname].filter(Boolean).join(' ')}
+              caption='Sales Closer'
+              calculateCellValue={(rowData) => [rowData.userSalesCloser?.fname, rowData.userSalesCloser?.lname].filter(Boolean).join(' ')}
             />
           )}
 
