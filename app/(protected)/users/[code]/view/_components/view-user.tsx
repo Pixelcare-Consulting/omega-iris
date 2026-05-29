@@ -4,7 +4,6 @@ import { Button } from 'devextreme-react/button'
 import { Item } from 'devextreme-react/toolbar'
 import { useRouter } from 'nextjs-toploader/app'
 import { Tooltip } from 'devextreme-react/tooltip'
-import ScrollView from 'devextreme-react/scroll-view'
 import TabPanel, { Item as TabPanelITem } from 'devextreme-react/tab-panel'
 import { useSession } from 'next-auth/react'
 
@@ -14,9 +13,15 @@ import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapp
 import UserOverviewTab from './_tabs/user-overview-tab'
 import UnderDevelopment from '@/components/under-development'
 import CanView from '@/components/acl/can-view'
-import { usePiCustomerByUserCode } from '@/hooks/safe-actions/project-individual-customer'
-import { usePis } from '@/hooks/safe-actions/project-individual'
+import { usePiCustomersByUserCode } from '@/hooks/safe-actions/project-individual-customer'
+import { usePis, usePisBySalesClosure } from '@/hooks/safe-actions/project-individual'
 import UserCustomerProjectIndividualTab from './_tabs/user-customer-project-individual-tab'
+import { usePiPicsByUserCode } from '@/hooks/safe-actions/project-individual-pic'
+import UserPicProjectIndividualTab from './_tabs/user-pic-project-individual-tab'
+import UserPicProjectGroupTab from './_tabs/user-pic-project-group-tab'
+import { usePgs } from '@/hooks/safe-actions/project-group'
+import { usePgPicsByUserCode } from '@/hooks/safe-actions/project-group-pic'
+import UserProjectsClosedTab from './_tabs/user-projects-closed-tab'
 
 type ViewUserProps = {
   user: NonNullable<Awaited<ReturnType<typeof getUserByCode>>>
@@ -25,8 +30,13 @@ type ViewUserProps = {
 export default function ViewUser({ user }: ViewUserProps) {
   const router = useRouter()
 
-  // const projects = usePis()
-  // const piCustomers = usePiCustomerByUserCode(user.role.key === 'business-partner' ? user.code : undefined)
+  const projects = usePis()
+  const groups = usePgs()
+
+  const piCustomers = usePiCustomersByUserCode(user.role.key === 'business-partner' ? user.code : undefined)
+  const piPics = usePiPicsByUserCode(user.role.key !== 'business-partner' ? user.code : undefined)
+  const pgPics = usePgPicsByUserCode(user.role.key !== 'business-partner' ? user.code : undefined)
+  const pisClosed = usePisBySalesClosure(user.code)
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
@@ -68,9 +78,21 @@ export default function ViewUser({ user }: ViewUserProps) {
             <UserOverviewTab user={user} />
           </TabPanelITem>
 
-          {/* <TabPanelITem title='Customer Projects' visible={user.role.key === 'business-partner' && user?.customerCode ? true : false}>
+          <TabPanelITem title='Groups' visible={user.role.key !== 'business-partner' ? true : false}>
+            <UserPicProjectGroupTab userCode={user.code} groups={groups} pgPics={pgPics} />
+          </TabPanelITem>
+
+          <TabPanelITem title='Projects' visible={user.role.key === 'business-partner' && user?.customerCode ? true : false}>
             <UserCustomerProjectIndividualTab userCode={user.code} projects={projects} piCustomers={piCustomers} />
-          </TabPanelITem> */}
+          </TabPanelITem>
+
+          <TabPanelITem title='Projects' visible={user.role.key !== 'business-partner' ? true : false}>
+            <UserPicProjectIndividualTab userCode={user.code} projects={projects} piPics={piPics} />
+          </TabPanelITem>
+
+          <TabPanelITem title='Projects Closed' visible={user.role.key !== 'business-partner' ? true : false}>
+            <UserProjectsClosedTab projectsClosed={pisClosed} />
+          </TabPanelITem>
 
           {/* <TabPanelITem
             title='Customer Details'

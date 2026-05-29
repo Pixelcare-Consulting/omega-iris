@@ -31,7 +31,7 @@ import SwitchField from '@/components/forms/switch-field'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Separator from '@/components/separator'
 import { usePis } from '@/hooks/safe-actions/project-individual'
-import { usePiCustomerByProjectCode } from '@/hooks/safe-actions/project-individual-customer'
+import { usePiCustomersByProjectCode } from '@/hooks/safe-actions/project-individual-customer'
 import { useUserByCode } from '@/hooks/safe-actions/user'
 import { commonItemRender } from '@/utils/devextreme'
 import ReadOnlyField from '@/components/read-only-field'
@@ -147,7 +147,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
   const projects = usePis()
   const workOrderItems = useWoItemsByWoCode(workOrder?.code)
 
-  const piCustomers = usePiCustomerByProjectCode(projectCode)
+  const piCustomers = usePiCustomersByProjectCode(projectCode)
   const customer = useUserByCode(userCode)
   const salesOrder = useSalesOrderByWorkOrderCode(workOrder?.code)
 

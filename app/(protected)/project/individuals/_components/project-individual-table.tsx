@@ -3,7 +3,7 @@
 import { deleletePi, getPis, importPis, restorePi } from '@/actions/project-individual'
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
-import { useCallback, useContext, useRef, useState } from 'react'
+import { useCallback, useContext, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 import ProgressBar from 'devextreme-react/progress-bar'
@@ -21,12 +21,14 @@ import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import { NotificationContext } from '@/context/notification'
+import { useSession } from 'next-auth/react'
 
 type ProjectIndividualTableProps = { projectIndividuals: Awaited<ReturnType<typeof getPis>> }
 type DataSource = Awaited<ReturnType<typeof getPis>>
 
 export default function ProjectIndividualsTable({ projectIndividuals }: ProjectIndividualTableProps) {
   const router = useRouter()
+  const { data: session } = useSession()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual'
   const DATAGRID_UNIQUE_KEY = 'project-individuals'
@@ -50,6 +52,11 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
   const importData = useAction(importPis)
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
+
+  const isBusinessPartner = useMemo(() => {
+    if (!session) return false
+    return session.user.roleKey === 'business-partner'
+  }, [JSON.stringify(session)])
 
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const data = e.row?.data
@@ -147,7 +154,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
     setIsLoading(true)
 
     try {
-      const headers: string[] = ['Name', 'Description', 'Group ID', 'Active']
+      const headers: string[] = ['Name', 'Description', 'Group_ID', 'Sales_Closure', 'Active']
       const batchSize = 10
 
       //* parse excel file
@@ -235,6 +242,15 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
             caption='Status'
             calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
           />
+          {!isBusinessPartner && (
+            <Column
+              dataField='userSalesClosure'
+              dataType='string'
+              caption='Sales Closure'
+              calculateCellValue={(rowData) => [rowData.userSalesClosure?.fname, rowData.userSalesClosure?.lname].filter(Boolean).join(' ')}
+            />
+          )}
+
           <Column dataField='createdAt' dataType='datetime' caption='Created At' />
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 

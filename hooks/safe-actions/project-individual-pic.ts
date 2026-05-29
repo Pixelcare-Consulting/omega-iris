@@ -1,10 +1,10 @@
 import { useAction } from 'next-safe-action/hooks'
 import { useEffect } from 'react'
 
-import { getPiCustomersByProjectCodeClient, getPiCustomerByUserCodeClient } from '@/actions/project-individual-customer'
+import { getPiPicsByProjectCodeClient, getPiPicsByUserCodeClient } from '@/actions/project-individual-pic'
 
-export function usePiCustomersByProjectCode(projectCode?: number | null, dependencies?: any[]) {
-  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getPiCustomersByProjectCodeClient)
+export function usePiPicsByProjectCode(projectCode?: number | null, dependencies?: any[]) {
+  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getPiPicsByProjectCodeClient)
 
   useEffect(() => {
     execute({ projectCode })
@@ -19,8 +19,8 @@ export function usePiCustomersByProjectCode(projectCode?: number | null, depende
   }
 }
 
-export function usePiCustomersByUserCode(userCode?: number | null, dependencies?: any[]) {
-  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getPiCustomerByUserCodeClient)
+export function usePiPicsByUserCode(userCode?: number | null, dependencies?: any[]) {
+  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getPiPicsByUserCodeClient)
 
   useEffect(() => {
     execute({ userCode })

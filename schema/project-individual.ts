@@ -9,16 +9,12 @@ export const projectIndividualFormSchema = z.object({
   customers: z.array(z.coerce.number()),
   suppliers: z.array(z.coerce.string()),
   pics: z.array(z.coerce.number()),
+  salesClosure: z.coerce.number().nullish(),
 })
 
 export const projectIndividualCustomerFormSchema = z.object({
   code: z.coerce.number(),
   customers: z.array(z.coerce.number()).min(1, { message: 'Please select at least one customer' }),
-})
-
-export const customerProjectIndividualsFormSchema = z.object({
-  code: z.coerce.number(),
-  projects: z.array(z.coerce.number()),
 })
 
 export const projectIndividualSupplierFormSchema = z.object({
@@ -31,8 +27,20 @@ export const projectIndividualPicFormSchema = z.object({
   pics: z.array(z.coerce.number()),
 })
 
+export const customerProjectIndividualsFormSchema = z.object({
+  code: z.coerce.number(),
+  projects: z.array(z.coerce.number()),
+})
+
+export const picProjectIndividualsFormSchema = z.object({
+  code: z.coerce.number(),
+  projects: z.array(z.coerce.number()),
+})
+
 export type ProjectIndividualCustomerForm = z.infer<typeof projectIndividualCustomerFormSchema>
-export type CustomerProjectIndividualForm = z.infer<typeof customerProjectIndividualsFormSchema>
 export type ProjectIndividualSupplierForm = z.infer<typeof projectIndividualSupplierFormSchema>
 export type ProjectIndividualPicForm = z.infer<typeof projectIndividualPicFormSchema>
 export type ProjectIndividualForm = z.infer<typeof projectIndividualFormSchema>
+
+export type CustomerProjectIndividualForm = z.infer<typeof customerProjectIndividualsFormSchema>
+export type PicProjectIndividualForm = z.infer<typeof picProjectIndividualsFormSchema>

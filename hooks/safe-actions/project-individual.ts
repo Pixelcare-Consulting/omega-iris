@@ -1,7 +1,7 @@
 import { useAction } from 'next-safe-action/hooks'
 import { useEffect } from 'react'
 
-import { getPisByBpUserCodeClient, getPisByGroupCodeClient, getPisClient } from '@/actions/project-individual'
+import { getPisByBpUserCodeClient, getPisByGroupCodeClient, getPisBySalesClosureClient, getPisClient } from '@/actions/project-individual'
 
 export function usePisByGroupCode(groupCode: number, dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getPisByGroupCodeClient)
@@ -41,6 +41,22 @@ export function usePisByBpUserCode(userCode?: number | null, dependencies?: any[
   useEffect(() => {
     execute({ userCode })
   }, [userCode, ...(dependencies || [])])
+
+  return {
+    execute,
+    executeAsync,
+    isLoading,
+    data: result.data ?? [],
+    error: { serverError: result.serverError, validationError: result.validationErrors },
+  }
+}
+
+export function usePisBySalesClosure(salesClosure: number, dependencies?: any[]) {
+  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getPisBySalesClosureClient)
+
+  useEffect(() => {
+    execute({ salesClosure })
+  }, [salesClosure, ...(dependencies || [])])
 
   return {
     execute,
