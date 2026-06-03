@@ -153,6 +153,27 @@ export async function getWorkOrderByCode(code: number, userInfo: Awaited<ReturnT
   }
 }
 
+export async function getDuplicatedFromWoByCode(workOrderCode?: number | null) {
+  if (!workOrderCode) return null
+
+  try {
+    return db.workOrder.findUnique({
+      where: { code: workOrderCode },
+      include: { workOrderItems: { include: { projectItem: true } } },
+    })
+  } catch (error) {
+    console.error(error)
+    return null
+  }
+}
+
+export const getDuplicatedFromWoByCodeClient = action
+  .use(authenticationMiddleware)
+  .schema(z.object({ workOrderCode: z.coerce.number().nullish() }))
+  .action(async ({ parsedInput }) => {
+    return getDuplicatedFromWoByCode(parsedInput.workOrderCode)
+  })
+
 type CreditStockParams = {
   tx: Prisma.TransactionClient
   workOrderCode: number
@@ -454,38 +475,16 @@ export const upsertWorkOrder = action
   .use(authenticationMiddleware)
   .schema(workOrderFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, lineItems, ...data } = parsedInput
+    const { code, lineItems, duplicatedFromCode, ...data } = parsedInput
     const { userId } = ctx
+
+    const isDuplicate = code === -1 && duplicatedFromCode
 
     const woItems = lineItems.map(({ maxQty, ...li }) => li)
 
     const include = {
       projectIndividual: {
         include: {
-          projectIndividualCustomers: {
-            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
-            where: {
-              user: {
-                OR: [
-                  {
-                    role: {
-                      rolePermissions: {
-                        some: {
-                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
-                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
-                        },
-                      },
-                    },
-                  },
-                  {
-                    role: {
-                      key: 'admin',
-                    },
-                  },
-                ],
-              },
-            },
-          },
           projectIndividualPics: {
             //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
             where: {
@@ -563,11 +562,16 @@ export const upsertWorkOrder = action
         }
       }
 
+      const duplicatedFromWorkOrder = duplicatedFromCode ? await db.workOrder.findUnique({ where: { code: duplicatedFromCode } }) : null
+
       const newWorkOrder = await db.workOrder.create({
         data: {
           ...data,
-          createdBy: userId,
-          updatedBy: userId,
+          duplicatedFromCode: duplicatedFromCode ?? null,
+          createdAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.createdAt : undefined,
+          createdBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.createdBy,
+          updatedAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.updatedAt : undefined,
+          updatedBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.updatedBy,
           workOrderItems: { createMany: { data: woItems } },
         },
         include,
@@ -613,30 +617,6 @@ export const deleteWorkOrder = action
     const include = {
       projectIndividual: {
         include: {
-          projectIndividualCustomers: {
-            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
-            where: {
-              user: {
-                OR: [
-                  {
-                    role: {
-                      rolePermissions: {
-                        some: {
-                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
-                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
-                        },
-                      },
-                    },
-                  },
-                  {
-                    role: {
-                      key: 'admin',
-                    },
-                  },
-                ],
-              },
-            },
-          },
           projectIndividualPics: {
             //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
             where: {
@@ -721,30 +701,6 @@ export const restoreWorkOrder = action
     const include = {
       projectIndividual: {
         include: {
-          projectIndividualCustomers: {
-            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
-            where: {
-              user: {
-                OR: [
-                  {
-                    role: {
-                      rolePermissions: {
-                        some: {
-                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
-                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
-                        },
-                      },
-                    },
-                  },
-                  {
-                    role: {
-                      key: 'admin',
-                    },
-                  },
-                ],
-              },
-            },
-          },
           projectIndividualPics: {
             //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
             where: {
@@ -818,30 +774,6 @@ export const upsertWorkOrderLineItem = action
     const include = {
       projectIndividual: {
         include: {
-          projectIndividualCustomers: {
-            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
-            where: {
-              user: {
-                OR: [
-                  {
-                    role: {
-                      rolePermissions: {
-                        some: {
-                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
-                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
-                        },
-                      },
-                    },
-                  },
-                  {
-                    role: {
-                      key: 'admin',
-                    },
-                  },
-                ],
-              },
-            },
-          },
           projectIndividualPics: {
             //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
             where: {
@@ -955,30 +887,6 @@ export const upsertWorkOrderLineItems = action
     const include = {
       projectIndividual: {
         include: {
-          projectIndividualCustomers: {
-            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
-            where: {
-              user: {
-                OR: [
-                  {
-                    role: {
-                      rolePermissions: {
-                        some: {
-                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
-                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
-                        },
-                      },
-                    },
-                  },
-                  {
-                    role: {
-                      key: 'admin',
-                    },
-                  },
-                ],
-              },
-            },
-          },
           projectIndividualPics: {
             //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
             where: {
@@ -1090,30 +998,6 @@ export const deleteWorkOrderLineItem = action
     const include = {
       projectIndividual: {
         include: {
-          projectIndividualCustomers: {
-            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
-            where: {
-              user: {
-                OR: [
-                  {
-                    role: {
-                      rolePermissions: {
-                        some: {
-                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
-                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
-                        },
-                      },
-                    },
-                  },
-                  {
-                    role: {
-                      key: 'admin',
-                    },
-                  },
-                ],
-              },
-            },
-          },
           projectIndividualPics: {
             //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
             where: {
@@ -1199,30 +1083,6 @@ export const deleteWorkOrderLineItems = action
     const include = {
       projectIndividual: {
         include: {
-          projectIndividualCustomers: {
-            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
-            where: {
-              user: {
-                OR: [
-                  {
-                    role: {
-                      rolePermissions: {
-                        some: {
-                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
-                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
-                        },
-                      },
-                    },
-                  },
-                  {
-                    role: {
-                      key: 'admin',
-                    },
-                  },
-                ],
-              },
-            },
-          },
           projectIndividualPics: {
             //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
             where: {
@@ -1317,30 +1177,6 @@ export const updateWorkeOrderStatus = action
     const include = {
       projectIndividual: {
         include: {
-          projectIndividualCustomers: {
-            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
-            where: {
-              user: {
-                OR: [
-                  {
-                    role: {
-                      rolePermissions: {
-                        some: {
-                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
-                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
-                        },
-                      },
-                    },
-                  },
-                  {
-                    role: {
-                      key: 'admin',
-                    },
-                  },
-                ],
-              },
-            },
-          },
           projectIndividualPics: {
             //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
             where: {
@@ -1502,30 +1338,6 @@ export const updatePartialWorkOrderStatusUpdate = action
     const workOrderInclude = {
       projectIndividual: {
         include: {
-          projectIndividualCustomers: {
-            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
-            where: {
-              user: {
-                OR: [
-                  {
-                    role: {
-                      rolePermissions: {
-                        some: {
-                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
-                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
-                        },
-                      },
-                    },
-                  },
-                  {
-                    role: {
-                      key: 'admin',
-                    },
-                  },
-                ],
-              },
-            },
-          },
           projectIndividualPics: {
             //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
             where: {
@@ -1619,30 +1431,6 @@ export const toggleWorkOrderInternal = action
     const include = {
       projectIndividual: {
         include: {
-          projectIndividualCustomers: {
-            //* only return the customer that has role 'admin' which they allowed to 'receive notifications (owner)' permission action
-            where: {
-              user: {
-                OR: [
-                  {
-                    role: {
-                      rolePermissions: {
-                        some: {
-                          permission: { code: PERMISSIONS_CODES['WORK ORDERS'] },
-                          actions: { has: PERMISSIONS_ALLOWED_ACTIONS.RECEIVE_NOTIFICATIONS_OWNER },
-                        },
-                      },
-                    },
-                  },
-                  {
-                    role: {
-                      key: 'admin',
-                    },
-                  },
-                ],
-              },
-            },
-          },
           projectIndividualPics: {
             //* only return the pic that has role 'admin' or which they allowed to 'receive notifications (owner)' permission action
             where: {

@@ -12,8 +12,9 @@ import Tooltip from 'devextreme-react/tooltip'
 import Popup from 'devextreme-react/popup'
 import Button from 'devextreme-react/button'
 import { useSession } from 'next-auth/react'
+import { DropDownButton, Item as DropDownButtonItem } from 'devextreme-react/drop-down-button'
 
-import { deleteWorkOrder, getWorkOrders, restoreWorkOrder, toggleWorkOrderInternal } from '@/actions/work-order'
+import { deleteWorkOrder, getWorkOrders, restoreWorkOrder, toggleWorkOrderInternal, updateWorkeOrderStatus } from '@/actions/work-order'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -60,6 +61,8 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
   const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false)
   const [showUpdateStatusForm, setShowUpdateStatusForm] = useState(false)
   const [showToggleInternalConfirmation, setShowToggleInternalConfirmation] = useState(false)
+  const [showDuplicateConfirmation, setShowDuplicateConfirmation] = useState(false)
+  const [showCancelDuplicateConfirmation, setShowCancelDuplicateConfirmation] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
 
   const [showUpdateStatusErrors, setShowUpdateStatusErrors] = useState(false)
@@ -71,6 +74,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
   const deleteWorkOrderData = useAction(deleteWorkOrder)
   const restoreWorkOrderData = useAction(restoreWorkOrder)
   const toggleInternalData = useAction(toggleWorkOrderInternal)
+  const updateWorkeOrderStatusData = useAction(updateWorkeOrderStatus)
 
   const workOrderToUpdate = useWatch({ control: form.control, name: 'workOrders' }) || []
 
@@ -134,6 +138,26 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
       setRowData(data)
     },
     [setShowRestoreConfirmation, setRowData]
+  )
+
+  const handleDuplicate = useCallback(
+    (params: any) => {
+      const data = params?.data
+      if (!data) return
+      setShowDuplicateConfirmation(true)
+      setRowData(data)
+    },
+    [setShowDuplicateConfirmation, setRowData]
+  )
+
+  const handleCancelDuplicate = useCallback(
+    (params: any) => {
+      const data = params?.data
+      if (!data) return
+      setShowCancelDuplicateConfirmation(true)
+      setRowData(data)
+    },
+    [setShowCancelDuplicateConfirmation, setRowData]
   )
 
   const handleToggleInternal = useCallback(
@@ -202,6 +226,54 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
         return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
       },
     })
+  }
+
+  const handleConfirmDuplicate = (code?: number) => {
+    if (!code) return
+    setShowDuplicateConfirmation(false)
+    router.push(`/work-orders/add?duplicatedFromCode=${code}`)
+  }
+
+  const handleConfirmCancelDuplicate = (code?: number, status?: string) => {
+    if (!code || !status) return
+
+    setShowCancelDuplicateConfirmation(false)
+
+    toast.promise(
+      updateWorkeOrderStatusData.executeAsync({
+        workOrders: [{ code, prevStatus: status }],
+        currentStatus: String(WORK_ORDER_STATUS_VALUE_MAP.Cancelled),
+        comments: `Work order cancelled and will be duplicated`,
+        trackingNum: '',
+      }),
+      {
+        loading: 'Cancelling work order...',
+        success: (response) => {
+          const result = response?.data
+
+          if (!response || !result) throw { message: 'Failed to cancel work order!', unExpectedError: true }
+
+          if (!result.error) {
+            setTimeout(() => {
+              router.refresh()
+
+              setTimeout(() => {
+                router.push(`/work-orders/add?duplicatedFromCode=${code}`)
+              }, 500)
+
+              // notificationContext?.handleRefresh()
+            }, 1500)
+
+            return result.message
+          }
+
+          throw { message: result.message, expectedError: true }
+        },
+        error: (err: Error & { expectedError: boolean }) => {
+          return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
+        },
+      }
+    )
   }
 
   const handleOnContentReady = useCallback((e: DataGridTypes.ContentReadyEvent) => {
@@ -293,6 +365,31 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     }
   }
 
+  function handleOnRowPrepared(e: DataGridTypes.RowPreparedEvent) {
+    const rowType = e.rowType
+    const data = e.data
+    const rowElement = e.rowElement
+
+    if (rowType === 'data' && rowElement) {
+      e.rowElement.classList.add('cursor-pointer')
+
+      if ((data?.deletedAt && data?.deletedBy) || data?.status === String(WORK_ORDER_STATUS_VALUE_MAP.Cancelled)) {
+        const columnElement = Array.from(rowElement.children) as HTMLElement[]
+
+        //* style column elements except the action columns
+        columnElement.forEach((cEl) => {
+          //* identify the action column by the class name that contains dx-command
+          if (!cEl.className.includes('dx-command')) {
+            cEl.style.textDecoration = 'line-through'
+            cEl.style.textDecorationColor = 'red'
+            cEl.style.textDecorationThickness = '2px'
+            cEl.style.opacity = '0.6'
+          }
+        })
+      }
+    }
+  }
+
   const handleCloseUpdateStatusForm = useCallback(() => {
     form.reset()
     setTimeout(() => {
@@ -361,9 +458,13 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
               onRowClick: handleView,
               onSelectionChanged: handleOnSelectionChanged,
               onContentReady: handleOnContentReady,
+              onRowPrepared: handleOnRowPrepared,
             }}
           >
             <Column dataField='code' dataType='string' minWidth={100} caption='Work Order #' />
+            {!isBusinessPartner && (
+              <Column dataField='duplicatedFromCode' dataType='string' minWidth={100} caption='Dup. From Work Order #' visible={false} />
+            )}
             <Column dataField='projectIndividual.name' dataType='string' caption='Project' />
             <Column dataField='projectIndividual.projectGroup.name' dataType='string' caption='Project Group' />
             <Column
@@ -397,7 +498,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             <Column dataField='createdAt' dataType='datetime' caption='Created At' />
             <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
-            <Column type='buttons' minWidth={150} fixed fixedPosition='right' caption='Actions'>
+            <Column type='buttons' minWidth={180} fixed fixedPosition='right' caption='Actions'>
               <CanView subject='p-work-orders' action='update internal'>
                 <DataGridButton
                   render={(params) => {
@@ -476,6 +577,49 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
                   }}
                 />
               </CanView>
+
+              <DataGridButton
+                render={(params) => {
+                  const data = params?.data
+
+                  if (!data) return null
+
+                  return (
+                    <div className='inline w-fit shrink-0' id={`more-actions-${data?.id}`}>
+                      <DropDownButton
+                        className='pt-1'
+                        focusStateEnabled={false}
+                        stylingMode='text'
+                        icon='overflow'
+                        showArrowIcon={false}
+                        dropDownOptions={{
+                          width: 'auto',
+                          position: {
+                            of: `#more-actions-${data?.id}`,
+                            my: 'right top',
+                            offset: '45 20',
+                          },
+                        }}
+                        visible={isBusinessPartner ? false : true}
+                        noDataText='No actions available'
+                      >
+                        <CanView subject='p-work-orders' action='duplicate'>
+                          <DropDownButtonItem text='Duplicate' icon='copy' onClick={() => handleDuplicate(params)} />
+                        </CanView>
+
+                        <CanView subject='p-work-orders' action='cancel duplicate'>
+                          <DropDownButtonItem
+                            text='Cancel & Duplicate'
+                            icon='clipboardtasklist'
+                            onClick={() => handleCancelDuplicate(params)}
+                            visible={data?.status !== String(WORK_ORDER_STATUS_VALUE_MAP.Cancelled)}
+                          />
+                        </CanView>
+                      </DropDownButton>
+                    </div>
+                  )
+                }}
+              />
             </Column>
           </CommonDataGrid>
 
@@ -521,6 +665,22 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             description={`Are you sure you want to update internal field to "${rowData?.isInternal ? 'No' : 'Yes'}" for this work order with work order # "${rowData?.code}"?`}
             onConfirm={() => handleConfirmToggleInternal(rowData?.code, rowData?.isInternal)}
             onCancel={() => setShowToggleInternalConfirmation(false)}
+          />
+
+          <AlertDialog
+            isOpen={showDuplicateConfirmation}
+            title='Are you sure?'
+            description={`Are you sure you want to duplicate this work order with work order # "${rowData?.code}"?`}
+            onConfirm={() => handleConfirmDuplicate(rowData?.code)}
+            onCancel={() => setShowDuplicateConfirmation(false)}
+          />
+
+          <AlertDialog
+            isOpen={showCancelDuplicateConfirmation}
+            title='Are you sure?'
+            description={`Are you sure you want to cancel & duplicate this work order with work order # "${rowData?.code}"?`}
+            onConfirm={() => handleConfirmCancelDuplicate(rowData?.code, rowData?.status)}
+            onCancel={() => setShowCancelDuplicateConfirmation(false)}
           />
 
           <CommonOperationErrorDataGrid

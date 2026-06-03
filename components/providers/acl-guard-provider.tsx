@@ -8,6 +8,7 @@ import { useRouter } from 'nextjs-toploader/app'
 import { usePathname } from 'next/navigation'
 import { findNavByPath, navigation } from '@/constants/menu'
 import { AbilityContext } from '@/context/ability'
+import { useIdleSignout } from '@/hooks/use-idle-signout'
 
 type ACLGuardProviderProps = {
   session: Session | null
@@ -16,6 +17,8 @@ type ACLGuardProviderProps = {
 
 //* ACL - Access Control List - refer a list of rules that determine who or what is allowed to access specific resources on a website or application.
 export default function ACLGuardProvider({ session, children }: ACLGuardProviderProps) {
+  useIdleSignout()
+
   const user = session?.user
 
   const router = useRouter()

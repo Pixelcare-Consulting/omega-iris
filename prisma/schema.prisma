@@ -591,6 +591,7 @@ model WorkOrder {
     alternativeBillingAddr  String?
     alternativeShippingAddr String?
     expectedDeliveryDate    DateTime? @db.Date
+    duplicatedFromCode      Int?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -601,9 +602,11 @@ model WorkOrder {
 
     projectIndividual ProjectIndividual @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     user              User              @relation(fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    duplicatedFrom    WorkOrder?        @relation("WorkOrder-DuplicatedFrom", fields: [duplicatedFromCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
 
     workOrderItems         WorkOrderItem[]
     workOrderStatusUpdates WorkOrderStatusUpdate[]
+    duplicateWorkOrders    WorkOrder[]             @relation("WorkOrder-DuplicatedFrom")
 
     @@index([projectIndividualCode])
     @@index([userCode])

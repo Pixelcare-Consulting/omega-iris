@@ -57,10 +57,12 @@ import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import WorkOrderLineItemForm from './work-order-line-item-form'
 import LoadingButton from '@/components/loading-button'
+import { useDuplicatedFromWoByCode } from '@/hooks/safe-actions/work-order'
 
 type WorkOrderLineItemsFormProps = {
   workOrder: Awaited<ReturnType<typeof getWorkOrderByCode>>
   workOrderItems: ReturnType<typeof useWoItemsByWoCode>
+  duplicatedFromWorkOrder: ReturnType<typeof useDuplicatedFromWoByCode>
   projectCode?: number
   projectName?: string
   projectGroupName?: string
@@ -70,6 +72,7 @@ type WorkOrderLineItemsFormProps = {
 export default function WorkOrderLineItemTable({
   workOrder,
   workOrderItems,
+  duplicatedFromWorkOrder,
   projectCode,
   projectName,
   projectGroupName,
@@ -327,6 +330,27 @@ export default function WorkOrderLineItemTable({
     } else form.setValue('lineItems', [])
   }, [JSON.stringify(workOrder), JSON.stringify(workOrderItems)])
 
+  //* set line items when duplicatedFromWorkOrder data exist
+  useEffect(() => {
+    if (!duplicatedFromWorkOrder.isLoading && duplicatedFromWorkOrder.data) {
+      const duplicatedFromWorkOrderData = duplicatedFromWorkOrder.data
+
+      const lineItemValue = duplicatedFromWorkOrderData?.workOrderItems
+        .map((woItem) => {
+          const pItem = woItem.projectItem
+          const totalStock = safeParseFloat(pItem?.totalStock)
+          const stockIn = safeParseFloat(pItem?.stockIn)
+          const availableToOrder = subtract(totalStock, stockIn)
+          return { projectItemCode: pItem?.code, qty: safeParseInt(woItem.qty), maxQty: availableToOrder, isDelivered: false }
+        })
+        .filter((woItem) => woItem.maxQty > 0)
+
+      setTimeout(() => {
+        form.setValue('lineItems', lineItemValue)
+      }, 500)
+    }
+  }, [JSON.stringify(duplicatedFromWorkOrder)])
+
   //* set local state work order items data source when line items has been updated
   useEffect(() => {
     if (lineItems.length > 0 && !projectItems.isLoading && projectItems.data.length > 0) {
@@ -400,11 +424,18 @@ export default function WorkOrderLineItemTable({
         return
       }
 
-      if (isLoading || workOrderItems.isLoading || projectItems.isLoading) {
+      if (isLoading || workOrderItems.isLoading || projectItems.isLoading || duplicatedFromWorkOrder.isLoading) {
         dataGridRef.current.instance().beginCustomLoading('Loading data...')
       } else dataGridRef.current.instance().endCustomLoading()
     }
-  }, [isLoading, dataGridRef.current, JSON.stringify(workOrderItems), JSON.stringify(projectItems), isImporting])
+  }, [
+    isLoading,
+    dataGridRef.current,
+    JSON.stringify(workOrderItems),
+    JSON.stringify(projectItems),
+    JSON.stringify(duplicatedFromWorkOrder),
+    isImporting,
+  ])
 
   return (
     <>

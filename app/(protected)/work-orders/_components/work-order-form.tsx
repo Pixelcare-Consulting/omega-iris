@@ -4,14 +4,15 @@ import ScrollView from 'devextreme-react/scroll-view'
 import { Button } from 'devextreme-react/button'
 import { Item } from 'devextreme-react/toolbar'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { FormProvider, useForm, useWatch } from 'react-hook-form'
+import { FormProvider, useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 import Popup from 'devextreme-react/popup'
 import { Column, DataGridRef } from 'devextreme-react/data-grid'
+import LoadPanel from 'devextreme-react/load-panel'
 
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
@@ -48,6 +49,9 @@ import WorkOrderUpdateStatusForm from './work-order-update-status-form'
 import { NotificationContext } from '@/context/notification'
 import CommonOperationErrorDataGrid from '@/components/common-operation-error-datagrid'
 import DateBoxField from '@/components/forms/date-box-field'
+import { useDuplicatedFromWoByCode } from '@/hooks/safe-actions/work-order'
+import { subtract } from 'mathjs'
+import { Badge } from '@/components/badge'
 
 type WorkOrderFormProps = {
   pageMetaData: PageMetadata
@@ -59,6 +63,9 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
   const router = useRouter()
   const { code } = useParams() as { code: string }
+  const searchParams = useSearchParams()
+
+  const duplicatedFromCode = searchParams.get('duplicatedFromCode')
 
   // const notificationContext = useContext(NotificationContext)
 
@@ -80,7 +87,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
         code: -1,
         projectIndividualCode: 0,
         userCode: 0,
-        status: isBusinessPartner ? '2' : '1',
+        status: isBusinessPartner ? String(WORK_ORDER_STATUS_VALUE_MAP.Pending) : String(WORK_ORDER_STATUS_VALUE_MAP.Open),
         isInternal: isBusinessPartner ? false : true,
         billingAddrCode: null,
         shippingAddrCode: null,
@@ -90,6 +97,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
         isAlternativeAddr: false,
         alternativeBillingAddr: null,
         alternativeShippingAddr: null,
+        duplicatedFromCode: null,
 
         //* sap fields
         salesOrderCode: null,
@@ -125,6 +133,8 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
     resolver: zodResolver(workOrderFormSchema),
   })
 
+  const { replace } = useFieldArray({ control: form.control, name: 'lineItems' })
+
   const isAlternativeAddr = useWatch({ control: form.control, name: 'isAlternativeAddr' })
 
   const workOrderStatusUpdateForm = useForm({
@@ -150,6 +160,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
   const piCustomers = usePiCustomersByProjectCode(projectCode)
   const customer = useUserByCode(userCode)
   const salesOrder = useSalesOrderByWorkOrderCode(workOrder?.code)
+  const duplicatedFromWorkOrder = useDuplicatedFromWoByCode(duplicatedFromCode ? safeParseInt(duplicatedFromCode) : null)
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
@@ -287,6 +298,48 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
     if (session?.user.roleKey === 'business-partner' && session.user) form.setValue('userCode', session?.user.code)
   }, [JSON.stringify(session), userCode])
 
+  //* if duplicatedFromCode is exist, then prepopulate the form with the duplicatedFromWorkOrder data
+  useEffect(() => {
+    if (isCreate && duplicatedFromCode && duplicatedFromWorkOrder.data && !duplicatedFromWorkOrder.isLoading) {
+      const value = safeParseInt(duplicatedFromCode)
+      const duplicatedFromWorkOrderData = duplicatedFromWorkOrder.data
+
+      //* populate value from duplicatedFromWorkOrder
+      form.setValue('projectIndividualCode', duplicatedFromWorkOrderData?.projectIndividualCode)
+      form.setValue('userCode', duplicatedFromWorkOrderData?.userCode)
+      form.setValue('status', String(WORK_ORDER_STATUS_VALUE_MAP.Open))
+      form.setValue('isInternal', duplicatedFromWorkOrderData?.isInternal)
+      form.setValue('billingAddrCode', duplicatedFromWorkOrderData?.billingAddrCode)
+      form.setValue('shippingAddrCode', duplicatedFromWorkOrderData?.shippingAddrCode)
+      form.setValue('comments', duplicatedFromWorkOrderData?.comments)
+      form.setValue('customerPo', duplicatedFromWorkOrderData?.customerPo)
+      form.setValue('salesOrderCode', duplicatedFromWorkOrderData?.salesOrderCode)
+      form.setValue('purchaseOrderCode', duplicatedFromWorkOrderData?.purchaseOrderCode)
+      form.setValue('isAlternativeAddr', duplicatedFromWorkOrderData?.isAlternativeAddr)
+      form.setValue('alternativeBillingAddr', duplicatedFromWorkOrderData?.alternativeBillingAddr)
+      form.setValue('alternativeShippingAddr', duplicatedFromWorkOrderData?.alternativeShippingAddr)
+      form.setValue('expectedDeliveryDate', duplicatedFromWorkOrderData?.expectedDeliveryDate)
+      form.setValue('duplicatedFromCode', value)
+    }
+  }, [duplicatedFromCode, JSON.stringify(duplicatedFromWorkOrder)])
+
+  if (duplicatedFromWorkOrder.isLoading && duplicatedFromCode) {
+    return (
+      <div id='work-order-form-loading' className='flex h-full w-full items-center justify-center'>
+        <LoadPanel
+          container='#work-order-form-loading'
+          shadingColor='rgb(241, 245, 249)'
+          position={{ at: 'center', my: 'center', offset: { x: 110, y: 55 } }}
+          message='Loading Duplicated Data...'
+          visible
+          showIndicator
+          showPane
+          shading
+        />
+      </div>
+    )
+  }
+
   return (
     <FormProvider {...form}>
       {workOrder && (
@@ -378,7 +431,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
         <PageContentWrapper className='max-h-[calc(100%_-_92px)]'>
           <ScrollView useNative>
-            {/* <FormDebug form={form} /> */}
+            {/* <FormDebug form={form}  /> */}
 
             <div className='grid h-full grid-cols-12 gap-5 px-6 py-8'>
               <div className='col-span-12 md:col-span-6'>
@@ -444,6 +497,14 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                 <DateBoxField control={form.control} type='date' name='expectedDeliveryDate' label='Expected Delivery Date' />
               </div>
+
+              {(duplicatedFromCode || workOrder?.duplicatedFromCode) && !isBusinessPartner && (
+                <ReadOnlyField
+                  className='col-span-12 md:col-span-6 lg:col-span-3'
+                  title='Duplicated From WO #'
+                  value={duplicatedFromCode || workOrder?.duplicatedFromCode || ''}
+                />
+              )}
 
               {session?.user.roleKey !== 'business-partner' && (
                 <div className='col-span-12 md:col-span-6 lg:col-span-3'>
@@ -565,6 +626,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
               <WorkOrderLineItemTable
                 workOrder={workOrder}
                 workOrderItems={workOrderItems}
+                duplicatedFromWorkOrder={duplicatedFromWorkOrder}
                 projectCode={selectedProject?.code}
                 projectName={selectedProject?.name}
                 projectGroupName={selectedProject?.projectGroup?.name}
