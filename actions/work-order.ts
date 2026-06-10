@@ -246,12 +246,9 @@ export async function creditStock(params: CreditStockParams) {
 
     const lineItems = existingWorkOrder.workOrderItems
 
-    //* only credit stocks-in only when new status is 'In Process' and old status is between 'Open' and 'Pending'
-    if (
-      oldStatus >= WORK_ORDER_STATUS_VALUE_MAP['Open'] &&
-      oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Pending'] &&
-      newStatus == WORK_ORDER_STATUS_VALUE_MAP['In Process']
-    ) {
+    //* only credit stocks-in only when new status is 'Open' or 'Pending' and old status === 0,
+    //*  means after work order is created by admin - default to 'Open' or by customer - default to 'Pending'
+    if (oldStatus === 0 && (newStatus == WORK_ORDER_STATUS_VALUE_MAP['Open'] || newStatus == WORK_ORDER_STATUS_VALUE_MAP['Pending'])) {
       const entries: CommonErrorEntry[] = []
 
       for (const li of lineItems) {
@@ -390,8 +387,8 @@ export async function creditStock(params: CreditStockParams) {
 
     //* rollback on Cancelled / Deleted
     if (newStatus === WORK_ORDER_STATUS_VALUE_MAP['Cancelled'] || newStatus === WORK_ORDER_STATUS_VALUE_MAP['Deleted']) {
-      //* if between or equal to 'In Process' and 'Verified' and then cancel or delete, then rollback stock
-      if (oldStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process'] && oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Verified']) {
+      //* if between or equal to 'Open' and 'Verified' and then cancel or delete, then rollback stock
+      if (oldStatus >= WORK_ORDER_STATUS_VALUE_MAP['Open'] && oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Verified']) {
         await Promise.all(
           lineItems.map((li) => {
             const pItem = li.projectItem
@@ -564,17 +561,52 @@ export const upsertWorkOrder = action
 
       const duplicatedFromWorkOrder = duplicatedFromCode ? await db.workOrder.findUnique({ where: { code: duplicatedFromCode } }) : null
 
-      const newWorkOrder = await db.workOrder.create({
-        data: {
-          ...data,
-          duplicatedFromCode: duplicatedFromCode ?? null,
-          createdAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.createdAt : undefined,
-          createdBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.createdBy,
-          updatedAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.updatedAt : undefined,
-          updatedBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.updatedBy,
-          workOrderItems: { createMany: { data: woItems } },
-        },
-        include,
+      const newWorkOrder = await db.$transaction(async (tx) => {
+        //* create new work order
+        const wo = await tx.workOrder.create({
+          data: {
+            ...data,
+            duplicatedFromCode: duplicatedFromCode ?? null,
+            createdAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.createdAt : undefined,
+            createdBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.createdBy,
+            updatedAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.updatedAt : undefined,
+            updatedBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.updatedBy,
+            workOrderItems: { createMany: { data: woItems } },
+          },
+          include,
+        })
+
+        //* credit stock-in upon successful creation of work order
+        //* it should be status = 'Open' or 'Pending' for it to be credited
+        const creditStocks = await creditStock({
+          tx,
+          workOrderCode: wo.code,
+          prevStatus: null,
+          currStatus: wo.status,
+          deliveredProjectItems: [],
+        })
+
+        //* handle credit stock error
+        if (creditStocks) {
+          const isCreditStockError = creditStocks?.error
+          const errors = creditStocks?.errors
+          const entries = errors?.entries
+
+          if (isCreditStockError && errors && entries && entries.length > 0) {
+            const outOfStockItems = entries.map((e) => e.id).join(', ')
+
+            const error = {
+              error: true,
+              status: 400,
+              message: `Work order creation failed. Project item(s) #${outOfStockItems} does not have enough available to order.`,
+              action: 'CREDIT_STOCK',
+            }
+
+            throw error
+          }
+        }
+
+        return wo
       })
 
       // const assignedPics = newWorkOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
@@ -598,13 +630,13 @@ export const upsertWorkOrder = action
         action: 'UPSERT_WORK_ORDER',
         data: { workOrder: newWorkOrder },
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
 
       return {
         error: true,
         status: 500,
-        message: error instanceof Error ? error.message : 'Something went wrong!',
+        message: error ? error?.message : 'Something went wrong!',
         action: 'UPSERT_WORK_ORDER',
       }
     }

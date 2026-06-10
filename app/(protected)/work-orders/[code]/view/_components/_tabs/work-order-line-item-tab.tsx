@@ -81,7 +81,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
   }, [JSON.stringify(session)])
 
   const isLocked = useMemo(() => {
-    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process']
+    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['Open']
   }, [workOrderStatus])
 
   const woItems = useMemo(() => {
