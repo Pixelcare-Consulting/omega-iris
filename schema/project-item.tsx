@@ -33,7 +33,7 @@ export const projectItemFormSchema = z
   })
   .refine(
     (formData) => {
-      if (formData.code === -1 && formData.totalStock < 1) return false
+      if (formData.totalStock < 1) return false
       return true
     },
     { path: ['totalStock'], message: 'Total stock is invalid' }
