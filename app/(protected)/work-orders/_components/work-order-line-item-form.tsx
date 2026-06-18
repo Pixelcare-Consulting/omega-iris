@@ -73,7 +73,7 @@ export default function WorkOrderLineItemForm({
   }, [JSON.stringify(session)])
 
   const isLocked = useMemo(() => {
-    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['Open']
+    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process']
   }, [workOrderStatus])
 
   const errorMessage = useMemo(() => {

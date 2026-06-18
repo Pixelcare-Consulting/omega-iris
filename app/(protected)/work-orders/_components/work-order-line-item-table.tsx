@@ -58,8 +58,6 @@ import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import WorkOrderLineItemForm from './work-order-line-item-form'
 import LoadingButton from '@/components/loading-button'
 import { useDuplicatedFromWoByCode } from '@/hooks/safe-actions/work-order'
-import { useParams } from 'next/navigation'
-import Alert from '@/components/alert'
 
 type WorkOrderLineItemsFormProps = {
   workOrder: Awaited<ReturnType<typeof getWorkOrderByCode>>
@@ -81,10 +79,6 @@ export default function WorkOrderLineItemTable({
   isLoading,
 }: WorkOrderLineItemsFormProps) {
   const { data: session } = useSession()
-
-  const { code } = useParams() as { code: string }
-
-  const isCreate = code === 'add' || !workOrder
 
   const dataGridRef = useRef<DataGridRef | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -114,32 +108,13 @@ export default function WorkOrderLineItemTable({
   }, [JSON.stringify(session)])
 
   const isLocked = useMemo(() => {
-    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['Open']
+    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process']
   }, [workOrderStatus])
 
   const handleAdd = useCallback(() => {
     setRowData(null)
     setIsOpen(true)
   }, [])
-
-  const duplicatedFromWorkOrderProblematicItems = useMemo(() => {
-    if (duplicatedFromWorkOrder.isLoading || !duplicatedFromWorkOrder?.data) return []
-
-    const duplicatedFromWorkOrderData = duplicatedFromWorkOrder.data
-
-    const pItemCodes = duplicatedFromWorkOrderData?.workOrderItems
-      .map((woItem) => {
-        const pItem = woItem.projectItem
-        const totalStock = safeParseFloat(pItem?.totalStock)
-        const stockIn = safeParseFloat(pItem?.stockIn)
-        const availableToOrder = subtract(totalStock, stockIn)
-        return { projectItemCode: pItem?.code, qty: safeParseInt(woItem.qty), maxQty: availableToOrder, isDelivered: false }
-      })
-      .filter((woItem) => woItem.maxQty <= 0 || woItem.maxQty < woItem.qty)
-      .map((woItem) => woItem.projectItemCode)
-
-    return pItemCodes.sort()
-  }, [JSON.stringify(duplicatedFromWorkOrder)])
 
   const handleSingleDelete = useCallback(
     (e: DataGridTypes.ColumnButtonClickEvent) => {
@@ -360,8 +335,6 @@ export default function WorkOrderLineItemTable({
     if (!duplicatedFromWorkOrder.isLoading && duplicatedFromWorkOrder.data) {
       const duplicatedFromWorkOrderData = duplicatedFromWorkOrder.data
 
-      //* only retain line items that has stock and has enough stock for the requested items,
-      //* item that has available to order less than the qty will be removed
       const lineItemValue = duplicatedFromWorkOrderData?.workOrderItems
         .map((woItem) => {
           const pItem = woItem.projectItem
@@ -371,7 +344,6 @@ export default function WorkOrderLineItemTable({
           return { projectItemCode: pItem?.code, qty: safeParseInt(woItem.qty), maxQty: availableToOrder, isDelivered: false }
         })
         .filter((woItem) => woItem.maxQty > 0)
-        .filter((woItem) => woItem.qty <= woItem.maxQty)
 
       setTimeout(() => {
         form.setValue('lineItems', lineItemValue)
@@ -481,14 +453,6 @@ export default function WorkOrderLineItemTable({
       {/* <FormDebug form={form} keys={['lineItems']} /> */}
 
       <div className='col-span-12'>
-        {isCreate && duplicatedFromWorkOrderProblematicItems.length > 0 && (
-          <Alert
-            className='w-100'
-            variant='warning'
-            message={`The following project item(s) could not be loaded because they are out of stock or the requested quantity exceeds the available to order: ${duplicatedFromWorkOrderProblematicItems.join(', ')}`}
-          />
-        )}
-
         <DataGrid
           ref={dataGridRef}
           dataSource={workOrderItemsDataSource}
