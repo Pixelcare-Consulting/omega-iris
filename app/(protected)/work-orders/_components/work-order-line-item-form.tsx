@@ -2,7 +2,7 @@ import { useSession } from 'next-auth/react'
 import { useForm, useFormContext, useWatch, useFormState } from 'react-hook-form'
 import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Item } from 'devextreme-react/toolbar'
-import { Column, CustomRule, DataGridRef, DataGridTypes, Editing, GroupItem, Summary, TotalItem } from 'devextreme-react/data-grid'
+import { CustomRule, DataGridRef, DataGridTypes, Editing, GroupItem, Summary, TotalItem } from 'devextreme-react/data-grid'
 import Button from 'devextreme-react/button'
 import { v4 as uuidv4 } from 'uuid'
 import { differenceInDays } from 'date-fns'
@@ -21,6 +21,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Icons } from '@/components/icons'
 import TooltipWrapper from '@/components/tooltip-wrapper'
 import { FormDebug } from '@/components/forms/form-debug'
+import { HiddenFieldsContext } from '@/context/hidden-fields-context'
+import Column from '@/components/column'
 
 type WorkOrderLineItemFormProps = {
   projectName?: string
@@ -29,6 +31,7 @@ type WorkOrderLineItemFormProps = {
   setIsOpen: Dispatch<SetStateAction<boolean>>
   projectItems: ReturnType<typeof useProjecItems>
   workOrderStatus: number
+  hiddenFields?: string[]
 }
 
 export default function WorkOrderLineItemForm({
@@ -38,6 +41,7 @@ export default function WorkOrderLineItemForm({
   setIsOpen,
   projectItems,
   workOrderStatus,
+  hiddenFields = [],
 }: WorkOrderLineItemFormProps) {
   const { data: session } = useSession()
   const mainForm = useFormContext<WorkOrderForm>()
@@ -300,6 +304,8 @@ export default function WorkOrderLineItemForm({
           const stockIn = safeParseFloat(pItem?.stockIn)
           const stockOut = safeParseFloat(pItem?.stockOut)
           const totalStock = safeParseFloat(pItem?.totalStock)
+          const tfsStdPrice = safeParseFloat(pItem?.tfsStdPrice)
+          const omegaPrice = safeParseFloat(pItem?.omegaPrice)
 
           const warehouse = pItem?.warehouse
           const dateReceivedBy = pItem?.dateReceivedByUser ? [pItem?.dateReceivedByUser?.fname, pItem?.dateReceivedByUser?.lname].filter(Boolean).join(' ') : '' // prettier-ignore
@@ -314,7 +320,7 @@ export default function WorkOrderLineItemForm({
             countryOfOrigin: pItem?.countryOfOrigin || '',
             lotCode: pItem?.lotCode || '',
             palletNo: pItem?.palletNo || '',
-            warehouse: warehouse?.name || '',
+            warehouse: warehouse?.WarehouseName || '',
             dateReceived: pItem?.dateReceived,
             dateReceivedBy,
             packagingType: pItem?.packagingType || '',
@@ -334,6 +340,13 @@ export default function WorkOrderLineItemForm({
             mfr: pItem?.mfr || '',
             desc: pItem?.desc || '',
             commodities: pItem?.commodities || '',
+            group: pItem?.group || '',
+            division: pItem?.division || '',
+            site: pItem?.site || '',
+            cmSite: pItem?.cmSite || '',
+            phase: pItem?.phase || '',
+            tfsStdPrice,
+            omegaPrice,
             createdAt: pItem?.createdAt,
             createdBy: pItem?.createdBy,
             updatedAt: pItem?.updatedAt,
@@ -425,130 +438,155 @@ export default function WorkOrderLineItemForm({
             onContentReady: handleOnContentReady,
           }}
         >
-          <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' allowEditing={false} sortOrder='asc' />
-          <Column dataField='owner' dataType='string' caption='Owner' allowEditing={false} />
-          <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
-          <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
+          <HiddenFieldsContext.Provider value={{ hiddenFields }}>
+            <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' allowEditing={false} sortOrder='asc' />
+            <Column dataField='owner' dataType='string' caption='Owner' allowEditing={false} />
 
-          <Column dataField='FirmName' dataType='string' caption='Manufacturer' allowEditing={false} visible={false} />
-          <Column dataField='mfr' dataType='string' caption='MFR' allowEditing={false} />
-          <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} visible={false} />
-          <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
-          <Column dataField='commodities' dataType='string' caption='Commodities' allowEditing={false} />
-
-          <Column dataField='dateCode' dataType='string' caption='DC' allowEditing={false} />
-          <Column dataField='countryOfOrigin' dataType='string' caption='COO' allowEditing={false} />
-          <Column dataField='lotCode' dataType='string' caption='Lot Code' allowEditing={false} />
-          <Column dataField='palletNo' dataType='string' caption='Pallet No' allowEditing={false} />
-          <Column dataField='siteLocation' dataType='string' caption='Site Location' allowEditing={false} />
-          <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' allowEditing={false} />
-          <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' allowEditing={false} />
-
-          {!isBusinessPartner ? (
-            <>
-              <Column dataField='dateReceived' dataType='datetime' caption='Date Received' allowEditing={false} visible={false} />
-              <Column dataField='dateReceivedBy' dataType='string' caption='Date Received By' allowEditing={false} visible={false} />
-            </>
-          ) : null}
-
-          <Column dataField='packagingType' dataType='string' caption='Packaging Type' allowEditing={false} />
-          <Column dataField='spq' dataType='string' caption='SPQ' allowEditing={false} />
-          <Column
-            dataField='cost'
-            dataType='number'
-            caption='Cost'
-            alignment='left'
-            format={DEFAULT_CURRENCY_FORMAT}
-            allowEditing={false}
-          />
-
-          {!isBusinessPartner ? (
+            <Column dataField='group' dataType='string' caption='Group' allowEditing={false} />
+            <Column dataField='division' dataType='string' caption='Division' allowEditing={false} />
+            <Column dataField='site' dataType='string' caption='Site' allowEditing={false} />
+            <Column dataField='cmSite' dataType='string' caption='CM Site' allowEditing={false} />
+            <Column dataField='phase' dataType='string' caption='Phase' allowEditing={false} />
             <Column
-              dataField='totalStock'
+              dataField='tfsStdPrice'
               dataType='number'
-              caption='Total Stock'
+              caption='TFS Std Price'
+              alignment='left'
+              format={DEFAULT_CURRENCY_FORMAT}
+              allowEditing={false}
+            />
+            <Column
+              dataField='omegaPrice'
+              dataType='number'
+              caption='Omega Price'
+              alignment='left'
+              format={DEFAULT_CURRENCY_FORMAT}
+              allowEditing={false}
+            />
+
+            <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
+            <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
+
+            <Column dataField='FirmName' dataType='string' caption='Manufacturer' allowEditing={false} visible={false} />
+            <Column dataField='mfr' dataType='string' caption='MFR' allowEditing={false} />
+            <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} visible={false} />
+            <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
+            <Column dataField='commodities' dataType='string' caption='Commodities' allowEditing={false} />
+
+            <Column dataField='dateCode' dataType='string' caption='DC' allowEditing={false} />
+            <Column dataField='countryOfOrigin' dataType='string' caption='COO' allowEditing={false} />
+            <Column dataField='lotCode' dataType='string' caption='Lot Code' allowEditing={false} />
+            <Column dataField='palletNo' dataType='string' caption='Pallet No' allowEditing={false} />
+            <Column dataField='siteLocation' dataType='string' caption='Site Location' allowEditing={false} />
+            <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' allowEditing={false} />
+            <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' allowEditing={false} />
+
+            {!isBusinessPartner ? (
+              <>
+                <Column dataField='dateReceived' dataType='datetime' caption='Date Received' allowEditing={false} visible={false} />
+                <Column dataField='dateReceivedBy' dataType='string' caption='Date Received By' allowEditing={false} visible={false} />
+              </>
+            ) : null}
+
+            <Column dataField='packagingType' dataType='string' caption='Packaging Type' allowEditing={false} />
+            <Column dataField='spq' dataType='string' caption='SPQ' allowEditing={false} />
+            <Column
+              dataField='cost'
+              dataType='number'
+              caption='Cost'
+              alignment='left'
+              format={DEFAULT_CURRENCY_FORMAT}
+              allowEditing={false}
+            />
+
+            {!isBusinessPartner ? (
+              <Column
+                dataField='totalStock'
+                dataType='number'
+                caption='Total Stock'
+                alignment='left'
+                format={DEFAULT_NUMBER_FORMAT}
+                allowEditing={false}
+              />
+            ) : null}
+
+            <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} visible={false} />
+
+            <Column
+              dataField='availableToOrder'
+              dataType='number'
+              caption='Available To Order'
+              alignment='left'
+              format={DEFAULT_NUMBER_FORMAT}
+              allowEditing={false}
+              fixed
+              fixedPosition='right'
+              filterType='exclude'
+            />
+            <Column
+              dataField='stockIn'
+              dataType='number'
+              caption='Stock-In (In Process)'
               alignment='left'
               format={DEFAULT_NUMBER_FORMAT}
               allowEditing={false}
             />
-          ) : null}
-
-          <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} visible={false} />
-
-          <Column
-            dataField='availableToOrder'
-            dataType='number'
-            caption='Available To Order'
-            alignment='left'
-            format={DEFAULT_NUMBER_FORMAT}
-            allowEditing={false}
-            fixed
-            fixedPosition='right'
-            filterType='exclude'
-          />
-          <Column
-            dataField='stockIn'
-            dataType='number'
-            caption='Stock-In (In Process)'
-            alignment='left'
-            format={DEFAULT_NUMBER_FORMAT}
-            allowEditing={false}
-          />
-          <Column
-            dataField='stockOut'
-            dataType='number'
-            caption='Stock-Out (Delivered)'
-            alignment='left'
-            format={DEFAULT_NUMBER_FORMAT}
-            allowEditing={false}
-          />
-
-          <Column
-            dataField='agingDays'
-            dataType='number'
-            caption='Aging Days'
-            alignment='left'
-            calculateCellValue={(rowData) => (rowData?.createdAt ? differenceInDays(new Date(), rowData?.createdAt) : 0)}
-            format={DEFAULT_NUMBER_FORMAT}
-            allowEditing={false}
-          />
-
-          <Column
-            dataField='qty'
-            dataType='number'
-            caption={`Quantity${isLocked ? ' (Locked)' : ''}`}
-            format={DEFAULT_NUMBER_FORMAT}
-            alignment='left'
-            allowEditing={isLocked ? false : true}
-            cssClass={cn(isLocked ? '!bg-slate-100' : '')}
-            fixed
-            fixedPosition='right'
-          >
-            <CustomRule
-              validationCallback={(e) => {
-                const data = e?.data
-                return data?.qty >= 1 && data?.qty <= data?.availableToOrder
-              }}
-              message='Quantity must be greater than 1 and less than or equal to the available to order'
+            <Column
+              dataField='stockOut'
+              dataType='number'
+              caption='Stock-Out (Delivered)'
+              alignment='left'
+              format={DEFAULT_NUMBER_FORMAT}
+              allowEditing={false}
             />
-          </Column>
 
-          <Summary>
-            <GroupItem column='ItemCode' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
-            {renderCommonSummaryIItems()}
-          </Summary>
+            <Column
+              dataField='agingDays'
+              dataType='number'
+              caption='Aging Days'
+              alignment='left'
+              calculateCellValue={(rowData) => (rowData?.createdAt ? differenceInDays(new Date(), rowData?.createdAt) : 0)}
+              format={DEFAULT_NUMBER_FORMAT}
+              allowEditing={false}
+            />
 
-          <Summary>
-            <GroupItem column='FirmName' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
-            {renderCommonSummaryIItems()}
-          </Summary>
+            <Column
+              dataField='qty'
+              dataType='number'
+              caption={`Quantity${isLocked ? ' (Locked)' : ''}`}
+              format={DEFAULT_NUMBER_FORMAT}
+              alignment='left'
+              allowEditing={isLocked ? false : true}
+              cssClass={cn(isLocked ? '!bg-slate-100' : '')}
+              fixed
+              fixedPosition='right'
+            >
+              <CustomRule
+                validationCallback={(e) => {
+                  const data = e?.data
+                  return data?.qty >= 1 && data?.qty <= data?.availableToOrder
+                }}
+                message='Quantity must be greater than 1 and less than or equal to the available to order'
+              />
+            </Column>
 
-          <Summary>
-            <GroupItem column='partNumber' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
-            {renderCommonSummaryIItems()}
-          </Summary>
+            <Summary>
+              <GroupItem column='ItemCode' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+              {renderCommonSummaryIItems()}
+            </Summary>
 
-          <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
+            <Summary>
+              <GroupItem column='FirmName' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+              {renderCommonSummaryIItems()}
+            </Summary>
+
+            <Summary>
+              <GroupItem column='partNumber' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+              {renderCommonSummaryIItems()}
+            </Summary>
+
+            <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
+          </HiddenFieldsContext.Provider>
         </CommonDataGrid>
       </PageContentWrapper>
     </div>

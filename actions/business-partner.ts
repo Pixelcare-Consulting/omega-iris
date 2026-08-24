@@ -9,26 +9,26 @@ import {
   BUSINESS_PARTNER_TYPE_MAP,
   BUSINESS_PARTNER_STD_API_VALUES_MAP,
   businessPartnerFormSchema,
-  syncFromSapFormSchema,
   syncToSapFormSchema,
   ADDRESS_TYPE_STD_API_MAP,
   BUSINESS_PARTNER_STD_API_GROUP_TYPE_MAP,
 } from '@/schema/business-partner'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
-import { chunkArray, safeParseFloat, safeParseInt } from '@/utils'
+import { safeParseInt } from '@/utils'
 import logger from '@/utils/logger'
 import { callSapServiceLayerApi } from './sap-service-layer'
-import { SAP_BASE_URL } from '@/constants/sap'
+import { BP_MASTER_MAX_PAGE_SIZE, SAP_BASE_URL } from '@/constants/sap'
 import { DuplicateFields, ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import { getAddresses, getMasterAddresses } from './address'
 import { getContacts, getMasterContacts } from './contact'
 import { importFormSchema } from '@/schema/import'
 import { createNotification } from './notification'
 import { PERMISSIONS_CODES } from '@/constants/permission'
-import { PER_PAGE } from '@/constants/business-partner'
+
 import { randomBytes } from 'crypto'
 import { capitalize } from 'radash'
+import { combineSapDateTime } from '@/utils/sap'
 
 const COMMON_BUSINESS_PARTNER_ORDER_BY = { CardCode: 'asc' } satisfies Prisma.BusinessPartnerOrderByWithRelationInput
 
@@ -420,11 +420,12 @@ export const importBp = action
         skipDuplicates: true,
       })
 
-      const progress = ((stats.completed + batch.length) / total) * 100
+      const progress = total > 0 ? ((stats.completed + data.length) / total) * 100 : 100
 
       const updatedStats = {
         ...stats,
-        completed: stats.completed + batch.length,
+        completed: stats.completed + data.length,
+        synced: stats.synced + batch.length, //* only rows actually created
         progress,
         status: progress >= 100 || isLastRow ? 'completed' : 'processing',
       }
@@ -443,7 +444,7 @@ export const importBp = action
 
       return {
         status: 200,
-        message: `${updatedStats.completed} ${BUSINESS_PARTNER_TYPE_MAP[cardType]} created successfully!`,
+        message: `${updatedStats.synced}/${total} ${BUSINESS_PARTNER_TYPE_MAP[cardType]} created successfully!`,
         action: 'IMPORT_BUSINESS_PARTNERS',
         stats: updatedStats,
       }
@@ -571,17 +572,109 @@ export const restoreBp = action
     }
   })
 
-export async function getLatestBpMaster(cardType: string) {
+export async function getBpMasterCount(cardType: string) {
+  try {
+    //* must mirror getBpMasterByPage's card type filter, otherwise the page count is derived from a different population
+    const cardTypeFilter =
+      cardType === 'C' || cardType === 'L'
+        ? `(CardType eq 'cCustomer' or CardType eq 'cLid')`
+        : `(CardType eq '${BUSINESS_PARTNER_STD_API_VALUES_MAP[cardType] || 'cLid'}')`
+
+    const totalCount = await callSapServiceLayerApi({
+      url: `${SAP_BASE_URL}/b1s/v1/BusinessPartners/$count?$filter=${cardTypeFilter} and U_Portal_Sync eq 'Y'`,
+    })
+
+    return safeParseInt(totalCount)
+  } catch (error) {
+    console.log(error, `Failed to fetch bp master count from SAP: Card Type (${cardType})`)
+    return 0
+  }
+}
+
+export async function getBpMasterByPage(cardType: string, page: number) {
+  try {
+    const skip = page * BP_MASTER_MAX_PAGE_SIZE //* offset
+    let value: any[] = []
+
+    //* if card type is C or L, then fetch all C and L, otherwise fetch only the selected e.g S
+    if (cardType === 'C' || cardType === 'L') {
+      //* create request
+      const request = (await callSapServiceLayerApi({
+        url: `${SAP_BASE_URL}/b1s/v1/$crossjoin(BusinessPartners,BusinessPartnerGroups,PaymentTermsTypes,Currencies)?$expand=BusinessPartners($select=CardCode,CardName,CardType,GroupCode,PayTermsGrpCode,ShipToDefault,BilltoDefault,Address,ZipCode,MailAddress,MailZipCode,Phone1,ContactPerson,Currency,U_VendorCode,U_OMEG_QBRelated,U_OMEG_AcctType,U_Portal_Sync,U_ApprovalStatus,CreateDate,CreateTime,UpdateDate,UpdateTime,CurrentAccountBalance,OpenChecksBalance,CompanyPrivate),BusinessPartnerGroups($select=Code,Name,Type),PaymentTermsTypes($select=GroupNumber,PaymentTermsGroupName),Currencies($select=Code,Name)&$filter=BusinessPartners/GroupCode eq BusinessPartnerGroups/Code and BusinessPartners/PayTermsGrpCode eq PaymentTermsTypes/GroupNumber and BusinessPartners/Currency eq Currencies/Code  and (BusinessPartners/CardType eq 'cCustomer' or BusinessPartners/CardType eq 'cLid') and BusinessPartners/U_Portal_Sync eq 'Y'&$skip=${skip}&$orderby=BusinessPartners/CardCode asc`,
+        headers: { Prefer: `odata.maxpagesize=${BP_MASTER_MAX_PAGE_SIZE}` },
+      })) as { value?: any[] } | null
+
+      value = request?.value || []
+    } else {
+      const cardTypeValue = BUSINESS_PARTNER_STD_API_VALUES_MAP[cardType] || 'cLid'
+
+      //* create request
+      const request = (await callSapServiceLayerApi({
+        url: `${SAP_BASE_URL}/b1s/v1/$crossjoin(BusinessPartners,BusinessPartnerGroups,PaymentTermsTypes,Currencies)?$expand=BusinessPartners($select=CardCode,CardName,CardType,GroupCode,PayTermsGrpCode,ShipToDefault,BilltoDefault,Address,ZipCode,MailAddress,MailZipCode,Phone1,ContactPerson,Currency,U_VendorCode,U_OMEG_QBRelated,U_OMEG_AcctType,U_Portal_Sync,U_ApprovalStatus,CreateDate,CreateTime,UpdateDate,UpdateTime,CurrentAccountBalance,OpenChecksBalance,CompanyPrivate),BusinessPartnerGroups($select=Code,Name,Type),PaymentTermsTypes($select=GroupNumber,PaymentTermsGroupName),Currencies($select=Code,Name)&$filter=BusinessPartners/GroupCode eq BusinessPartnerGroups/Code and BusinessPartners/PayTermsGrpCode eq PaymentTermsTypes/GroupNumber and BusinessPartners/Currency eq Currencies/Code and (BusinessPartners/CardType eq '${cardTypeValue}') and BusinessPartners/U_Portal_Sync eq 'Y'&$skip=${skip}&$orderby=BusinessPartners/CardCode asc`,
+        headers: { Prefer: `odata.maxpagesize=${BP_MASTER_MAX_PAGE_SIZE}` },
+      })) as { value?: any[] } | null
+
+      value = request?.value || []
+    }
+
+    return value.filter(Boolean)
+  } catch (error) {
+    console.log(error, `Failed to fetch bp master from SAP: Page (${page})`)
+    return []
+  }
+}
+
+export async function getLatestBpMaster(cardType: string): Promise<{ CardCode: string } | null> {
   if (!cardType) return null
 
   try {
-    const bpMaster = await callSapServiceLayerApi({
-      url: `${SAP_BASE_URL}/b1s/v1/BusinessPartners?$select=CardCode,CreateDate,CreateTime&$filter=CardType eq '${cardType}'&$orderby=CreateDate desc,CreateTime desc&$top=1`,
+    const totalCount = await callSapServiceLayerApi({
+      url: `${SAP_BASE_URL}/b1s/v1/BusinessPartners/$count?$filter=CardType eq '${cardType}'`,
     })
 
-    return bpMaster?.value?.[0] ?? null
+    if (!totalCount || totalCount <= 0) return null
+
+    const totalPages = Math.ceil(safeParseInt(totalCount) / 500)
+    const requestPromises: Promise<any>[] = []
+
+    for (let i = 0; i < totalPages; i++) {
+      const skip = i * 500
+
+      requestPromises.push(
+        callSapServiceLayerApi({
+          url: `${SAP_BASE_URL}/b1s/v1/BusinessPartners?$select=CardCode&$skip=${skip}&$filter=CardType eq '${cardType}' and startswith(CardCode,'${cardType}')`,
+          headers: { Prefer: `odata.maxpagesize=${500}` },
+        })
+      )
+    }
+
+    const bpMasterResults = await Promise.all(requestPromises)
+    const bpMasterCardCodes = bpMasterResults
+      .flatMap((res) => res?.value || [])
+      .filter(Boolean)
+      .map((bp) => bp.CardCode as string)
+
+    if (bpMasterCardCodes.length === 0) return null
+
+    //* Resolve true numeric max, safe against mixed digit-widths
+    let maxNum = 0
+    let maxCode = ''
+
+    for (const code of bpMasterCardCodes) {
+      const numericPart = code.replace(new RegExp(`^${cardType}`), '')
+      const num = parseInt(numericPart, 10)
+
+      if (!isNaN(num) && num > maxNum) {
+        maxNum = num
+        maxCode = code
+      }
+    }
+
+    if (maxNum === 0 || !maxCode) return null
+
+    return { CardCode: maxCode }
   } catch (error) {
-    logger.error(error, 'Failed to fetch latest bp master from SAP')
+    console.error(error, 'Failed to fetch latest bp master from SAP')
     return null
   }
 }
@@ -593,80 +686,22 @@ export const getLatestBpMasterClient = action
     return getLatestBpMaster(parsedInput.cardType)
   })
 
-export async function getBpMaster(cardType: string) {
-  if (!cardType) return []
-
-  try {
-    const totalCount = await callSapServiceLayerApi({ url: `${SAP_BASE_URL}/b1s/v1/BusinessPartners/$count?$filter=U_Portal_Sync eq 'Y'` })
-    const totalPage = Math.ceil(safeParseInt(totalCount) / PER_PAGE)
-
-    const requestsPromises = []
-
-    //* if card type is C or L, then fetch all C and L, otherwise fetch only the selected e.g S
-    if (cardType === 'C' || cardType === 'L') {
-      for (let i = 0; i <= totalPage; i++) {
-        const skip = i * PER_PAGE //* offset
-
-        //* sap standard api url
-        const url = `${SAP_BASE_URL}/b1s/v1/$crossjoin(BusinessPartners,BusinessPartnerGroups,PaymentTermsTypes,Currencies)?$expand=BusinessPartners($select=CardCode,CardName,CardType,GroupCode,PayTermsGrpCode,ShipToDefault,BilltoDefault,Address,ZipCode,MailAddress,MailZipCode,Phone1,ContactPerson,Currency,U_VendorCode,U_OMEG_QBRelated,U_OMEG_AcctType,U_Portal_Sync,U_ApprovalStatus,CreateDate,UpdateDate,CurrentAccountBalance,OpenChecksBalance,CompanyPrivate),BusinessPartnerGroups($select=Code,Name,Type),PaymentTermsTypes($select=GroupNumber,PaymentTermsGroupName),Currencies($select=Code,Name)&$filter=BusinessPartners/GroupCode eq BusinessPartnerGroups/Code and BusinessPartners/PayTermsGrpCode eq PaymentTermsTypes/GroupNumber and BusinessPartners/Currency eq Currencies/Code  and (BusinessPartners/CardType eq 'cCustomer' or BusinessPartners/CardType eq 'cLead') and BusinessPartners/U_Portal_Sync eq 'Y'&$skip=${skip}&$orderby=BusinessPartners/CardCode asc`
-
-        //* create request
-        const request = callSapServiceLayerApi({
-          url,
-          headers: { Prefer: `odata.maxpagesize=${PER_PAGE}` },
-        })
-
-        //* push request to the requestsPromises array
-        requestsPromises.push(request)
-      }
-    } else {
-      for (let i = 0; i <= totalPage; i++) {
-        const skip = i * PER_PAGE //* offset
-
-        const cardTypeValue = BUSINESS_PARTNER_STD_API_VALUES_MAP[cardType] || 'cLid'
-
-        //* sap standard api url
-        const url = `${SAP_BASE_URL}/b1s/v1/$crossjoin(BusinessPartners,BusinessPartnerGroups,PaymentTermsTypes,Currencies)?$expand=BusinessPartners($select=CardCode,CardName,CardType,GroupCode,PayTermsGrpCode,ShipToDefault,BilltoDefault,Address,ZipCode,MailAddress,MailZipCode,Phone1,ContactPerson,Currency,U_VendorCode,U_OMEG_QBRelated,U_OMEG_AcctType,U_Portal_Sync,U_ApprovalStatus,CreateDate,UpdateDate,CurrentAccountBalance,OpenChecksBalance,CompanyPrivate),BusinessPartnerGroups($select=Code,Name,Type),PaymentTermsTypes($select=GroupNumber,PaymentTermsGroupName),Currencies($select=Code,Name)&$filter=BusinessPartners/GroupCode eq BusinessPartnerGroups/Code and BusinessPartners/PayTermsGrpCode eq PaymentTermsTypes/GroupNumber and BusinessPartners/Currency eq Currencies/Code and (BusinessPartners/CardType eq '${cardTypeValue}') and BusinessPartners/U_Portal_Sync eq 'Y'&$skip=${skip}&$orderby=BusinessPartners/CardCode asc`
-
-        //* create request
-        const request = callSapServiceLayerApi({
-          url,
-          headers: { Prefer: `odata.maxpagesize=${PER_PAGE}` },
-        })
-
-        //* push request to the requestsPromises array
-        requestsPromises.push(request)
-      }
-    }
-
-    //* fetch all bp master from sap in parallel
-    const bpMaster = await Promise.all(requestsPromises)
-
-    return bpMaster.flatMap((res) => res?.value || []).filter(Boolean)
-  } catch (error) {
-    console.log({ error })
-    logger.error(error, 'Failed to fetch bp master from SAP')
-    return []
-  }
-}
-
 export const syncToSap = action
   .use(authenticationMiddleware)
-  .schema(syncToSapFormSchema)
+  .schema(importFormSchema.extend({ cardType: z.string() }))
   .action(async ({ ctx, parsedInput }) => {
-    const { bps, cardType } = parsedInput
+    const { data, total, stats, isLastRow, cardType } = parsedInput
     const { userId } = ctx
 
-    const importSyncErrors: ImportSyncError[] = []
     const toUpdateSyncStatus: number[] = []
 
     try {
       const sapBatch: { rowNumber: number; code: number; promise: Promise<any>; row: Record<string, any> }[] = []
 
-      for (let i = 0; i < bps.length; i++) {
+      for (let i = 0; i < data.length; i++) {
         const errors: ImportSyncErrorEntry[] = []
-        const row = bps[i]
-        const rowNumber = i + 1
+        const row = data[i]
+        const rowNumber = stats.completed + i + 1 //* global row number across chunks
 
         //* check required fields
         if (!row?.CardCode) errors.push({ field: 'Code', message: 'Missing required field' })
@@ -675,43 +710,47 @@ export const syncToSap = action
 
         if (!row?.CardType) errors.push({ field: 'Type', message: 'Missing required field' })
 
-        //* if errors array is not empty, then update/push to ImportSyncError
+        //* if errors present, push to stats.errors and skip
         if (errors.length > 0) {
-          importSyncErrors.push({ rowNumber, entries: errors, row, code: row?.code })
+          stats.errors.push({ rowNumber, entries: errors, row, code: row?.code })
           continue
         }
 
         //* fetch address and contacts
         const [addresses, contacts] = await Promise.all([getAddresses(row?.CardCode ?? ''), getContacts(row?.CardCode ?? '')])
 
-        const toCreateAddresses = addresses.map((addr) => ({
-          AddressName: addr?.AddressName,
-          Street: addr?.Street || null,
-          Block: addr?.Block || null,
-          ZipCode: addr?.ZipCode || null,
-          City: addr?.City || null,
-          County: addr?.County || null,
-          Country: addr?.CountryCode || null,
-          State: addr?.StateCode || null,
-          BuildingFloorRoom: addr?.BuildingFloorRoom || null,
-          AddressType: ADDRESS_TYPE_STD_API_MAP?.[addr?.AddrType] || 'bo_ShipTo',
-          AddressName2: addr?.Address2 || null,
-          AddressName3: addr?.Address3 || null,
-          StreetNo: addr?.StreetNo || null,
-          GlobalLocationNumber: addr?.GlobalLocationNumber || null,
-        }))
+        const toCreateAddresses = addresses
+          .filter((addr) => !addr?.deletedAt || !addr?.deletedBy)
+          .map((addr) => ({
+            AddressName: addr?.AddressName,
+            Street: addr?.Street || null,
+            Block: addr?.Block || null,
+            ZipCode: addr?.ZipCode || null,
+            City: addr?.City || null,
+            County: addr?.County || null,
+            Country: addr?.CountryCode || null,
+            State: addr?.StateCode || null,
+            BuildingFloorRoom: addr?.BuildingFloorRoom || null,
+            AddressType: ADDRESS_TYPE_STD_API_MAP?.[addr?.AddrType] || 'bo_ShipTo',
+            AddressName2: addr?.Address2 || null,
+            AddressName3: addr?.Address3 || null,
+            StreetNo: addr?.StreetNo || null,
+            GlobalLocationNumber: addr?.GlobalLocationNumber || null,
+          }))
 
-        const toCreateContacts = contacts.map((contct) => ({
-          Name: contct?.ContactName,
-          Position: contct?.Position || null,
-          Phone1: contct?.Phone1 || null,
-          Phone2: contct?.Phone2 || null,
-          MobilePhone: contct?.MobilePhone || null,
-          E_Mail: contct?.Email || null,
-          Title: contct?.Title || null,
-          FirstName: contct?.FirstName || null,
-          LastName: contct?.LastName || null,
-        }))
+        const toCreateContacts = contacts
+          .filter((contct) => !contct?.deletedAt || !contct?.deletedBy)
+          .map((contct) => ({
+            Name: contct?.ContactName,
+            Position: contct?.Position || null,
+            Phone1: contct?.Phone1 || null,
+            Phone2: contct?.Phone2 || null,
+            MobilePhone: contct?.MobilePhone || null,
+            E_Mail: contct?.Email || null,
+            Title: contct?.Title || null,
+            FirstName: contct?.FirstName || null,
+            LastName: contct?.LastName || null,
+          }))
 
         const toCreate = {
           CardCode: row?.CardCode,
@@ -736,26 +775,26 @@ export const syncToSap = action
         })
       }
 
-      //* create items into sap
+      //* create bps into sap
       const sapCreated = await Promise.all(sapBatch.map((b) => b.promise))
 
       //* populate error if any related to sap
       for (let i = 0; i < sapCreated.length; i++) {
         const batchItem = sapBatch[i] //* sapCreated and sapBatch has the same order
 
-        //* if error present means there's error when creating in sap
+        //* if error present means there's an error when creating in sap
         if (sapCreated[i].error) {
           //* find the import error related to the batch items code
-          const importError = importSyncErrors.find((e) => e?.code === batchItem?.code)
+          const importSyncError = stats.errors.find((e) => e?.code === batchItem?.code)
 
           //* update the error if there existing import error otherwise create a new one
-          if (importError) {
-            importError.entries.push({
+          if (importSyncError) {
+            importSyncError.entries.push({
               field: 'SAP Error',
               message: sapCreated[i]?.error?.message?.value || 'Unknown SAP error',
             })
           } else {
-            importSyncErrors.push({
+            stats.errors.push({
               rowNumber: batchItem.rowNumber,
               entries: [{ field: 'SAP Error', message: sapCreated[i]?.error?.message?.value || 'Unknown SAP error' }],
               row: batchItem.row,
@@ -766,213 +805,168 @@ export const syncToSap = action
           continue
         }
 
-        //* add code to the toUpdateSyncStatus array, only the code will be added that does not encountered any error in sap creation
+        //* only codes that did not encounter a sap error are added
         toUpdateSyncStatus.push(batchItem.code)
       }
 
-      //* update the sync status of the bp who created in sap
+      //* update the sync status of the business partner created in sap
       await db.businessPartner.updateMany({
         where: { code: { in: toUpdateSyncStatus } },
         data: { syncStatus: 'synced', updatedBy: userId },
       })
 
-      const completed = sapCreated?.filter((sc) => !sc?.error)
+      //* progress based on items processed (attempted) this chunk
+      const progress = total > 0 ? ((stats.completed + data.length) / total) * 100 : 100
 
-      // //* create notification
-      // void createNotification(ctx, {
-      //   permissionCode: cardType === 'L' || cardType === 'C' ? PERMISSIONS_CODES.CUSTOMERS : PERMISSIONS_CODES.SUPPLIERS,
-      //   title: `${BUSINESS_PARTNER_TYPE_MAP[cardType]}s Synced To SAP`,
-      //   message: `${completed.length} of ${bps.length} ${BUSINESS_PARTNER_TYPE_MAP[cardType].toLowerCase()}${bps.length > 1 ? 's were' : 'was'} synced into SAP by ${ctx.fullName}. ${importSyncErrors.length} error${importSyncErrors.length > 1 ? 's' : ''} found.`,
-      //   link: `/${cardType === 'L' || cardType === 'C' ? 'customers' : 'suppliers'}`,
-      //   entityType: 'BusinessPartner' as Prisma.ModelName,
-      //   userCodes: [],
-      // })
+      const updatedStats = {
+        ...stats,
+        completed: stats.completed + data.length,
+        synced: stats.synced + toUpdateSyncStatus.length, //* only bps successfully created in SAP
+        progress,
+        status: progress >= 100 || isLastRow ? 'completed' : 'processing',
+      }
+
+      if (updatedStats.status === 'completed') {
+        // //* create notification
+        // void createNotification(ctx, {
+        //   permissionCode: cardType === 'L' || cardType === 'C' ? PERMISSIONS_CODES.CUSTOMERS : PERMISSIONS_CODES.SUPPLIERS,
+        //   title: `${BUSINESS_PARTNER_TYPE_MAP[cardType]}s Synced To SAP`,
+        //   message: `${updatedStats.completed - updatedStats.errors.length} of ${total} ${BUSINESS_PARTNER_TYPE_MAP[cardType].toLowerCase()}${total > 1 ? 's were' : 'was'} synced into SAP by ${ctx.fullName}. ${updatedStats.errors.length} error${updatedStats.errors.length > 1 ? 's' : ''} found.`,
+        //   link: `/${cardType === 'L' || cardType === 'C' ? 'customers' : 'suppliers'}`,
+        //   entityType: 'BusinessPartner' as Prisma.ModelName,
+        //   userCodes: [],
+        // })
+      }
 
       return {
         status: 200,
-        message: `${BUSINESS_PARTNER_TYPE_MAP[cardType]} sync successfully!. ${completed.length}/${bps.length} ${BUSINESS_PARTNER_TYPE_MAP[cardType].toLowerCase()} created into SAP. ${importSyncErrors.length} errors found.`,
+        message: `${BUSINESS_PARTNER_TYPE_MAP[cardType]} sync successfully!. ${updatedStats.synced}/${total} ${BUSINESS_PARTNER_TYPE_MAP[cardType].toLowerCase()} created into SAP. ${updatedStats.errors.length} errors found.`,
         action: 'SYNC_TO_SAP',
-        errors: importSyncErrors,
+        stats: updatedStats,
       }
     } catch (error) {
       console.error('Data sync error:', error)
 
-      const errors = bps.map((row, index) => ({
-        rowNumber: index + 1,
-        code: row.code,
+      const errors = data.map((row, index) => ({
+        rowNumber: stats.completed + index + 1,
+        code: row?.code,
         entries: [{ field: 'Unknown', message: 'Unexpected batch write error' }],
         row,
-      }))
+      })) as any
+
+      stats.errors.push(...errors)
+      stats.status = 'error'
 
       return {
         error: true,
         status: 500,
-        message: error instanceof Error ? error.message : 'Data import error!',
+        message: error instanceof Error ? error.message : 'Data sync error!',
         action: 'SYNC_TO_SAP',
-        errors,
+        stats,
       }
     }
   })
 
 export const syncFromSap = action
   .use(authenticationMiddleware)
-  .schema(syncFromSapFormSchema)
+  .schema(importFormSchema.extend({ cardType: z.string() }))
   .action(async ({ ctx, parsedInput }) => {
+    const { data, total, stats, isLastRow, cardType } = parsedInput
     const { userId } = ctx
-    const { cardType } = parsedInput
 
     const SYNC_META_CODE = BUSINESS_PARTNER_TYPE_MAP[cardType].toLowerCase()
 
     try {
-      //* fetch all bp master from sap, bp in portal & last sync date
-      const data = await Promise.allSettled([
-        getBpMaster(cardType),
-        db.businessPartner.findMany({
-          where: { CardType: cardType },
-          select: { CardCode: true, CardName: true, CardType: true },
-        }),
-        db.syncMeta.findUnique({ where: { code: SYNC_META_CODE } }),
-      ])
+      //* get last sync date
+      const syncMeta = await db.syncMeta.findUnique({ where: { code: SYNC_META_CODE } })
+      const lastSyncDate = syncMeta?.lastSyncAt || new Date('01/01/2020')
 
-      const bpMaster = data[0].status === 'fulfilled' ? data[0]?.value || [] : []
-      const bps = data[1].status === 'fulfilled' ? data[1]?.value || [] : []
-      const lastSyncDate = data[2].status === 'fulfilled' ? data[2]?.value?.lastSyncAt || new Date('01/01/2020') : new Date('01/01/2020')
-
-      if (bpMaster.length < 1) {
-        return {
-          error: true,
-          status: 404,
-          message: `No ${cardType === 'L' || cardType === 'C' ? 'customer' : 'supplier'} records available for sync.`,
-          action: 'SYNC_FROM_SAP',
-        }
-      }
-
-      //* do an upsert operation
-      //*  filter the records where CreatedDate === lastSyncDate or  CreateDate > lastSyncDate or UpdateDate === lastSyncDate or UpdateDate > lastSyncDate
-      const filteredSapBpMasters =
-        bpMaster
-          ?.map((row: any) => {
-            const bp = row?.['BusinessPartners']
-            const bpGroup = row?.['BusinessPartnerGroups']
-            const paymentTerm = row?.['PaymentTermsTypes']
-            const currencies = row?.['Currencies']
-
-            if (!bp || !bp?.CardCode) return null
-
-            const bpData = {
-              Address: bp?.Address || null,
-              Balance: safeParseFloat(bp?.CurrentAccountBalance),
-              BillToDef: bp?.BilltoDefault || null,
-              CardCode: bp?.CardCode,
-              CardName: bp?.CardName,
-              CardType: bp?.CardType,
-              ChecksBal: safeParseFloat(bp?.OpenChecksBalance),
-              CmpPrivate: bp?.CompanyPrivate || null,
-              CntctPrsn: bp?.ContactPerson || null,
-              CreateDate: bp?.CreateDate ? format(parse(bp?.CreateDate, 'yyyy-MM-dd', new Date()), 'yyyyMMdd') : null,
-              CurrName: currencies?.Name || null,
-              Currency: currencies?.Code || null,
-              GroupCode: bpGroup?.code || null,
-              GroupName: bpGroup?.Name || null,
-              GroupNum: paymentTerm?.GroupNumber || null,
-              MailAddres: bp?.MailAddress || null,
-              MailZipCod: bp?.MailZipCode || null,
-              Phone1: bp?.Phone1 || null,
-              PymntGroup: paymentTerm?.PaymentTermsGroupName || null,
-              ShipToDef: bp?.ShipToDefault || null,
-              U_ApprovalStatus: bp?.U_ApprovalStatus || null,
-              U_OMEG_AcctType: bp?.U_OMEG_AcctType || null,
-              U_OMEG_QBRelated: bp?.U_OMEG_QBRelated || null,
-              U_Portal_Sync: bp?.U_Portal_Sync || null,
-              U_VendorCode: bp?.U_VendorCode || null,
-              UpdateDate: bp?.UpdateDate ? format(parse(bp?.UpdateDate, 'yyyy-MM-dd', new Date()), 'yyyyMMdd') : null,
-              ZipCode: bp?.ZipCode || null,
-            }
-
-            return bpData
-          })
-          ?.filter((row) => row !== null)
-          ?.filter((row: any) => {
-            const createDate = row?.CreateDate ? parse(row?.CreateDate, 'yyyyMMdd', new Date()) : null
-            const updateDate = row?.UpdateDate ? parse(row?.UpdateDate, 'yyyyMMdd', new Date()) : null
-
-            const isCreateDateSameDay = createDate ? isSameDay(createDate, lastSyncDate) : false
-            const isUpdateDateSameDay = updateDate ? isSameDay(updateDate, lastSyncDate) : false
-            const isCreateDateAfter = createDate ? isAfter(createDate, lastSyncDate) : false
-            const isUpdateDateAfter = updateDate ? isAfter(updateDate, lastSyncDate) : false
-
-            return isCreateDateSameDay || isUpdateDateSameDay || isCreateDateAfter || isUpdateDateAfter
-          }) || []
+      //* rebuild CardName -> CardCode map from existing bps to block duplicate names (deduped against db each page)
+      const existingBps = await db.businessPartner.findMany({
+        where: { CardType: cardType },
+        select: { CardCode: true, CardName: true },
+      })
 
       const nameMap = new Map<string, string>()
       const addressMap = new Map<string, any[]>()
       const contactMap = new Map<string, any[]>()
 
-      bps.forEach((bp) => {
-        nameMap.set(bp?.CardName?.trim(), bp.CardCode)
+      existingBps.forEach((bp) => {
+        if (bp?.CardName) nameMap.set(bp.CardName.trim(), bp.CardCode)
       })
 
-      const allowedBps = filteredSapBpMasters
-        .filter((row) => row?.['U_Portal_Sync'] === 'Y')
-        .filter((row) => {
-          const trimmedName = row?.['CardName']?.trim()
-          if (!trimmedName) return false
+      const batch: Prisma.BusinessPartnerUncheckedCreateInput[] = []
 
-          //* Blocks duplicate CardName with different CardCode
-          const existingCode = nameMap.get(trimmedName)
+      for (let i = 0; i < data.length; i++) {
+        const errors: ImportSyncErrorEntry[] = []
+        const row = data[i]
+        const rowNumber = stats.completed + i + 1 //* global row number across pages
 
-          //* if code not exist, then add to nameMap
-          if (!existingCode) {
-            nameMap.set(trimmedName, row?.['CardCode'])
-            return true
-          }
+        const bp = row?.BusinessPartners
+        const bpGroup = row?.BusinessPartnerGroups
+        const paymentTerm = row?.PaymentTermsTypes
+        const currencies = row?.Currencies
 
-          return existingCode === row?.['CardCode'] //* if 'false' means card name already exist in db with diffrent card code not the row's card code
+        //* skip (not an error): not created/updated since last sync
+        const createDateTime = combineSapDateTime(bp?.CreateDate, bp?.CreateTime)
+        const updateDateTime = combineSapDateTime(bp?.UpdateDate, bp?.UpdateTime)
+
+        const isCreateDateTimeSameDay = createDateTime ? isSameDay(createDateTime, lastSyncDate) : false
+        const isUpdateDateTimeSameDay = updateDateTime ? isSameDay(updateDateTime, lastSyncDate) : false
+        const isCreateDateTimeAfter = createDateTime ? isAfter(createDateTime, lastSyncDate) : false
+        const isUpdateDateTimeAfter = updateDateTime ? isAfter(updateDateTime, lastSyncDate) : false
+
+        if (!(isCreateDateTimeSameDay || isUpdateDateTimeSameDay || isCreateDateTimeAfter || isUpdateDateTimeAfter)) continue
+
+        //* check required fields
+        if (!bp || !bp?.CardCode) {
+          errors.push({ field: 'CardCode', message: 'Missing required field' })
+          stats.errors.push({ rowNumber, entries: errors, row: bp, code: bp?.CardCode, name: bp?.CardName })
+          continue
+        }
+
+        //* skip (not an error): blocks duplicate CardName with different CardCode
+        const trimmedName = bp?.CardName?.trim()
+        if (!trimmedName) continue
+
+        const existingCode = nameMap.get(trimmedName)
+
+        //* card name already exists in db (or earlier in this page) under a different card code
+        if (existingCode && existingCode !== bp?.CardCode) continue
+
+        //* reserve the name so later rows in the same page are deduped too
+        if (!existingCode) nameMap.set(trimmedName, bp?.CardCode)
+
+        //* reshape data
+        batch.push({
+          syncStatus: 'synced',
+
+          //* sap fields
+          CardCode: bp?.CardCode,
+          CardName: bp?.CardName,
+          CardType: bp?.CardType,
+          CurrName: currencies?.Name || null,
+          CurrCode: currencies?.Code || null,
+          GroupCode: bpGroup?.code || null,
+          GroupName: bpGroup?.Name || null,
+          GroupNum: paymentTerm?.GroupNumber || null,
+          PymntGroup: paymentTerm?.PaymentTermsGroupName || null,
+          Phone1: bp?.Phone1 || null,
+          AcctType: bp?.U_OMEG_AcctType || null,
+          CmpPrivate: bp?.CompanyPrivate || null,
         })
+      }
 
+      //* fetch addresses & contacts for this page's allowed bps
       const [bpAddreses, bpContacts] = await Promise.all([
-        Promise.all(allowedBps.map((bp) => getMasterAddresses(bp?.CardCode ?? ''))),
-        Promise.all(allowedBps.map((bp) => getMasterContacts(bp?.CardCode ?? ''))),
+        Promise.all(batch.map((bp) => getMasterAddresses(bp?.CardCode ?? ''))),
+        Promise.all(batch.map((bp) => getMasterContacts(bp?.CardCode ?? ''))),
       ])
 
-      allowedBps.forEach((bp, index) => {
+      batch.forEach((bp, index) => {
         addressMap.set(bp.CardCode, bpAddreses[index]?.value ?? [])
         contactMap.set(bp.CardCode, bpContacts[index]?.value ?? [])
       })
-
-      const getBpUpsertPromises = (chunks: Record<string, any>[], tx: any) => {
-        return chunks
-          .map((row: any) => {
-            if (!row?.['CardCode']) return null
-
-            const bpData = {
-              syncStatus: 'synced',
-              createdBy: userId,
-              updatedBy: userId,
-
-              //* sap fields
-              CardCode: row?.CardCode,
-              CardName: row?.CardName,
-              CardType: row?.CardType,
-              CurrName: row?.CurrName || null,
-              CurrCode: row?.Currency || null,
-              GroupCode: row?.GroupCode || null,
-              GroupName: row?.GroupName || null,
-              GroupNum: row?.GroupNum || null,
-              PymntGroup: row?.PymntGroup || null,
-              Phone1: row?.Phone1 || null,
-              AcctType: row?.U_OMEG_AcctType || null,
-              CmpPrivate: row?.CmpPrivate || null,
-            }
-
-            return tx.businessPartner.upsert({
-              where: { CardCode: bpData.CardCode },
-              create: bpData,
-              update: bpData,
-            })
-          })
-          .filter((row) => row !== null)
-      }
 
       const upsertAddresses = async (chunks: Record<string, any>[], tx: any) => {
         for (const bp of chunks) {
@@ -1070,47 +1064,74 @@ export const syncFromSap = action
         }
       }
 
-      //* chunk transactions
-      const chunks = chunkArray(allowedBps, 10)
-
-      for (const chunk of chunks) {
-        await db.$transaction(async (tx) => {
-          await Promise.all(getBpUpsertPromises(chunk, tx))
-          await upsertAddresses(chunk, tx)
-          await upsertContacts(chunk, tx)
-        })
-      }
-
-      //* upsert sync meta
-      await db.syncMeta.upsert({
-        where: { code: SYNC_META_CODE },
-        create: { code: SYNC_META_CODE, description: 'Last bp customer master synced date', lastSyncAt: new Date() },
-        update: { code: SYNC_META_CODE, description: 'Last bp customer master synced date', lastSyncAt: new Date() },
+      //* commit the page, single transaction since data is already paged (max 1 page per call)
+      await db.$transaction(async (tx) => {
+        await Promise.all(
+          batch.map((bpData) =>
+            tx.businessPartner.upsert({
+              where: { CardCode: bpData.CardCode },
+              create: { ...bpData, createdBy: userId, updatedBy: userId },
+              update: { ...bpData, updatedBy: userId },
+            })
+          )
+        )
+        await upsertAddresses(batch, tx)
+        await upsertContacts(batch, tx)
       })
 
-      // //* create notification
-      // void createNotification(ctx, {
-      //   permissionCode: cardType === 'L' || cardType === 'C' ? PERMISSIONS_CODES.CUSTOMERS : PERMISSIONS_CODES.SUPPLIERS,
-      //   title: `${BUSINESS_PARTNER_TYPE_MAP[cardType]}s Synced From SAP`,
-      //   message: `${BUSINESS_PARTNER_TYPE_MAP[cardType]}${allowedBps.length > 1 ? 's were' : 'was'} synced from SAP by ${ctx.fullName}.`,
-      //   link: `/${cardType === 'L' || cardType === 'C' ? 'customers' : 'suppliers'}`,
-      //   entityType: 'BusinessPartner' as Prisma.ModelName,
-      //   userCodes: [],
-      // })
+      const progress = total > 0 ? ((stats.completed + data.length) / total) * 100 : 100
+
+      const updatedStats = {
+        ...stats,
+        completed: stats.completed + data.length,
+        synced: stats.synced + batch.length, //* only rows actually upserted (excludes skipped/errored)
+        progress,
+        status: progress >= 100 || isLastRow ? 'completed' : 'processing',
+      }
+
+      //* upsert sync meta only when the whole sync is completed
+      if (updatedStats.status === 'completed') {
+        await db.syncMeta.upsert({
+          where: { code: SYNC_META_CODE },
+          create: { code: SYNC_META_CODE, description: `Last ${SYNC_META_CODE} master synced date`, lastSyncAt: new Date() },
+          update: { code: SYNC_META_CODE, description: `Last ${SYNC_META_CODE} master synced date`, lastSyncAt: new Date() },
+        })
+
+        // //* create notification
+        // void createNotification(ctx, {
+        //   permissionCode: cardType === 'L' || cardType === 'C' ? PERMISSIONS_CODES.CUSTOMERS : PERMISSIONS_CODES.SUPPLIERS,
+        //   title: `${BUSINESS_PARTNER_TYPE_MAP[cardType]}s Synced From SAP`,
+        //   message: `${BUSINESS_PARTNER_TYPE_MAP[cardType]}${total > 1 ? 's were' : ' was'} synced from SAP by ${ctx.fullName}.`,
+        //   link: `/${cardType === 'L' || cardType === 'C' ? 'customers' : 'suppliers'}`,
+        //   entityType: 'BusinessPartner' as Prisma.ModelName,
+        //   userCodes: [],
+        // })
+      }
 
       return {
         status: 200,
-        message: `${BUSINESS_PARTNER_TYPE_MAP[cardType]} sync successfully!`,
+        message: `${updatedStats.synced}/${total} ${BUSINESS_PARTNER_TYPE_MAP[cardType]} master synced. ${updatedStats.errors.length} errors found.`,
         action: 'SYNC_FROM_SAP',
+        stats: updatedStats,
       }
     } catch (error) {
-      console.error(error)
+      console.error('Data sync error:', error)
+
+      const errors = data.map((row: any) => ({
+        rowNumber: row?.rowNumber as number,
+        entries: [{ field: 'Unknown', message: 'Unexpected batch write error' }],
+        row: null,
+      })) as any
+
+      stats.errors.push(...errors)
+      stats.status = 'error'
 
       return {
         error: true,
         status: 500,
-        message: error instanceof Error ? error.message : 'Something went wrong!',
+        message: error instanceof Error ? error.message : 'Data sync error!',
         action: 'SYNC_FROM_SAP',
+        stats,
       }
     }
   })

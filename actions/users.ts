@@ -331,25 +331,27 @@ export const changePassword = action
     const { code, oldPassword, newPassword, isForceToChangePassword } = parsedInput
     const { userId } = ctx
 
+    const action = isForceToChangePassword ? 'CHANGED_DEFAULT_PASSWORD' : 'UPDATE_PROFILE_CHANGE_PASSWORD'
+
     try {
-      //* update user
       const user = await db.user.findUnique({ where: { code } })
 
-      if (!user) return { error: true, status: 404, message: 'User not found!', action: 'UPDATE_PROFILE_CHANGE_PASSWORD' }
+      if (!user) return { error: true, status: 404, message: 'User not found!', action }
 
       let hashedPassword = user.password
 
+      //* not forced to chnage password, but will change password
       if (oldPassword && newPassword && !isForceToChangePassword) {
         //* if old password is provided, check if it matches the current password
         if (user.password) {
           const isPasswordMatch = await bcrypt.compare(oldPassword, user.password)
-          if (!isPasswordMatch)
-            return { error: true, status: 409, message: 'Old password does not match', action: 'UPDATE_PROFILE_CHANGE_PASSWORD' }
+          if (!isPasswordMatch) return { error: true, status: 409, message: 'Old password does not match', action }
         }
 
         hashedPassword = await bcrypt.hash(newPassword, 10)
       }
 
+      //* force to change password
       if (isForceToChangePassword && newPassword) {
         //* if new password is provided, and isForceToChangePassword = true means user is force to change their password, then hash the new password
         hashedPassword = await bcrypt.hash(newPassword, 10)
@@ -382,7 +384,7 @@ export const changePassword = action
         status: 200,
         message: 'Password changed successfully!',
         data: { user: updatedUser },
-        action: isForceToChangePassword ? 'CHANGED_DEFAULT_PASSWORD' : 'UPDATE_PROFILE_CHANGE_PASSWORD',
+        action,
       }
     } catch (error) {
       console.error(error)

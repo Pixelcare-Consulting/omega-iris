@@ -16,7 +16,7 @@ export const BUSINESS_PARTNER_TYPE_MAP: Record<string, (typeof BUSINESS_PARTNER_
 
 export const BUSINESS_PARTNER_TYPE_OF_BUSINESS_MAP: Record<string, string> = {
   C: 'Company',
-  I: 'Private',
+  P: 'Private',
   G: 'Government',
   E: 'Employee',
   S: 'Sole Taxable Subject',

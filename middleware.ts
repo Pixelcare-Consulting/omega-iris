@@ -29,7 +29,7 @@ export default auth((req) => {
   //* if the request is for an API route, pass it to the next handler
   if (isApiAuthRoute) return NextResponse.next()
 
-  // //* if its isAuthenticated and isDefaultPasswordChanged and its not , redirect to changed default password page
+  // //* if its isAuthenticated and isDefaultPasswordChanged and its not isChangePasswordPage, redirect to changed default password page
   if (isAuthenticated && !session?.user?.isDefaultPasswordChanged && !isChangePasswordPage) {
     return NextResponse.redirect(new URL(`/change-password?isForceToChangePassword=true`, nextUrl))
   }

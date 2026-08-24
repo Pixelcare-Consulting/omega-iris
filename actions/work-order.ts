@@ -29,6 +29,7 @@ const COMMON_WORK_ORDER_INCLUDE = {
     select: {
       code: true,
       name: true,
+      projectItemHiddenFields: true,
       projectGroup: { select: { code: true, name: true } },
     },
   },
@@ -305,7 +306,11 @@ export async function creditStock(params: CreditStockParams) {
       newStatus === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery']
     ) {
       //* process only the line items that has isDelivered = false and included in deliveredProjectItems
+      // // only line items that are stocked in will be credited / processed to stock-out (delivered)
       const lineItemsToProcess = lineItems.filter((li) => !li.isDelivered && deliveredProjectItems.includes(li.projectItem.code))
+      // const lineItemsToProcess = lineItems.filter(
+      //   (li) => !li.isDelivered && deliveredProjectItems.includes(li.projectItem.code) && li.isStockedIn
+      // )
 
       //* update isDelivered to true of work order items
       await Promise.all(
@@ -351,7 +356,9 @@ export async function creditStock(params: CreditStockParams) {
     ) {
       //* process only the line items that has isDelivered = false
       //? deliveredProjectItems is not being used here
+      // // only line items that are stocked in will be credited / processed to stock-out (delivered)
       const lineItemsToProcess = lineItems.filter((li) => !li.isDelivered)
+      // const lineItemsToProcess = lineItems.filter((li) => !li.isDelivered && li.isStockedIn)
 
       //* update isDelivered to true of work order items
       await Promise.all(
@@ -414,6 +421,7 @@ export async function creditStock(params: CreditStockParams) {
         const inProcessLineItems = lineItems.filter((li) => !li.isDelivered)
 
         //* if old status is 'Partial Delivery', revert stock from stock-in (In-process)
+        //* only inProcessLineItems that are stocked in will be rollback
         if (oldStatus === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery']) {
           await Promise.all(
             inProcessLineItems.map((li) => {
@@ -443,6 +451,7 @@ export async function creditStock(params: CreditStockParams) {
           })
         )
 
+        //* only deliveredLineItems that are stocked in will be rollback
         await Promise.all(
           deliveredLineItems.map((li) => {
             const pItem = li.projectItem
@@ -480,7 +489,9 @@ export const upsertWorkOrder = action
 
     const isDuplicate = code === -1 && duplicatedFromCode
 
+    //* by default set isStockedIn to true - because upon creation of work order, all line items will be credited to stock-in
     const woItems = lineItems.map(({ maxQty, ...li }) => li)
+    // const woItems = lineItems.map(({ maxQty, ...li }) => ({ ...li, isStockedIn: true }))
 
     const include = {
       projectIndividual: {
@@ -598,13 +609,13 @@ export const upsertWorkOrder = action
         action: 'UPSERT_WORK_ORDER',
         data: { workOrder: newWorkOrder },
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
 
       return {
         error: true,
         status: 500,
-        message: error instanceof Error ? error.message : 'Something went wrong!',
+        message: error ? error?.message : 'Something went wrong!',
         action: 'UPSERT_WORK_ORDER',
       }
     }

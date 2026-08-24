@@ -19,6 +19,9 @@ import CanView from '@/components/acl/can-view'
 import { useSession } from 'next-auth/react'
 import { useBps } from '@/hooks/safe-actions/business-partner'
 import ProjectIndividualSupplierTab from './_tabs/project-individual-supplier-tab'
+import { useEffect } from 'react'
+import { useBatchesMasterByWarehouseProjectCode } from '@/hooks/safe-actions/batches'
+import ProjectIndividualBatchTab from './_tabs/project-individual-batch-tab'
 
 type ViewProjectIndividualProps = {
   projectIndividual: NonNullable<Awaited<ReturnType<typeof getPiByCode>>>
@@ -32,6 +35,7 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
   const nonCustomerUsers = useNonBpUsers()
   const items = useProjecItems(projectIndividual.code)
   const suppliers = useBps('S', true)
+  const batches = useBatchesMasterByWarehouseProjectCode(projectIndividual.code)
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
@@ -99,7 +103,16 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
 
           <CanView subject='p-projects-individual-inventory' action={['view', 'view (owner)']}>
             <TabPanelITem title='Inventory'>
-              <ProjectIndividualItemTab projectCode={projectIndividual.code} projectName={projectIndividual.name} items={items} />
+              <ProjectIndividualItemTab
+                projectCode={projectIndividual.code}
+                projectName={projectIndividual.name}
+                projectItemHiddenFields={projectIndividual.projectItemHiddenFields}
+                items={items}
+              />
+            </TabPanelITem>
+
+            <TabPanelITem title='Batches'>
+              <ProjectIndividualBatchTab projectCode={projectIndividual.code} batches={batches} />
             </TabPanelITem>
           </CanView>
         </TabPanel>

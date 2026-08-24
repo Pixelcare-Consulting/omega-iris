@@ -659,11 +659,13 @@ export const importPis = action
         skipDuplicates: true,
       })
 
-      const progress = ((stats.completed + batch.length) / total) * 100
+      //* progress based on rows attempted, so it always reaches 100%
+      const progress = total > 0 ? ((stats.completed + data.length) / total) * 100 : 100
 
       const updatedStats = {
         ...stats,
-        completed: stats.completed + batch.length,
+        completed: stats.completed + data.length,
+        synced: stats.synced + batch.length, //* only rows actually created
         progress,
         status: progress >= 100 || isLastRow ? 'completed' : 'processing',
       }
@@ -682,7 +684,7 @@ export const importPis = action
 
       return {
         status: 200,
-        message: `${updatedStats.completed} project individual created successfully!`,
+        message: `${updatedStats.synced}/${total} project individual created successfully!`,
         action: 'IMPORT_PROJECT_INDIVIDUALS',
         stats: updatedStats,
       }

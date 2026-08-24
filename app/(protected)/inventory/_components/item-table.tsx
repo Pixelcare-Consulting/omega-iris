@@ -11,13 +11,22 @@ import dxDataGrid from 'devextreme/ui/data_grid'
 import { format } from 'date-fns'
 import { parseExcelFile } from '@/utils/xlsx'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
-import { ImportSyncError, Stats } from '@/types/common'
+import { ImportSyncError, Stats, SyncSectionState } from '@/types/common'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Item } from 'devextreme-react/toolbar'
 import Tooltip from 'devextreme-react/tooltip'
 
-import { deleteItem, getItems, importItems, restoreItem, syncFromSap, syncToSap } from '@/actions/item'
+import {
+  deleteItem,
+  getItemMasterByPage,
+  getItemMasterCount,
+  getItems,
+  importItems,
+  restoreItem,
+  syncFromSap,
+  syncToSap,
+} from '@/actions/item'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -36,9 +45,20 @@ import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import { useItemGroups } from '@/hooks/safe-actions/item-group'
 import { useManufacturers } from '@/hooks/safe-actions/manufacturer'
 import { NotificationContext } from '@/context/notification'
+import { chunkArray, safeParseInt } from '@/utils'
+import { ITEM_MASTER_MAX_PAGE_SIZE, SYNC_TO_SAP_CHUNK_SIZE } from '@/constants/sap'
 
 type ItemTableProps = { items: Awaited<ReturnType<typeof getItems>> }
 type DataSource = Awaited<ReturnType<typeof getItems>>
+
+const INITIAL_STATS: Stats = { total: 0, completed: 0, synced: 0, progress: 0, errors: [], status: 'idle' }
+
+const INITIAL_SYNC_SECTION_STATE: SyncSectionState = {
+  stats: INITIAL_STATS,
+  errors: [],
+  showError: false,
+  showConfirmation: false,
+}
 
 export default function ItemTable({ items }: ItemTableProps) {
   const router = useRouter()
@@ -56,29 +76,20 @@ export default function ItemTable({ items }: ItemTableProps) {
 
   const itemsToSync = useWatch({ control: form.control, name: 'items' })
 
-  const selectedRowKeys = useMemo(() => {
-    if (itemsToSync.length < 1) return []
-    return itemsToSync.map((wo) => wo.code)
-  }, [JSON.stringify(itemsToSync)])
-
   const [isLoading, setIsLoading] = useState(false)
-  const [stats, setStats] = useState<Stats>({ total: 0, completed: 0, progress: 0, errors: [], status: 'processing' })
+  const [rowData, setRowData] = useState<DataSource[number] | null>(null)
 
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false)
-  const [showSyncToSapConfirmation, setShowSyncToSapConfirmation] = useState(false)
-  const [showSyncFromSapConfirmation, setShowSyncFromSapConfirmation] = useState(false)
 
-  const [showImportError, setShowImportError] = useState(false)
-  const [showSyncError, setShowSyncError] = useState(false)
-
-  const [rowData, setRowData] = useState<DataSource[number] | null>(null)
-  const [importErrors, setImportErrors] = useState<ImportSyncError[]>([])
-  const [syncErrors, setSyncErrors] = useState<ImportSyncError[]>([])
+  const [importState, setImportState] = useState<SyncSectionState>(INITIAL_SYNC_SECTION_STATE)
+  const [syncToSapState, setSyncToSapState] = useState<SyncSectionState>(INITIAL_SYNC_SECTION_STATE)
+  const [syncFromSapState, setSyncFromSapState] = useState<SyncSectionState>(INITIAL_SYNC_SECTION_STATE)
 
   const dataGridRef = useRef<DataGridRef | null>(null)
   const importErrorDataGridRef = useRef<DataGridRef | null>(null)
   const syncErrorDataGridRef = useRef<DataGridRef | null>(null)
+  const syncFromSapErrorDataGridRef = useRef<DataGridRef | null>(null)
 
   const deleteItemData = useAction(deleteItem)
   const restoreItemData = useAction(restoreItem)
@@ -91,6 +102,11 @@ export default function ItemTable({ items }: ItemTableProps) {
   const manufacturers = useManufacturers()
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
+
+  const selectedRowKeys = useMemo(() => {
+    if (itemsToSync.length < 1) return []
+    return itemsToSync.map((wo) => wo.code)
+  }, [JSON.stringify(itemsToSync)])
 
   const importDependenciesIsLoading = useMemo(() => {
     return itemGroups.isLoading || manufacturers.isLoading
@@ -203,8 +219,8 @@ export default function ItemTable({ items }: ItemTableProps) {
       code: row.code,
       ItemCode: row.ItemCode,
       ItemName: row.ItemName,
-      Manufacturer: row?.FirmCode ?? -1,
-      ItemsGroupCode: row?.ItmsGrpCod ?? -1,
+      Manufacturer: row?.FirmCode,
+      ItemsGroupCode: row?.ItmsGrpCod,
     }))
 
     if (values.length < 1) instance.deselectAll()
@@ -212,7 +228,27 @@ export default function ItemTable({ items }: ItemTableProps) {
     form.setValue('items', values)
   }, [])
 
-  function exportToExcel(fileName: string, component?: dxDataGrid<any, any> | null, selectedRowsOnly = false) {
+  function handleOnCellPrepared(e: DataGridTypes.CellPreparedEvent) {
+    const column = e.column as any
+    const data = e.data
+    const cellElement = e.cellElement
+
+    const checkbox = (cellElement?.querySelector('.dx-select-checkbox') as HTMLInputElement) || null
+    const rowType = e.rowType
+
+    if (rowType === 'data') {
+      const isBlocked = data?.deletedAt || data?.deletedBy || data?.syncStatus === 'synced'
+
+      //* condition when column type is selection
+      if (column?.type === 'selection') {
+        if (isBlocked && checkbox) {
+          checkbox.style.display = 'none' //* hide checkbox if row has deletedAt or deletedBy
+        }
+      }
+    }
+  }
+
+  const exportToExcel = (fileName: string, component?: dxDataGrid<any, any> | null, selectedRowsOnly = false) => {
     if (!component) return
 
     const normalizedFileName = fileName.replace(/[^a-zA-Z0-9-]/g, '-')
@@ -257,6 +293,7 @@ export default function ItemTable({ items }: ItemTableProps) {
     const { file } = args
 
     setIsLoading(true)
+    setImportState((prev) => ({ ...prev, stats: { ...INITIAL_STATS, status: 'processing' } }))
 
     try {
       const headers: string[] = ['MFG_P/N', 'Manufacturer', 'Description', 'Group', 'Notes', 'Active']
@@ -268,7 +305,7 @@ export default function ItemTable({ items }: ItemTableProps) {
 
       //* trigger write by batch
       let batch: typeof toImportData = []
-      let stats: Stats = { total: 0, completed: 0, progress: 0, errors: [], status: 'processing' }
+      let stats: Stats = { total: toImportData.length, completed: 0, synced: 0, progress: 0, errors: [], status: 'processing' }
 
       for (let i = 0; i < toImportData.length; i++) {
         const isLastRow = i === toImportData.length - 1
@@ -292,10 +329,10 @@ export default function ItemTable({ items }: ItemTableProps) {
           const result = response?.data
 
           if (result?.error) {
-            setStats((prev: any) => ({ ...prev, errors: [...prev.errors, ...result.stats.errors] }))
+            setImportState((prev) => ({ ...prev, stats: { ...prev.stats, errors: [...prev.stats.errors, ...result.stats.errors] } }))
             stats.errors = [...stats.errors, ...result.stats.errors]
           } else if (result?.stats) {
-            setStats(result.stats)
+            setImportState((prev) => ({ ...prev, stats: result.stats }))
             stats = result.stats
           }
 
@@ -304,15 +341,14 @@ export default function ItemTable({ items }: ItemTableProps) {
       }
 
       if (stats.status === 'completed') {
-        toast.success(`Project groups imported successfully! ${stats.errors.length} errors found.`)
-        setStats((prev: any) => ({ ...prev, total: 0, completed: 0, progress: 0, status: 'processing' }))
+        toast.success(`Item master imported successfully!. ${stats.errors.length} errors found.`)
+        setImportState((prev) => ({ ...prev, stats: INITIAL_STATS }))
         router.refresh()
         // notificationContext?.handleRefresh()
       }
 
       if (stats.errors.length > 0) {
-        setShowImportError(true)
-        setImportErrors(stats.errors)
+        setImportState((prev) => ({ ...prev, showError: true, errors: stats.errors }))
         // notificationContext?.handleRefresh()
       }
 
@@ -325,61 +361,130 @@ export default function ItemTable({ items }: ItemTableProps) {
   }
 
   const handleConfirmSyncToSap = async (formData: SyncToSapForm) => {
+    setIsLoading(true)
+
     try {
-      setShowSyncToSapConfirmation(false)
+      const allItems = formData.items
+      const total = allItems.length
 
-      const response = await syncToSapData.executeAsync(formData)
-      const result = response?.data
+      setSyncToSapState((prev) => ({ ...prev, showConfirmation: false, stats: { ...INITIAL_STATS, status: 'processing', total } }))
 
-      if (result?.error) {
-        toast.error(result.message)
-        return
+      const chunks = chunkArray(allItems, SYNC_TO_SAP_CHUNK_SIZE)
+      let stats: Stats = { total, completed: 0, synced: 0, progress: 0, errors: [], status: 'processing' }
+
+      for (let i = 0; i < chunks.length; i++) {
+        const isLastChunk = i === chunks.length - 1
+
+        const response = await syncToSapData.executeAsync({
+          data: chunks[i],
+          total,
+          stats,
+          isLastRow: isLastChunk,
+        })
+        const result = response?.data
+
+        if (result?.error) {
+          setSyncToSapState((prev) => ({ ...prev, stats: { ...prev.stats, errors: [...prev.stats.errors, ...result.stats.errors] } }))
+          stats.errors = [...stats.errors, ...result.stats.errors]
+        } else if (result?.stats) {
+          setSyncToSapState((prev) => ({ ...prev, stats: result.stats }))
+          stats = result.stats
+        }
       }
 
-      toast.success(result?.message, { duration: 10000 })
-      form.reset()
-      router.refresh()
-      // notificationContext?.handleRefresh()
-
-      if (result?.errors && result?.errors.length > 0) {
-        setShowSyncError(true)
-        setSyncErrors(result?.errors || [])
+      if (stats.status === 'completed') {
+        toast.success(`Item master synced to SAP successfully!. ${stats.errors.length} errors found.`)
+        setSyncToSapState((prev) => ({ ...prev, stats: INITIAL_STATS }))
+        form.reset()
+        router.refresh()
+        // notificationContext?.handleRefresh()
       }
+
+      if (stats.errors.length > 0) {
+        setSyncToSapState((prev) => ({ ...prev, showError: true, errors: stats.errors }))
+        // notificationContext?.handleRefresh()
+      }
+
+      setIsLoading(false)
     } catch (error: any) {
       console.error(error)
+      setIsLoading(false)
       toast.error(error?.message || 'Failed to sync items to SAP!', { duration: 10000 })
     }
   }
 
   const handleConfirmSyncFromSap = async () => {
+    setIsLoading(true)
+    setSyncFromSapState((prev) => ({ ...prev, showConfirmation: false, stats: { ...INITIAL_STATS, status: 'processing' } }))
+
     try {
-      setShowSyncFromSapConfirmation(false)
+      //* get total count of item master from sap
+      const totalCount = await getItemMasterCount()
 
-      const response = await syncFromSapData.executeAsync()
-      const result = response?.data
-
-      if (result?.error) {
-        toast.error(result.message)
+      if (totalCount < 1) {
+        toast.error('Failed to fetch item master from SAP!')
+        setSyncFromSapState((prev) => ({ ...prev, stats: INITIAL_STATS }))
+        setIsLoading(false)
         return
       }
 
-      toast.success(result?.message)
-      router.refresh()
-      // notificationContext?.handleRefresh()
-      syncMeta.execute({ code: 'item' })
+      const totalPage = Math.ceil(totalCount / ITEM_MASTER_MAX_PAGE_SIZE)
+
+      //* trigger sync by page
+      let stats: Stats = { total: totalCount, completed: 0, synced: 0, progress: 0, errors: [], status: 'processing' }
+
+      for (let page = 0; page <= totalPage; page++) {
+        const isLastPage = page === totalPage
+
+        //* fetch item master from sap per page
+        const pageData = await getItemMasterByPage(page)
+
+        if (pageData.length < 1) {
+          if (isLastPage) stats.status = 'completed'
+          continue
+        }
+
+        const response = await syncFromSapData.executeAsync({
+          data: pageData,
+          total: totalCount,
+          stats,
+          isLastRow: isLastPage,
+        })
+        const result = response?.data
+
+        if (result?.error) {
+          setSyncFromSapState((prev) => ({ ...prev, stats: { ...prev.stats, errors: [...prev.stats.errors, ...result.stats.errors] } }))
+          stats.errors = [...stats.errors, ...result.stats.errors]
+        } else if (result?.stats) {
+          setSyncFromSapState((prev) => ({ ...prev, stats: result.stats }))
+          stats = result.stats
+        }
+      }
+
+      if (stats.status === 'completed') {
+        toast.success(`Item master synced from SAP successfully!. ${stats.errors.length} errors found.`)
+        setSyncFromSapState((prev) => ({ ...prev, stats: INITIAL_STATS }))
+        router.refresh()
+        syncMeta.execute({ code: 'item' })
+        // notificationContext?.handleRefresh()
+      }
+
+      if (stats.errors.length > 0) {
+        setSyncFromSapState((prev) => ({ ...prev, showError: true, errors: stats.errors }))
+        // notificationContext?.handleRefresh()
+      }
+
+      setIsLoading(false)
     } catch (error: any) {
       console.error(error)
+      setIsLoading(false)
       toast.error(error?.message || 'Failed to sync items from SAP!', { duration: 10000 })
     }
   }
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader
-        title='Item Master'
-        description='Manage and track your item master effectively'
-        isLoading={syncToSapData.isExecuting || syncFromSapData.isExecuting}
-      >
+      <PageHeader title='Item Master' description='Manage and track your item master effectively'>
         {selectedRowKeys.length > 0 && (
           <CanView subject='p-inventory' action='sync to sap'>
             <Item location='after' locateInMenu='auto' widget='dxButton'>
@@ -393,12 +498,12 @@ export default function ItemTable({ items }: ItemTableProps) {
               <LoadingButton
                 id='sync-items-to-sap'
                 icon='upload'
-                isLoading={syncToSapData.isExecuting}
+                isLoading={syncToSapData.isExecuting || syncToSapState.stats.status === 'processing'}
                 text={`${selectedRowKeys.length} : Sync To SAP`}
                 type='default'
                 loadingText='Syncing'
                 stylingMode='outlined'
-                onClick={() => setShowSyncToSapConfirmation(true)}
+                onClick={() => setSyncToSapState((prev) => ({ ...prev, showConfirmation: true }))}
               />
             </Item>
           </CanView>
@@ -419,12 +524,12 @@ export default function ItemTable({ items }: ItemTableProps) {
               <LoadingButton
                 id='sync-from-sap-to-portal'
                 icon='refresh'
-                isLoading={syncFromSapData.isExecuting}
+                isLoading={syncFromSapData.isExecuting || syncFromSapState.stats.status === 'processing'}
                 type='default'
                 text='Sync From SAP'
                 loadingText={syncMeta.isLoading ? 'Depedecy loading' : 'Syncing'}
                 stylingMode='outlined'
-                onClick={() => setShowSyncFromSapConfirmation(true)}
+                onClick={() => setSyncFromSapState((prev) => ({ ...prev, showConfirmation: true }))}
               />
             </Item>
           </CanView>
@@ -438,11 +543,29 @@ export default function ItemTable({ items }: ItemTableProps) {
           onImport={handleImport}
           addButton={{ text: 'Add Item Master', onClick: () => router.push('/inventory/add'), subjects: 'p-inventory', actions: 'create' }}
           customs={{ exportToExcel }}
-          importOptions={{ subjects: 'p-inventory', actions: 'import', isLoading: importDependenciesIsLoading }}
-          exportOptions={{ subjects: 'p-inventory', actions: 'export' }}
+          importOptions={{
+            subjects: 'p-inventory',
+            actions: 'import',
+            isLoading: importDependenciesIsLoading,
+          }}
+          exportOptions={{
+            subjects: 'p-inventory',
+            actions: 'export',
+            isLoading: importDependenciesIsLoading,
+          }}
         />
 
-        {stats && stats.progress && isLoading ? <ProgressBar min={0} max={100} showStatus={false} value={stats.progress} /> : null}
+        {isLoading && importState.stats.status === 'processing' ? (
+          <ProgressBar min={0} max={100} showStatus={false} value={importState.stats.progress} />
+        ) : null}
+
+        {isLoading && syncToSapState.stats.status === 'processing' ? (
+          <ProgressBar min={0} max={100} showStatus={false} value={syncToSapState.stats.progress} />
+        ) : null}
+
+        {isLoading && syncFromSapState.stats.status === 'processing' ? (
+          <ProgressBar min={0} max={100} showStatus={false} value={syncFromSapState.stats.progress} />
+        ) : null}
       </PageHeader>
 
       <PageContentWrapper className='h-[calc(100%_-_92px)]'>
@@ -454,7 +577,7 @@ export default function ItemTable({ items }: ItemTableProps) {
           isSelectionEnable
           dataGridStore={dataGridStore}
           selectedRowKeys={selectedRowKeys}
-          callbacks={{ onSelectionChanged: handleOnSelectionChanged }}
+          callbacks={{ onCellPrepared: handleOnCellPrepared, onSelectionChanged: handleOnSelectionChanged }}
         >
           <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
           <Column dataField='thumbnail' minWidth={140} caption='Thumbnail' cellRender={thumbnailCellRender} />
@@ -545,37 +668,49 @@ export default function ItemTable({ items }: ItemTableProps) {
       />
 
       <AlertDialog
-        isOpen={showSyncToSapConfirmation}
+        isOpen={syncToSapState.showConfirmation}
         title='Are you sure?'
         description={`Are you sure you want to sync this item${itemsToSync.length > 1 ? 's' : ''} to SAP?`}
         onConfirm={() => handleConfirmSyncToSap(form.getValues())}
-        onCancel={() => setShowSyncToSapConfirmation(false)}
+        onCancel={() => setSyncToSapState((prev) => ({ ...prev, showConfirmation: false }))}
       />
 
       <AlertDialog
-        isOpen={showSyncFromSapConfirmation}
+        isOpen={syncFromSapState.showConfirmation}
         title='Are you sure?'
         description='Are you sure you want to sync from SAP?'
         onConfirm={() => handleConfirmSyncFromSap()}
-        onCancel={() => setShowSyncFromSapConfirmation(false)}
+        onCancel={() => setSyncFromSapState((prev) => ({ ...prev, showConfirmation: false }))}
       />
 
       <ImportSyncErrorDataGrid
-        isOpen={showImportError}
-        setIsOpen={setShowImportError}
-        data={importErrors}
+        isOpen={importState.showError}
+        setIsOpen={(value) => setImportState((prev) => ({ ...prev, showError: value }))}
+        data={importState.errors}
         dataGridRef={importErrorDataGridRef}
       />
 
       <ImportSyncErrorDataGrid
-        title='Sync Error'
+        title='Sync To SAP Error'
         description='There was an error encountered while syncing.'
-        isOpen={showSyncError}
-        setIsOpen={setShowSyncError}
-        data={syncErrors}
+        isOpen={syncToSapState.showError}
+        setIsOpen={(value) => setSyncToSapState((prev) => ({ ...prev, showError: value }))}
+        data={syncToSapState.errors}
         dataGridRef={syncErrorDataGridRef}
       >
         <Column dataField='code' dataType='string' caption='Id' alignment='center' />
+      </ImportSyncErrorDataGrid>
+
+      <ImportSyncErrorDataGrid
+        title='Sync From SAP Error'
+        description='There was an error encountered while syncing.'
+        isOpen={syncFromSapState.showError}
+        setIsOpen={(value) => setSyncFromSapState((prev) => ({ ...prev, showError: value }))}
+        data={syncFromSapState.errors}
+        dataGridRef={syncFromSapErrorDataGridRef}
+      >
+        <Column dataField='code' dataType='string' caption='MFG P/N' alignment='center' />
+        <Column dataField='name' dataType='string' caption='Description' alignment='center' />
       </ImportSyncErrorDataGrid>
     </div>
   )

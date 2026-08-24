@@ -47,3 +47,6 @@ next-env.d.ts
 certificates
 sql
 scripts
+
+#sap
+SAP-Service-Layer-Authorization-Token.ini

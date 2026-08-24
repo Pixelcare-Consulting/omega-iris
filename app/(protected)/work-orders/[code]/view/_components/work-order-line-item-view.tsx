@@ -20,9 +20,10 @@ import { useSession } from 'next-auth/react'
 type WorkOrderLineItemViewProps = {
   data: Record<string, any> & WorkOrderItemForm
   onClose: () => void
+  hiddenFields?: string[]
 }
 
-export default function WorkOrderLineItemView({ data, onClose }: WorkOrderLineItemViewProps) {
+export default function WorkOrderLineItemView({ data, onClose, hiddenFields = [] }: WorkOrderLineItemViewProps) {
   const { data: session } = useSession()
 
   // const containerRef = useRef<HTMLDivElement>(null)
@@ -83,6 +84,55 @@ export default function WorkOrderLineItemView({ data, onClose }: WorkOrderLineIt
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Owner' value={data?.owner || ''} />
 
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Group'
+          value={data?.group || ''}
+          isHide={hiddenFields.includes('group')}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Division'
+          value={data?.division || ''}
+          isHide={hiddenFields.includes('division')}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Site'
+          value={data?.site || ''}
+          isHide={hiddenFields.includes('site')}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='CM Site'
+          value={data?.cmSite || ''}
+          isHide={hiddenFields.includes('cmSite')}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Phase'
+          value={data?.phase || ''}
+          isHide={hiddenFields.includes('phase')}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='TFS Standard Price'
+          value={formatNumber(safeParseFloat(data?.tfsStdPrice), DEFAULT_CURRENCY_FORMAT)}
+          isHide={hiddenFields.includes('tfsStdPrice')}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Omega Price'
+          value={formatNumber(safeParseFloat(data?.omegaPrice), DEFAULT_CURRENCY_FORMAT)}
+          isHide={hiddenFields.includes('omegaPrice')}
+        />
+
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='MFG P/N' value={data?.ItemCode || ''} />
 
         {/* //* temporarily hide */}
@@ -126,13 +176,12 @@ export default function WorkOrderLineItemView({ data, onClose }: WorkOrderLineIt
           value={formatNumber(safeParseFloat(data?.stockOut), DEFAULT_NUMBER_FORMAT)}
         />
 
-        {!isBusinessPartner && (
-          <ReadOnlyField
-            className='col-span-12 md:col-span-6 lg:col-span-3'
-            title='Total Stock'
-            value={formatNumber(safeParseFloat(data?.totalStock), DEFAULT_NUMBER_FORMAT)}
-          />
-        )}
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Total Stock'
+          value={formatNumber(safeParseFloat(data?.totalStock), DEFAULT_NUMBER_FORMAT)}
+          isHide={isBusinessPartner}
+        />
 
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'

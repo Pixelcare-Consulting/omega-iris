@@ -1,6 +1,6 @@
 'use client'
 
-import { Dispatch, Ref, SetStateAction, useCallback, useRef, useState } from 'react'
+import { Ref, useCallback, useRef } from 'react'
 import { Workbook } from 'exceljs'
 import { exportDataGrid } from 'devextreme/common/export/excel'
 import { saveAs } from 'file-saver-es'
@@ -27,7 +27,7 @@ type ImportSyncErrorDataGridProps = {
   title?: string
   description?: string
   isOpen: boolean
-  setIsOpen: Dispatch<SetStateAction<boolean>>
+  setIsOpen: (isOpen: boolean) => void
   data: ImportSyncError[]
   dataGridRef: Ref<DataGridRef>
   children?: React.ReactNode
@@ -200,7 +200,7 @@ export default function ImportSyncErrorDataGrid({
           columnAutoWidth={false}
           columnMinWidth={DEFAULT_COLUMN_MIN_WIDTH}
         >
-          <Column dataField='rowNumber' dataType='number' caption='Row #' alignment='center' />
+          <Column dataField='rowNumber' dataType='number' caption='Row #' alignment='center' sortOrder='asc' />
           {children}
           <Export enabled formats={['xlsx']} />
 

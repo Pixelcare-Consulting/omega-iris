@@ -245,7 +245,7 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
     if (shippingAddresses.length > 0) shippingAddrsFieldArray.replace(shippingAddresses)
   }, [JSON.stringify(shippingAddresses)])
 
-  //* set billing CountryName when billing CountryCode is changed
+  //* set billing CountryName when billing CountryCode was changed
   useEffect(() => {
     if (billingCountryCode && !billingCountries.isLoading && billingCountries.data?.length > 0) {
       const selectedCountry = billingCountries.data.find((c: any) => c.Code === billingCountryCode)
@@ -253,7 +253,7 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
     }
   }, [billingCountryCode, JSON.stringify(billingCountries), billingIndex])
 
-  //* set shipping CountryName when shipping CountryCode is changed
+  //* set shipping CountryName when shipping CountryCode was changed
   useEffect(() => {
     if (shippingCountryCode && !shippingCountries.isLoading && shippingCountries.data?.length > 0) {
       const selectedCountry = shippingCountries.data.find((c: any) => c.Code === shippingCountryCode)
@@ -261,7 +261,7 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
     }
   }, [shippingCountryCode, JSON.stringify(shippingCountries), shippingIndex])
 
-  //* set billing StateName when billing StateCode is changed
+  //* set billing StateName when billing StateCode was changed
   useEffect(() => {
     if (billingStateCode && !billingStates.isLoading && billingStates.data?.length > 0) {
       const selectedState = billingStates.data.find((s: any) => s.Code === billingStateCode)
@@ -269,7 +269,7 @@ export default function AddressForm({ bpAddresses }: AddressFormProps) {
     }
   }, [billingStateCode, JSON.stringify(billingStates), billingIndex])
 
-  //* set shipping StateName when shipping StateCode is changed
+  //* set shipping StateName when shipping StateCode was changed
   useEffect(() => {
     if (shippingStateCode && !shippingStates.isLoading && shippingStates.data?.length > 0) {
       const selectedState = shippingStates.data.find((s: any) => s.Code === shippingStateCode)

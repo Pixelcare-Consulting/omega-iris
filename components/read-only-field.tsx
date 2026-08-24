@@ -8,9 +8,12 @@ type ReadOnlyFieldProps = {
   isLoading?: boolean
   description?: string
   children?: React.ReactNode
+  isHide?: boolean
 }
 
-export default function ReadOnlyField({ className, title, value, isLoading, description, children }: ReadOnlyFieldProps) {
+export default function ReadOnlyField({ className, title, value, isLoading, description, children, isHide }: ReadOnlyFieldProps) {
+  if (isHide) return null
+
   return (
     <div className={cn('relative space-y-1.5', className)}>
       {title && <div className='text-sm font-medium leading-none peer-disabled:cursor-not-allowed'>{title}</div>}

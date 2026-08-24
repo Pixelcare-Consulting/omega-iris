@@ -30,6 +30,13 @@ export const projectItemFormSchema = z
     mfr: z.string().nullish(),
     desc: z.string().nullish(),
     commodities: z.string().nullish(),
+    group: z.string().nullish(),
+    division: z.string().nullish(),
+    site: z.string().nullish(),
+    cmSite: z.string().nullish(),
+    phase: z.coerce.number().nullish(),
+    tfsStdPrice: z.coerce.number().nullish(),
+    omegaPrice: z.coerce.number().nullish(),
   })
   .refine(
     (formData) => {

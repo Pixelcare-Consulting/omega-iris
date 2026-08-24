@@ -11,12 +11,13 @@ import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import { chunkArray, safeParseFloat } from '@/utils'
 import { callSapServiceLayerApi } from './sap-service-layer'
-import { SAP_BASE_URL } from '@/constants/sap'
+import { ITEM_MASTER_MAX_PAGE_SIZE, SAP_BASE_URL } from '@/constants/sap'
 import { importFormSchema } from '@/schema/import'
 import logger from '@/utils/logger'
 import { safeParseInt } from '@/utils'
 import { createNotification } from './notification'
 import { PERMISSIONS_CODES } from '@/constants/permission'
+import { combineSapDateTime } from '@/utils/sap'
 
 const COMMON_ITEM_ORDER_BY = { code: 'asc' } satisfies Prisma.ItemOrderByWithRelationInput
 
@@ -257,11 +258,13 @@ export const importItems = action
         skipDuplicates: true,
       })
 
-      const progress = ((stats.completed + batch.length) / total) * 100
+      //* progress based on rows attempted, so it always reaches 100%
+      const progress = total > 0 ? ((stats.completed + data.length) / total) * 100 : 100
 
       const updatedStats = {
         ...stats,
-        completed: stats.completed + batch.length,
+        completed: stats.completed + data.length,
+        synced: stats.synced + batch.length, //* only rows actually created
         progress,
         status: progress >= 100 || isLastRow ? 'completed' : 'processing',
       }
@@ -280,7 +283,7 @@ export const importItems = action
 
       return {
         status: 200,
-        message: `${updatedStats.completed} inventory items created successfully!`,
+        message: `${updatedStats.synced}/${total} item master created successfully!`,
         action: 'IMPORT_ITEMS',
         stats: updatedStats,
       }
@@ -378,61 +381,66 @@ export const restoreItem = action
     }
   })
 
-//* SAP Related functions
+export async function getItemMasterByItemCode(itemCode: string, isSynced?: boolean) {
+  if (!itemCode || !isSynced) return null
 
-const PER_PAGE = 500
+  try {
+    const response = (await callSapServiceLayerApi({ url: `${SAP_BASE_URL}/b1s/v1/Items?$filter=ItemCode eq '${itemCode}'` })) as {
+      value?: any[]
+    } | null
 
-export async function getItemMaster() {
+    return response?.value?.[0] ?? null
+  } catch (error) {
+    console.error(error)
+    return null
+  }
+}
+
+export async function getItemMasterCount() {
   try {
     const totalCount = await callSapServiceLayerApi({ url: `${SAP_BASE_URL}/b1s/v1/Items/$count?$filter=U_Portal_Sync eq 'Y'` })
-    const totalPage = Math.ceil(safeParseInt(totalCount) / PER_PAGE)
-
-    const requestsPromises = []
-
-    for (let i = 0; i <= totalPage; i++) {
-      const skip = i * PER_PAGE //* offset
-
-      //* create request
-      const request = callSapServiceLayerApi({
-        url: `${SAP_BASE_URL}/b1s/v1/$crossjoin(Items,ItemGroups,Manufacturers)?$expand=Items($select=ItemCode,ItemName,ItemsGroupCode,Manufacturer,ManageBatchNumbers,PurchaseItemsPerUnit,U_MPN,U_MSL,CreateDate,UpdateDate,U_Portal_Sync),ItemGroups($select=Number,GroupName),Manufacturers($select=Code,ManufacturerName)&$filter=Items/ItemsGroupCode eq ItemGroups/Number and Items/Manufacturer eq Manufacturers/Code and Items/U_Portal_Sync eq 'Y'&$skip=${skip}&$orderby=ItemCode asc`,
-        headers: { Prefer: `odata.maxpagesize=${PER_PAGE}` },
-      })
-
-      //* push request to the requestsPromises array
-      requestsPromises.push(request)
-    }
-
-    //* fetch all item master from sap in parallel
-    const itemMaster = await Promise.all(requestsPromises)
-
-    return itemMaster
-      .flatMap((res) => res?.value || [])
-      .filter(Boolean)
-      .sort((a, b) => a?.Items.ItemCode - b?.Items.ItemCode)
+    return safeParseInt(totalCount)
   } catch (error) {
     console.log({ error })
-    logger.error(error, 'Failed to fetch item master from SAP')
+    logger.error(error, 'Failed to fetch item master count from SAP')
+    return 0
+  }
+}
+
+export async function getItemMasterByPage(page: number) {
+  try {
+    const skip = page * ITEM_MASTER_MAX_PAGE_SIZE //* offset
+
+    //* create request
+    const req = (await callSapServiceLayerApi({
+      url: `${SAP_BASE_URL}/b1s/v1/$crossjoin(Items,ItemGroups,Manufacturers)?$expand=Items($select=ItemCode,ItemName,ItemsGroupCode,Manufacturer,ManageBatchNumbers,PurchaseItemsPerUnit,U_MPN,U_MSL,CreateDate,CreateTime,UpdateDate,UpdateTime,U_Portal_Sync),ItemGroups($select=Number,GroupName),Manufacturers($select=Code,ManufacturerName)&$filter=Items/ItemsGroupCode eq ItemGroups/Number and Items/Manufacturer eq Manufacturers/Code and Items/U_Portal_Sync eq 'Y'&$skip=${skip}&$orderby=ItemCode asc`,
+      headers: { Prefer: `odata.maxpagesize=${ITEM_MASTER_MAX_PAGE_SIZE}` },
+    })) as { value?: any[] } | null
+
+    return (req?.value || []).filter(Boolean)
+  } catch (error) {
+    console.log({ error })
+    logger.error(error, `Failed to fetch item master from SAP: Page (${page})`)
     return []
   }
 }
 
 export const syncToSap = action
   .use(authenticationMiddleware)
-  .schema(syncToSapFormSchema)
+  .schema(importFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { items } = parsedInput
+    const { data, total, stats, isLastRow } = parsedInput
     const { userId } = ctx
 
-    const importSyncErrors: ImportSyncError[] = []
     const toUpdateSyncStatus: number[] = []
 
     try {
       const sapBatch: { rowNumber: number; code: number; promise: Promise<any>; row: Record<string, any> }[] = []
 
-      for (let i = 0; i < items.length; i++) {
+      for (let i = 0; i < data.length; i++) {
         const errors: ImportSyncErrorEntry[] = []
-        const row = items[i]
-        const rowNumber = i + 1
+        const row = data[i]
+        const rowNumber = stats.completed + i + 1 //* global row number across chunks
 
         //* check required fields
         if (!row?.ItemCode) errors.push({ field: 'MFG P/N', message: 'Missing required field' })
@@ -443,9 +451,9 @@ export const syncToSap = action
 
         if (!row?.ItemName) errors.push({ field: 'Description', message: 'Missing required field' })
 
-        //* if errors array is not empty, then update/push to ImportSyncError
+        //* if errors present, push to stats.errors and skip
         if (errors.length > 0) {
-          importSyncErrors.push({ rowNumber, entries: errors, row, code: row?.code })
+          stats.errors.push({ rowNumber, entries: errors, row, code: row?.code })
           continue
         }
 
@@ -469,23 +477,23 @@ export const syncToSap = action
       //* create items into sap
       const sapCreated = await Promise.all(sapBatch.map((b) => b.promise))
 
-      //* populate error if any related to sap
+      //* populate error if any related to sap, otherwise collect success codes
       for (let i = 0; i < sapCreated.length; i++) {
-        const batchItem = sapBatch[i] //* sapCreated and sapBatch has the same order
+        const batchItem = sapBatch[i] //* sapCreated and sapBatch have the same order
 
-        //* if error present means there's error when creating in sap
-        if (sapCreated[i].error) {
-          //* find the import error related to the batch items code
-          const importError = importSyncErrors.find((e) => e?.code === batchItem?.code)
+        //* if error present means there's an error when creating in sap
+        if (sapCreated[i]?.error) {
+          //* find existing stats error related to the batch item's code
+          const importSyncError = stats.errors.find((e) => e?.code === batchItem?.code)
 
-          //* update the error if there existing import error otherwise create a new one
-          if (importError) {
-            importError.entries.push({
+          //* update the error if there existing importSyncError otherwise create a new one
+          if (importSyncError) {
+            importSyncError.entries.push({
               field: 'SAP Error',
               message: sapCreated[i]?.error?.message?.value || 'Unknown SAP error',
             })
           } else {
-            importSyncErrors.push({
+            stats.errors.push({
               rowNumber: batchItem.rowNumber,
               entries: [{ field: 'SAP Error', message: sapCreated[i]?.error?.message?.value || 'Unknown SAP error' }],
               row: batchItem.row,
@@ -496,165 +504,193 @@ export const syncToSap = action
           continue
         }
 
-        //* add code to the toUpdateSyncStatus array, only the code will be added that does not encountered any error in sap creation
+        //* only codes that did not encounter a sap error are added
         toUpdateSyncStatus.push(batchItem.code)
       }
 
-      //* update the sync status of the items who created in sap
+      //* update the sync status of the items created in sap
       await db.item.updateMany({
         where: { code: { in: toUpdateSyncStatus } },
         data: { syncStatus: 'synced', updatedBy: userId },
       })
 
-      const completed = sapCreated?.filter((sc) => !sc?.error)
+      //* progress based on items processed (attempted) this chunk
+      const progress = total > 0 ? ((stats.completed + data.length) / total) * 100 : 100
 
-      //* create notification
-      // void createNotification(ctx, {
-      //   permissionCode: PERMISSIONS_CODES.INVENTORY,
-      //   title: 'Invetories Synced To SAP',
-      //   message: `${completed.length} of ${items.length} inventor${items.length > 1 ? 'ies were' : 'y was'} synced into SAP by ${ctx.fullName}. ${importSyncErrors.length} error${importSyncErrors.length > 1 ? 's' : ''} found.`,
-      //   link: `/inventory`,
-      //   entityType: 'Item' as Prisma.ModelName,
-      //   userCodes: [],
-      // })
+      const updatedStats = {
+        ...stats,
+        completed: stats.completed + data.length,
+        synced: stats.synced + toUpdateSyncStatus.length, //* only items successfully created in SAP
+        progress,
+        status: progress >= 100 || isLastRow ? 'completed' : 'processing',
+      }
+
+      //* create notification only when the whole sync is completed
+      // if (updatedStats.status === 'completed') {
+      //   void createNotification(ctx, {
+      //     permissionCode: PERMISSIONS_CODES.INVENTORY,
+      //     title: 'Inventories Synced To SAP',
+      //     message: `${updatedStats.completed - updatedStats.errors.length} of ${total} inventor${total > 1 ? 'ies were' : 'y was'} synced into SAP by ${ctx.fullName}. ${updatedStats.errors.length} error${updatedStats.errors.length > 1 ? 's' : ''} found.`,
+      //     link: `/inventory`,
+      //     entityType: 'Item' as Prisma.ModelName,
+      //     userCodes: [],
+      //   })
+      // }
 
       return {
         status: 200,
-        message: `Inventory items sync successfully!. ${completed.length}/${items.length} items created into SAP. ${importSyncErrors.length} errors found.`,
+        message: `${updatedStats.synced}/${total} items synced into SAP. ${updatedStats.errors.length} errors found.`,
         action: 'SYNC_TO_SAP',
-        errors: importSyncErrors,
+        stats: updatedStats,
       }
     } catch (error) {
       console.error('Data sync error:', error)
 
-      const errors = items.map((row, index) => ({
-        rowNumber: index + 1,
-        code: row.code,
+      const errors = data.map((row, index) => ({
+        rowNumber: stats.completed + index + 1,
+        code: row?.code,
         entries: [{ field: 'Unknown', message: 'Unexpected batch write error' }],
         row,
-      }))
+      })) as any
+
+      stats.errors.push(...errors)
+      stats.status = 'error'
 
       return {
         error: true,
         status: 500,
-        message: error instanceof Error ? error.message : 'Data import error!',
+        message: error instanceof Error ? error.message : 'Data sync error!',
         action: 'SYNC_TO_SAP',
-        errors,
+        stats,
       }
     }
   })
 
-export const syncFromSap = action.use(authenticationMiddleware).action(async ({ ctx }) => {
-  const { userId } = ctx
+export const syncFromSap = action
+  .use(authenticationMiddleware)
+  .schema(importFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { data, total, stats, isLastRow } = parsedInput
+    const { userId } = ctx
 
-  const SYNC_META_CODE = 'item'
+    const SYNC_META_CODE = 'item'
 
-  try {
-    //* fetch all item master from sap & last sync date
-    const data = await Promise.allSettled([getItemMaster(), db.syncMeta.findUnique({ where: { code: SYNC_META_CODE } })])
+    try {
+      //* get last sync date
+      const syncMeta = await db.syncMeta.findUnique({ where: { code: SYNC_META_CODE } })
+      const lastSyncDate = syncMeta?.lastSyncAt || new Date('01/01/2020')
 
-    const itemMaster = data[0].status === 'fulfilled' ? data[0]?.value || [] : []
-    const lastSyncDate = data[1].status === 'fulfilled' ? data[1]?.value?.lastSyncAt || new Date('01/01/2020') : new Date('01/01/2020')
+      const batch: Prisma.ItemUncheckedCreateInput[] = []
 
-    if (itemMaster.length < 1) {
+      for (let i = 0; i < data.length; i++) {
+        const errors: ImportSyncErrorEntry[] = []
+        const row = data[i]
+        const rowNumber = stats.completed + i + 1 //* global row number across pages
+
+        const item = row?.Items
+        const itemGroup = row?.ItemGroups
+        const manufacturer = row?.Manufacturers
+
+        //* skip (not an error): not created/updated since last sync
+        const createDateTime = combineSapDateTime(item?.CreateDate, item?.CreateTime)
+        const updateDateTime = combineSapDateTime(item?.UpdateDate, item?.UpdateTime)
+
+        const isCreateDateTimeSameDay = createDateTime ? isSameDay(createDateTime, lastSyncDate) : false
+        const isUpdateDateTimeSameDay = updateDateTime ? isSameDay(updateDateTime, lastSyncDate) : false
+        const isCreateDateTimeAfter = createDateTime ? isAfter(createDateTime, lastSyncDate) : false
+        const isUpdateDateTimeAfter = updateDateTime ? isAfter(updateDateTime, lastSyncDate) : false
+
+        if (!(isCreateDateTimeSameDay || isUpdateDateTimeSameDay || isCreateDateTimeAfter || isUpdateDateTimeAfter)) continue
+
+        //* check required fields
+        if (!item || !item?.ItemCode) errors.push({ field: 'ItemCode', message: 'Missing required field' })
+
+        //* if errors array is not empty, then update/push to stats.errors
+        if (errors.length > 0) {
+          stats.errors.push({ rowNumber, entries: errors, row: item, code: item?.ItemCode, name: item?.ItemName })
+          continue
+        }
+
+        //* reshape data
+        batch.push({
+          syncStatus: 'synced',
+
+          //* sap fields
+          ItemCode: item.ItemCode,
+          ItemName: item?.ItemName || '',
+          ItmsGrpCod: itemGroup?.Number || -1,
+          ItmsGrpNam: itemGroup?.GroupName || '',
+          FirmCode: manufacturer?.Code || -1,
+          FirmName: manufacturer?.ManufacturerName || '',
+        })
+      }
+
+      //* commit the batch, single transaction since data is already paged (max 1 page per call)
+      await db.$transaction(async (tx) => {
+        await Promise.all(
+          batch.map((itemData) =>
+            tx.item.upsert({
+              where: { ItemCode: itemData.ItemCode },
+              create: { ...itemData, createdBy: userId, updatedBy: userId },
+              update: { ...itemData, updatedBy: userId },
+            })
+          )
+        )
+      })
+
+      const progress = total > 0 ? ((stats.completed + data.length) / total) * 100 : 100
+
+      const updatedStats = {
+        ...stats,
+        completed: stats.completed + data.length,
+        synced: stats.synced + batch.length, //* only rows actually upserted (excludes skipped/errored)
+        progress,
+        status: progress >= 100 || isLastRow ? 'completed' : 'processing',
+      }
+
+      //* upsert sync meta only when the whole sync is completed
+      if (updatedStats.status === 'completed') {
+        await db.syncMeta.upsert({
+          where: { code: SYNC_META_CODE },
+          create: { code: SYNC_META_CODE, description: 'Last item master synced date', lastSyncAt: new Date() },
+          update: { code: SYNC_META_CODE, description: 'Last item master synced date', lastSyncAt: new Date() },
+        })
+
+        //* create notification
+        // void createNotification(ctx, {
+        //   permissionCode: PERMISSIONS_CODES.INVENTORY,
+        //   title: 'Invetories Synced From SAP',
+        //   message: `Inventor${total > 1 ? 'ies were' : 'y was'} synced from SAP by ${ctx.fullName}.`,
+        //   link: `/inventory`,
+        //   entityType: 'Item' as Prisma.ModelName,
+        //   userCodes: [],
+        // })
+      }
+
+      return {
+        status: 200,
+        message: `${updatedStats.synced}/${total} item master synced. ${updatedStats.errors.length} errors found.`,
+        action: 'SYNC_FROM_SAP',
+        stats: updatedStats,
+      }
+    } catch (error) {
+      console.error('Data sync error:', error)
+
+      const errors = data.map((row: any) => ({
+        rowNumber: row?.rowNumber as number,
+        entries: [{ field: 'Unknown', message: 'Unexpected batch write error' }],
+        row: null,
+      })) as any
+
+      stats.errors.push(...errors)
+      stats.status = 'error'
+
       return {
         error: true,
-        status: 404,
-        message: 'Failed to fetch item master from SAP!',
+        status: 500,
+        message: error instanceof Error ? error.message : 'Data sync error!',
         action: 'SYNC_FROM_SAP',
+        stats,
       }
     }
-
-    //* do an upsert operation
-    //*  filter the records where CreatedDate === lastSyncDate or  CreateDate > lastSyncDate or UpdateDate === lastSyncDate or UpdateDate > lastSyncDate
-    const filteredSapItemMasters =
-      itemMaster?.filter((row: any) => {
-        const item = row?.Items
-
-        const createDate = item?.CreateDate ? parse(item?.CreateDate, 'yyyy-MM-dd', new Date()) : null
-        const updateDate = item?.UpdateDate ? parse(item?.UpdateDate, 'yyyy-MM-dd', new Date()) : null
-
-        const isCreateDateSameDay = createDate ? isSameDay(createDate, lastSyncDate) : false
-        const isUpdateDateSameDay = updateDate ? isSameDay(updateDate, lastSyncDate) : false
-        const isCreateDateAfter = createDate ? isAfter(createDate, lastSyncDate) : false
-        const isUpdateDateAfter = updateDate ? isAfter(updateDate, lastSyncDate) : false
-
-        return isCreateDateSameDay || isUpdateDateSameDay || isCreateDateAfter || isUpdateDateAfter
-      }) || []
-
-    const getUpsertPromises = (filteredSapItemMasters: Record<string, any>[], tx: any) => {
-      //* filtered items by U_Portal_Sync === Y
-      return filteredSapItemMasters
-        .filter((row: any) => row?.Items?.U_Portal_Sync === 'Y')
-        .map((row: any) => {
-          const item = row?.Items
-          const ItemGroup = row?.ItemGroups
-          const Manufacturer = row?.Manufacturers
-
-          if (!item || !item?.ItemCode) return null
-
-          const itemData = {
-            syncStatus: 'synced',
-            createdBy: userId,
-            updatedBy: userId,
-
-            //* sap fields
-            ItemCode: item?.ItemCode,
-            ItemName: item?.ItemName || '',
-            ItmsGrpCod: ItemGroup?.Number || -1,
-            ItmsGrpNam: ItemGroup?.GroupName || '',
-            FirmCode: Manufacturer?.Code || -1,
-            FirmName: Manufacturer?.ManufacturerName || '',
-          }
-
-          return tx.item.upsert({
-            where: { ItemCode: itemData.ItemCode },
-            create: itemData,
-            update: itemData,
-          })
-        })
-        .filter((row) => row !== null)
-    }
-
-    //* chunk transactions
-    const chunks = chunkArray(filteredSapItemMasters, 10)
-
-    for (const chunk of chunks) {
-      await db.$transaction(async (tx) => {
-        await Promise.all(getUpsertPromises(chunk, tx))
-      })
-    }
-
-    //* upsert sync meta
-    await db.syncMeta.upsert({
-      where: { code: SYNC_META_CODE },
-      create: { code: SYNC_META_CODE, description: 'Last item master synced date', lastSyncAt: new Date() },
-      update: { code: SYNC_META_CODE, description: 'Last item master synced date', lastSyncAt: new Date() },
-    })
-
-    //* create notification
-    // void createNotification(ctx, {
-    //   permissionCode: PERMISSIONS_CODES.INVENTORY,
-    //   title: 'Invetories Synced From SAP',
-    //   message: `Inventor${filteredSapItemMasters.length > 1 ? 'ies were' : 'y was'} synced from SAP by ${ctx.fullName}.`,
-    //   link: `/inventory`,
-    //   entityType: 'Item' as Prisma.ModelName,
-    //   userCodes: [],
-    // })
-
-    return {
-      status: 200,
-      message: 'Inventory items sync successfully!',
-      action: 'SYNC_FROM_SAP',
-    }
-  } catch (error) {
-    console.error(error)
-
-    return {
-      error: true,
-      status: 500,
-      message: error instanceof Error ? error.message : 'Something went wrong!',
-      action: 'SYNC_FROM_SAP',
-    }
-  }
-})
+  })

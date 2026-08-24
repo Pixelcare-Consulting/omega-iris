@@ -23,62 +23,58 @@ export default function WarehouseOverviewTab({ warehouse }: WarehouseOverviewTab
           <Copy value={warehouse.code} />
         </ReadOnlyField>
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Name' value={warehouse.name} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Code' value={warehouse?.WarehouseCode || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Description' value={warehouse?.description || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Name' value={warehouse.WarehouseName} />
 
         <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
+          className='col-span-12 md:col-span-6 lg:col-span-4'
           title='Status'
           value={warehouse.isActive ? 'Active' : 'Inactive'}
         />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Default' value={warehouse.isDefault ? 'Yes' : 'No'} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Nettable' value={warehouse.isNettable ? 'Yes' : 'No'} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Nettable' value={warehouse.Nettable ? 'Yes' : 'No'} />
 
         <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
+          className='col-span-12 md:col-span-6 lg:col-span-4'
           title='Enable Bin Locations'
-          value={warehouse.isEnableBinLocations ? 'Yes' : 'No'}
+          value={warehouse.EnableBinLocations ? 'Yes' : 'No'}
         />
 
         <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='Warehouse Location' description='Warehouse location details' />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Street 1' value={warehouse?.address1 || ''} />
+        <ReadOnlyField className='col-span-12' title='Line 1' value={warehouse?.Street || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Street 2' value={warehouse?.address2 || ''} />
+        <ReadOnlyField className='col-span-12' title='Line 2' value={warehouse?.Address2 || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Street 3' value={warehouse?.address3 || ''} />
+        <ReadOnlyField className='col-span-12' title='Line 3' value={warehouse?.Address3 || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Street/PO Box' value={warehouse?.streetPoBox || ''} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Street No.' value={warehouse?.streetNo || ''} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Block' value={warehouse?.block || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Street No.' value={warehouse?.StreetNo || ''} />
 
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'
           title='Building/Floor/Room'
-          value={warehouse?.buildingFloorRoom || ''}
+          value={warehouse?.BuildingFloorRoom || ''}
         />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Zip Code' value={warehouse?.zipCode || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Block' value={warehouse?.Block || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='City' value={warehouse?.city || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='City' value={warehouse?.City || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Country/Region' value={warehouse?.countryRegion || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Zip Code' value={warehouse?.ZipCode || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='State' value={warehouse?.state || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='County' value={warehouse?.County || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='County' value={warehouse?.county || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Country' value={warehouse?.CountryName || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Federal Tax ID' value={warehouse?.federalTaxId || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='State' value={warehouse?.StateName || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='GLN' value={warehouse?.gln || ''} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Tax Office' value={warehouse?.taxOffice || ''} />
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Glboal Location Number (GLN)'
+          value={warehouse?.GlobalLocationNumber || ''}
+        />
 
         <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12' title='Record Meta data' description='Project group record meta data' />

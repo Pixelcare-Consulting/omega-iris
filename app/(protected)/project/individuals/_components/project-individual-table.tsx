@@ -15,7 +15,7 @@ import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-p
 import AlertDialog from '@/components/alert-dialog'
 import CommonDataGrid from '@/components/common-datagrid'
 import { parseExcelFile } from '@/utils/xlsx'
-import { ImportSyncError, Stats } from '@/types/common'
+import { ImportSyncError, Stats, SyncSectionState } from '@/types/common'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
@@ -25,6 +25,15 @@ import { useSession } from 'next-auth/react'
 
 type ProjectIndividualTableProps = { projectIndividuals: Awaited<ReturnType<typeof getPis>> }
 type DataSource = Awaited<ReturnType<typeof getPis>>
+
+const INITIAL_STATS: Stats = { total: 0, completed: 0, synced: 0, progress: 0, errors: [], status: 'idle' }
+
+const INITIAL_SYNC_SECTION_STATE: SyncSectionState = {
+  stats: INITIAL_STATS,
+  errors: [],
+  showError: false,
+  showConfirmation: false,
+}
 
 export default function ProjectIndividualsTable({ projectIndividuals }: ProjectIndividualTableProps) {
   const router = useRouter()
@@ -36,13 +45,11 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
   // const notificationContext = useContext(NotificationContext)
 
   const [isLoading, setIsLoading] = useState(false)
-  const [stats, setStats] = useState<Stats>({ total: 0, completed: 0, progress: 0, errors: [], status: 'processing' })
+  const [importState, setImportState] = useState<SyncSectionState>(INITIAL_SYNC_SECTION_STATE)
 
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false)
-  const [showImportError, setShowImportError] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
-  const [importErrors, setImportErrors] = useState<ImportSyncError[]>([])
 
   const dataGridRef = useRef<DataGridRef | null>(null)
   const importErrorDataGridRef = useRef<DataGridRef | null>(null)
@@ -163,7 +170,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
 
       //* trigger write by batch
       let batch: typeof toImportData = []
-      let stats: Stats = { total: 0, completed: 0, progress: 0, errors: [], status: 'processing' }
+      let stats: Stats = { total: toImportData.length, completed: 0, synced: 0, progress: 0, errors: [], status: 'processing' }
 
       for (let i = 0; i < toImportData.length; i++) {
         const isLastRow = i === toImportData.length - 1
@@ -178,10 +185,10 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
           const result = response?.data
 
           if (result?.error) {
-            setStats((prev: any) => ({ ...prev, errors: [...prev.errors, ...result.stats.errors] }))
+            setImportState((prev) => ({ ...prev, stats: { ...prev.stats, errors: [...prev.stats.errors, ...result.stats.errors] } }))
             stats.errors = [...stats.errors, ...result.stats.errors]
           } else if (result?.stats) {
-            setStats(result.stats)
+            setImportState((prev) => ({ ...prev, stats: result.stats }))
             stats = result.stats
           }
 
@@ -191,13 +198,12 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
 
       if (stats.status === 'completed') {
         toast.success(`Project individuals imported successfully! ${stats.errors.length} errors found.`)
-        setStats((prev: any) => ({ ...prev, total: 0, completed: 0, progress: 0, status: 'processing' }))
+        setImportState((prev) => ({ ...prev, stats: INITIAL_STATS }))
         router.refresh()
       }
 
       if (stats.errors.length > 0) {
-        setShowImportError(true)
-        setImportErrors(stats.errors)
+        setImportState((prev) => ({ ...prev, showError: true, errors: stats.errors }))
       }
 
       setIsLoading(false)
@@ -227,7 +233,9 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
           exportOptions={{ subjects: 'p-projects-individuals', actions: 'export' }}
         />
 
-        {stats && stats.progress && isLoading ? <ProgressBar min={0} max={100} showStatus={false} value={stats.progress} /> : null}
+        {isLoading && importState.stats.status === 'processing' ? (
+          <ProgressBar min={0} max={100} showStatus={false} value={importState.stats.progress} />
+        ) : null}
       </PageHeader>
 
       <PageContentWrapper className='h-[calc(100%_-_92px)]'>
@@ -319,9 +327,9 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
       />
 
       <ImportSyncErrorDataGrid
-        isOpen={showImportError}
-        setIsOpen={setShowImportError}
-        data={importErrors}
+        isOpen={importState.showError}
+        setIsOpen={(value) => setImportState((prev) => ({ ...prev, showError: value }))}
+        data={importState.errors}
         dataGridRef={importErrorDataGridRef}
       />
 

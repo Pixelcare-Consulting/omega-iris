@@ -20,6 +20,7 @@ import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import { NotificationContext } from '@/context/notification'
 import { useSession } from 'next-auth/react'
+import { sendEmail } from '@/actions/email'
 
 type UserTableProps = { users: Awaited<ReturnType<typeof getUsers>> }
 type DataSource = Awaited<ReturnType<typeof getUsers>>
@@ -148,8 +149,29 @@ export default function UserTable({ users }: UserTableProps) {
     })
   }
 
+  // const handleTestEmail = async () => {
+  //   try {
+  //     const info = await sendEmail({
+  //       subject: 'Test Email From Omega Iris',
+  //       // to: 'Reymond@pixelcareconsulting.com',
+  //       to: 'afif@pixelcareconsulting.com',
+  //       template: 'test',
+  //       data: { name: 'Afif', role: 'System Administrator' },
+  //     })
+
+  //     toast.success(`Email sent successfully! Message ID: ${info.messageId}`)
+  //   } catch (err) {
+  //     console.error(err)
+  //     toast.error('Failed to send test email!')
+  //   }
+  // }
+
   return (
     <div className='h-full w-full space-y-5'>
+      {/* <button className='rounded-md border p-2' type='button' onClick={handleTestEmail}>
+        Send Test Email
+      </button> */}
+
       <PageHeader title='Users' description='Manage and track your users effectively'>
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}

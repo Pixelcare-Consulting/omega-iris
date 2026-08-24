@@ -97,6 +97,13 @@ export default function ProjectItemForm({
         mfr: null,
         desc: null,
         commodities: null,
+        group: null,
+        division: null,
+        site: null,
+        cmSite: null,
+        phase: null,
+        tfsStdPrice: 0,
+        omegaPrice: 0,
       }
     }
 
@@ -336,6 +343,44 @@ export default function ProjectItemForm({
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                 <TextBoxField control={form.control} name='owner' label='Owner' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <TextBoxField control={form.control} name='group' label='Group' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <TextBoxField control={form.control} name='division' label='Division' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <TextBoxField control={form.control} name='site' label='Site' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <TextBoxField control={form.control} name='cmSite' label='CM Site' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <NumberBoxField control={form.control} name='phase' label='Phase' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <NumberBoxField
+                  control={form.control}
+                  name='tfsStdPrice'
+                  label='TFS Standard Price'
+                  extendedProps={{ numberBoxOptions: { format: DEFAULT_CURRENCY_FORMAT } }}
+                />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                <NumberBoxField
+                  control={form.control}
+                  name='omegaPrice'
+                  label='Omega Price'
+                  extendedProps={{ numberBoxOptions: { format: DEFAULT_CURRENCY_FORMAT } }}
+                />
               </div>
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>

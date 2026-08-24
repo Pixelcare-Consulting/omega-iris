@@ -133,9 +133,12 @@ export async function callSapServiceLayerApi(config: CallSapServiceLayerApiParam
     return response?.data
   } catch (error: any) {
     const response = error?.response
+    const responseData = response?.data
     const errorMessage = error?.message
 
     logger.error(errorMessage ? `${config.url} - ${errorMessage}` : `${config.url} - Failed to call SAP Service Layer API`)
+
+    if (responseData) logger.error(responseData, 'SAP RESPONSE ERROR')
 
     if (!response) return null
     return response?.data

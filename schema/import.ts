@@ -19,6 +19,7 @@ export const importFormSchema = z.object({
   stats: z.object({
     total: z.number(),
     completed: z.number(),
+    synced: z.number(),
     progress: z.number(),
     errors: z.array(importSyncErrorFormSchema),
     status: z.string(),

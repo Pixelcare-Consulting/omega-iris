@@ -20,7 +20,7 @@ const COMMON_PROJECT_ITEM_INCLUDE = {
   item: true,
   projectIndividual: { include: { projectGroup: true } },
   dateReceivedByUser: { select: { fname: true, lname: true } },
-  warehouse: { select: { code: true, name: true, description: true } },
+  warehouse: { select: { code: true, WarehouseCode: true, WarehouseName: true } },
 } satisfies Prisma.ProjectItemInclude
 
 const COMMON_PROJECT_ITEM_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectItemOrderByWithRelationInput
@@ -38,6 +38,8 @@ export async function getProjecItems(projectCode: number, isHideDeleted = true) 
     return result.map((item) => ({
       ...item,
       cost: safeParseFloat(item.cost),
+      tfsStdPrice: safeParseFloat(item.tfsStdPrice),
+      omegaPrice: safeParseFloat(item.omegaPrice),
       availableToOrder: subtract(safeParseFloat(item.totalStock), safeParseFloat(item.stockIn)),
       stockIn: safeParseInt(item.stockIn),
       stockOut: safeParseFloat(item.stockOut),
@@ -88,6 +90,8 @@ export async function getAllProjectItems(userInfo: Awaited<ReturnType<typeof get
     return result.map((item) => ({
       ...item,
       cost: safeParseFloat(item.cost),
+      tfsStdPrice: safeParseFloat(item.tfsStdPrice),
+      omegaPrice: safeParseFloat(item.omegaPrice),
       availableToOrder: subtract(safeParseFloat(item.totalStock), safeParseFloat(item.stockIn)),
       stockIn: safeParseInt(item.stockIn),
       stockOut: safeParseFloat(item.stockOut),
@@ -144,6 +148,8 @@ export async function getAllProjectItemByCode(
     return {
       ...result,
       cost: safeParseFloat(result.cost),
+      tfsStdPrice: safeParseFloat(result.tfsStdPrice),
+      omegaPrice: safeParseFloat(result.omegaPrice),
       availableToOrder: subtract(safeParseFloat(result.totalStock), safeParseFloat(result.stockIn)),
       stockIn: safeParseInt(result.stockIn),
       stockOut: safeParseFloat(result.stockOut),
@@ -843,6 +849,13 @@ export const importProjectItems = action
           mfr: row?.['MFR'] || null,
           desc: row?.['Desc'] || null,
           commodities: row?.['Commodities'] || null,
+          group: row?.['Group'] || null,
+          division: row?.['Division'] || null,
+          site: row?.['Site'] || null,
+          cmSite: row?.['CM_Site'] || null,
+          phase: row?.['Phase'] || null,
+          tfsStdPrice: safeParseFloat(row?.['TFS_Standard_Price']),
+          omegaPrice: safeParseFloat(row?.['Omega_Price']),
           createdBy: userId,
           updatedBy: userId,
         }
@@ -862,11 +875,13 @@ export const importProjectItems = action
         })
       )
 
-      const progress = ((stats.completed + batch.length) / total) * 100
+      //* progress based on rows attempted, so it always reaches 100%
+      const progress = total > 0 ? ((stats.completed + data.length) / total) * 100 : 100
 
       const updatedStats = {
         ...stats,
-        completed: stats.completed + batch.length,
+        completed: stats.completed + data.length,
+        synced: stats.synced + batch.length, //* only rows actually created
         progress,
         status: progress >= 100 || isLastRow ? 'completed' : 'processing',
       }
@@ -890,7 +905,7 @@ export const importProjectItems = action
 
       return {
         status: 200,
-        message: `${updatedStats.completed} project items created successfully!`,
+        message: `${updatedStats.synced}/${total} project items created successfully!`,
         action: 'IMPORT_PROJECT_ITEMS',
         stats: updatedStats,
       }

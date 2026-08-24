@@ -30,6 +30,9 @@ import SwitchField from '@/components/forms/switch-field'
 import CanView from '@/components/acl/can-view'
 import { useBps } from '@/hooks/safe-actions/business-partner'
 import { NotificationContext } from '@/context/notification'
+import { DEFAULT_PROJECT_ITEM_HIDDEN_FIELDS, PROJECT_ITEM_COLUMNS_MAP } from '@/constants/project-item'
+import Separator from '@/components/separator'
+import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 
 type ProjectIndividualFormProps = { pageMetaData: PageMetadata; projectIndividual: Awaited<ReturnType<typeof getPiByCode>> }
 
@@ -42,6 +45,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
   // const notificationContext = useContext(NotificationContext)
 
   const isCreate = code === 'add' || !projectIndividual
+  const projectItemFieldsOptions = Object.entries(PROJECT_ITEM_COLUMNS_MAP).map(([key, value]) => ({ label: value, value: key }))
 
   const values = useMemo(() => {
     if (projectIndividual) return projectIndividual
@@ -57,6 +61,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
         suppliers: [],
         pics: [],
         salesCloser: null,
+        projectItemHiddenFields: DEFAULT_PROJECT_ITEM_HIDDEN_FIELDS,
       }
     }
 
@@ -299,6 +304,23 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                   />
                 </div>
               )}
+
+              {/* //* temporarily hide */}
+              <Separator className='col-span-12' />
+              <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Inventory' description='Project individual inventory details' />
+
+              <div className='col-span-12 md:col-span-6'>
+                <TagBoxField
+                  data={projectItemFieldsOptions}
+                  control={form.control}
+                  name='projectItemHiddenFields'
+                  label='Hidden Fields'
+                  valueExpr='value'
+                  displayExpr='label'
+                  searchExpr={['label', 'value']}
+                  description='List of fields that will be hidden in the project inventory'
+                />
+              </div>
             </div>
           </ScrollView>
         </PageContentWrapper>

@@ -30,6 +30,7 @@ export async function getMasterContacts(cardCode: string) {
 
   try {
     return callSapServiceLayerApi({
+      method: 'post',
       url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query3')/List`,
       headers: { Prefer: 'odata.maxpagesize=999' },
       data: { ParamList: `CardCode='${cardCode}'` },

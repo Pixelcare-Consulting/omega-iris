@@ -298,7 +298,7 @@ model Item {
     FirmName   String?
     ItmsGrpCod Int?
     ItmsGrpNam String?
-    Price      Decimal? @db.Decimal(18, 2)
+    Price      Decimal? @db.Decimal(18, 6)
 
     syncStatus String @default("pending") //* pending, synced 
 
@@ -345,30 +345,32 @@ model ItemWarehouseInventory {
 }
 
 model Warehouse {
-    id                   String  @id @default(cuid())
-    code                 Int     @unique @default(autoincrement())
-    name                 String
-    description          String?
-    isActive             Boolean @default(true)
-    isDefault            Boolean @default(false)
-    isNettable           Boolean @default(false)
-    isEnableBinLocations Boolean @default(false)
+    id       String  @id @default(cuid())
+    code     Int     @unique @default(autoincrement())
+    isActive Boolean @default(true)
 
-    address1          String?
-    address2          String?
-    address3          String?
-    streetPoBox       String?
-    streetNo          String?
-    block             String?
-    buildingFloorRoom String?
-    zipCode           String?
-    city              String?
-    county            String?
-    countryRegion     String?
-    state             String?
-    federalTaxId      String?
-    gln               String?
-    taxOffice         String?
+    //* SAP fields
+    WarehouseCode        String  @unique
+    WarehouseName        String
+    Nettable             Boolean
+    EnableBinLocations   Boolean
+    DefaultBin           Int?
+    Street               String?
+    Address2             String?
+    Address3             String?
+    StreetNo             String?
+    BuildingFloorRoom    String?
+    Block                String?
+    City                 String?
+    ZipCode              String?
+    County               String?
+    CountryCode          String?
+    CountryName          String?
+    StateCode            String?
+    StateName            String?
+    GlobalLocationNumber String?
+
+    syncStatus String @default("pending") //* pending, synced 
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -377,8 +379,30 @@ model Warehouse {
     updatedBy String?
     deletedBy String?
 
+    binLocations    WarehouseBinLocation[]
     itemInventories ItemWarehouseInventory[]
     projectItems    ProjectItem[]
+}
+
+model WarehouseBinLocation {
+    id            String  @id @default(cuid())
+    code          Int     @unique @default(autoincrement())
+    WarehouseCode String
+    Description   String?
+    BinCode       String  @unique
+    SL1Code       String
+    SL2Code       String?
+    SL3Code       String?
+    SL4Code       String?
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    warehouse Warehouse @relation(fields: [WarehouseCode], references: [WarehouseCode], onUpdate: Cascade, onDelete: Cascade)
 }
 
 model ProjectGroup {
@@ -423,13 +447,14 @@ model ProjectGroupPic {
 }
 
 model ProjectIndividual {
-    id          String  @id @default(cuid())
-    code        Int     @unique @default(autoincrement())
-    name        String  @unique
-    groupCode   Int?
-    description String?
-    isActive    Boolean @default(true)
-    salesCloser Int?
+    id                      String   @id @default(cuid())
+    code                    Int      @unique @default(autoincrement())
+    name                    String   @unique
+    groupCode               Int?
+    description             String?
+    isActive                Boolean  @default(true)
+    salesCloser             Int?
+    projectItemHiddenFields String[] @default([])
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -468,7 +493,7 @@ model ProjectItem {
     spq             String?
     dateReceived    DateTime?
     dateReceivedBy  Int?
-    cost            Decimal?  @default(0) @db.Decimal(18, 2)
+    cost            Decimal?  @default(0) @db.Decimal(18, 6)
     stockIn         Decimal?  @default(0) @db.Decimal(18, 2)
     stockOut        Decimal?  @default(0) @db.Decimal(18, 2)
     totalStock      Decimal?  @default(0) @db.Decimal(18, 2)
@@ -478,6 +503,13 @@ model ProjectItem {
     notes           String?
     owner           String?
     commodities     String?
+    group           String?
+    division        String?
+    site            String?
+    cmSite          String?
+    phase           Int?
+    tfsStdPrice     Decimal?  @default(0) @db.Decimal(18, 6)
+    omegaPrice      Decimal?  @default(0) @db.Decimal(18, 6)
 
     mfr  String? //* temporary field manufacturer field
     desc String? //* temporary field description field
@@ -602,7 +634,7 @@ model WorkOrder {
 
     projectIndividual ProjectIndividual @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     user              User              @relation(fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    duplicatedFrom    WorkOrder?        @relation("WorkOrder-DuplicatedFrom", fields: [duplicatedFromCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    duplicatedFrom    WorkOrder?        @relation("WorkOrder-DuplicatedFrom", fields: [duplicatedFromCode], references: [code], onUpdate: Cascade, onDelete: SetNull)
 
     workOrderItems         WorkOrderItem[]
     workOrderStatusUpdates WorkOrderStatusUpdate[]
@@ -631,11 +663,13 @@ model WorkOrderStatusUpdate {
     @@index([workOrderCode])
 }
 
+//* isStockedIn -  //* when auto credit stock-in and lock qty upon WO creation was patched, set @default(true) for initial db push, set @default(false) - after inial db push to db
 model WorkOrderItem {
     workOrderCode   Int
     projectItemCode Int
     qty             Decimal? @default(0) @db.Decimal(18, 2)
     isDelivered     Boolean  @default(false)
+    // isStockedIn     Boolean  @default(false)
 
     workOrder   WorkOrder   @relation(fields: [workOrderCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     projectItem ProjectItem @relation(fields: [projectItemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)

@@ -170,6 +170,11 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
   const selectedStatus = useMemo(() => WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === status)?.label, [status])
   const selectedProject = useMemo(() => projects.data.find((p) => p.code === projectCode), [JSON.stringify(projects), projectCode])
 
+  const hiddenFields = useMemo(() => {
+    if (isBusinessPartner) return selectedProject?.projectItemHiddenFields
+    return []
+  }, [isBusinessPartner, JSON.stringify(selectedProject)])
+
   const addresses = useAddresses(customer?.data?.customerCode ?? '')
 
   const getAddrOptions = (addresses: ReturnType<typeof useAddresses>['data']) => {
@@ -630,6 +635,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                 projectCode={selectedProject?.code}
                 projectName={selectedProject?.name}
                 projectGroupName={selectedProject?.projectGroup?.name}
+                hiddenFields={hiddenFields}
                 isLoading={false}
               />
             </div>
