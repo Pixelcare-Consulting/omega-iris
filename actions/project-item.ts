@@ -792,7 +792,7 @@ export const importProjectItems = action
       //* get existing items
       const existingItems = await db.item.findMany({
         where: { ItemCode: { in: uniqueMpns } },
-        select: { code: true, ItemCode: true },
+        select: { code: true, ItemCode: true, syncStatus: true },
       })
 
       for (let i = 0; i < data.length; i++) {
@@ -810,6 +810,11 @@ export const importProjectItems = action
 
         //* check if MFG_P/N of an item exist in the db
         if (row?.['MFG_P/N'] && !baseItem) errors.push({ field: 'MFG P/N', message: 'MFG P/N does not exist' })
+
+        //* check if NEXT_PUBLIC_SYNCED_STRICT is true, cannot import item "pending" or unsync item when NEXT_PUBLIC_SYNCED_STRICT is true
+        if (process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' && baseItem?.syncStatus !== 'synced') {
+          errors.push({ field: 'MFG P/N', message: 'Item is not synced' })
+        }
 
         //* check if date received provided and its is a valid  date
         if (row?.['Date_Received'] && !isValid(parse(row?.['Date_Received'], 'MM/dd/yyyy', new Date()))) {
