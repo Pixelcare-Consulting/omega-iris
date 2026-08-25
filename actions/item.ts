@@ -14,7 +14,7 @@ import { callSapServiceLayerApi } from './sap-service-layer'
 import { ITEM_MASTER_MAX_PAGE_SIZE, SAP_BASE_URL } from '@/constants/sap'
 import { importFormSchema } from '@/schema/import'
 import logger from '@/utils/logger'
-import { safeParseInt } from '@/utils'
+import { getSapErrorMessage, isSapError, safeParseInt } from '@/utils'
 import { createNotification } from './notification'
 import { PERMISSIONS_CODES } from '@/constants/permission'
 import { combineSapDateTime } from '@/utils/sap'
@@ -482,7 +482,7 @@ export const syncToSap = action
         const batchItem = sapBatch[i] //* sapCreated and sapBatch have the same order
 
         //* if error present means there's an error when creating in sap
-        if (sapCreated[i]?.error) {
+        if (isSapError(sapCreated[i])) {
           //* find existing stats error related to the batch item's code
           const importSyncError = stats.errors.find((e) => e?.code === batchItem?.code)
 
@@ -490,12 +490,12 @@ export const syncToSap = action
           if (importSyncError) {
             importSyncError.entries.push({
               field: 'SAP Error',
-              message: sapCreated[i]?.error?.message?.value || 'Unknown SAP error',
+              message: getSapErrorMessage(sapCreated[i]),
             })
           } else {
             stats.errors.push({
               rowNumber: batchItem.rowNumber,
-              entries: [{ field: 'SAP Error', message: sapCreated[i]?.error?.message?.value || 'Unknown SAP error' }],
+              entries: [{ field: 'SAP Error', message: getSapErrorMessage(sapCreated[i]) }],
               row: batchItem.row,
               code: batchItem.code,
             })

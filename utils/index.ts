@@ -86,6 +86,18 @@ export function safeParseFloat(value: any) {
   return isNaN(num) || !isFinite(num) ? 0 : num
 }
 
+//* True when a callSapServiceLayerApi result is a failure rather than data.
+//* SAP returns errors as { error: { code, message: { lang, value } } } and failures we synthesise
+//* use the same shape, so this one check covers SAP errors, auth failures and network failures.
+export function isSapError(response: any): boolean {
+  return !!response?.error
+}
+
+//* Extracts a readable message from a failed callSapServiceLayerApi result.
+export function getSapErrorMessage(response: any, fallback = 'Unknown SAP error'): string {
+  return response?.error?.message?.value || fallback
+}
+
 export function safeParseInt(value: any, radix?: number) {
   const num = parseInt(value, radix)
   return isNaN(num) || !isFinite(num) ? 0 : num

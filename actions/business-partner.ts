@@ -15,7 +15,7 @@ import {
 } from '@/schema/business-partner'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
-import { safeParseInt } from '@/utils'
+import { getSapErrorMessage, isSapError, safeParseInt } from '@/utils'
 import logger from '@/utils/logger'
 import { callSapServiceLayerApi } from './sap-service-layer'
 import { BP_MASTER_MAX_PAGE_SIZE, SAP_BASE_URL } from '@/constants/sap'
@@ -632,7 +632,7 @@ export async function getLatestBpMaster(cardType: string): Promise<{ CardCode: s
       url: `${SAP_BASE_URL}/b1s/v1/BusinessPartners/$count?$filter=CardType eq '${cardType}'`,
     })
 
-    if (!totalCount || totalCount <= 0) return null
+    if (isSapError(totalCount) || !totalCount || totalCount <= 0) return null
 
     const totalPages = Math.ceil(safeParseInt(totalCount) / 500)
     const requestPromises: Promise<any>[] = []
@@ -783,7 +783,7 @@ export const syncToSap = action
         const batchItem = sapBatch[i] //* sapCreated and sapBatch has the same order
 
         //* if error present means there's an error when creating in sap
-        if (sapCreated[i].error) {
+        if (isSapError(sapCreated[i])) {
           //* find the import error related to the batch items code
           const importSyncError = stats.errors.find((e) => e?.code === batchItem?.code)
 
@@ -791,12 +791,12 @@ export const syncToSap = action
           if (importSyncError) {
             importSyncError.entries.push({
               field: 'SAP Error',
-              message: sapCreated[i]?.error?.message?.value || 'Unknown SAP error',
+              message: getSapErrorMessage(sapCreated[i]),
             })
           } else {
             stats.errors.push({
               rowNumber: batchItem.rowNumber,
-              entries: [{ field: 'SAP Error', message: sapCreated[i]?.error?.message?.value || 'Unknown SAP error' }],
+              entries: [{ field: 'SAP Error', message: getSapErrorMessage(sapCreated[i]) }],
               row: batchItem.row,
               code: batchItem.code,
             })

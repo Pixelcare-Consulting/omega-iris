@@ -5,7 +5,7 @@ import z from 'zod'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { callSapServiceLayerApi } from './sap-service-layer'
 import { SAP_BASE_URL, WAREHOUSE_SUBLEVEL_CODES_MAX_PAGE_SIZE } from '@/constants/sap'
-import { safeParseInt } from '@/utils'
+import { isSapError, safeParseInt } from '@/utils'
 
 export async function getWarehouseSubLevelCodes(sublevel: number) {
   if (!sublevel) return []
@@ -15,7 +15,7 @@ export async function getWarehouseSubLevelCodes(sublevel: number) {
       url: `${SAP_BASE_URL}/b1s/v1/WarehouseSublevelCodes/$count?$filter=WarehouseSublevel eq ${sublevel}`,
     })
 
-    if (!totalCount || totalCount <= 0) return []
+    if (isSapError(totalCount) || !totalCount || totalCount <= 0) return []
 
     const totalPages = Math.ceil(safeParseInt(totalCount) / WAREHOUSE_SUBLEVEL_CODES_MAX_PAGE_SIZE)
     const requestPromises: Promise<any>[] = []

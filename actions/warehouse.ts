@@ -17,7 +17,7 @@ import { callSapServiceLayerApi } from './sap-service-layer'
 import { getMasterBinLocations, getWarehouseBinLocations } from './warehouse-bin-location'
 import { SAP_BASE_URL, WAREHOUSE_MASTER_MAX_PAGE_SIZE } from '@/constants/sap'
 import { parseSapCompactDate } from '@/utils/sap'
-import { safeParseInt } from '@/utils'
+import { getSapErrorMessage, isSapError, safeParseInt } from '@/utils'
 import logger from '@/utils/logger'
 
 const COMMON_WAREHOUSE_ORDER_BY = { code: 'asc' } satisfies Prisma.WarehouseOrderByWithRelationInput
@@ -299,7 +299,7 @@ export const syncToSap = action
             })
 
             //* skip bin locations when the warehouse itself failed
-            if (warehouseResult?.error) return { warehouseResult, binResults: [] }
+            if (isSapError(warehouseResult)) return { warehouseResult, binResults: [] }
 
             const binResults = await Promise.all(
               toCreateBinLocations.map((bin) =>
@@ -340,15 +340,15 @@ export const syncToSap = action
         }
 
         //* if error present means there's an error when creating in sap
-        if (warehouseResult?.error) {
-          pushError({ field: 'SAP Error', message: warehouseResult?.error?.message?.value || 'Unknown SAP error' })
+        if (isSapError(warehouseResult)) {
+          pushError({ field: 'SAP Error', message: getSapErrorMessage(warehouseResult) })
           continue
         }
 
         //* a failed bin location is reported but does not block the warehouse from being marked as synced
         binResults.forEach((binResult: any) => {
-          if (!binResult?.error) return
-          pushError({ field: 'SAP Error (Bin Location)', message: binResult?.error?.message?.value || 'Unknown SAP error' })
+          if (!isSapError(binResult)) return
+          pushError({ field: 'SAP Error (Bin Location)', message: getSapErrorMessage(binResult) })
         })
 
         //* only codes that did not encounter a sap error are added

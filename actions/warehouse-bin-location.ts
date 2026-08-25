@@ -11,7 +11,7 @@ import { createNotification } from './notification'
 import { Prisma } from '@prisma/client'
 import { callSapServiceLayerApi } from './sap-service-layer'
 import { SAP_BASE_URL, WAREHOUSE_BIN_LOCATION_MAX_PAGE_SIZE } from '@/constants/sap'
-import { safeParseInt } from '@/utils'
+import { isSapError, safeParseInt } from '@/utils'
 import logger from '@/utils/logger'
 
 export async function getWarehouseBinLocations(warehouseCode: string) {
@@ -33,7 +33,7 @@ export async function getMasterBinLocations(warehouseCode: string) {
       url: `${SAP_BASE_URL}/b1s/v1/BinLocations/$count?$filter=Warehouse eq '${warehouseCode}'`,
     })
 
-    if (!totalCount || totalCount <= 0) return []
+    if (isSapError(totalCount) || !totalCount || totalCount <= 0) return []
 
     const totalPages = Math.ceil(safeParseInt(totalCount) / WAREHOUSE_BIN_LOCATION_MAX_PAGE_SIZE)
     const requestPromises: Promise<any>[] = []
