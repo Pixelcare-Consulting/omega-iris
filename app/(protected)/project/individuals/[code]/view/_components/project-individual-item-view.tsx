@@ -12,7 +12,7 @@ import ReadOnlyField from '@/components/read-only-field'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import { DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { formatNumber } from 'devextreme/localization'
-import { useItemWarehouseInventory } from '@/hooks/safe-actions/item-warehouse-inventory'
+import ProjectIndividualItemSapInventory from './project-individual-item-sap-inventory'
 import Separator from '@/components/separator'
 import { safeParseFloat } from '@/utils'
 import { useSession } from 'next-auth/react'
@@ -36,15 +36,6 @@ export default function ProjectIndividualItemView({ data, onClose, hiddenFields 
     if (!session) return false
     return session.user.roleKey === 'business-partner'
   }, [JSON.stringify(session)])
-
-  //* Temporary disable
-  // const itemMasterWarehouseInventory = useItemWarehouseInventory(item?.code)
-
-  //* Temporary disable
-  // const selectedItemMasterWarehouseInventory = useMemo(() => {
-  //   if (itemMasterWarehouseInventory.isLoading || itemMasterWarehouseInventory.data.length < 1) return null
-  //   return itemMasterWarehouseInventory.data.find((wi) => wi.warehouseCode === warehouse?.code)
-  // }, [JSON.stringify(itemMasterWarehouseInventory), warehouse?.code])
 
   return (
     <ScrollView useNative>
@@ -95,11 +86,42 @@ export default function ProjectIndividualItemView({ data, onClose, hiddenFields 
         /> */}
 
         <Separator className='col-span-12' />
+        <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Location' description='Item location details' />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-4'
+          title='Warehouse'
+          value={data?.warehouse ? `${data.warehouse.WarehouseName} (${data.warehouse.WarehouseCode})` : ''}
+        />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Bin Location' value={data?.binCode || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Batch #' value={data?.DistNumber || ''}>
+          {data?.DistNumber ? <Copy value={data.DistNumber} /> : null}
+        </ReadOnlyField>
+
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Site Location' value={data?.siteLocation || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 2' value={data?.subLocation2 || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 3' value={data?.subLocation3 || ''} />
+
+        <Separator className='col-span-12' />
+
+        <ProjectIndividualItemSapInventory
+          warehouseCode={data?.warehouseCode}
+          itemCode={item?.ItemCode}
+          emptyText='No warehouse is set for this item, so there is no SAP stock to show.'
+        />
+
+        <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Project Item' description='Project item details' />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='ID' value={data.code}>
           <Copy value={data.code} />
         </ReadOnlyField>
+
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Owner' value={data?.owner || ''} />
 
@@ -221,15 +243,6 @@ export default function ProjectIndividualItemView({ data, onClose, hiddenFields 
 
         <ReadOnlyField className='col-span-12' title='Notes' value={data?.notes || ''} />
 
-        <Separator className='col-span-12' />
-        <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Location' description='Item location details' />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Site Location' value={data?.siteLocation || ''} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 2' value={data?.subLocation2 || ''} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 3' value={data?.subLocation3 || ''} />
-
         {!isBusinessPartner && (
           <>
             <Separator className='col-span-12' />
@@ -244,46 +257,6 @@ export default function ProjectIndividualItemView({ data, onClose, hiddenFields 
             <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Received By' value={dateReceivedBy} />
           </>
         )}
-
-        {/*  //* Temporary disable */}
-        {/* <Separator className='col-span-12' />
-        <ReadOnlyFieldHeader
-          className='col-span-12 mb-1'
-          title='Site Location '
-          description='Item warehouse and warehouse inventory details'
-        />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6' title='Warehouse' value={warehouse?.name || ''} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6' title='Description' value={warehouse?.description || ''} />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='In Stock'
-          value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.inStock), DEFAULT_NUMBER_FORMAT)}
-          isLoading={itemMasterWarehouseInventory.isLoading}
-        />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Committed'
-          value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.committed), DEFAULT_NUMBER_FORMAT)}
-          isLoading={itemMasterWarehouseInventory.isLoading}
-        />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Ordered'
-          value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.ordered), DEFAULT_NUMBER_FORMAT)}
-          isLoading={itemMasterWarehouseInventory.isLoading}
-        />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Available'
-          value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.available), DEFAULT_NUMBER_FORMAT)}
-          isLoading={itemMasterWarehouseInventory.isLoading}
-        /> */}
 
         {!isBusinessPartner && (
           <>

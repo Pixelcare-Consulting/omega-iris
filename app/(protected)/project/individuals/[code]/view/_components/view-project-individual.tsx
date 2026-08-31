@@ -19,9 +19,10 @@ import CanView from '@/components/acl/can-view'
 import { useSession } from 'next-auth/react'
 import { useBps } from '@/hooks/safe-actions/business-partner'
 import ProjectIndividualSupplierTab from './_tabs/project-individual-supplier-tab'
-import { useEffect } from 'react'
 import { useBatchesMasterByWarehouseProjectCode } from '@/hooks/safe-actions/batches'
 import ProjectIndividualBatchTab from './_tabs/project-individual-batch-tab'
+import ProjectIndividualWarehouseTab from './_tabs/project-individual-warehouse-tab'
+import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 
 type ViewProjectIndividualProps = {
   projectIndividual: NonNullable<Awaited<ReturnType<typeof getPiByCode>>>
@@ -35,7 +36,8 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
   const nonCustomerUsers = useNonBpUsers()
   const items = useProjecItems(projectIndividual.code)
   const suppliers = useBps('S', true)
-  const batches = useBatchesMasterByWarehouseProjectCode(projectIndividual.code)
+  // const batches = useBatchesMasterByWarehouseProjectCode(projectIndividual.code, projectIndividual.warehouses)
+  const warehouses = useWarehouses(true)
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
@@ -98,6 +100,14 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
               <TabPanelITem title='PICs'>
                 <ProjectIndividualPicTab projectCode={projectIndividual.code} pics={projectIndividual.pics} users={nonCustomerUsers} />
               </TabPanelITem>
+
+              <TabPanelITem title='Warehouses'>
+                <ProjectIndividualWarehouseTab
+                  projectCode={projectIndividual.code}
+                  warehouses={projectIndividual.warehouses}
+                  warehousesData={warehouses}
+                />
+              </TabPanelITem>
             </>
           )}
 
@@ -111,9 +121,11 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
               />
             </TabPanelITem>
 
-            <TabPanelITem title='Batches'>
-              <ProjectIndividualBatchTab projectCode={projectIndividual.code} batches={batches} />
-            </TabPanelITem>
+            {/* {session?.user.roleKey === 'admin' && (
+              <TabPanelITem title='Batches'>
+                <ProjectIndividualBatchTab projectCode={projectIndividual.code} batches={batches} />
+              </TabPanelITem>
+            )} */}
           </CanView>
         </TabPanel>
       </PageContentWrapper>

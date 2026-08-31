@@ -1,7 +1,29 @@
 import { useAction } from 'next-safe-action/hooks'
 import { useEffect } from 'react'
 
-import { getPisByBpUserCodeClient, getPisByGroupCodeClient, getPisBySalesCloserClient, getPisClient } from '@/actions/project-individual'
+import {
+  getPisByBpUserCodeClient,
+  getPisByGroupCodeClient,
+  getPisBySalesCloserClient,
+  getPisByWarehouseCodeClient,
+  getPisClient,
+} from '@/actions/project-individual'
+
+export function usePisByWarehouseCode(warehouseCode?: string | null, dependencies?: any[]) {
+  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getPisByWarehouseCodeClient)
+
+  useEffect(() => {
+    execute({ warehouseCode })
+  }, [warehouseCode, ...(dependencies || [])])
+
+  return {
+    execute,
+    executeAsync,
+    isLoading,
+    data: result.data ?? [],
+    error: { serverError: result.serverError, validationError: result.validationErrors },
+  }
+}
 
 export function usePisByGroupCode(groupCode: number, dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getPisByGroupCodeClient)

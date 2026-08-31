@@ -1,6 +1,5 @@
 'use client'
 
-import { getPisByGroupCode } from '@/actions/project-individual'
 import { Column, DataGridTypes, DataGridRef, Button } from 'devextreme-react/data-grid'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
@@ -11,18 +10,18 @@ import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import CommonDataGrid from '@/components/common-datagrid'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
+import { usePisByWarehouseCode } from '@/hooks/safe-actions/project-individual'
 
-type ProjectGroupProjectTableProps = {
-  groupCode: number
-  projects: { data: NonNullable<Awaited<ReturnType<typeof getPisByGroupCode>>>; isLoading?: boolean }
+type WarehouseProjectTabProps = {
+  projects: ReturnType<typeof usePisByWarehouseCode>
 }
 
-export default function ProjectGroupProjectsTab({ projects }: ProjectGroupProjectTableProps) {
+export default function WarehouseProjectTab({ projects }: WarehouseProjectTabProps) {
   const router = useRouter()
   const { data: session } = useSession()
 
-  const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-group-project'
-  const DATAGRID_UNIQUE_KEY = 'project-group-projects'
+  const DATAGRID_STORAGE_KEY = 'dx-datagrid-warehouse-project'
+  const DATAGRID_UNIQUE_KEY = 'warehouse-projects'
 
   const dataGridRef = useRef<DataGridRef | null>(null)
 
@@ -32,13 +31,6 @@ export default function ProjectGroupProjectsTab({ projects }: ProjectGroupProjec
     if (!session) return false
     return session.user.roleKey === 'business-partner'
   }, [JSON.stringify(session)])
-
-  const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
-    const data = e.row?.data
-    if (!data) return
-
-    router.push(`/project/individuals/${data.code}/view`)
-  }, [])
 
   //* show loading
   useEffect(() => {
@@ -65,6 +57,7 @@ export default function ProjectGroupProjectsTab({ projects }: ProjectGroupProjec
           <Column dataField='code' minWidth={100} dataType='string' caption='ID' sortOrder='asc' />
           <Column dataField='name' dataType='string' />
           <Column dataField='description' dataType='string' />
+          <Column dataField='projectGroup.name' dataType='string' caption='Group' />
           <Column
             dataField='isActive'
             dataType='string'
@@ -82,10 +75,6 @@ export default function ProjectGroupProjectsTab({ projects }: ProjectGroupProjec
 
           <Column dataField='createdAt' dataType='datetime' caption='Created At' />
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
-
-          <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
-            <Button icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
-          </Column>
         </CommonDataGrid>
       </div>
     </div>

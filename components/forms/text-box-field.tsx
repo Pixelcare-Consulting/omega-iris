@@ -2,6 +2,7 @@
 
 import { Control, Controller, FieldPath, FieldValues, get } from 'react-hook-form'
 import TextBox, { ITextBoxOptions } from 'devextreme-react/text-box'
+import { useDebouncedCallback } from 'use-debounce'
 
 import { FormExtendedProps } from '@/types/form'
 import FormItem from './form-item'
@@ -22,6 +23,8 @@ type TextBoxFieldProps<TFieldValues extends FieldValues = FieldValues, TName ext
   isHideLabel?: boolean
   isLoading?: boolean
   callback?: (...args: any[]) => void
+  //* delay in ms before "callback" runs, so it fires once the user stops typing instead of per keystroke
+  callbackDebounce?: number
   extendedProps?: ExtendedProps
 }
 
@@ -35,8 +38,14 @@ export default function TextBoxField<T extends FieldValues>({
   isHideLabel,
   isLoading,
   callback,
+  callbackDebounce,
   extendedProps,
 }: TextBoxFieldProps<T>) {
+  const debouncedCallback = useDebouncedCallback((...args: any[]) => callback?.(...args), callbackDebounce ?? 0)
+
+  //* only debounce when a delay is given, otherwise keep the original per-change behavior
+  const handleCallback = callbackDebounce ? debouncedCallback : callback
+
   return (
     <Controller
       control={control}
@@ -63,7 +72,7 @@ export default function TextBoxField<T extends FieldValues>({
                 onValueChanged={(e) => {
                   const value = e.value
                   field.onChange(value)
-                  if (callback) callback({ value })
+                  if (handleCallback) handleCallback({ value })
                 }}
                 showClearButton
                 {...extendedProps?.textBoxOptions}

@@ -41,7 +41,7 @@ export default function UserProjectsClosedTab({ projectsClosed }: UserProjectsCl
 
   return (
     <div className='flex h-full w-full flex-col'>
-      <Toolbar className='mt-5'>
+      <Toolbar className='mt-5 px-4'>
         <CommonPageHeaderToolbarItems dataGridUniqueKey={DATAGRID_UNIQUE_KEY} dataGridRef={dataGridRef} />
       </Toolbar>
 

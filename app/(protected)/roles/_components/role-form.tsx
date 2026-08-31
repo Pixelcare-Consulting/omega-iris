@@ -481,7 +481,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
                   </TabPanelItem>
 
                   <TabPanelItem title='Reports' visible={!isReportingDisabled}>
-                    <Toolbar className='mt-5'>
+                    <Toolbar className='mt-5 px-4'>
                       <CommonPageHeaderToolbarItems
                         dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
                         dataGridRef={dataGridRef}

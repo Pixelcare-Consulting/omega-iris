@@ -50,3 +50,8 @@ scripts
 
 #sap
 SAP-Service-Layer-Authorization-Token.ini
+
+# superpowers docs
+docs/superpowers
+
+

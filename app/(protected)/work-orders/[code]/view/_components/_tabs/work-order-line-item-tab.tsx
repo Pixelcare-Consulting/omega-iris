@@ -30,8 +30,6 @@ import { cn, safeParseFloat, safeParseInt } from '@/utils'
 import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { WORK_ORDER_STATUS_VALUE_MAP, WorkOrderItemForm } from '@/schema/work-order'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
-import { useWarehouses } from '@/hooks/safe-actions/warehouse'
-import useUsers from '@/hooks/safe-actions/user'
 import WorkOrderLineItemView from '../work-order-line-item-view'
 import CanView from '@/components/acl/can-view'
 import { AbilityContext } from '@/context/ability'
@@ -111,8 +109,6 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
         const tfsStdPrice = safeParseFloat(pItem?.tfsStdPrice)
         const omegaPrice = safeParseFloat(pItem?.omegaPrice)
 
-        // const warehouse = pItem?.warehouse
-        const warehouse = {} as any
         const dateReceivedBy = pItem?.dateReceivedByUser ? `${pItem.dateReceivedByUser.fname}${pItem.dateReceivedByUser.lname ? ` ${pItem.dateReceivedByUser.lname}` : ''}` : '' // prettier-ignore
 
         return {
@@ -125,9 +121,8 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
           countryOfOrigin: pItem?.countryOfOrigin || '',
           lotCode: pItem?.lotCode || '',
           palletNo: pItem?.palletNo || '',
-          warehouseName: warehouse?.name || '',
-          warehouseCode: warehouse?.code || '',
-          warehouseDescription: warehouse?.description || '',
+          warehouseCode: pItem?.warehouseCode || '',
+          binCode: pItem?.binCode || '',
           dateReceived: pItem?.dateReceived,
           dateReceivedBy,
           packagingType: pItem?.packagingType || '',
@@ -152,6 +147,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
           site: pItem?.site || '',
           cmSite: pItem?.cmSite || '',
           phase: pItem?.phase || '',
+          DistNumber: pItem?.DistNumber || '',
           tfsStdPrice,
           omegaPrice,
           createdAt: pItem?.createdAt,
@@ -358,7 +354,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
     <>
       {!isViewMode ? (
         <div className='flex h-full w-full flex-col'>
-          <Toolbar className='mt-5'>
+          <Toolbar className='mt-5 px-4'>
             {selectedRowKeys.length > 0 && (
               <CanView subject='p-work-orders' action='delete'>
                 <Item location='after' locateInMenu='auto' widget='dxMenu'>
@@ -407,6 +403,7 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
             >
               <HiddenFieldsContext.Provider value={{ hiddenFields }}>
                 <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' sortOrder='asc' allowEditing={false} />
+                <Column dataField='DistNumber' dataType='string' minWidth={100} caption='Batch #' allowEditing={false} />
                 <Column
                   dataField='isDelivered'
                   dataType='string'
@@ -455,6 +452,8 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
                     <Column dataField='countryOfOrigin' dataType='string' caption='COO' allowEditing={false} />
                     <Column dataField='lotCode' dataType='string' caption='Lot Code' allowEditing={false} />
                     <Column dataField='palletNo' dataType='string' caption='Pallet No' allowEditing={false} />
+                    <Column dataField='warehouseCode' dataType='string' caption='Warehouse' allowEditing={false} />
+                    <Column dataField='binCode' dataType='string' caption='Bin Location' allowEditing={false} />
                     <Column dataField='siteLocation' dataType='string' caption='Site Location' allowEditing={false} />
                     <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' allowEditing={false} />
                     <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' allowEditing={false} />

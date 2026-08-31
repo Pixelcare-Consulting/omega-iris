@@ -309,39 +309,12 @@ model Item {
     updatedBy String?
     deletedBy String?
 
-    projectItems           ProjectItem[]
-    itemWarehouseInventory ItemWarehouseInventory[]
+    projectItems ProjectItem[]
 
     @@index([deletedAt])
     @@index([ItemCode(ops: raw("gin_trgm_ops"))], type: Gin)
     @@index([ItemName(ops: raw("gin_trgm_ops"))], type: Gin)
     @@index([FirmName(ops: raw("gin_trgm_ops"))], type: Gin)
-}
-
-model ItemWarehouseInventory {
-    id            String  @id @default(cuid())
-    code          Int     @unique @default(autoincrement())
-    warehouseCode Int
-    itemCode      Int
-    isLocked      Boolean @default(false)
-    inStock       Int     @default(0)
-    committed     Int     @default(0)
-    ordered       Int     @default(0)
-    available     Int     @default(0)
-
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy String?
-    updatedBy String?
-    deletedBy String?
-
-    warehouse Warehouse @relation(fields: [warehouseCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    item      Item      @relation(fields: [itemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-
-    @@unique([warehouseCode, itemCode])
-    @@index([warehouseCode])
-    @@index([itemCode])
 }
 
 model Warehouse {
@@ -379,14 +352,16 @@ model Warehouse {
     updatedBy String?
     deletedBy String?
 
-    binLocations    WarehouseBinLocation[]
-    itemInventories ItemWarehouseInventory[]
-    projectItems    ProjectItem[]
+    binLocations      WarehouseBinLocation[]
+    projectItems      ProjectItem[]
+    projectWarehouses ProjectIndividualWarehouse[]
 }
 
 model WarehouseBinLocation {
-    id            String  @id @default(cuid())
-    code          Int     @unique @default(autoincrement())
+    id   String @id @default(cuid())
+    code Int    @unique @default(autoincrement())
+
+    //* SAP fields    
     WarehouseCode String
     Description   String?
     BinCode       String  @unique
@@ -402,7 +377,8 @@ model WarehouseBinLocation {
     updatedBy String?
     deletedBy String?
 
-    warehouse Warehouse @relation(fields: [WarehouseCode], references: [WarehouseCode], onUpdate: Cascade, onDelete: Cascade)
+    warehouse    Warehouse     @relation(fields: [WarehouseCode], references: [WarehouseCode], onUpdate: Cascade, onDelete: Cascade)
+    projectItems ProjectItem[] @relation()
 }
 
 model ProjectGroup {
@@ -465,12 +441,13 @@ model ProjectIndividual {
 
     projectGroup ProjectGroup? @relation(fields: [groupCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
 
-    projectIndividualPics      ProjectIndividualPic[]      @relation(name: "ProjectIndividual-ProjectIndividualPic")
-    projectIndividualCustomers ProjectIndividualCustomer[] @relation(name: "ProjectIndividual-ProjectIndividualCustomer")
-    projectIndividualSuppliers ProjectIndividualSupplier[] @relation(name: "ProjectIndividual-ProjectIndividualSupplier")
-    items                      ProjectItem[]
-    workOrders                 WorkOrder[]
-    userSalesCloser            User?                       @relation(name: "User-ProjectIndividual-SalesCloser", fields: [salesCloser], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    projectIndividualPics       ProjectIndividualPic[]       @relation(name: "ProjectIndividual-ProjectIndividualPic")
+    projectIndividualCustomers  ProjectIndividualCustomer[]  @relation(name: "ProjectIndividual-ProjectIndividualCustomer")
+    projectIndividualSuppliers  ProjectIndividualSupplier[]  @relation(name: "ProjectIndividual-ProjectIndividualSupplier")
+    items                       ProjectItem[]
+    workOrders                  WorkOrder[]
+    userSalesCloser             User?                        @relation(name: "User-ProjectIndividual-SalesCloser", fields: [salesCloser], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    projectIndividualWarehouses ProjectIndividualWarehouse[] @relation(name: "ProjectIndividual-ProjectIndividualWarehouse")
 
     @@index([deletedAt])
     @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
@@ -483,7 +460,8 @@ model ProjectItem {
     itemCode              Int
     projectIndividualCode Int
 
-    warehouseCode   Int?
+    warehouseCode   String?
+    binCode         String?
     partNumber      String?
     dateCode        String?
     countryOfOrigin String?
@@ -514,6 +492,9 @@ model ProjectItem {
     mfr  String? //* temporary field manufacturer field
     desc String? //* temporary field description field
 
+    //* sap field
+    DistNumber String?
+
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
     deletedAt DateTime?
@@ -521,10 +502,11 @@ model ProjectItem {
     updatedBy String?
     deletedBy String?
 
-    item               Item              @relation(fields: [itemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    projectIndividual  ProjectIndividual @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    warehouse          Warehouse?        @relation(fields: [warehouseCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    dateReceivedByUser User?             @relation(fields: [dateReceivedBy], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    item                 Item                  @relation(fields: [itemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    projectIndividual    ProjectIndividual     @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    warehouse            Warehouse?            @relation(fields: [warehouseCode], references: [WarehouseCode], onUpdate: Cascade, onDelete: Cascade)
+    warehouseBinLocation WarehouseBinLocation? @relation(fields: [binCode], references: [BinCode], onUpdate: Cascade, onDelete: Cascade)
+    dateReceivedByUser   User?                 @relation(fields: [dateReceivedBy], references: [code], onUpdate: Cascade, onDelete: Cascade)
 
     workOrderItems WorkOrderItem[]
 
@@ -594,6 +576,26 @@ model ProjectIndividualPic {
     @@unique([projectIndividualCode, userCode])
     @@index([projectIndividualCode])
     @@index([userCode])
+}
+
+model ProjectIndividualWarehouse {
+    id                    String @id @default(cuid())
+    projectIndividualCode Int
+    warehouseCode         String
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
+    projectIndividual ProjectIndividual @relation("ProjectIndividual-ProjectIndividualWarehouse", fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    warehouse         Warehouse         @relation(fields: [warehouseCode], references: [WarehouseCode], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([projectIndividualCode, warehouseCode])
+    @@index([projectIndividualCode])
+    @@index([warehouseCode])
 }
 
 //* WORK ORDER STATUS

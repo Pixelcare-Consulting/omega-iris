@@ -69,6 +69,15 @@ export default function CommonDataGrid<T extends Record<string, any>>({
   pageSize,
   filterValue,
 }: CommonDataGridProps<T>) {
+  //* while the grid has no rows yet, devextreme reconciles selectedRowKeys against the empty data source and
+  //* reports the result back as an empty selection. callers persist what they are handed, so letting that
+  //* through wipes a saved selection whenever the tab is opened before its data has finished loading. with no
+  //* rows on screen there is no genuine user selection to report, so it is safe to swallow
+  const handleOnSelectionChanged = (e: DataGridTypes.SelectionChangedEvent) => {
+    if (!data || (Array.isArray(data) && data.length < 1)) return
+    callbacks?.onSelectionChanged?.(e)
+  }
+
   return (
     <DataGrid
       ref={dataGridRef}
@@ -83,9 +92,9 @@ export default function CommonDataGrid<T extends Record<string, any>>({
       // allowColumnResizing
       width='100%'
       height='100%'
-      defaultSelectedRowKeys={selectedRowKeys ?? []}
+      selectedRowKeys={selectedRowKeys}
       onRowClick={callbacks?.onRowClick}
-      onSelectionChanged={callbacks?.onSelectionChanged}
+      onSelectionChanged={handleOnSelectionChanged}
       onRowPrepared={callbacks?.onRowPrepared ?? handleOnRowPrepared}
       onRowUpdated={callbacks?.onRowUpdated}
       onCellPrepared={callbacks?.onCellPrepared}

@@ -29,6 +29,7 @@ import { commonItemRender, userItemRender } from '@/utils/devextreme'
 import SwitchField from '@/components/forms/switch-field'
 import CanView from '@/components/acl/can-view'
 import { useBps } from '@/hooks/safe-actions/business-partner'
+import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import { NotificationContext } from '@/context/notification'
 import { DEFAULT_PROJECT_ITEM_HIDDEN_FIELDS, PROJECT_ITEM_COLUMNS_MAP } from '@/constants/project-item'
 import Separator from '@/components/separator'
@@ -60,6 +61,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
         customers: [],
         suppliers: [],
         pics: [],
+        warehouses: [],
         salesCloser: null,
         projectItemHiddenFields: DEFAULT_PROJECT_ITEM_HIDDEN_FIELDS,
       }
@@ -85,6 +87,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
   const customerUsers = useUsersByRoleKey('business-partner')
   const nonCustomerUsers = useNonBpUsers()
   const suppliers = useBps('S', true)
+  const warehouses = useWarehouses(true)
 
   const handleOnSubmit = async (formData: ProjectIndividualForm) => {
     try {
@@ -286,6 +289,29 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                   displayExpr={(item) => (item ? `${item?.fname}${item?.lname ? ` ${item?.lname}` : ''}` : '')}
                   searchExpr={['fname', 'lname', 'code', 'email']}
                   extendedProps={{ tagBoxOptions: { itemRender: userItemRender } }}
+                />
+              </div>
+
+              <div className='col-span-12 md:col-span-6'>
+                <TagBoxField
+                  data={warehouses.data}
+                  isLoading={warehouses.isLoading}
+                  control={form.control}
+                  name='warehouses'
+                  label='Warehouses'
+                  valueExpr='WarehouseCode'
+                  displayExpr={(item) => (item ? `${item?.WarehouseName} (${item?.WarehouseCode})` : '')}
+                  searchExpr={['WarehouseName', 'WarehouseCode']}
+                  extendedProps={{
+                    tagBoxOptions: {
+                      itemRender: (params) => {
+                        return commonItemRender({
+                          title: params?.WarehouseName,
+                          value: params?.WarehouseCode,
+                        })
+                      },
+                    },
+                  }}
                 />
               </div>
 

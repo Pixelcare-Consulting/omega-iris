@@ -11,64 +11,42 @@ import { isEqual } from 'radash'
 import Tooltip from 'devextreme-react/tooltip'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useSession } from 'next-auth/react'
 
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
-import { PicProjectIndividualForm, picProjectIndividualsFormSchema } from '@/schema/project-individual'
-import { updatePicPis } from '@/actions/project-individual'
+import { ProjectIndividualWarehouseForm, projectIndividualWarehouseFormSchema } from '@/schema/project-individual'
+import { updatePiWarehouses } from '@/actions/project-individual'
 import LoadingButton from '@/components/loading-button'
 import CommonDataGrid from '@/components/common-datagrid'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
-import { usePiPicsByUserCode } from '@/hooks/safe-actions/project-individual-pic'
-import { usePis } from '@/hooks/safe-actions/project-individual'
+import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 
-type UserPicProjectIndividualTabProps = {
-  userCode: number
-  projects: ReturnType<typeof usePis>
-  piPics: ReturnType<typeof usePiPicsByUserCode>
+type ProjectIndividualWarehouseTabProps = {
+  projectCode: number
+  warehouses: string[]
+  warehousesData: ReturnType<typeof useWarehouses>
 }
 
-export default function UserPicProjectIndividualTab({ userCode, projects, piPics }: UserPicProjectIndividualTabProps) {
+export default function ProjectIndividualWarehouseTab({ projectCode, warehouses, warehousesData }: ProjectIndividualWarehouseTabProps) {
   const router = useRouter()
-  const { data: session } = useSession()
 
-  const DATAGRID_STORAGE_KEY = 'dx-datagrid-user-pic-project-individual'
-  const DATAGRID_UNIQUE_KEY = 'user-pic-project-individuals'
-
-  // const notificationContext = useContext(NotificationContext)
-
-  const isBusinessPartner = useMemo(() => {
-    if (!session) return false
-    return session.user.roleKey === 'business-partner'
-  }, [JSON.stringify(session)])
-
-  const currentAssignedProjects = useMemo(() => {
-    if (piPics.isLoading || piPics.data.length < 1) return []
-    return piPics.data.map((pc) => pc.projectIndividualCode)
-  }, [JSON.stringify(piPics)])
-
-  const values = useMemo(() => {
-    if (currentAssignedProjects.length < 1) return { code: userCode, projects: [] }
-
-    return {
-      code: userCode,
-      projects: currentAssignedProjects,
-    }
-  }, [userCode, JSON.stringify(currentAssignedProjects)])
+  const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual-warehouse'
+  const DATAGRID_UNIQUE_KEY = 'project-individual-warehouses'
 
   const form = useForm({
     mode: 'onChange',
-    values,
-    resolver: zodResolver(picProjectIndividualsFormSchema),
+    values: { code: projectCode, warehouses },
+    resolver: zodResolver(projectIndividualWarehouseFormSchema),
   })
 
-  const { executeAsync, isExecuting } = useAction(updatePicPis)
+  const { executeAsync, isExecuting } = useAction(updatePiWarehouses)
 
-  const selectedRowKeys = useWatch({ control: form.control, name: 'projects' }) || []
+  const selectedRowKeys = useWatch({ control: form.control, name: 'warehouses' }) || []
 
   const dataGridRef = useRef<DataGridRef | null>(null)
   const hasClearedStoredFilterRef = useRef(false)
+
+  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   const [showSelectedOnly, setShowSelectedOnly] = useState(false)
 
@@ -76,11 +54,11 @@ export default function UserPicProjectIndividualTab({ userCode, projects, piPics
   const selectedOnlyFilterValue = useMemo(() => {
     if (!showSelectedOnly || selectedRowKeys.length < 1) return null
 
-    const conditions = selectedRowKeys.map((key) => ['code', '=', key])
+    const conditions = selectedRowKeys.map((key) => ['WarehouseCode', '=', key])
     if (conditions.length === 1) return conditions[0]
 
     return conditions.reduce<any[]>((acc, condition) => (acc.length < 1 ? [condition] : [...acc, 'or', condition]), [])
-  }, [showSelectedOnly, JSON.stringify(selectedRowKeys)])
+  }, [showSelectedOnly, JSON.stringify(warehouses), JSON.stringify(selectedRowKeys)])
 
   //* nothing selected means there is nothing to narrow down to, so the toggle falls back to showing all rows
   const isShowingSelectedOnly = showSelectedOnly && selectedRowKeys.length > 0
@@ -95,38 +73,51 @@ export default function UserPicProjectIndividualTab({ userCode, projects, piPics
     hasClearedStoredFilterRef.current = true
 
     const restoredFilterValue = instance.option('filterValue')
-    if (restoredFilterValue && JSON.stringify(restoredFilterValue).includes('code')) instance.clearFilter('filterValue')
+    if (restoredFilterValue && JSON.stringify(restoredFilterValue).includes('WarehouseCode')) instance.clearFilter('filterValue')
   }, [])
-
-  const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const data = e.row?.data
     if (!data) return
-    router.push(`/project/individuals/${data.code}/view`)
+    router.push(`/warehouses/${data?.code}/view`)
   }, [])
 
   const handleOnSelectionChange = useCallback((e: DataGridTypes.SelectionChangedEvent) => {
     const selectedRowKeys = e.selectedRowKeys
-    form.setValue('projects', selectedRowKeys)
-    if (selectedRowKeys.length > 0) form.clearErrors('projects')
+    form.setValue('warehouses', selectedRowKeys)
+    if (selectedRowKeys.length > 0) form.clearErrors('warehouses')
   }, [])
 
-  const handleSave = (formData: PicProjectIndividualForm) => {
+  function handleOnCellPrepared(e: DataGridTypes.CellPreparedEvent) {
+    const column = e.column as any
+    const data = e.data
+    const cellElement = e.cellElement
+    const checkbox = (cellElement?.querySelector('.dx-select-checkbox') as HTMLInputElement) || null
+    const rowType = e.rowType
+
+    if (rowType === 'data') {
+      //* condition when column type is selection
+      if (column?.type === 'selection') {
+        if (data?.deletedAt || data?.deletedBy) {
+          if (checkbox) checkbox.style.display = 'none' //* hide checkbox if row has deletedAt or deletedBy
+        }
+      }
+    }
+  }
+
+  const handleSave = (formData: ProjectIndividualWarehouseForm) => {
     if (!formData.code) return
 
     toast.promise(executeAsync(formData), {
-      loading: "Updating projects's pics...",
+      loading: 'Updating warehouses...',
       success: (response) => {
         const result = response?.data
 
-        if (!response || !result) throw { message: "Failed to update projects's pics", expectedError: true }
+        if (!response || !result) throw { message: 'Failed to update warehouses!', unExpectedError: true }
 
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
-            piPics.execute({ userCode: userCode })
-            // notificationContext?.handleRefresh()
           }, 1000)
 
           return result.message
@@ -148,10 +139,10 @@ export default function UserPicProjectIndividualTab({ userCode, projects, piPics
   //* show loading
   useEffect(() => {
     if (dataGridRef.current) {
-      if (projects.isLoading || piPics.isLoading) dataGridRef.current.instance().beginCustomLoading('Loading data...')
+      if (warehousesData.isLoading) dataGridRef.current.instance().beginCustomLoading('Loading data...')
       else dataGridRef.current.instance().endCustomLoading()
     }
-  }, [projects.isLoading, piPics.isLoading, dataGridRef.current])
+  }, [warehousesData.isLoading, dataGridRef.current])
 
   return (
     <div className='flex h-full w-full flex-col'>
@@ -159,7 +150,7 @@ export default function UserPicProjectIndividualTab({ userCode, projects, piPics
         <Item location='before' locateInMenu='auto' widget='dxButton'>
           <Tooltip
             target='#show-selected-only-button'
-            contentRender={() => (isShowingSelectedOnly ? 'Show all projects' : 'Show selected projects only')}
+            contentRender={() => (isShowingSelectedOnly ? 'Show all warehouses' : 'Show selected warehouses only')}
             showEvent='mouseenter'
             hideEvent='mouseleave'
             position='top'
@@ -170,7 +161,7 @@ export default function UserPicProjectIndividualTab({ userCode, projects, piPics
             text={`${selectedRowKeys.length} selected`}
             type='default'
             stylingMode={isShowingSelectedOnly ? 'contained' : 'outlined'}
-            disabled={projects.isLoading || piPics.isLoading || selectedRowKeys.length < 1}
+            disabled={warehousesData.isLoading || selectedRowKeys.length < 1}
             onClick={() => setShowSelectedOnly((prev) => !prev)}
           />
         </Item>
@@ -183,7 +174,7 @@ export default function UserPicProjectIndividualTab({ userCode, projects, piPics
             isLoading={isExecuting}
             type='default'
             stylingMode='contained'
-            disabled={isEqual(currentAssignedProjects.sort(), selectedRowKeys.sort())}
+            disabled={isEqual(warehouses, selectedRowKeys)}
             onClick={() => form.handleSubmit(handleSave)()}
           />
         </Item>
@@ -191,37 +182,48 @@ export default function UserPicProjectIndividualTab({ userCode, projects, piPics
         <CommonPageHeaderToolbarItems dataGridUniqueKey={DATAGRID_UNIQUE_KEY} dataGridRef={dataGridRef} />
       </Toolbar>
 
+      {form?.formState?.errors?.warehouses && <div className='px-4 text-xs text-red-500'>{form.formState.errors.warehouses.message}</div>}
+
       <div className='min-h-0 flex-1 p-4'>
         <CommonDataGrid
           dataGridRef={dataGridRef}
-          data={projects.data}
-          isLoading={projects.isLoading}
+          data={warehousesData.data}
+          isLoading={warehousesData.isLoading}
           storageKey={DATAGRID_STORAGE_KEY}
-          keyExpr='code'
+          keyExpr='WarehouseCode'
           isSelectionEnable
           dataGridStore={dataGridStore}
           selectedRowKeys={selectedRowKeys}
           filterValue={selectedOnlyFilterValue}
-          callbacks={{ onSelectionChanged: handleOnSelectionChange, onContentReady: handleOnContentReady }}
+          callbacks={{
+            onRowClick: handleView,
+            onSelectionChanged: handleOnSelectionChange,
+            onCellPrepared: handleOnCellPrepared,
+            onContentReady: handleOnContentReady,
+          }}
         >
-          <Column dataField='code' minWidth={100} dataType='string' caption='ID' sortOrder='asc' />
-          <Column dataField='name' dataType='string' />
-          <Column dataField='description' dataType='string' />
-          <Column dataField='projectGroup.name' dataType='string' caption='Group' />
+          <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
+          <Column dataField='WarehouseCode' dataType='string' caption='Code' />
+          <Column dataField='WarehouseName' dataType='string' caption='Name' />
+          <Column dataField='syncStatus' dataType='string' caption='Sync Status' cssClass='capitalize' />
           <Column
             dataField='isActive'
             dataType='string'
             caption='Status'
             calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
           />
-          {!isBusinessPartner && (
-            <Column
-              dataField='userSalesCloser'
-              dataType='string'
-              caption='Sales Closer'
-              calculateCellValue={(rowData) => [rowData.userSalesCloser?.fname, rowData.userSalesCloser?.lname].filter(Boolean).join(' ')}
-            />
-          )}
+          <Column
+            dataField='Nettable'
+            dataType='string'
+            caption='Nettable'
+            calculateCellValue={(rowData) => (rowData.Nettable ? 'Yes' : 'No')}
+          />
+          <Column
+            dataField='EnableBinLocations'
+            dataType='string'
+            caption='Enable Bin Location'
+            calculateCellValue={(rowData) => (rowData.EnableBinLocations ? 'Yes' : 'No')}
+          />
           <Column dataField='createdAt' dataType='datetime' caption='Created At' />
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 

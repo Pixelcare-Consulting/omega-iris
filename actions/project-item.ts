@@ -51,6 +51,71 @@ export async function getProjecItems(projectCode: number, isHideDeleted = true) 
   }
 }
 
+//* project items that are placed in the given warehouse
+export async function getProjectItemsByWarehouseCode(
+  warehouseCode: string | null | undefined,
+  userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>,
+  isHideDeleted = true
+) {
+  if (!warehouseCode || !userInfo || !userInfo.userId || !userInfo.userCode) return []
+
+  const { userId, userCode, ability } = userInfo
+
+  try {
+    const canViewAll = ability?.can('view', 'p-projects-individual-inventory')
+    const canViewOwned = ability?.can('view (owner)', 'p-projects-individual-inventory')
+
+    //* show all project items of this warehouse if canViewAll is true
+    //* show only project items that are related to the project individual that the user is assigned to which equavalent to canViewOwned is true
+    //* project individual must be active
+    const result = await db.projectItem.findMany({
+      where: {
+        warehouseCode,
+        ...(isHideDeleted ? { deletedAt: null, deletedBy: null } : {}),
+
+        ...(!ability || canViewAll
+          ? { projectIndividual: { isActive: true } }
+          : canViewOwned
+            ? {
+                projectIndividual: {
+                  isActive: true,
+                  OR: [
+                    { projectGroup: { projectGroupPics: { some: { userCode } } } },
+                    { projectIndividualCustomers: { some: { userCode } } },
+                    { projectIndividualPics: { some: { userCode } } },
+                    { createdBy: userId },
+                  ],
+                },
+              }
+            : { projectIndividualCode: -1 }),
+      },
+      include: COMMON_PROJECT_ITEM_INCLUDE,
+      orderBy: COMMON_PROJECT_ITEM_ORDER_BY,
+    })
+
+    return result.map((item) => ({
+      ...item,
+      cost: safeParseFloat(item.cost),
+      tfsStdPrice: safeParseFloat(item.tfsStdPrice),
+      omegaPrice: safeParseFloat(item.omegaPrice),
+      availableToOrder: subtract(safeParseFloat(item.totalStock), safeParseFloat(item.stockIn)),
+      stockIn: safeParseInt(item.stockIn),
+      stockOut: safeParseFloat(item.stockOut),
+      totalStock: safeParseFloat(item.totalStock),
+    }))
+  } catch (error) {
+    console.error(error)
+    return []
+  }
+}
+
+export const getProjectItemsByWarehouseCodeClient = action
+  .use(authenticationMiddleware)
+  .schema(z.object({ warehouseCode: z.string().nullish(), isHideDeleted: z.boolean().optional() }))
+  .action(async ({ ctx, parsedInput: data }) => {
+    return getProjectItemsByWarehouseCode(data.warehouseCode, ctx, data.isHideDeleted)
+  })
+
 export async function getAllProjectItems(userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>, isHideDeleted = true) {
   if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
 
@@ -795,6 +860,14 @@ export const importProjectItems = action
         select: { code: true, ItemCode: true, syncStatus: true },
       })
 
+      //* warehouses assigned to this project, an item can only be placed in one of them
+      const projectWarehouses = await db.warehouse.findMany({
+        where: { projectWarehouses: { some: { projectIndividualCode: projectCode! } } },
+        select: { WarehouseCode: true, binLocations: { select: { BinCode: true } } },
+      })
+
+      const projectWarehouseCodes = projectWarehouses.map((w) => w.WarehouseCode)
+
       for (let i = 0; i < data.length; i++) {
         const errors: ImportSyncErrorEntry[] = []
         const row = data[i]
@@ -824,6 +897,26 @@ export const importProjectItems = action
         //* check if total stock provided is valid
         if (safeParseInt(row?.['Total_Stock']) < 1) errors.push({ field: 'Total Stock', message: 'Total stock is invalid' })
 
+        const warehouseCode = row?.['Warehouse_Code']?.trim() || null
+        const binCode = row?.['Bin_Code']?.trim() || null
+
+        //* warehouse & bin are optional, but when provided they must belong to this project / warehouse
+        if (warehouseCode && !projectWarehouseCodes.includes(warehouseCode)) {
+          errors.push({ field: 'Warehouse Code', message: 'Warehouse is not assigned to this project' })
+        }
+
+        if (binCode && !warehouseCode) {
+          errors.push({ field: 'Bin Code', message: 'Warehouse code is required when a bin code is provided' })
+        }
+
+        if (binCode && warehouseCode && projectWarehouseCodes.includes(warehouseCode)) {
+          const warehouse = projectWarehouses.find((w) => w.WarehouseCode === warehouseCode)
+
+          if (!warehouse?.binLocations.some((bin) => bin.BinCode === binCode)) {
+            errors.push({ field: 'Bin Code', message: `Bin location does not exist in warehouse "${warehouseCode}"` })
+          }
+        }
+
         //* if errors array is not empty, then update/push to stats.error
         if (errors.length > 0) {
           stats.errors.push({ rowNumber: row.rowNumber, entries: errors, row })
@@ -843,6 +936,9 @@ export const importProjectItems = action
           palletNo: row?.['Pallet_No'] || null,
           packagingType: row?.['Packaging_Type'] || null,
           spq: row?.['SPQ'] || null,
+          warehouseCode,
+          binCode,
+          DistNumber: row?.['Batch_Number'],
           cost: safeParseFloat(row?.['Cost']),
           totalStock: safeParseFloat(row?.['Total_Stock']),
           notes: row?.['Notes'] || null,

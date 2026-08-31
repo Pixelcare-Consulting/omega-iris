@@ -19,11 +19,11 @@ export function useBatchesMasterByWarehouseCode(warehouseCode: string, isSynced:
   }
 }
 
-export function useBatchesMasterByWarehouseProjectCode(projectCode: number, dependencies?: any[]) {
+export function useBatchesMasterByWarehouseProjectCode(projectCode: number, warehouseCodes: string[] = [], dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getBatchesMasterByProjectCodeClient)
 
   useEffect(() => {
-    execute({ projectCode })
+    execute({ projectCode, warehouseCodes })
   }, [projectCode, ...(dependencies || [])])
 
   return {

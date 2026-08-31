@@ -13,15 +13,23 @@ import WarehouseOverviewTab from './_tabs/warehouse-overview-tab'
 import { useWarehouseSubLevelCodes } from '@/hooks/safe-actions/warehouse-sublevel-codes'
 import { useWarehouseBinLocations } from '@/hooks/safe-actions/warehouse-bin-location'
 import WarehouseBinLocationTab from './_tabs/warehouse-bin-location-tab'
-import { useBatchesMasterByWarehouseCode } from '@/hooks/safe-actions/batches'
-import WarehouseBatchTab from './_tabs/warehouse-batch-tab'
+// import { useBatchesMasterByWarehouseCode } from '@/hooks/safe-actions/batches'
+// import WarehouseBatchTab from './_tabs/warehouse-batch-tab'
+import WarehouseProjectInventoryTab from './_tabs/warehouse-project-inventory-tab'
+import { useProjectItemsByWarehouseCode } from '@/hooks/safe-actions/project-item'
 import CanView from '@/components/acl/can-view'
+import WarehouseProjectTab from './_tabs/warehouse-project-tab'
+import { usePisByWarehouseCode } from '@/hooks/safe-actions/project-individual'
+import WarehouseItemInventoryTab from './_tabs/warehouse-item-inventory-tab'
+import { useSapItemStockListByWarehouse } from '@/hooks/safe-actions/warehouse-item-inventory'
+import { useSession } from 'next-auth/react'
 
 type ViewWarehouseProps = {
   warehouse: NonNullable<Awaited<ReturnType<typeof getWarehouseByCode>>>
 }
 
 export default function ViewWarehouse({ warehouse }: ViewWarehouseProps) {
+  const { data: session } = useSession()
   const router = useRouter()
 
   const isSynced = warehouse.syncStatus === 'synced'
@@ -31,7 +39,10 @@ export default function ViewWarehouse({ warehouse }: ViewWarehouseProps) {
   const sublevel2Codes = useWarehouseSubLevelCodes(warehouse.EnableBinLocations ? 2 : -1)
   const sublevel3Codes = useWarehouseSubLevelCodes(warehouse.EnableBinLocations ? 3 : -1)
   const sublevel4Codes = useWarehouseSubLevelCodes(warehouse.EnableBinLocations ? 4 : -1)
-  const batches = useBatchesMasterByWarehouseCode(warehouse.WarehouseCode, isSynced)
+  // const batches = useBatchesMasterByWarehouseCode(warehouse.WarehouseCode, isSynced)
+  const projects = usePisByWarehouseCode(warehouse.WarehouseCode)
+  const projectItems = useProjectItemsByWarehouseCode(warehouse.WarehouseCode)
+  const itemInventory = useSapItemStockListByWarehouse(warehouse.WarehouseCode, isSynced)
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
@@ -88,11 +99,32 @@ export default function ViewWarehouse({ warehouse }: ViewWarehouseProps) {
             </TabPanelITem>
           </CanView>
 
-          <CanView subject='p-warehouses' action='view batches'>
+          {session?.user.roleKey === 'admin' && (
+            <CanView subject='p-projects-individuals' action={['view', 'view (owner)']}>
+              <TabPanelITem title='Projects'>
+                <WarehouseProjectTab projects={projects} />
+              </TabPanelITem>
+            </CanView>
+          )}
+
+          <CanView subject='p-warehouses' action='view item inventory data'>
+            <TabPanelITem title='Item Inventory Data'>
+              <WarehouseItemInventoryTab warehouseCode={warehouse.WarehouseCode} isSynced={isSynced} itemInventory={itemInventory} />
+            </TabPanelITem>
+          </CanView>
+
+          <CanView subject='p-projects-individual-inventory' action={['view', 'view (owner)']}>
+            <TabPanelITem title='Project Inventory'>
+              <WarehouseProjectInventoryTab projectItems={projectItems} />
+            </TabPanelITem>
+          </CanView>
+
+          {/* //* temporarily hidden */}
+          {/* <CanView subject='p-warehouses' action='view batches'>
             <TabPanelITem title='Batches' visible={warehouse.EnableBinLocations}>
               <WarehouseBatchTab warehouseCode={warehouse.WarehouseCode} isSynced={isSynced} batches={batches} />
             </TabPanelITem>
-          </CanView>
+          </CanView> */}
         </TabPanel>
       </PageContentWrapper>
     </div>

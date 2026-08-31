@@ -14,6 +14,7 @@ import { getAllProjectItemByCode } from '@/actions/project-item'
 import { safeParseFloat } from '@/utils'
 import { DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
+import ProjectIndividualItemSapInventory from '@/app/(protected)/project/individuals/[code]/view/_components/project-individual-item-sap-inventory'
 
 type ProjectInventoryOverviewTabProps = {
   projectItem: NonNullable<Awaited<ReturnType<typeof getAllProjectItemByCode>>>
@@ -165,11 +166,31 @@ export default function ProjectInventoryOverviewTab({ projectItem }: ProjectInve
         <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Location' description='Item location details' />
 
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-4'
+          title='Warehouse'
+          value={projectItem?.warehouse ? `${projectItem.warehouse.WarehouseName} (${projectItem.warehouse.WarehouseCode})` : ''}
+        />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Bin Location' value={projectItem?.binCode || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Batch #' value={projectItem?.DistNumber || ''}>
+          {projectItem?.DistNumber ? <Copy value={projectItem.DistNumber} /> : null}
+        </ReadOnlyField>
+
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Site Location' value={projectItem?.siteLocation || ''} />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 2' value={projectItem?.subLocation2 || ''} />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 3' value={projectItem?.subLocation3 || ''} />
+
+        <Separator className='col-span-12' />
+
+        <ProjectIndividualItemSapInventory
+          warehouseCode={projectItem?.warehouseCode}
+          itemCode={item?.ItemCode}
+          emptyText='No warehouse is set for this item, so there is no SAP stock to show.'
+        />
 
         {!isBusinessPartner && (
           <>
@@ -185,46 +206,6 @@ export default function ProjectInventoryOverviewTab({ projectItem }: ProjectInve
             <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Received By' value={dateReceivedBy} />
           </>
         )}
-
-        {/*  //* Temporary disable */}
-        {/* <Separator className='col-span-12' />
-        <ReadOnlyFieldHeader
-          className='col-span-12 mb-1'
-          title='Site Location '
-          description='Item warehouse and warehouse inventory details'
-        />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6' title='Warehouse' value={warehouse?.name || ''} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6' title='Description' value={warehouse?.description || ''} />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='In Stock'
-          value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.inStock), DEFAULT_NUMBER_FORMAT)}
-          isLoading={itemMasterWarehouseInventory.isLoading}
-        />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Committed'
-          value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.committed), DEFAULT_NUMBER_FORMAT)}
-          isLoading={itemMasterWarehouseInventory.isLoading}
-        />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Ordered'
-          value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.ordered), DEFAULT_NUMBER_FORMAT)}
-          isLoading={itemMasterWarehouseInventory.isLoading}
-        />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Available'
-          value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.available), DEFAULT_NUMBER_FORMAT)}
-          isLoading={itemMasterWarehouseInventory.isLoading}
-        /> */}
 
         {!isBusinessPartner && (
           <>

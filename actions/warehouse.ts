@@ -19,12 +19,63 @@ import { SAP_BASE_URL, WAREHOUSE_MASTER_MAX_PAGE_SIZE } from '@/constants/sap'
 import { parseSapCompactDate } from '@/utils/sap'
 import { getSapErrorMessage, isSapError, safeParseInt } from '@/utils'
 import logger from '@/utils/logger'
+import { getCurrentUserAbility } from './auth'
 
 const COMMON_WAREHOUSE_ORDER_BY = { code: 'asc' } satisfies Prisma.WarehouseOrderByWithRelationInput
 
-export async function getWarehouses() {
+export async function getWarehouses(userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>, isSynced?: boolean) {
+  if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
+
+  const { userCode, ability } = userInfo
+
   try {
+    let allowedProjects: { code: number }[] = []
+    const canViewAll = ability?.can('view', 'p-warehouses')
+    const canViewOwned = ability?.can('view (owner)', 'p-warehouses')
+
+    //* get allowed project for performance optimization, we wont get deep joins in the work order query
+    //* only get allowed project if canViewAll is false and canViewOwned is true
+    if (ability && !canViewAll && canViewOwned) {
+      allowedProjects = await db.projectIndividual.findMany({
+        where: {
+          OR: [
+            {
+              projectGroup: {
+                projectGroupPics: {
+                  some: { userCode },
+                },
+              },
+            },
+            {
+              projectIndividualPics: {
+                some: { userCode },
+              },
+            },
+            {
+              projectIndividualCustomers: {
+                some: { userCode },
+              },
+            },
+          ],
+        },
+        select: { code: true },
+      })
+    }
+
+    //* canViewOwned means can view all warehouses if you are assigned to the project individual as pic,
+    //* or customer, or a project group pic of the project
+    const where: Prisma.WarehouseWhereInput =
+      !ability || canViewAll
+        ? { ...(isSynced ? { syncStatus: 'synced' } : {}) }
+        : canViewOwned
+          ? {
+              ...(isSynced ? { syncStatus: 'synced' } : {}),
+              projectWarehouses: { some: { projectIndividualCode: { in: allowedProjects.map((p) => p.code) } } },
+            }
+          : { code: -1 }
+
     return db.warehouse.findMany({
+      where,
       orderBy: COMMON_WAREHOUSE_ORDER_BY,
     })
   } catch (error) {
@@ -35,16 +86,127 @@ export async function getWarehouses() {
 
 export const getWarehousesClient = action
   .use(authenticationMiddleware)
-  .schema(z.object({ isDefault: z.boolean().nullish().default(false) }))
-  .action(async () => {
-    return getWarehouses()
+  .schema(z.object({ isSynced: z.boolean().optional() }))
+  .action(async ({ ctx, parsedInput: data }) => {
+    return getWarehouses(ctx, data.isSynced)
   })
 
-export async function getWarehouseByCode(code: number) {
-  if (!code) return null
+//* only the warehouses assigned to the given project individual
+export async function getWarehousesByProjectCode(
+  projectCode: number | null | undefined,
+  userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>
+) {
+  if (!projectCode) return []
+  if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
+
+  const { userCode, ability } = userInfo
 
   try {
-    return db.warehouse.findUnique({ where: { code } })
+    const canViewAll = ability?.can('view', 'p-warehouses')
+    const canViewOwned = ability?.can('view (owner)', 'p-warehouses')
+
+    if (ability && !canViewAll && !canViewOwned) return []
+
+    //* a view (owner) user may only read warehouses of a project they are assigned to,
+    //* otherwise the project code can be used to enumerate warehouses of any project
+    if (ability && !canViewAll && canViewOwned) {
+      const allowedProject = await db.projectIndividual.findFirst({
+        where: {
+          code: projectCode,
+          OR: [
+            {
+              projectGroup: {
+                projectGroupPics: {
+                  some: { userCode },
+                },
+              },
+            },
+            {
+              projectIndividualPics: {
+                some: { userCode },
+              },
+            },
+            {
+              projectIndividualCustomers: {
+                some: { userCode },
+              },
+            },
+          ],
+        },
+        select: { code: true },
+      })
+
+      if (!allowedProject) return []
+    }
+
+    return db.warehouse.findMany({
+      where: { projectWarehouses: { some: { projectIndividualCode: projectCode } } },
+      orderBy: COMMON_WAREHOUSE_ORDER_BY,
+    })
+  } catch (error) {
+    console.error(error)
+    return []
+  }
+}
+
+export const getWarehousesByProjectCodeClient = action
+  .use(authenticationMiddleware)
+  .schema(z.object({ projectCode: z.coerce.number().nullish() }))
+  .action(async ({ ctx, parsedInput }) => {
+    return getWarehousesByProjectCode(parsedInput.projectCode, ctx)
+  })
+
+export async function getWarehouseByCode(code: number, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
+  if (!code) return null
+  if (!userInfo || !userInfo.userId || !userInfo.userCode) return null
+
+  const { userCode, ability } = userInfo
+
+  try {
+    let allowedProjects: { code: number }[] = []
+    const canViewAll = ability?.can('view', 'p-warehouses')
+    const canViewOwned = ability?.can('view (owner)', 'p-warehouses')
+
+    //* get allowed project for performance optimization, we wont get deep joins in the warehouse query
+    //* only get allowed project if canViewAll is false and canViewOwned is true
+    if (ability && !canViewAll && canViewOwned) {
+      allowedProjects = await db.projectIndividual.findMany({
+        where: {
+          OR: [
+            {
+              projectGroup: {
+                projectGroupPics: {
+                  some: { userCode },
+                },
+              },
+            },
+            {
+              projectIndividualPics: {
+                some: { userCode },
+              },
+            },
+            {
+              projectIndividualCustomers: {
+                some: { userCode },
+              },
+            },
+          ],
+        },
+        select: { code: true },
+      })
+    }
+
+    const where: Prisma.WarehouseWhereInput =
+      !ability || canViewAll
+        ? { code }
+        : canViewOwned
+          ? {
+              code,
+              projectWarehouses: { some: { projectIndividualCode: { in: allowedProjects.map((p) => p.code) } } },
+            }
+          : { code: -1 }
+
+    return db.warehouse.findFirst({ where })
   } catch (err) {
     return null
   }

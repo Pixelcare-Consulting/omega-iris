@@ -11,6 +11,7 @@ import {
   projectIndividualFormSchema,
   projectIndividualPicFormSchema,
   projectIndividualSupplierFormSchema,
+  projectIndividualWarehouseFormSchema,
 } from '@/schema/project-individual'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import z from 'zod'
@@ -84,6 +85,29 @@ export const getPisByGroupCodeClient = action
     return getPisByGroupCode(parsedInput.groupCode)
   })
 
+//* project individuals that have the given warehouse assigned to them
+export async function getPisByWarehouseCode(warehouseCode?: string | null) {
+  if (!warehouseCode) return []
+
+  try {
+    return db.projectIndividual.findMany({
+      where: { deletedAt: null, deletedBy: null, projectIndividualWarehouses: { some: { warehouseCode } } },
+      include: COMMON_PROJECT_INDIVIDUAL_INCLUDE,
+      orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY,
+    })
+  } catch (error) {
+    console.error(error)
+    return []
+  }
+}
+
+export const getPisByWarehouseCodeClient = action
+  .use(authenticationMiddleware)
+  .schema(z.object({ warehouseCode: z.string().nullish() }))
+  .action(async ({ parsedInput }) => {
+    return getPisByWarehouseCode(parsedInput.warehouseCode)
+  })
+
 export async function getPisBySalesCloser(salesCloser: number) {
   if (!salesCloser) return []
 
@@ -135,10 +159,11 @@ export async function getPiByCode(code: number, userInfo: Awaited<ReturnType<typ
     if (!projectIndividuals) return null
 
     //TODO: separate the fetching of customers and pics into separate actions & hooks
-    const [customers, suppliers, pics] = await Promise.all([
+    const [customers, suppliers, pics, warehouses] = await Promise.all([
       db.projectIndividualCustomer.findMany({ where: { projectIndividualCode: code }, select: { userCode: true } }),
       db.projectIndividualSupplier.findMany({ where: { projectIndividualCode: code }, select: { supplierCode: true } }),
       db.projectIndividualPic.findMany({ where: { projectIndividualCode: code }, select: { userCode: true } }),
+      db.projectIndividualWarehouse.findMany({ where: { projectIndividualCode: code }, select: { warehouseCode: true } }),
     ])
 
     return {
@@ -146,6 +171,7 @@ export async function getPiByCode(code: number, userInfo: Awaited<ReturnType<typ
       customers: customers.map((c) => c.userCode),
       suppliers: suppliers.map((s) => s.supplierCode),
       pics: pics.map((p) => p.userCode),
+      warehouses: warehouses.map((w) => w.warehouseCode),
     }
   } catch (error) {
     console.error(error)
@@ -183,7 +209,7 @@ export const upsertPi = action
   .use(authenticationMiddleware)
   .schema(projectIndividualFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, customers, suppliers, pics, ...data } = parsedInput
+    const { code, customers, suppliers, pics, warehouses, ...data } = parsedInput
     const { userId, userCode } = ctx
 
     const include: Prisma.ProjectIndividualInclude = {
@@ -285,6 +311,14 @@ export const upsertPi = action
           //* create new project individual pics
           db.projectIndividualPic.createMany({
             data: pics.map((p) => ({ projectIndividualCode: code, userCode: p })),
+          }),
+
+          //* delete existing project individual warehouses
+          db.projectIndividualWarehouse.deleteMany({ where: { projectIndividualCode: code } }),
+
+          //* create new project individual warehouses
+          db.projectIndividualWarehouse.createMany({
+            data: warehouses.map((w) => ({ projectIndividualCode: code, warehouseCode: w })),
           }),
         ])
 
@@ -418,6 +452,9 @@ export const upsertPi = action
           },
           projectIndividualPics: {
             createMany: { data: pics.map((p) => ({ userCode: p })) },
+          },
+          projectIndividualWarehouses: {
+            createMany: { data: warehouses.map((w) => ({ warehouseCode: w })) },
           },
           createdBy: userId,
           updatedBy: userId,
@@ -889,6 +926,55 @@ export const updatePiSuppliers = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'UPDATE_PROJECT_INDIVIDUAL_SUPPLIERS',
+      }
+    }
+  })
+
+export const updatePiWarehouses = action
+  .use(authenticationMiddleware)
+  .schema(projectIndividualWarehouseFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { code, warehouses } = parsedInput
+    const { userId } = ctx
+
+    try {
+      const pi = await db.projectIndividual.findUnique({ where: { code } })
+
+      if (!pi) {
+        return { error: true, status: 404, message: 'Project individual not found!', action: 'UPDATE_PROJECT_INDIVIDUAL_WAREHOUSES' }
+      }
+
+      //* update project individual
+      const [updatedPi] = await db.$transaction([
+        //* update project individual
+        db.projectIndividual.update({
+          where: { code },
+          data: { updatedBy: userId },
+        }),
+
+        //* delete existing project individual warehouses
+        db.projectIndividualWarehouse.deleteMany({ where: { projectIndividualCode: code } }),
+
+        //* create new project individual warehouses
+        db.projectIndividualWarehouse.createManyAndReturn({
+          data: warehouses.map((w) => ({ projectIndividualCode: code, warehouseCode: w })),
+        }),
+      ])
+
+      return {
+        status: 200,
+        message: `Project individual's warehouses updated successfully!`,
+        action: 'UPDATE_PROJECT_INDIVIDUAL_WAREHOUSES',
+        data: { projectIndividual: updatedPi },
+      }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'UPDATE_PROJECT_INDIVIDUAL_WAREHOUSES',
       }
     }
   })

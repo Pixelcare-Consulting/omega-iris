@@ -4,9 +4,9 @@ import ScrollView from 'devextreme-react/scroll-view'
 import { Button } from 'devextreme-react/button'
 import { Item } from 'devextreme-react/toolbar'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { FormProvider, useForm, useWatch } from 'react-hook-form'
+import { FormProvider, useForm, useFormState, useWatch } from 'react-hook-form'
 import { useRouter } from 'nextjs-toploader/app'
-import { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useRef } from 'react'
+import { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useAction } from 'next-safe-action/hooks'
 import { subtract } from 'mathjs'
@@ -22,23 +22,25 @@ import { commonItemRender, userItemRender } from '@/utils/devextreme'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Separator from '@/components/separator'
 import { getProjecItems } from '@/actions/project-item'
+import { getBatchMasterByItemCodeDistNumberWarehouseCodeBinCodeClient } from '@/actions/batches'
 import useItems from '@/hooks/safe-actions/item'
 import ReadOnlyField from '@/components/read-only-field'
+import ProjectIndividualItemSapInventory from './project-individual-item-sap-inventory'
 import { formatNumber } from 'devextreme/localization'
 import { DEFAULT_COLUMN_MIN_WIDTH, DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { safeParseFloat, safeParseInt } from '@/utils'
-import ProjectIndividualItemWarehouseInventory from './project-individual-item-warehouse-inventory'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
-import { useItemWarehouseInventory } from '@/hooks/safe-actions/item-warehouse-inventory'
+import { useWarehouseBinLocations } from '@/hooks/safe-actions/warehouse-bin-location'
+import { useWarehousesByProjectCode } from '@/hooks/safe-actions/warehouse'
 import TextBoxField from '@/components/forms/text-box-field'
 import NumberBoxField from '@/components/forms/number-box-field'
 import DateBoxField from '@/components/forms/date-box-field'
 import useUsers from '@/hooks/safe-actions/user'
-import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import TextAreaField from '@/components/forms/text-area-field'
 import { FormDebug } from '@/components/forms/form-debug'
 import DropDownBoxField from '@/components/forms/drop-down-field'
 import { NotificationContext } from '@/context/notification'
+import { parseSapCompactDate } from '@/utils/sap'
 
 type ProjectItemFormProps = {
   projectCode: number
@@ -76,6 +78,7 @@ export default function ProjectItemForm({
         itemCode: 0,
         projectIndividualCode: projectCode,
         warehouseCode: null,
+        binCode: null,
         partNumber: null,
         dateCode: null,
         countryOfOrigin: null,
@@ -104,6 +107,7 @@ export default function ProjectItemForm({
         phase: null,
         tfsStdPrice: 0,
         omegaPrice: 0,
+        DistNumber: null,
       }
     }
 
@@ -117,12 +121,25 @@ export default function ProjectItemForm({
   })
 
   const warehouseCode = useWatch({ control: form.control, name: 'warehouseCode' })
+  const binCode = useWatch({ control: form.control, name: 'binCode' })
   const itemCode = useWatch({ control: form.control, name: 'itemCode' })
+
+  //* watching the batch number would re-render this whole form on every keystroke, so take it from the text
+  //* box's debounced callback instead - the lookup only cares about the value once the user stops typing
+  const [distNumber, setDistNumber] = useState<string | null>(item?.DistNumber ?? null)
+
+  const handleDistNumberChanged = useCallback((args: { value?: string | null }) => {
+    setDistNumber(args?.value?.trim() || null)
+  }, [])
+
+  //* a field is only dirty once its value differs from the loaded item, which is exactly "the user changed it"
+  const { dirtyFields } = useFormState({ control: form.control })
 
   const totalStock = useWatch({ control: form.control, name: 'totalStock' })
   const stockIn = useWatch({ control: form.control, name: 'stockIn' })
 
   const { executeAsync, isExecuting } = useAction(upsertProjectItem)
+  const batchMasterData = useAction(getBatchMasterByItemCodeDistNumberWarehouseCodeBinCodeClient)
 
   const availableToOrder = useMemo(() => {
     return subtract(safeParseFloat(totalStock), safeParseFloat(stockIn))
@@ -131,7 +148,7 @@ export default function ProjectItemForm({
   const selectedBaseItem = useMemo(() => {
     if (itemMasters.isLoading || itemMasters.data.length < 1) return null
     return itemMasters.data.find((i) => i.code === itemCode)
-  }, [itemCode, JSON.stringify(itemMasters)])
+  }, [itemCode, itemMasters.data, itemMasters.isLoading])
 
   const itemCodeOnSelectionChanged = useCallback((e: DataGridTypes.SelectionChangedEvent): void => {
     if (e.selectedRowKeys.length === 0) return
@@ -144,19 +161,135 @@ export default function ProjectItemForm({
     form.setValue('itemCode', newValue)
   }, [])
 
-  const itemMasterWarehouseInventory = useItemWarehouseInventory(selectedBaseItem?.code)
+  //* only the warehouses assigned to this project can be picked for its items
+  const projectWarehouses = useWarehousesByProjectCode(projectCode)
+  const binLocations = useWarehouseBinLocations(warehouseCode ?? '')
 
-  //* Temporary disable
-  // const selectedItemMasterWarehouseInventory = useMemo(() => {
-  //   if (itemMasterWarehouseInventory.isLoading || itemMasterWarehouseInventory.data.length < 1) return null
-  //   return itemMasterWarehouseInventory.data.find((wi) => wi.warehouseCode === warehouseCode)
-  // }, [JSON.stringify(itemMasterWarehouseInventory), warehouseCode])
+  const warehouseOptions = useMemo(() => {
+    if (projectWarehouses.isLoading || projectWarehouses.data.length < 1) return []
+    return projectWarehouses.data.map((w) => ({ label: w.WarehouseName, value: w.WarehouseCode }))
+  }, [projectWarehouses.data, projectWarehouses.isLoading])
 
-  //* Temporary disable
-  // const warehouse = useMemo(() => {
-  //   if (warehouses.isLoading || warehouses.data.length < 1) return null
-  //   return warehouses.data.find((w) => w.code === warehouseCode)
-  // }, [JSON.stringify(warehouses), warehouseCode])
+  const binLocationOptions = useMemo(() => {
+    if (binLocations.isLoading || binLocations.data.length < 1) return []
+    return binLocations.data.map((b) => ({ label: b.BinCode, value: b.BinCode }))
+  }, [binLocations.data, binLocations.isLoading])
+
+  //* devextreme fires onValueChanged for programmatic value changes too, so remember what the warehouse
+  //* actually was, otherwise loading an existing item would look like a change and wipe its saved bin.
+  //* seeded from the loaded item so the first change a user makes is never mistaken for that first paint
+  const previousWarehouseCodeRef = useRef<string | null>(item?.warehouseCode ?? null)
+
+  //* a bin belongs to a single warehouse, so drop the current one whenever the warehouse really changes
+  const handleWarehouseChanged = useCallback((args: { value?: string | null }) => {
+    const nextWarehouseCode = args?.value || null
+    const previousWarehouseCode = previousWarehouseCodeRef.current
+
+    previousWarehouseCodeRef.current = nextWarehouseCode
+
+    if (previousWarehouseCode === nextWarehouseCode) return
+
+    if (form.getValues('binCode')) form.setValue('binCode', null)
+  }, [])
+
+  //* a batch row in sap is identified by all four of these, so any of them changing means a different batch
+  const batchLookup = useMemo(
+    () => ({
+      itemCode: selectedBaseItem?.ItemCode || null,
+      warehouseCode: warehouseCode || null,
+      binCode: binCode || null,
+      distNumber: distNumber || null,
+    }),
+    [selectedBaseItem?.ItemCode, warehouseCode, binCode, distNumber]
+  )
+
+  //* what we last asked sap for, so the same batch is never fetched twice in a row
+  const lastBatchLookupRef = useRef<string | null>(null)
+
+  //* batch numbers are unique per item, so pull the batch from sap and fill in what it already knows
+  const fetchBatchDetails = useCallback(
+    ({
+      itemCode,
+      warehouseCode,
+      binCode,
+      distNumber,
+    }: {
+      itemCode: string
+      warehouseCode: string
+      binCode: string
+      distNumber: string
+    }) => {
+      console.log('zzzzz')
+
+      toast.promise(batchMasterData.executeAsync({ itemCode, distNumber, warehouseCode, binCode }), {
+        loading: 'Fetching batch details...',
+        success: (response) => {
+          if (!response) throw { message: 'Failed to fetch batch details!', unExpectedError: true }
+
+          const batch = response?.data
+
+          if (!batch) throw { message: `Batch "${distNumber}" was not found for this item!`, expectedError: true }
+
+          //* sap is the source of truth for these, so overwrite whatever is currently in the form
+          form.setValue('warehouseCode', batch.WhsCode ?? null)
+          form.setValue('binCode', batch.BinCode ?? null)
+          form.setValue('partNumber', batch.U_PartNumber ?? null)
+          form.setValue('dateCode', batch.U_DateCode ?? null)
+          form.setValue('countryOfOrigin', batch.MnfSerial ?? null)
+          form.setValue('lotCode', batch.U_LotCode ?? null)
+          form.setValue('packagingType', batch.U_PackagingType ?? null)
+          form.setValue('spq', batch.U_SPQ ?? null)
+          form.setValue('owner', batch.U_Owner ?? null)
+          form.setValue('group', batch.U_Group ?? null)
+          form.setValue('division', batch.U_Division ?? null)
+          form.setValue('commodities', batch.U_Commodities ?? null)
+          form.setValue('site', batch.U_Site ?? null)
+          form.setValue('cmSite', batch.U_CMSite ?? null)
+          form.setValue('phase', safeParseInt(batch.U_Phase) || null)
+          form.setValue('totalStock', safeParseFloat(batch.Quantity))
+          form.setValue('dateReceived', parseSapCompactDate(batch.InDate) ?? null)
+          form.setValue('notes', batch.Notes ?? null)
+
+          //* the bin belongs to the batch's warehouse, keep the guard in sync so it isn't wiped after this
+          previousWarehouseCodeRef.current = batch.WhsCode ?? null
+
+          return `Batch "${distNumber}" details applied.`
+        },
+        error: (err: Error & { expectedError: boolean }) => {
+          return err?.expectedError ? err.message : 'Something went wrong! Please try again later.'
+        },
+      })
+    },
+    []
+  )
+
+  //* only go to sap once the user has actually touched one of the four fields, never on the initial paint of
+  //* an item being edited, otherwise loading a saved item would overwrite it with sap's values straight away
+  useEffect(() => {
+    const isTouched = Boolean(dirtyFields.itemCode || dirtyFields.warehouseCode || dirtyFields.binCode || dirtyFields.DistNumber)
+
+    if (!isTouched) return
+
+    const { itemCode, warehouseCode, binCode, distNumber } = batchLookup
+
+    if (!itemCode || !warehouseCode || !binCode || !distNumber) return
+
+    const key = [itemCode, warehouseCode, binCode, distNumber].join('|')
+
+    //* the response writes warehouse/bin back, which re-runs this effect with the very same lookup
+    if (key === lastBatchLookupRef.current) return
+
+    lastBatchLookupRef.current = key
+
+    console.log('runn...xx')
+
+    fetchBatchDetails({ itemCode, warehouseCode, binCode, distNumber })
+  }, [batchLookup, dirtyFields.itemCode, dirtyFields.warehouseCode, dirtyFields.binCode, dirtyFields.DistNumber])
+
+  //* switching to a different saved item starts a fresh lookup history
+  useEffect(() => {
+    lastBatchLookupRef.current = null
+  }, [item?.code])
 
   const resetForm = () => {
     form.reset()
@@ -165,7 +298,12 @@ export default function ProjectItemForm({
 
   const handleOnSubmit = async (formData: ProjectItemForm) => {
     try {
-      const response = await executeAsync(formData)
+      //* the select box writes '' when cleared, but these are foreign keys so they have to go back as null
+      const response = await executeAsync({
+        ...formData,
+        warehouseCode: formData.warehouseCode || null,
+        binCode: formData.binCode || null,
+      })
       const result = response?.data
 
       if (result?.error) {
@@ -339,6 +477,81 @@ export default function ProjectItemForm({
               /> */}
 
               <Separator className='col-span-12' />
+              <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Location' description='Item location details' />
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                <SelectBoxField
+                  data={warehouseOptions}
+                  isLoading={projectWarehouses.isLoading}
+                  control={form.control}
+                  name='warehouseCode'
+                  label='Warehouse'
+                  valueExpr='value'
+                  displayExpr={(item) => (item ? `${item?.label} (${item?.value})` : '')}
+                  searchExpr={['label', 'value']}
+                  description='Only warehouses assigned to this project'
+                  callback={handleWarehouseChanged}
+                  extendedProps={{
+                    selectBoxOptions: {
+                      itemRender: (params) => {
+                        return commonItemRender({
+                          title: params?.label,
+                          value: params?.value,
+                        })
+                      },
+                    },
+                  }}
+                />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                <SelectBoxField
+                  data={binLocationOptions}
+                  isLoading={binLocations.isLoading}
+                  control={form.control}
+                  name='binCode'
+                  label='Bin Location'
+                  valueExpr='value'
+                  displayExpr='value'
+                  searchExpr={['label', 'value']}
+                  description={!warehouseCode ? 'Select a warehouse first' : undefined}
+                  extendedProps={{ selectBoxOptions: { disabled: !warehouseCode } }}
+                />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                <TextBoxField
+                  control={form.control}
+                  name='DistNumber'
+                  label='Batch Number'
+                  callback={handleDistNumberChanged}
+                  callbackDebounce={1000}
+                  description={
+                    !itemCode || !warehouseCode || !binCode
+                      ? 'Select an item, warehouse, bin location first'
+                      : 'Fills the fields below from SAP'
+                  }
+                  extendedProps={{ textBoxOptions: { disabled: !itemCode || !warehouseCode || !binCode } }}
+                />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                <TextBoxField control={form.control} name='siteLocation' label='Site Location' isRequired />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                <TextBoxField control={form.control} name='subLocation2' label='Sub Location 2' />
+              </div>
+
+              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                <TextBoxField control={form.control} name='subLocation3' label='Sub Location 3' />
+              </div>
+
+              <Separator className='col-span-12' />
+
+              <ProjectIndividualItemSapInventory warehouseCode={warehouseCode} itemCode={selectedBaseItem?.ItemCode} />
+
+              <Separator className='col-span-12' />
               <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Project Item' description='Project item details' />
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
@@ -470,21 +683,6 @@ export default function ProjectItemForm({
               </div>
 
               <Separator className='col-span-12' />
-              <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Location' description='Item location details' />
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <TextBoxField control={form.control} name='siteLocation' label='Site Location' isRequired />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <TextBoxField control={form.control} name='subLocation2' label='Sub Location 2' />
-              </div>
-
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <TextBoxField control={form.control} name='subLocation3' label='Sub Location 3' />
-              </div>
-
-              <Separator className='col-span-12' />
               <ReadOnlyFieldHeader
                 className='col-span-12 mb-1'
                 title='Item Received '
@@ -508,66 +706,6 @@ export default function ProjectItemForm({
                   extendedProps={{ selectBoxOptions: { itemRender: userItemRender } }}
                 />
               </div>
-
-              {/* //* Temporary disable */}
-              {/* <Separator className='col-span-12' />
-              <ReadOnlyFieldHeader
-                className='col-span-12 mb-1'
-                title='Site Location '
-                description='Item warehouse and warehouse inventory details'
-              />
-
-              <div className='col-span-12 md:col-span-6'>
-                <SelectBoxField
-                  data={warehouses.data}
-                  isLoading={warehouses.isLoading}
-                  control={form.control}
-                  name='warehouseCode'
-                  label='Warehouse'
-                  valueExpr='code'
-                  displayExpr='name'
-                  searchExpr={['code', 'name']}
-                  isRequired
-                  extendedProps={{
-                    selectBoxOptions: {
-                      itemRender: (params) => {
-                        return commonItemRender({
-                          title: params?.name,
-                          description: params?.description,
-                          value: params?.code,
-                          valuePrefix: '#',
-                        })
-                      },
-                    },
-                  }}
-                />
-              </div>
-
-              <ReadOnlyField className='col-span-12 md:col-span-6' title='Description' value={warehouse?.description || ''} />
-
-              <ReadOnlyField
-                className='col-span-12 md:col-span-6 lg:col-span-3'
-                title='In Stock'
-                value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.inStock), DEFAULT_NUMBER_FORMAT)}
-              />
-
-              <ReadOnlyField
-                className='col-span-12 md:col-span-6 lg:col-span-3'
-                title='Committed'
-                value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.committed), DEFAULT_NUMBER_FORMAT)}
-              />
-
-              <ReadOnlyField
-                className='col-span-12 md:col-span-6 lg:col-span-3'
-                title='Ordered'
-                value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.ordered), DEFAULT_NUMBER_FORMAT)}
-              />
-
-              <ReadOnlyField
-                className='col-span-12 md:col-span-6 lg:col-span-3'
-                title='Available'
-                value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.available), DEFAULT_NUMBER_FORMAT)}
-              /> */}
             </div>
           </ScrollView>
         </PageContentWrapper>

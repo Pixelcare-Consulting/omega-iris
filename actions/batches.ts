@@ -5,7 +5,6 @@ import { callSapServiceLayerApi } from './sap-service-layer'
 import { safeParseInt } from '@/utils'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import z from 'zod'
-import { db } from '@/utils/db'
 
 export async function getBatchesMasterCountByWarehouseCode(warehouseCode: string) {
   if (!warehouseCode) return 0
@@ -40,6 +39,62 @@ export async function getBatchesMasterCountProjectCode(projectCode: number, ware
     return 0
   }
 }
+
+export async function getBatchMasterByItemCodeDistNumber(itemCode: string, distNumber: string) {
+  if (!itemCode || !distNumber) return null
+
+  try {
+    const response = await callSapServiceLayerApi({
+      url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('batch-details-by-item-batch-number')/List`,
+      method: 'post',
+      data: { ParamList: `ItemCode='${itemCode}'&DistNumber='${distNumber}'` },
+    })
+
+    return response?.value?.[0] || null
+  } catch (error) {
+    console.error(error)
+    return null
+  }
+}
+
+export const getBatchMasterByItemCodeDistNumberClient = action
+  .use(authenticationMiddleware)
+  .schema(z.object({ itemCode: z.string(), distNumber: z.string() }))
+  .action(async ({ parsedInput }) => {
+    return getBatchMasterByItemCodeDistNumber(parsedInput.itemCode, parsedInput.distNumber)
+  })
+
+export async function getBatchMasterByItemCodeDistNumberWarehouseCodeBinCode(
+  itemCode: string,
+  distNumber: string,
+  warehouseCode: string,
+  binCode: string
+) {
+  try {
+    const response = await callSapServiceLayerApi({
+      url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('batch-details-by-item-batch-number-item-warehouse-bin-location')/List`,
+      method: 'post',
+      data: { ParamList: `ItemCode='${itemCode}'&DistNumber='${distNumber}'&WhsCode='${warehouseCode}'&BinCode='${binCode}'` },
+    })
+
+    return response?.value?.[0] || null
+  } catch (error) {
+    console.error(error)
+    return null
+  }
+}
+
+export const getBatchMasterByItemCodeDistNumberWarehouseCodeBinCodeClient = action
+  .use(authenticationMiddleware)
+  .schema(z.object({ itemCode: z.string(), distNumber: z.string(), warehouseCode: z.string(), binCode: z.string() }))
+  .action(async ({ parsedInput }) => {
+    return getBatchMasterByItemCodeDistNumberWarehouseCodeBinCode(
+      parsedInput.itemCode,
+      parsedInput.distNumber,
+      parsedInput.warehouseCode,
+      parsedInput.binCode
+    )
+  })
 
 // TODO : Examine the performance to query all batches in a single call
 export async function getBatchesMasterByWarehouseCode(warehouseCode: string, isSynced: boolean) {
@@ -89,12 +144,8 @@ export const getBatchesMasterByWarehouseCodeClient = action
   })
 
 // TODO : Examine the performance to query all batches in a single call
-export async function getBatchesMasterByProjectCode(projectCode: number) {
+export async function getBatchesMasterByProjectCode(projectCode: number, warehouseCodes: string[]) {
   try {
-    //* fetch sync warehouses in the portal, make sure that fetch based will be based on these warehouses
-    const warehouses = await db.warehouse.findMany({ where: { syncStatus: 'synced' } })
-    const warehouseCodes = warehouses.map((warehouse) => warehouse.WarehouseCode)
-
     if (!warehouseCodes.length) {
       console.error(`No warehouses are synced, batches not available`)
       return []
@@ -151,7 +202,7 @@ export async function getBatchesMasterByProjectCode(projectCode: number) {
 
 export const getBatchesMasterByProjectCodeClient = action
   .use(authenticationMiddleware)
-  .schema(z.object({ projectCode: z.number() }))
+  .schema(z.object({ projectCode: z.number(), warehouseCodes: z.array(z.string()) }))
   .action(async ({ parsedInput }) => {
-    return getBatchesMasterByProjectCode(parsedInput.projectCode)
+    return getBatchesMasterByProjectCode(parsedInput.projectCode, parsedInput.warehouseCodes)
   })

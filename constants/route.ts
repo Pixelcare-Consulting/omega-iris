@@ -19,6 +19,7 @@ export const authRoutes = ['/signin', '/change-password']
  */
 export const protectedRoutes = [
   '/dashboard',
+  '/paginated',
   '/users',
   '/profile',
   '/roles',
@@ -26,8 +27,11 @@ export const protectedRoutes = [
   '/suppliers',
   '/project/groups',
   '/project/individuals',
+  '/project/inventory',
+  '/warehouses',
   '/inventory',
   '/work-orders',
+  '/reports',
 ]
 
 /**

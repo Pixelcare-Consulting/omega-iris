@@ -40,8 +40,6 @@ import {
 } from '@/constants/devextreme'
 import { WORK_ORDER_STATUS_VALUE_MAP, WorkOrderForm, WorkOrderItemForm } from '@/schema/work-order'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
-import { useWarehouses } from '@/hooks/safe-actions/warehouse'
-import useUsers from '@/hooks/safe-actions/user'
 import { toast } from 'sonner'
 import AlertDialog from '@/components/alert-dialog'
 import { getWorkOrderByCode } from '@/actions/work-order'
@@ -50,12 +48,10 @@ import FormMessage from '@/components/forms/form-message'
 import { cn, safeParseFloat, safeParseInt } from '@/utils'
 import { subtract } from 'mathjs'
 import { FormDebug } from '@/components/forms/form-debug'
-import { Icons } from '@/components/icons'
 import { parseExcelFile } from '@/utils/xlsx'
 import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import WorkOrderLineItemForm from './work-order-line-item-form'
-import LoadingButton from '@/components/loading-button'
 import { useDuplicatedFromWoByCode } from '@/hooks/safe-actions/work-order'
 import { useParams } from 'next/navigation'
 import Alert from '@/components/alert'
@@ -401,7 +397,6 @@ export default function WorkOrderLineItemTable({
           const tfsStdPrice = safeParseFloat(pItem?.tfsStdPrice)
           const omegaPrice = safeParseFloat(pItem?.omegaPrice)
 
-          const warehouse = pItem?.warehouse
           const dateReceivedBy = pItem?.dateReceivedByUser ? [pItem?.dateReceivedByUser?.fname, pItem?.dateReceivedByUser?.lname].filter(Boolean).join(' ') : '' // prettier-ignore
           const isDeleted = pItem?.deletedAt || pItem?.deletedBy
 
@@ -415,7 +410,8 @@ export default function WorkOrderLineItemTable({
             countryOfOrigin: pItem?.countryOfOrigin || '',
             lotCode: pItem?.lotCode || '',
             palletNo: pItem?.palletNo || '',
-            warehouse: warehouse?.WarehouseName || '',
+            warehouseCode: pItem?.warehouseCode || '',
+            binCode: pItem?.binCode || '',
             dateReceived: pItem?.dateReceived,
             dateReceivedBy,
             isDeleted,
@@ -442,6 +438,7 @@ export default function WorkOrderLineItemTable({
             phase: pItem?.phase || '',
             tfsStdPrice,
             omegaPrice,
+            DistNumber: pItem?.DistNumber || '',
             createdAt: pItem?.createdAt,
             createdBy: pItem?.createdBy,
             updatedAt: pItem?.updatedAt,
@@ -518,6 +515,7 @@ export default function WorkOrderLineItemTable({
         >
           <HiddenFieldsContext.Provider value={{ hiddenFields }}>
             <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' sortOrder='asc' allowEditing={false} />
+            <Column dataField='DistNumber' dataType='string' minWidth={100} caption='Batch #' allowEditing={false} />
             <Column
               dataField='isDelivered'
               dataType='string'
@@ -567,6 +565,8 @@ export default function WorkOrderLineItemTable({
                 <Column dataField='countryOfOrigin' dataType='string' caption='COO' allowEditing={false} />
                 <Column dataField='lotCode' dataType='string' caption='Lot Code' allowEditing={false} />
                 <Column dataField='palletNo' dataType='string' caption='Pallet No' allowEditing={false} />
+                <Column dataField='warehouseCode' dataType='string' caption='Warehouse' allowEditing={false} />
+                <Column dataField='binCode' dataType='string' caption='Bin Location' allowEditing={false} />
                 <Column dataField='siteLocation' dataType='string' caption='Site Location' allowEditing={false} />
                 <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' allowEditing={false} />
                 <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' allowEditing={false} />

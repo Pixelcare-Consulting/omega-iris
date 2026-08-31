@@ -3,11 +3,13 @@ import { notFound } from 'next/navigation'
 import { getWarehouseByCode } from '@/actions/warehouse'
 import ContentContainer from '@/app/(protected)/_components/content-container'
 import WarehouseForm from '../_components/warehouse-form'
+import { getCurrentUserAbility } from '@/actions/auth'
 
 export default async function WarehousePage({ params }: { params: { code: string } }) {
   const { code } = params
 
-  const warehouse = await getWarehouseByCode(parseInt(code))
+  const userInfo = await getCurrentUserAbility()
+  const warehouse = await getWarehouseByCode(parseInt(code), userInfo)
 
   const getPageMetadata = () => {
     if (!warehouse || !warehouse?.code || code == 'add')

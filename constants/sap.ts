@@ -28,3 +28,6 @@ export const WAREHOUSE_BIN_LOCATION_MAX_PAGE_SIZE = 500
 
 //* Batch
 export const BATCH_MASTER_MAX_PAGE_SIZE = 1000
+
+//* Item Stock By Warehouse
+export const ITEM_STOCK_BY_WAREHOUSE_MAX_PAGE_SIZE = 1000

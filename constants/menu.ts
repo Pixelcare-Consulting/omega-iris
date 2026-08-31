@@ -128,7 +128,7 @@ export const navigation: NavItem[] = [
     selected: false,
     expanded: false,
     subjects: 'p-warehouses',
-    actions: 'view',
+    actions: ['view', 'view (owner)'],
   },
   {
     id: uuidv4(),

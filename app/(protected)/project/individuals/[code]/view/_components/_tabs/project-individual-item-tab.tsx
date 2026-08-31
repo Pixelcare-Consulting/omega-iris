@@ -32,7 +32,6 @@ import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import AlertDialog from '@/components/alert-dialog'
 import ProjectIndividualItemView from '../project-individual-item-view'
 import useUsers from '@/hooks/safe-actions/user'
-import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import useItems from '@/hooks/safe-actions/item'
 import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { ImportSyncError, Stats, SyncSectionState } from '@/types/common'
@@ -337,6 +336,7 @@ export default function ProjectIndividualItemTab({
     try {
       const headers: string[] = [
         'ID',
+        'Batch_Number',
         'Owner',
         'Group',
         'Division',
@@ -354,6 +354,8 @@ export default function ProjectIndividualItemTab({
         'Country_Origin',
         'Lot_Code',
         'Pallet_No',
+        'Warehouse_Code',
+        'Bin_Code',
         'Site_Location',
         'Sub_Location2',
         'Sub_Location3',
@@ -480,7 +482,7 @@ export default function ProjectIndividualItemTab({
     <div className='flex h-full w-full flex-col'>
       {!isViewMode ? (
         <div className='flex h-full w-full flex-col'>
-          <Toolbar className='mt-5'>
+          <Toolbar className='mt-5 px-4'>
             {selectedRowKeys.length > 0 && (
               <CanView subject='p-projects-individual-inventory' action='delete'>
                 <Item location='after' locateInMenu='auto' widget='dxMenu'>
@@ -536,6 +538,7 @@ export default function ProjectIndividualItemTab({
             >
               <HiddenFieldsContext.Provider value={{ hiddenFields }}>
                 <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
+                <Column dataField='DistNumber' dataType='string' minWidth={100} caption='Batch #' />
                 <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} visible={false} />
                 <Column dataField='owner' dataType='string' caption='Owner' />
 
@@ -565,6 +568,8 @@ export default function ProjectIndividualItemTab({
                 <Column dataField='countryOfOrigin' minWidth={80} dataType='string' caption='COO' />
                 <Column dataField='lotCode' dataType='string' caption='Lot Code' />
                 <Column dataField='palletNo' dataType='string' caption='Pallet No' />
+                <Column dataField='warehouseCode' dataType='string' caption='Warehouse' />
+                <Column dataField='binCode' dataType='string' caption='Bin Location' />
                 <Column dataField='siteLocation' dataType='string' caption='Site Location' />
                 <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' />
                 <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' />

@@ -305,7 +305,7 @@ export default function WorkOrderAttachmentTab({ workOrder, fileAttachments }: W
       <TabPanelITem icon='bulletlist'>
         {!isViewMode ? (
           <>
-            <Toolbar className='mt-5'>
+            <Toolbar className='mt-5 px-4'>
               <CommonPageHeaderToolbarItems dataGridUniqueKey={DATAGRID_UNIQUE_KEY} dataGridRef={dataGridRef} />
             </Toolbar>
 

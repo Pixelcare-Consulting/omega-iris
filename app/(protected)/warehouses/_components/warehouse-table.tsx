@@ -417,6 +417,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
           dataGridRef={dataGridRef}
           data={warehouses}
           storageKey={DATAGRID_STORAGE_KEY}
+          keyExpr='code'
           dataGridStore={dataGridStore}
           isSelectionEnable
           selectedRowKeys={selectedRowKeys}
@@ -449,7 +450,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
           <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
 
           <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
-            <CanView subject='p-warehouses' action='view'>
+            <CanView subject='p-warehouses' action={['view', 'view (owner)']}>
               <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
             </CanView>
 

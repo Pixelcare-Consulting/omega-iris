@@ -92,30 +92,6 @@ export const upsertItem = action
             data: { ...data, syncStatus: data?.syncStatus ?? 'pending', updatedBy: userId },
           })
 
-          // if (warehouseInventory.length > 0) {
-          //   //* upsert item warehouse inventory
-          //   await Promise.all(
-          //     warehouseInventory.map(({ name: warehouseName, code: warehouseCode, ...wi }) => {
-          //       return tx.itemWarehouseInventory.upsert({
-          //         where: {
-          //           warehouseCode_itemCode: {
-          //             warehouseCode: warehouseCode,
-          //             itemCode: code,
-          //           },
-          //         },
-          //         create: {
-          //           warehouseCode: warehouseCode,
-          //           itemCode: code,
-          //           ...wi,
-          //           createdBy: userId,
-          //           updatedBy: userId,
-          //         },
-          //         update: { ...wi, updatedBy: userId },
-          //       })
-          //     })
-          //   )
-          // }
-
           return item
         })
 
@@ -147,16 +123,6 @@ export const upsertItem = action
           syncStatus: data?.syncStatus ?? 'pending',
           createdBy: userId,
           updatedBy: userId,
-          // itemWarehouseInventory: {
-          //   createMany: {
-          //     data: warehouseInventory.map(({ name, code: warehouseCode, ...wi }) => ({
-          //       warehouseCode,
-          //       ...wi,
-          //       createdBy: userId,
-          //       updatedBy: userId,
-          //     })),
-          //   },
-          // },
         },
       })
 

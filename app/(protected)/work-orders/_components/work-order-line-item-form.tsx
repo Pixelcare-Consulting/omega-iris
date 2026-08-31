@@ -307,7 +307,6 @@ export default function WorkOrderLineItemForm({
           const tfsStdPrice = safeParseFloat(pItem?.tfsStdPrice)
           const omegaPrice = safeParseFloat(pItem?.omegaPrice)
 
-          const warehouse = pItem?.warehouse
           const dateReceivedBy = pItem?.dateReceivedByUser ? [pItem?.dateReceivedByUser?.fname, pItem?.dateReceivedByUser?.lname].filter(Boolean).join(' ') : '' // prettier-ignore
 
           return {
@@ -320,7 +319,8 @@ export default function WorkOrderLineItemForm({
             countryOfOrigin: pItem?.countryOfOrigin || '',
             lotCode: pItem?.lotCode || '',
             palletNo: pItem?.palletNo || '',
-            warehouse: warehouse?.WarehouseName || '',
+            warehouseCode: pItem?.warehouseCode || '',
+            binCode: pItem?.binCode || '',
             dateReceived: pItem?.dateReceived,
             dateReceivedBy,
             packagingType: pItem?.packagingType || '',
@@ -345,6 +345,7 @@ export default function WorkOrderLineItemForm({
             site: pItem?.site || '',
             cmSite: pItem?.cmSite || '',
             phase: pItem?.phase || '',
+            DistNumber: pItem?.DistNumber || '',
             tfsStdPrice,
             omegaPrice,
             createdAt: pItem?.createdAt,
@@ -440,6 +441,7 @@ export default function WorkOrderLineItemForm({
         >
           <HiddenFieldsContext.Provider value={{ hiddenFields }}>
             <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' allowEditing={false} sortOrder='asc' />
+            <Column dataField='DistNumber' dataType='string' minWidth={100} caption='Batch #' allowEditing={false} />
             <Column dataField='owner' dataType='string' caption='Owner' allowEditing={false} />
 
             <Column dataField='group' dataType='string' caption='Group' allowEditing={false} />
@@ -477,6 +479,8 @@ export default function WorkOrderLineItemForm({
             <Column dataField='countryOfOrigin' dataType='string' caption='COO' allowEditing={false} />
             <Column dataField='lotCode' dataType='string' caption='Lot Code' allowEditing={false} />
             <Column dataField='palletNo' dataType='string' caption='Pallet No' allowEditing={false} />
+            <Column dataField='warehouseCode' dataType='string' caption='Warehouse' allowEditing={false} />
+            <Column dataField='binCode' dataType='string' caption='Bin Location' allowEditing={false} />
             <Column dataField='siteLocation' dataType='string' caption='Site Location' allowEditing={false} />
             <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' allowEditing={false} />
             <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' allowEditing={false} />

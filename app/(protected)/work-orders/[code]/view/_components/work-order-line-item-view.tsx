@@ -3,14 +3,12 @@
 import { useMemo, useRef } from 'react'
 import ScrollView from 'devextreme-react/scroll-view'
 import Button from 'devextreme-react/button'
-import { LoadPanel } from 'devextreme-react/load-panel'
 
 import Copy from '@/components/copy'
 import ReadOnlyField from '@/components/read-only-field'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import { DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { formatNumber } from 'devextreme/localization'
-import { useItemWarehouseInventory } from '@/hooks/safe-actions/item-warehouse-inventory'
 import { WorkOrderItemForm } from '@/schema/work-order'
 import { safeParseFloat } from '@/utils'
 import { differenceInDays, format, isValid } from 'date-fns'
@@ -38,31 +36,6 @@ export default function WorkOrderLineItemView({ data, onClose, hiddenFields = []
     return session.user.roleKey === 'business-partner'
   }, [JSON.stringify(session)])
 
-  //* Temporary disable
-  // const itemWarehouseInventory = useItemWarehouseInventory(data?.item?.code || '', [JSON.stringify(data)])
-
-  //* Temporary disable
-  // const selectedItemWarehouseInventory = useMemo(() => {
-  //   if (itemWarehouseInventory.isLoading || itemWarehouseInventory.data.length < 1) return null
-  //   return itemWarehouseInventory.data.find((wi) => wi.warehouseCode === data?.warehouseCode)
-  // }, [JSON.stringify(itemWarehouseInventory), JSON.stringify(data)])
-
-  // if (itemWarehouseInventory.isLoading)
-  //   return (
-  //     <div id='work-order-line-item-view-loading' className='relative mt-4 flex h-[60vh] w-full items-center justify-center'>
-  //       <LoadPanel
-  //         container='#work-order-line-item-view-loading'
-  //         shadingColor='rgb(241, 245, 249)'
-  //         position={{ of: containerRef?.current as any, at: 'center', my: 'center', offset: { x: 110, y: 55 } }}
-  //         message='Loading data...'
-  //         visible
-  //         showIndicator
-  //         showPane
-  //         shading
-  //       />
-  //     </div>
-  //   )
-
   return (
     <ScrollView useNative>
       <div className='grid h-full w-full grid-cols-12 gap-5 p-3 py-5'>
@@ -75,6 +48,10 @@ export default function WorkOrderLineItemView({ data, onClose, hiddenFields = []
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='ID' value={data?.projectItemCode || ''}>
           <Copy value={data?.projectItemCode || ''} />
+        </ReadOnlyField>
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Batch #' value={data?.DistNumber || ''}>
+          {data?.DistNumber ? <Copy value={data.DistNumber} /> : null}
         </ReadOnlyField>
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Delivered' value={data?.isDelivered ? 'Yes' : 'No'} />
@@ -146,7 +123,11 @@ export default function WorkOrderLineItemView({ data, onClose, hiddenFields = []
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Lot Code' value={data?.lotCode || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Pallet No' value={data?.lotCode || ''} />
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Pallet No' value={data?.palletNo || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Warehouse' value={data?.warehouseCode || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Bin Location' value={data?.binCode || ''} />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Packaging Type' value={data?.packagingType || ''} />
 
@@ -237,41 +218,6 @@ export default function WorkOrderLineItemView({ data, onClose, hiddenFields = []
           </>
         )}
 
-        {/*   //* Temporary disable */}
-        {/* <Separator className='col-span-12' />
-        <ReadOnlyFieldHeader
-          className='col-span-12 mb-1'
-          title='Site Location '
-          description='Item warehouse and warehouse inventory details'
-        />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6' title='Warehouse' value={data?.warehouseName || ''} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6' title='Description' value={data?.warehouseDescription || ''} />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='In Stock'
-          value={formatNumber(safeParseFloat(selectedItemWarehouseInventory?.inStock), DEFAULT_NUMBER_FORMAT)}
-        />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Committed'
-          value={formatNumber(safeParseFloat(selectedItemWarehouseInventory?.committed), DEFAULT_NUMBER_FORMAT)}
-        />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Ordered'
-          value={formatNumber(safeParseFloat(selectedItemWarehouseInventory?.ordered), DEFAULT_NUMBER_FORMAT)}
-        />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Available'
-          value={formatNumber(safeParseFloat(selectedItemWarehouseInventory?.available), DEFAULT_NUMBER_FORMAT)}
-        /> */}
       </div>
     </ScrollView>
   )

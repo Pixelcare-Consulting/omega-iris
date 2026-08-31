@@ -1,5 +1,6 @@
 export const PROJECT_ITEM_COLUMNS_MAP: Record<string, string> = {
   code: 'ID',
+  DistNumber: 'Batch #',
   'item.thumbnail': 'Thumbnail',
   owner: 'Owner',
   group: 'Group',
@@ -20,6 +21,8 @@ export const PROJECT_ITEM_COLUMNS_MAP: Record<string, string> = {
   countryOfOrigin: 'COO',
   lotCode: 'Lot Code',
   palletNo: 'Pallet No',
+  warehouseCode: 'Warehouse',
+  binCode: 'Bin Location',
   siteLocation: 'Site Location',
   subLocation2: 'Sub Location 2',
   subLocation3: 'Sub Location 3',

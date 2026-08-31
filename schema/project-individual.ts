@@ -9,6 +9,7 @@ export const projectIndividualFormSchema = z.object({
   customers: z.array(z.coerce.number()),
   suppliers: z.array(z.coerce.string()),
   pics: z.array(z.coerce.number()),
+  warehouses: z.array(z.coerce.string()),
   salesCloser: z.coerce.number().nullish(),
   projectItemHiddenFields: z.array(z.string()).default([]),
 })
@@ -28,6 +29,11 @@ export const projectIndividualPicFormSchema = z.object({
   pics: z.array(z.coerce.number()),
 })
 
+export const projectIndividualWarehouseFormSchema = z.object({
+  code: z.coerce.number(),
+  warehouses: z.array(z.coerce.string()),
+})
+
 export const customerProjectIndividualsFormSchema = z.object({
   code: z.coerce.number(),
   projects: z.array(z.coerce.number()),
@@ -41,6 +47,7 @@ export const picProjectIndividualsFormSchema = z.object({
 export type ProjectIndividualCustomerForm = z.infer<typeof projectIndividualCustomerFormSchema>
 export type ProjectIndividualSupplierForm = z.infer<typeof projectIndividualSupplierFormSchema>
 export type ProjectIndividualPicForm = z.infer<typeof projectIndividualPicFormSchema>
+export type ProjectIndividualWarehouseForm = z.infer<typeof projectIndividualWarehouseFormSchema>
 export type ProjectIndividualForm = z.infer<typeof projectIndividualFormSchema>
 
 export type CustomerProjectIndividualForm = z.infer<typeof customerProjectIndividualsFormSchema>

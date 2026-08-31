@@ -52,7 +52,7 @@ export default function ProjectIndividualBatchTab({ projectCode, batches }: Proj
 
     return (
       <div className='flex flex-col gap-1'>
-        <div>{siteLocation}</div>
+        <div>Warehouse: {siteLocation}</div>
 
         <div className='flex gap-1'>
           <span>On Hand:</span>
@@ -122,7 +122,7 @@ export default function ProjectIndividualBatchTab({ projectCode, batches }: Proj
     <div className='flex h-full w-full flex-col'>
       {!isViewMode ? (
         <div className='flex h-full w-full flex-col'>
-          <Toolbar className='mt-5'>
+          <Toolbar className='mt-5 px-4'>
             <CommonPageHeaderToolbarItems dataGridUniqueKey={DATAGRID_UNIQUE_KEY} dataGridRef={dataGridRef} isLoading={batches.isLoading} />
           </Toolbar>
 

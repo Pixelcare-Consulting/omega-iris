@@ -1,32 +1,32 @@
 'use client'
 
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton, Summary, TotalItem, GroupItem } from 'devextreme-react/data-grid'
-import { useCallback, useMemo, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useRouter } from 'nextjs-toploader/app'
+import Toolbar from 'devextreme-react/toolbar'
 import { differenceInDays } from 'date-fns'
+import { useSession } from 'next-auth/react'
 
-import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import CommonDataGrid from '@/components/common-datagrid'
-import { getAllProjectItems, getProjecItems } from '@/actions/project-item'
-import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
-import { useSession } from 'next-auth/react'
-import { hideActionButton } from '@/utils/devextreme'
 import CanView from '@/components/acl/can-view'
-import PageHeader from '@/app/(protected)/_components/page-header'
+import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
+import { useProjectItemsByWarehouseCode } from '@/hooks/safe-actions/project-item'
+import { hideActionButton } from '@/utils/devextreme'
 
-type ProjectInventoryTableProps = {
-  allProjectItems: Awaited<ReturnType<typeof getAllProjectItems>>
+type WarehouseProjectInventoryTabProps = {
+  projectItems: ReturnType<typeof useProjectItemsByWarehouseCode>
 }
-type DataSource = Awaited<ReturnType<typeof getProjecItems>>
 
-export default function ProjectInventoryTable({ allProjectItems }: ProjectInventoryTableProps) {
-  const { data: session } = useSession()
+type DataSource = ReturnType<typeof useProjectItemsByWarehouseCode>['data']
+
+export default function WarehouseProjectInventoryTab({ projectItems }: WarehouseProjectInventoryTabProps) {
   const router = useRouter()
+  const { data: session } = useSession()
 
-  const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual-inventory'
-  const DATAGRID_UNIQUE_KEY = 'project-individual-inventory'
+  const DATAGRID_STORAGE_KEY = 'dx-datagrid-warehouse-project-inventory'
+  const DATAGRID_UNIQUE_KEY = 'warehouse-project-inventory'
 
   const dataGridRef = useRef<DataGridRef | null>(null)
 
@@ -117,20 +117,29 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
     )
   }
 
+  //* show loading
+  useEffect(() => {
+    if (dataGridRef.current) {
+      if (projectItems.isLoading) dataGridRef.current.instance().beginCustomLoading('Loading data...')
+      else dataGridRef.current.instance().endCustomLoading()
+    }
+  }, [projectItems.isLoading, dataGridRef.current])
+
   return (
-    <div className='h-full w-full space-y-5'>
-      <PageHeader title='Project Inventory' description='Manage and track your project individual inventory effectively'>
+    <div className='flex h-full w-full flex-col'>
+      <Toolbar className='mt-5 px-4'>
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
           exportOptions={{ subjects: 'p-projects-individual-inventory', actions: 'export' }}
         />
-      </PageHeader>
+      </Toolbar>
 
-      <PageContentWrapper className='h-[calc(100%_-_92px)]'>
+      <div className='min-h-0 flex-1 p-4'>
         <CommonDataGrid
           dataGridRef={dataGridRef}
-          data={allProjectItems}
+          data={projectItems.data}
+          isLoading={projectItems.isLoading}
           storageKey={DATAGRID_STORAGE_KEY}
           keyExpr='code'
           dataGridStore={dataGridStore}
@@ -143,7 +152,6 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
           <Column dataField='projectIndividual.projectGroup.name' dataType='string' caption='Group' visible={false} />
           <Column dataField='owner' dataType='string' caption='Owner' />
 
-         
           <Column dataField='group' dataType='string' caption='Item Group' visible={false} />
           <Column dataField='division' dataType='string' caption='Division' visible={false} />
           <Column dataField='site' dataType='string' caption='Site' visible={false} />
@@ -188,7 +196,6 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
           <Column dataField='siteLocation' dataType='string' caption='Site Location' />
           <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' />
           <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' />
-          {/* <Column dataField='warehouse.name' dataType='string' caption='Warehouse' /> */}
 
           {!isBusinessPartner && (
             <>
@@ -282,7 +289,7 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
             </CanView>
           </Column>
         </CommonDataGrid>
-      </PageContentWrapper>
+      </div>
     </div>
   )
 }
