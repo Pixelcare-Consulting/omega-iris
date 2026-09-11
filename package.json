@@ -8,6 +8,8 @@
     "build": "pnpm prisma generate && next build",
     "dev:dev": "next dev -p 4000",
     "dev:start": "next start -p 4000",
+    "dev-mt:dev": "next dev -p 4001",
+    "dev-mt:start": "next start -p 4001",
     "prod:dev": "next dev -p 80",
     "prod:start": "next start -p 80",
     "lint": "next lint",
