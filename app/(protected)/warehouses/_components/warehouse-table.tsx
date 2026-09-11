@@ -14,6 +14,7 @@ import ProgressBar from 'devextreme-react/progress-bar'
 
 import { deleleteWarehouse, getWarehouseMaster, getWarehouses, restoreWarehouse, syncFromSap, syncToSap } from '@/actions/warehouse'
 import PageHeader from '@/app/(protected)/_components/page-header'
+import { Badge } from '@/components/badge'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
@@ -76,6 +77,11 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
   const syncToSapData = useAction(syncToSap)
   const syncFromSapData = useAction(syncFromSap)
   const syncMeta = useSyncMeta('warehouse')
+
+  const lastSyncedLabel = useMemo(() => {
+    if (!syncMeta.data?.lastSyncAt) return 'Never synced'
+    return `Last synced: ${format(syncMeta.data.lastSyncAt, 'PP, hh:mm a')}`
+  }, [syncMeta.data?.lastSyncAt])
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
@@ -344,8 +350,16 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Warehouses' description='Manage and track your warehouses effectively'>
-        {selectedRowKeys.length > 0 && (
+      <PageHeader
+        title={
+          <>
+            <span className='pr-1.5'>Warehouses</span>
+            <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>
+          </>
+        }
+        description='Manage and track your warehouses effectively'
+      >
+        {/* {selectedRowKeys.length > 0 && (
           <CanView subject='p-warehouses' action='sync to sap'>
             <Item location='after' locateInMenu='auto' widget='dxButton'>
               <Tooltip
@@ -367,7 +381,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
               />
             </Item>
           </CanView>
-        )}
+        )} */}
 
         {selectedRowKeys.length < 1 && (
           <CanView subject='p-warehouses' action='sync from sap'>
@@ -375,7 +389,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
               {!syncMeta.isLoading && (
                 <Tooltip
                   target='#sync-warehouses-from-sap'
-                  contentRender={() => `Last Sync: ${format(syncMeta.data?.lastSyncAt || new Date('01/01/2020'), 'PP, hh:mm a')}`}
+                  contentRender={() => lastSyncedLabel}
                   showEvent='mouseenter'
                   hideEvent='mouseleave'
                   position='top'
@@ -399,7 +413,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
           isLoading={isLoading || syncToSapData.isExecuting || syncFromSapData.isExecuting}
-          addButton={{ text: 'Add Warehouse', onClick: () => router.push('/warehouses/add'), subjects: 'p-warehouses', actions: 'create' }}
+          // addButton={{ text: 'Add Warehouse', onClick: () => router.push('/warehouses/add'), subjects: 'p-warehouses', actions: 'create' }}
           exportOptions={{ subjects: 'p-warehouses', actions: 'export' }}
         />
 
@@ -419,7 +433,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
           storageKey={DATAGRID_STORAGE_KEY}
           keyExpr='code'
           dataGridStore={dataGridStore}
-          isSelectionEnable
+          // isSelectionEnable
           selectedRowKeys={selectedRowKeys}
           callbacks={{ onCellPrepared: handleOnCellPrepared, onSelectionChanged: handleOnSelectionChanged }}
         >
@@ -454,7 +468,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
               <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
             </CanView>
 
-            <CanView subject='p-warehouses' action='edit'>
+            {/* <CanView subject='p-warehouses' action='edit'>
               <DataGridButton
                 icon='edit'
                 onClick={handleEdit}
@@ -491,7 +505,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
                   return showActionButton(data?.deletedAt || data?.deletedBy)
                 }}
               />
-            </CanView>
+            </CanView> */}
           </Column>
         </CommonDataGrid>
       </PageContentWrapper>

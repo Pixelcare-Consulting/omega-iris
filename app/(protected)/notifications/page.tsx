@@ -5,7 +5,7 @@ import NotificationTable from './_components/notification-table'
 
 export default async function NotificationPage() {
   const userInfo = await getCurrentUserAbility()
-  const notifications = await getNotifications(userInfo)
+  const notifications = await getNotifications(userInfo?.dbCode ?? null, userInfo)
 
   return (
     <ContentContainer>

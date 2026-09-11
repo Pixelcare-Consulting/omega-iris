@@ -14,7 +14,7 @@ import {
   BUSINESS_PARTNER_STD_API_GROUP_TYPE_MAP,
 } from '@/schema/business-partner'
 import { db } from '@/utils/db'
-import { action, authenticationMiddleware } from '@/utils/safe-action'
+import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe-action'
 import { getSapErrorMessage, isSapError, safeParseInt } from '@/utils'
 import logger from '@/utils/logger'
 import { callSapServiceLayerApi } from './sap-service-layer'
@@ -32,10 +32,11 @@ import { combineSapDateTime } from '@/utils/sap'
 
 const COMMON_BUSINESS_PARTNER_ORDER_BY = { CardCode: 'asc' } satisfies Prisma.BusinessPartnerOrderByWithRelationInput
 
-export async function getBps(cardType: string | string[], isSynced?: boolean | null, excludeCodes?: number[] | null) {
+export async function getBps(dbCode: string, cardType: string | string[], isSynced?: boolean | null, excludeCodes?: number[] | null) {
   try {
     return db.businessPartner.findMany({
       where: {
+        dbCode,
         ...(typeof cardType === 'string' ? { CardType: cardType } : { CardType: { in: cardType } }),
         ...(excludeCodes?.length ? { code: { notIn: excludeCodes } } : {}),
         ...(isSynced ? { syncStatus: 'synced' } : {}),
@@ -50,6 +51,7 @@ export async function getBps(cardType: string | string[], isSynced?: boolean | n
 
 export const getBpsClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(
     z.object({
       cardType: z.union([z.string(), z.array(z.string())]),
@@ -57,26 +59,26 @@ export const getBpsClient = action
       excludeCodes: z.array(z.coerce.number()).nullish(),
     })
   )
-  .action(async ({ parsedInput: data }) => {
-    return getBps(data.cardType, data.isSynced, data.excludeCodes)
+  .action(async ({ ctx, parsedInput: data }) => {
+    return getBps(ctx.dbCode, data.cardType, data.isSynced, data.excludeCodes)
   })
 
-export async function getBpByCode(code: number) {
+export async function getBpByCode(dbCode: string, code: number) {
   if (!code) return null
 
   try {
-    return db.businessPartner.findUnique({ where: { code } })
+    return db.businessPartner.findFirst({ where: { code, dbCode } })
   } catch (error) {
     console.error(error)
     return null
   }
 }
 
-export async function getBpByCardCode(cardCode: string) {
+export async function getBpByCardCode(dbCode: string, cardCode: string) {
   if (!cardCode) return null
 
   try {
-    return db.businessPartner.findUnique({ where: { CardCode: cardCode } })
+    return db.businessPartner.findUnique({ where: { dbCode_CardCode: { dbCode, CardCode: cardCode } } })
   } catch (error) {
     console.error(error)
     return null
@@ -85,18 +87,19 @@ export async function getBpByCardCode(cardCode: string) {
 
 export const upsertBp = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(businessPartnerFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, contacts, billingAddresses, shippingAddresses, ...data } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const trimmedCardCode = data?.CardCode?.trim()
     const trimmedCardName = data?.CardName?.trim()
 
     try {
       const [existingCardCode, existingCardName] = await Promise.all([
-        db.businessPartner.findFirst({ where: { CardCode: trimmedCardCode, ...(code && code !== -1 && { code: { not: code } }) } }),
-        db.businessPartner.findFirst({ where: { CardName: trimmedCardName, ...(code && code !== -1 && { code: { not: code } }) } }),
+        db.businessPartner.findFirst({ where: { dbCode, CardCode: trimmedCardCode, ...(code && code !== -1 && { code: { not: code } }) } }), //prettier-ignore
+        db.businessPartner.findFirst({ where: { dbCode, CardName: trimmedCardName, ...(code && code !== -1 && { code: { not: code } }) } }), //prettier-ignore
       ])
 
       const duplicates: DuplicateFields = []
@@ -112,9 +115,13 @@ export const upsertBp = action
 
       //* update bp
       if (code !== -1) {
+        const targetBp = await db.businessPartner.findFirst({ where: { code, dbCode } })
+
+        if (!targetBp) return { error: true, status: 404, message: 'Business partner not found!', action: 'UPSERT_BP' }
+
         const updatedBp = await db.$transaction(async (tx) => {
           const bp = await db.businessPartner.update({
-            where: { code },
+            where: { id: targetBp.id },
             data: { ...data, syncStatus: data?.syncStatus ?? 'pending', updatedBy: userId },
             select: { id: true, CardCode: true, addresses: true, contacts: true, code: true },
           })
@@ -142,8 +149,8 @@ export const upsertBp = action
           if (contacts.length > 0) {
             for (const { id, ...c } of contacts) {
               await tx.contact.upsert({
-                where: { id },
-                create: { ...c, CardCode: bp.CardCode, createdBy: userId, updatedBy: userId },
+                where: { id, dbCode },
+                create: { ...c, dbCode, CardCode: bp.CardCode, createdBy: userId, updatedBy: userId },
                 update: { ...c, CardCode: bp.CardCode, updatedBy: userId },
               })
             }
@@ -153,9 +160,10 @@ export const upsertBp = action
           if (billingAddresses.length > 0) {
             for (const { id, ...ba } of billingAddresses) {
               await tx.address.upsert({
-                where: { id, AddrType: 'B' },
+                where: { id, dbCode, AddrType: 'B' },
                 create: {
                   ...ba,
+                  dbCode,
                   CardCode: bp.CardCode,
                   createdBy: userId,
                   updatedBy: userId,
@@ -173,9 +181,10 @@ export const upsertBp = action
           if (shippingAddresses.length > 0) {
             for (const { id, ...sa } of shippingAddresses) {
               await tx.address.upsert({
-                where: { id, AddrType: 'S' },
+                where: { id, dbCode, AddrType: 'S' },
                 create: {
                   ...sa,
+                  dbCode,
                   CardCode: bp.CardCode,
                   createdBy: userId,
                   updatedBy: userId,
@@ -191,13 +200,13 @@ export const upsertBp = action
 
           await Promise.all([
             //* delete contacts that are not in the current list, means they are deleted or to be deleted
-            db.contact.deleteMany({ where: { id: { in: toDeleteContacts } } }),
+            db.contact.deleteMany({ where: { dbCode, id: { in: toDeleteContacts } } }),
 
             //* delete billing addresses that are not in the current list, means they are deleted or to be deleted
-            db.address.deleteMany({ where: { id: { in: toDeleteBillingAddresses } } }),
+            db.address.deleteMany({ where: { dbCode, id: { in: toDeleteBillingAddresses } } }),
 
             //* delete shipping addresses that are not in the current list, means they are deleted or to be deleted
-            db.address.deleteMany({ where: { id: { in: toDeleteShippingAddresses } } }),
+            db.address.deleteMany({ where: { dbCode, id: { in: toDeleteShippingAddresses } } }),
           ])
 
           return bp
@@ -228,6 +237,7 @@ export const upsertBp = action
         const bp = await tx.businessPartner.create({
           data: {
             ...data,
+            dbCode,
             CardCode: trimmedCardCode,
             CardName: trimmedCardName,
             syncStatus: data?.syncStatus ?? 'pending',
@@ -240,8 +250,9 @@ export const upsertBp = action
         if (contacts.length > 0) {
           for (const { id, ...c } of contacts) {
             await tx.contact.upsert({
-              where: { id },
-              create: { ...c, CardCode: bp.CardCode, createdBy: userId, updatedBy: userId },
+              //! id comes from the form, scope it so it cannot reach another database's contact
+              where: { id, dbCode },
+              create: { ...c, dbCode, CardCode: bp.CardCode, createdBy: userId, updatedBy: userId },
               update: { ...c, CardCode: bp.CardCode, updatedBy: userId },
             })
           }
@@ -251,9 +262,10 @@ export const upsertBp = action
         if (billingAddresses.length > 0) {
           for (const { id, ...ba } of billingAddresses) {
             await tx.address.upsert({
-              where: { id, AddrType: 'B' },
+              where: { id, dbCode, AddrType: 'B' },
               create: {
                 ...ba,
+                dbCode,
                 CardCode: bp.CardCode,
                 createdBy: userId,
                 updatedBy: userId,
@@ -271,9 +283,10 @@ export const upsertBp = action
         if (shippingAddresses.length > 0) {
           for (const { id, ...sa } of shippingAddresses) {
             await tx.address.upsert({
-              where: { id, AddrType: 'S' },
+              where: { id, dbCode, AddrType: 'S' },
               create: {
                 ...sa,
+                dbCode,
                 CardCode: bp.CardCode,
                 createdBy: userId,
                 updatedBy: userId,
@@ -322,10 +335,11 @@ export const upsertBp = action
 
 export const importBp = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(importFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { data, total, stats, isLastRow, metaData } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const bpGroups = metaData?.bpGroups || []
     const currencies = metaData?.currencies || []
@@ -346,8 +360,8 @@ export const importBp = action
 
       //* get existing bps card cades, names
       const [BpsCardCodes, BpsCardNames] = await Promise.all([
-        db.businessPartner.findMany({ where: { CardCode: { in: cardCodes } }, select: { CardCode: true } }),
-        db.businessPartner.findMany({ where: { CardName: { in: cardNames } }, select: { CardName: true } }),
+        db.businessPartner.findMany({ where: { dbCode, CardCode: { in: cardCodes } }, select: { CardCode: true } }),
+        db.businessPartner.findMany({ where: { dbCode, CardName: { in: cardNames } }, select: { CardName: true } }),
       ])
 
       const existingBpsCardCodes = BpsCardCodes.map((bp) => bp.CardCode)
@@ -394,6 +408,7 @@ export const importBp = action
 
         //* reshape data
         const toCreate: Prisma.BusinessPartnerCreateManyInput = {
+          dbCode,
           CardCode: trimmedCardCode ? trimmedCardCode : `BP-${Date.now()}`,
           CardName: trimmedCardName || null,
           CardType: cardType,
@@ -472,6 +487,7 @@ export const importBp = action
 
 export const deleteBp = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(paramsSchema.merge(z.object({ cardType: z.string() })))
   .action(async ({ ctx, parsedInput: data }) => {
     function generateDeletedCardCode(code: string) {
@@ -480,7 +496,8 @@ export const deleteBp = action
     }
 
     try {
-      const bp = await db.businessPartner.findUnique({ where: { code: data.code } })
+      //! findUnique on code alone crosses databases, code is globally unique
+      const bp = await db.businessPartner.findFirst({ where: { code: data.code, dbCode: ctx.dbCode } })
 
       if (!bp)
         return {
@@ -492,7 +509,7 @@ export const deleteBp = action
 
       //* modify also the card code of the bp so that auto generate card code will still be able to be assign to new bp if it still be available
       await db.businessPartner.update({
-        where: { code: data.code },
+        where: { id: bp.id },
         data: { CardCode: generateDeletedCardCode(bp.CardCode), deletedAt: new Date(), deletedBy: ctx.userId },
       })
 
@@ -527,10 +544,12 @@ export const deleteBp = action
 
 export const restoreBp = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(paramsSchema.merge(z.object({ cardType: z.string() })))
   .action(async ({ ctx, parsedInput: data }) => {
     try {
-      const bp = await db.businessPartner.findUnique({ where: { code: data.code } })
+      //! findUnique on code alone crosses databases, code is globally unique
+      const bp = await db.businessPartner.findFirst({ where: { code: data.code, dbCode: ctx.dbCode } })
 
       if (!bp) {
         return {
@@ -541,7 +560,7 @@ export const restoreBp = action
         }
       }
 
-      await db.businessPartner.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+      await db.businessPartner.update({ where: { id: bp.id }, data: { deletedAt: null, deletedBy: null } })
 
       //* create notification
       // void createNotification(ctx, {
@@ -681,6 +700,7 @@ export async function getLatestBpMaster(cardType: string): Promise<{ CardCode: s
 
 export const getLatestBpMasterClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(z.object({ cardType: z.string() }))
   .action(async ({ parsedInput }) => {
     return getLatestBpMaster(parsedInput.cardType)
@@ -688,10 +708,11 @@ export const getLatestBpMasterClient = action
 
 export const syncToSap = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(importFormSchema.extend({ cardType: z.string() }))
   .action(async ({ ctx, parsedInput }) => {
     const { data, total, stats, isLastRow, cardType } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const toUpdateSyncStatus: number[] = []
 
@@ -717,7 +738,10 @@ export const syncToSap = action
         }
 
         //* fetch address and contacts
-        const [addresses, contacts] = await Promise.all([getAddresses(row?.CardCode ?? ''), getContacts(row?.CardCode ?? '')])
+        const [addresses, contacts] = await Promise.all([
+          getAddresses(dbCode, row?.CardCode ?? ''),
+          getContacts(dbCode, row?.CardCode ?? ''),
+        ])
 
         const toCreateAddresses = addresses
           .filter((addr) => !addr?.deletedAt || !addr?.deletedBy)
@@ -811,7 +835,7 @@ export const syncToSap = action
 
       //* update the sync status of the business partner created in sap
       await db.businessPartner.updateMany({
-        where: { code: { in: toUpdateSyncStatus } },
+        where: { dbCode, code: { in: toUpdateSyncStatus } },
         data: { syncStatus: 'synced', updatedBy: userId },
       })
 
@@ -869,21 +893,22 @@ export const syncToSap = action
 
 export const syncFromSap = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(importFormSchema.extend({ cardType: z.string() }))
   .action(async ({ ctx, parsedInput }) => {
     const { data, total, stats, isLastRow, cardType } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const SYNC_META_CODE = BUSINESS_PARTNER_TYPE_MAP[cardType].toLowerCase()
 
     try {
       //* get last sync date
-      const syncMeta = await db.syncMeta.findUnique({ where: { code: SYNC_META_CODE } })
+      const syncMeta = await db.syncMeta.findFirst({ where: { dbCode, code: SYNC_META_CODE } })
       const lastSyncDate = syncMeta?.lastSyncAt || new Date('01/01/2020')
 
       //* rebuild CardName -> CardCode map from existing bps to block duplicate names (deduped against db each page)
       const existingBps = await db.businessPartner.findMany({
-        where: { CardType: cardType },
+        where: { dbCode, CardType: cardType },
         select: { CardCode: true, CardName: true },
       })
 
@@ -939,6 +964,7 @@ export const syncFromSap = action
 
         //* reshape data
         batch.push({
+          dbCode,
           syncStatus: 'synced',
 
           //* sap fields
@@ -968,7 +994,7 @@ export const syncFromSap = action
         contactMap.set(bp.CardCode, bpContacts[index]?.value ?? [])
       })
 
-      const upsertAddresses = async (chunks: Record<string, any>[], tx: any) => {
+      const upsertAddresses = async (chunks: Record<string, any>[], tx: Prisma.TransactionClient) => {
         for (const bp of chunks) {
           //* fetch bp from sap
           const bpAddresses = addressMap.get(bp.CardCode) ?? []
@@ -999,7 +1025,8 @@ export const syncFromSap = action
             for (const addr of bpAddressesData) {
               await tx.address.upsert({
                 where: {
-                  CardCode_AddressName_AddrType: {
+                  dbCode_CardCode_AddressName_AddrType: {
+                    dbCode,
                     CardCode: bp.CardCode,
                     AddressName: addr?.AddressName || '',
                     AddrType: addr?.AddrType,
@@ -1007,6 +1034,7 @@ export const syncFromSap = action
                 },
                 create: {
                   ...addr,
+                  dbCode,
                   createdBy: userId,
                   updatedBy: userId,
                 },
@@ -1020,7 +1048,7 @@ export const syncFromSap = action
         }
       }
 
-      const upsertContacts = async (chunks: Record<string, any>[], tx: any) => {
+      const upsertContacts = async (chunks: Record<string, any>[], tx: Prisma.TransactionClient) => {
         for (const bp of chunks) {
           //* fetch bp from sap
           const bpContacts = contactMap.get(bp.CardCode) ?? []
@@ -1044,13 +1072,15 @@ export const syncFromSap = action
             for (const contact of bpContactsData) {
               await tx.contact.upsert({
                 where: {
-                  CardCode_ContactName: {
+                  dbCode_CardCode_ContactName: {
+                    dbCode,
                     CardCode: bp.CardCode,
                     ContactName: contact?.ContactName || '',
                   },
                 },
                 create: {
                   ...contact,
+                  dbCode,
                   createdBy: userId,
                   updatedBy: userId,
                 },
@@ -1069,8 +1099,8 @@ export const syncFromSap = action
         await Promise.all(
           batch.map((bpData) =>
             tx.businessPartner.upsert({
-              where: { CardCode: bpData.CardCode },
-              create: { ...bpData, createdBy: userId, updatedBy: userId },
+              where: { dbCode_CardCode: { dbCode, CardCode: bpData.CardCode } },
+              create: { ...bpData, dbCode, createdBy: userId, updatedBy: userId },
               update: { ...bpData, updatedBy: userId },
             })
           )
@@ -1092,8 +1122,8 @@ export const syncFromSap = action
       //* upsert sync meta only when the whole sync is completed
       if (updatedStats.status === 'completed') {
         await db.syncMeta.upsert({
-          where: { code: SYNC_META_CODE },
-          create: { code: SYNC_META_CODE, description: `Last ${SYNC_META_CODE} master synced date`, lastSyncAt: new Date() },
+          where: { dbCode_code: { dbCode, code: SYNC_META_CODE } },
+          create: { code: SYNC_META_CODE, dbCode, description: `Last ${SYNC_META_CODE} master synced date`, lastSyncAt: new Date() },
           update: { code: SYNC_META_CODE, description: `Last ${SYNC_META_CODE} master synced date`, lastSyncAt: new Date() },
         })
 

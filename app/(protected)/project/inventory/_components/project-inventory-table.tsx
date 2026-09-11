@@ -3,7 +3,7 @@
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton, Summary, TotalItem, GroupItem } from 'devextreme-react/data-grid'
 import { useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { differenceInDays } from 'date-fns'
+import { differenceInDays, format } from 'date-fns'
 
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -15,6 +15,9 @@ import { useSession } from 'next-auth/react'
 import { hideActionButton } from '@/utils/devextreme'
 import CanView from '@/components/acl/can-view'
 import PageHeader from '@/app/(protected)/_components/page-header'
+import { Badge } from '@/components/badge'
+import { useJobSchedule, useSyncMeta } from '@/hooks/safe-actions/sync-meta'
+import { PROJECT_ITEM_SYNC_JOB_CODE, PROJECT_ITEM_SYNC_META_CODE } from '@/constants/sap'
 
 type ProjectInventoryTableProps = {
   allProjectItems: Awaited<ReturnType<typeof getAllProjectItems>>
@@ -31,6 +34,20 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
   const dataGridRef = useRef<DataGridRef | null>(null)
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
+
+  const syncMeta = useSyncMeta(PROJECT_ITEM_SYNC_META_CODE)
+  const jobSchedule = useJobSchedule(PROJECT_ITEM_SYNC_JOB_CODE)
+
+  const lastSyncedLabel = useMemo(() => {
+    if (!syncMeta.data?.lastSyncAt) return 'Never synced'
+    return `Last synced: ${format(syncMeta.data.lastSyncAt, 'PP, hh:mm a')}`
+  }, [syncMeta.data?.lastSyncAt])
+
+  //* tells the user the batches keep coming in on their own, this page has no manual sync button
+  const autoSyncLabel = useMemo(() => {
+    if (!jobSchedule.isEnabled) return 'Auto sync: off'
+    return `Auto sync: ${jobSchedule.label}`
+  }, [jobSchedule.isEnabled, jobSchedule.label])
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
@@ -119,7 +136,20 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Project Inventory' description='Manage and track your project individual inventory effectively'>
+      <PageHeader
+        title={
+          <>
+            <span className='pr-1.5'>Project Inventory</span>
+            <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>
+            {!jobSchedule.isLoading && (
+              <Badge variant={jobSchedule.isEnabled ? 'soft-slate' : 'soft-amber'} className='ml-1.5'>
+                {autoSyncLabel}
+              </Badge>
+            )}
+          </>
+        }
+        description='Manage and track your project individual inventory effectively'
+      >
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
@@ -143,7 +173,6 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
           <Column dataField='projectIndividual.projectGroup.name' dataType='string' caption='Group' visible={false} />
           <Column dataField='owner' dataType='string' caption='Owner' />
 
-         
           <Column dataField='group' dataType='string' caption='Item Group' visible={false} />
           <Column dataField='division' dataType='string' caption='Division' visible={false} />
           <Column dataField='site' dataType='string' caption='Site' visible={false} />

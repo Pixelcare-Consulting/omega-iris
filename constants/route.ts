@@ -10,7 +10,7 @@ export const publicRoutes = ['/examples', '/unauthorized']
  * These routes does not require authentication.
  * @type {string[]}
  */
-export const authRoutes = ['/signin', '/change-password']
+export const authRoutes = ['/signin', '/change-password', '/choose-database']
 
 /**
  * An array of routes that are accessible to authenticated users.
@@ -32,6 +32,7 @@ export const protectedRoutes = [
   '/inventory',
   '/work-orders',
   '/reports',
+  '/notifications',
 ]
 
 /**

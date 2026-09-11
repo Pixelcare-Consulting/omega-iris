@@ -49,6 +49,7 @@ export default function WorkOrderStatusUpdateTab({ workOrder, statusUpdates }: W
       const initialUpdate = {
         id: 'initial',
         code: -1,
+        dbCode: workOrder.dbCode,
         createdAt: workOrder.createdAt,
         updatedAt: workOrder.createdAt,
         createdBy: workOrder.createdBy,

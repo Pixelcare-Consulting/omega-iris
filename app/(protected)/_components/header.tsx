@@ -4,6 +4,7 @@ import { Template } from 'devextreme-react/core/template'
 import { ExtendedUser } from '@/auth'
 import UserNav from './user-nav'
 import NotificationMenu from './notification-menu'
+import SapDatabaseSwitcher from '@/components/sap-database-switcher'
 
 type HeaderProps = { user: ExtendedUser; setIsOpen: React.Dispatch<React.SetStateAction<boolean>> }
 
@@ -21,7 +22,13 @@ export default function Header({ user, setIsOpen }: HeaderProps) {
           <NotificationMenu />
         </Item> */}
 
+        <Item location='after' widget='dxDropDownButton' template='sapDatabaseSwitcherTemplate' />
+
         <Item location='after' widget='dxDropDownButton' template='dxDropdownButtonTemplate' />
+
+        <Template name='sapDatabaseSwitcherTemplate'>
+          <SapDatabaseSwitcher />
+        </Template>
 
         <Template name='dxDropdownButtonTemplate'>
           <UserNav user={user} />

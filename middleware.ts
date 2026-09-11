@@ -25,6 +25,7 @@ export default auth((req) => {
   const isProtectedRoute = protectedRoutes.some((route) => nextUrl.pathname.startsWith(route))
   const isRootPage = nextUrl.pathname === '/'
   const isChangePasswordPage = nextUrl.pathname === '/change-password'
+  const isChooseDatabasePage = nextUrl.pathname === '/choose-database'
 
   //* if the request is for an API route, pass it to the next handler
   if (isApiAuthRoute) return NextResponse.next()
@@ -32,6 +33,16 @@ export default auth((req) => {
   // //* if its isAuthenticated and isDefaultPasswordChanged and its not isChangePasswordPage, redirect to changed default password page
   if (isAuthenticated && !session?.user?.isDefaultPasswordChanged && !isChangePasswordPage) {
     return NextResponse.redirect(new URL(`/change-password?isForceToChangePassword=true`, nextUrl))
+  }
+
+  //* after the password gate, pick a SAP database — a fresh signin always asks again
+  if (isAuthenticated && session?.user?.isDefaultPasswordChanged && !session?.user?.sapDbCode && !isChooseDatabasePage) {
+    return NextResponse.redirect(new URL('/choose-database', nextUrl))
+  }
+
+  //* if its change password page and user is isDefaultPasswordChanged / already changed password, redirect to default sigin redirect
+  if (isChangePasswordPage && session?.user?.isDefaultPasswordChanged) {
+    return NextResponse.redirect(new URL(DEFAULT_SIGNIN_REDIRECT, nextUrl))
   }
 
   //* if its root page
@@ -42,8 +53,10 @@ export default auth((req) => {
 
   //* if the request is for an auth route, check if the user is authenticated, if authenticated redirect to the default signin redirect, if not proceed to the next handler
   if (isAuthRoute) {
-    if (isAuthenticated && !isChangePasswordPage) return NextResponse.redirect(new URL(DEFAULT_SIGNIN_REDIRECT, nextUrl))
-    else if (!isAuthenticated && isChangePasswordPage) return NextResponse.redirect(new URL('/signin', nextUrl))
+    const isGatedAuthPage = isChangePasswordPage || isChooseDatabasePage
+
+    if (isAuthenticated && !isGatedAuthPage) return NextResponse.redirect(new URL(DEFAULT_SIGNIN_REDIRECT, nextUrl))
+    else if (!isAuthenticated && isGatedAuthPage) return NextResponse.redirect(new URL('/signin', nextUrl))
     return NextResponse.next()
   }
 

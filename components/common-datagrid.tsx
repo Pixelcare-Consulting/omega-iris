@@ -19,7 +19,7 @@ import DataGrid, {
   ColumnFixing,
   LoadPanel,
 } from 'devextreme-react/data-grid'
-import React, { Ref } from 'react'
+import React, { Ref, useCallback, useRef } from 'react'
 
 import { DataGridStore } from '@/hooks/use-dx-datagrid'
 import { handleOnAdaptiveDetailRowPreparing, handleOnCellPrepared, handleOnRowPrepared } from '@/utils/devextreme'

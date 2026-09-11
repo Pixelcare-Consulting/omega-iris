@@ -36,7 +36,7 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
   const nonCustomerUsers = useNonBpUsers()
   const items = useProjecItems(projectIndividual.code)
   const suppliers = useBps('S', true)
-  // const batches = useBatchesMasterByWarehouseProjectCode(projectIndividual.code, projectIndividual.warehouses)
+  const batches = useBatchesMasterByWarehouseProjectCode(projectIndividual.code, projectIndividual.warehouses)
   const warehouses = useWarehouses(true)
 
   return (

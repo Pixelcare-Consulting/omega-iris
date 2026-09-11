@@ -23,6 +23,7 @@ export type ExtendedUser = {
   isActive: boolean
   isOAuth: boolean
   isDefaultPasswordChanged: boolean
+  sapDbCode: string | null
 }
 
 declare module 'next-auth' {
@@ -34,6 +35,8 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     user: ExtendedUser
+    //! keep at the top level — token.user is rebuilt from the db on every refresh and would drop it
+    sapDbCode?: string
   }
 }
 
@@ -101,10 +104,32 @@ export const callbacks: NextAuthConfig['callbacks'] = {
         isOnline,
         isDefaultPasswordChanged,
         isOAuth: !!existingAccount,
+        sapDbCode: token.sapDbCode ?? null,
       }
 
       //* update token.user when triggered update of session
-      if (trigger === 'update') token.user = session.user
+      if (trigger === 'update') {
+        //* dbCode comes from the client — check it is a real, active database first
+        if ('sapDbCode' in (session ?? {})) {
+          //* the database must be active and assigned to the user's role, admin may use any
+          const sapDatabase = session.sapDbCode
+            ? await db.sapDatabase.findFirst({
+                where: {
+                  dbCode: session.sapDbCode,
+                  isActive: true,
+                  ...(role.key !== 'admin' && { roleSapDatabases: { some: { roleCode: role.code } } }),
+                },
+              })
+            : null
+
+          token.sapDbCode = sapDatabase?.dbCode
+        }
+
+        if (session?.user) token.user = session.user
+      }
+
+      //* mirror onto token.user so call sites stay on session.user
+      token.user.sapDbCode = token.sapDbCode ?? null
 
       return token
     } catch (error) {

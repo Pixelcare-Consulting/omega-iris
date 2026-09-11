@@ -21,7 +21,6 @@ const MAXIMUM_COUNTDOWN = 5
 
 export default function SigninForm() {
   const [error, setError] = useState<string | undefined>()
-  const [success, setSuccess] = useState<string | undefined>()
   const [isLoading, setIsLoading] = useState(false)
   const [seconds, setSeconds] = useState(MAXIMUM_SECONDS)
   const [countdown, setCountdown] = useState(MAXIMUM_COUNTDOWN)
@@ -32,8 +31,6 @@ export default function SigninForm() {
   const countdownRef = useRef<any>(null)
 
   const [isOpen, setIsOpen] = useState(false)
-  const [sapConnectionStatus, setSapConnectionStatus] = useState<string | undefined>()
-  const [sapErrorMessage, setSapErrorMessage] = useState<string | undefined>()
   const [redirectUrl, setRedirectUrl] = useState<string | undefined>()
 
   const searchParams = useSearchParams()
@@ -59,15 +56,13 @@ export default function SigninForm() {
       const result = response?.data
 
       if (result && !result.error) {
-        const { redirectUrl, sapConnection, role } = result
+        const { redirectUrl, role } = result
 
         if (role && role.key === 'business-partner') {
           window.location.assign(DEFAULT_SIGNIN_REDIRECT)
           return
         }
 
-        setSapConnectionStatus(sapConnection?.sapConnectionStatus)
-        setSapErrorMessage(sapConnection?.sapErrorMessage)
         setRedirectUrl(redirectUrl)
 
         setIsLoading(false)
@@ -78,8 +73,6 @@ export default function SigninForm() {
       }
 
       if (result && result.error) {
-        setSapConnectionStatus(undefined)
-        setSapErrorMessage(undefined)
         setRedirectUrl(undefined)
 
         setError(result.message)
@@ -99,7 +92,7 @@ export default function SigninForm() {
 
       if (seconds >= 8 && seconds <= 10) message = 'Authenticating your credentials...'
       else if (seconds >= 5 && seconds <= 7) message = 'Checking your status...'
-      else if (seconds >= 2 && seconds <= 4) message = 'Authenticating SAP credentials...'
+      else if (seconds >= 2 && seconds <= 4) message = 'Preparing your workspace...'
       else if (seconds === 1) message = 'Finalizing...'
 
       return `[${percent}]: ${message}`
@@ -165,60 +158,38 @@ export default function SigninForm() {
         </form>
       </FormProvider>
 
-      <Popup
-        visible={isOpen}
-        dragEnabled={false}
-        showCloseButton={false}
-        showTitle={false}
-        height={isLoading ? 250 : error || sapConnectionStatus === 'connected' || sapConnectionStatus === 'failed' ? 255 : 310}
-        maxWidth={600}
-      >
-        <div className='pt-4'>
-          <h2 className='mb-1.5 text-center text-lg font-semibold'>Authentication</h2>
-          {isLoading && <p className='mb-7 text-center text-sm text-slate-400'>Please wait while we authenticate you...</p>}
+      {/* //TODO: change database term as location -> change database name - instead of using dbCode using meaning name istead e.g. (US Company, PH Company etc) */}
 
-          {error && (
-            <Alert variant='error' isHideIcon>
-              <div>
-                <h1 className='text-center text-sm font-bold'>Authentication Error</h1>
-                <p className='mt-1 text-center text-sm'>{error}</p>
-                <p className='mt-2 text-center text-xs'>An error occurred while authenticating. Please try again later.</p>
-              </div>
+      <Popup visible={isOpen} dragEnabled={false} showCloseButton={false} showTitle={false} height='auto' maxWidth={460}>
+        <div className='px-2 py-4'>
+          {isLoading && (
+            <>
+              <h2 className='text-center text-lg font-semibold'>Signing you in</h2>
+              <p className='mt-1 text-center text-sm text-slate-500'>This only takes a moment.</p>
+
+              <ProgressBar
+                className='mx-auto mt-6 [&_.dx-progressbar-status]:inline-block [&_.dx-progressbar-status]:w-full [&_.dx-progressbar-status]:text-center'
+                width='90%'
+                min={0}
+                max={MAXIMUM_SECONDS}
+                statusFormat={statusFormat}
+                value={MAXIMUM_SECONDS - seconds}
+              />
+            </>
+          )}
+
+          {!isLoading && error && (
+            <Alert variant='error'>
+              <p className='font-semibold'>We couldn&apos;t sign you in</p>
+              <p className='mt-0.5 font-normal'>{error}</p>
             </Alert>
           )}
 
-          {sapConnectionStatus === 'failed' && (
-            <Alert variant='warning' isHideIcon>
-              <div>
-                <h1 className='text-center text-sm font-bold'>SAP Service Layer Connection Issue</h1>
-                <p className='mt-1 text-center text-sm'>{sapErrorMessage}</p>
-                <p className='mt-2 text-center text-xs'>
-                  You can still access the application, but SAP-related features may be limited. You will now be redirected to your
-                  dashboard in a {countdown}s...
-                </p>
-              </div>
+          {!isLoading && !error && redirectUrl && (
+            <Alert variant='success'>
+              <p className='font-semibold'>You&apos;re signed in successfully</p>
+              <p className='mt-0.5 font-normal'>Taking you to your dashboard in {countdown}s.</p>
             </Alert>
-          )}
-
-          {sapConnectionStatus === 'connected' && (
-            <Alert variant='success' isHideIcon>
-              <div>
-                <h1 className='text-center text-sm font-bold'>Welcome Back!</h1>
-                <p className='mt-1 text-center text-sm'>You will now be redirected to your dashboard in a {countdown}s...</p>
-                <p className='mt-2 text-center text-xs'>You are now authenticated with SAP Service Layer</p>
-              </div>
-            </Alert>
-          )}
-
-          {seconds !== 0 && !error && (
-            <ProgressBar
-              className='mx-auto my-4 [&_.dx-progressbar-status]:inline-block [&_.dx-progressbar-status]:w-full [&_.dx-progressbar-status]:text-center'
-              width='90%'
-              min={0}
-              max={MAXIMUM_SECONDS}
-              statusFormat={statusFormat}
-              value={MAXIMUM_SECONDS - seconds}
-            />
           )}
         </div>
 

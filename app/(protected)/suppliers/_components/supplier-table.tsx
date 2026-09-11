@@ -13,6 +13,7 @@ import Tooltip from 'devextreme-react/tooltip'
 
 import { getBpMasterByPage, getBpMasterCount, getBps, syncFromSap } from '@/actions/business-partner'
 import PageHeader from '@/app/(protected)/_components/page-header'
+import { Badge } from '@/components/badge'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
@@ -71,6 +72,11 @@ export default function SupplierTable({ bps }: SupplierTableProps) {
   const dataGridRef = useRef<DataGridRef | null>(null)
 
   const syncMeta = useSyncMeta('supplier')
+
+  const lastSyncedLabel = useMemo(() => {
+    if (!syncMeta.data?.lastSyncAt) return 'Never synced'
+    return `Last synced: ${format(syncMeta.data.lastSyncAt, 'PP, hh:mm a')}`
+  }, [syncMeta.data?.lastSyncAt])
   const syncFromSapData = useAction(syncFromSap)
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
@@ -155,14 +161,22 @@ export default function SupplierTable({ bps }: SupplierTableProps) {
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Suppliers' description='Manage and track your suppliers effectively'>
+      <PageHeader
+        title={
+          <>
+            <span className='pr-1.5'>Suppliers</span>
+            <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>
+          </>
+        }
+        description='Manage and track your suppliers effectively'
+      >
         {selectedRowKeys.length < 1 && (
           <CanView subject='p-suppliers' action='sync from sap'>
             <Item location='after' locateInMenu='auto' widget='dxButton'>
               {!syncMeta.isLoading && (
                 <Tooltip
                   target='#sync-from-sap-to-portal'
-                  contentRender={() => `Last Sync: ${format(syncMeta.data?.lastSyncAt || new Date('01/01/2020'), 'PP, hh:mm a')}`}
+                  contentRender={() => lastSyncedLabel}
                   showEvent='mouseenter'
                   hideEvent='mouseleave'
                   position='top'

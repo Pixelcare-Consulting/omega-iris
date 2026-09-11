@@ -15,7 +15,7 @@ import { useWarehouseBinLocations } from '@/hooks/safe-actions/warehouse-bin-loc
 import WarehouseBinLocationTab from './_tabs/warehouse-bin-location-tab'
 // import { useBatchesMasterByWarehouseCode } from '@/hooks/safe-actions/batches'
 // import WarehouseBatchTab from './_tabs/warehouse-batch-tab'
-import WarehouseProjectInventoryTab from './_tabs/warehouse-project-inventory-tab'
+import WarehouseProjectAllocationTab from './_tabs/warehouse-project-allocation-tab'
 import { useProjectItemsByWarehouseCode } from '@/hooks/safe-actions/project-item'
 import CanView from '@/components/acl/can-view'
 import WarehouseProjectTab from './_tabs/warehouse-project-tab'
@@ -107,15 +107,15 @@ export default function ViewWarehouse({ warehouse }: ViewWarehouseProps) {
             </CanView>
           )}
 
-          <CanView subject='p-warehouses' action='view item inventory data'>
-            <TabPanelITem title='Item Inventory Data'>
-              <WarehouseItemInventoryTab warehouseCode={warehouse.WarehouseCode} isSynced={isSynced} itemInventory={itemInventory} />
+          <CanView subject='p-projects-individual-inventory' action={['view', 'view (owner)']}>
+            <TabPanelITem title='Project Allocation'>
+              <WarehouseProjectAllocationTab projectItems={projectItems} />
             </TabPanelITem>
           </CanView>
 
-          <CanView subject='p-projects-individual-inventory' action={['view', 'view (owner)']}>
-            <TabPanelITem title='Project Inventory'>
-              <WarehouseProjectInventoryTab projectItems={projectItems} />
+          <CanView subject='p-warehouses' action='view item inventory data'>
+            <TabPanelITem title='Item Inventory Data'>
+              <WarehouseItemInventoryTab warehouseCode={warehouse.WarehouseCode} isSynced={isSynced} itemInventory={itemInventory} />
             </TabPanelITem>
           </CanView>
 

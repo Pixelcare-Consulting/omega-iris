@@ -17,7 +17,9 @@
     "db:generate": "pnpm prisma generate",
     "db:reset": "pnpm prisma migrate reset --skip-generate && pnpm db-push",
     "db:studio": "pnpm prisma studio --browser none",
-    "db:seed": "pnpm prisma db seed"
+    "db:seed": "pnpm db:seed:dim-date && pnpm db:seed:sap-database",
+    "db:seed:dim-date": "tsx prisma/seed-dim-date.ts",
+    "db:seed:sap-database": "tsx prisma/seed-sap-database.ts"
   },
   "dependencies": {
     "@auth/core": "0.38.0",
@@ -33,6 +35,7 @@
     "class-variance-authority": "^0.7.1",
     "clipboard-polyfill": "^4.1.1",
     "clsx": "^2.1.1",
+    "cronstrue": "^3.25.0",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "devextreme": "25.1",
@@ -49,6 +52,7 @@
     "next-safe-action": "^7.10.4",
     "next-themes": "^0.4.6",
     "nextjs-toploader": "^3.8.16",
+    "node-cron": "^4.6.0",
     "nodemailer": "^7.0.13",
     "pino": "^10.1.0",
     "pino-pretty": "^13.1.2",
@@ -67,6 +71,7 @@
     "stimulsoft-reports-js": "^2026.2.1",
     "stimulsoft-reports-js-react": "^2026.2.1",
     "tailwind-merge": "^3.0.2",
+    "tsx": "^4.23.13",
     "use-debounce": "^10.0.4",
     "uuid": "^11.1.0",
     "xlsx-js-style": "^1.2.0",
@@ -99,7 +104,6 @@
     "prisma": "^6.5.0",
     "tailwindcss": "^3.4.1",
     "tailwindcss-animate": "^1.0.7",
-    "tsx": "^4.21.0",
     "typescript": "^5"
   },
   "keywords": [
@@ -111,7 +115,7 @@
     "next.js"
   ],
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed-dim-date.ts && tsx prisma/seed-sap-database.ts"
   },
   "author": "Pixlcare Consulting",
   "license": "ISC",

@@ -4,12 +4,14 @@ import { getPgByCode } from '@/actions/project-group'
 import ContentContainer from '@/app/(protected)/_components/content-container'
 import ProjectGroupForm from '../_components/project-group-form'
 import { getCurrentUserAbility } from '@/actions/auth'
+import { getTenantDbCode } from '@/utils/tenant'
 
 export default async function ProjectGroupPage({ params }: { params: { code: string } }) {
   const { code } = params
 
   const userInfo = await getCurrentUserAbility()
-  const projectGroup = await getPgByCode(parseInt(code), userInfo)
+  const dbCode = await getTenantDbCode()
+  const projectGroup = dbCode ? await getPgByCode(dbCode, parseInt(code), userInfo) : null
 
   const getPageMetadata = () => {
     if (!projectGroup || !projectGroup?.code || code == 'add')

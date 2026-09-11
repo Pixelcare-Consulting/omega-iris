@@ -24,6 +24,7 @@ import {
   syncToSap,
 } from '@/actions/business-partner'
 import PageHeader from '@/app/(protected)/_components/page-header'
+import { Badge } from '@/components/badge'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
@@ -101,6 +102,11 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
   const syncToSapData = useAction(syncToSap)
   const syncFromSapData = useAction(syncFromSap)
   const syncMeta = useSyncMeta('customer')
+
+  const lastSyncedLabel = useMemo(() => {
+    if (!syncMeta.data?.lastSyncAt) return 'Never synced'
+    return `Last synced: ${format(syncMeta.data.lastSyncAt, 'PP, hh:mm a')}`
+  }, [syncMeta.data?.lastSyncAt])
 
   const bpGroups = useBpGroups()
   const currencies = useCurrencies()
@@ -463,7 +469,15 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Customers' description='Manage and track your customers effectively'>
+      <PageHeader
+        title={
+          <>
+            <span className='pr-1.5'>Customers</span>
+            <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>
+          </>
+        }
+        description='Manage and track your customers effectively'
+      >
         {selectedRowKeys.length > 0 && (
           <CanView subject='p-customers' action='sync to sap'>
             <Item location='after' locateInMenu='auto' widget='dxButton'>
@@ -494,7 +508,7 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
               {!syncMeta.isLoading && (
                 <Tooltip
                   target='#sync-from-sap-to-portal'
-                  contentRender={() => `Last Sync: ${format(syncMeta.data?.lastSyncAt || new Date('01/01/2020'), 'PP, hh:mm a')}`}
+                  contentRender={() => lastSyncedLabel}
                   showEvent='mouseenter'
                   hideEvent='mouseleave'
                   position='top'

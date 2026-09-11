@@ -4,12 +4,14 @@ import { getWorkOrderByCode } from '@/actions/work-order'
 import ContentContainer from '@/app/(protected)/_components/content-container'
 import WorkOrderForm from '../_components/work-order-form'
 import { getCurrentUserAbility } from '@/actions/auth'
+import { getTenantDbCode } from '@/utils/tenant'
 
 export default async function WorkOrderPage({ params }: { params: { code: string } }) {
   const { code } = params
 
   const userInfo = await getCurrentUserAbility()
-  const workOrder = await getWorkOrderByCode(parseInt(code), userInfo)
+  const dbCode = await getTenantDbCode()
+  const workOrder = dbCode ? await getWorkOrderByCode(dbCode, parseInt(code), userInfo) : null
 
   const getPageMetadata = () => {
     if (!workOrder || !workOrder?.code || code == 'add') {

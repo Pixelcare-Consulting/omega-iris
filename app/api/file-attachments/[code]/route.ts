@@ -2,6 +2,7 @@ import fs from 'fs/promises'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/utils/db'
 import { safeParseInt } from '@/utils'
+import { getTenantDbCode } from '@/utils/tenant'
 
 export async function GET(_req: NextRequest, { params }: { params: { code: string } }) {
   try {
@@ -10,7 +11,11 @@ export async function GET(_req: NextRequest, { params }: { params: { code: strin
     //* check code
     if (!fileAttachmentCode) return new NextResponse('Invalid file attachment code!', { status: 400 })
 
-    const existingFileAttachment = await db.fileAttachment.findUnique({ where: { code: fileAttachmentCode } })
+    const dbCode = await getTenantDbCode()
+
+    if (!dbCode) return new NextResponse('Unauthorized!', { status: 401 })
+
+    const existingFileAttachment = await db.fileAttachment.findFirst({ where: { code: fileAttachmentCode, dbCode } })
 
     //* check if file attachment exist
     if (!existingFileAttachment) return new NextResponse('File attachment not found!', { status: 404 })

@@ -33,9 +33,11 @@ import CanView from '@/components/acl/can-view'
 import can from '@/components/acl/can'
 import { NotificationContext } from '@/context/notification'
 import { useRoleReports } from '@/hooks/safe-actions/role-report'
+import { useRoleSapDatabases } from '@/hooks/safe-actions/role-sap-database'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import { useReports } from '@/hooks/safe-actions/report'
+import { useSapDatabases } from '@/hooks/safe-actions/sap-database'
 import CommonPageHeaderToolbarItems from '../../_components/common-page-header-toolbar-item'
 import CommonDataGrid from '@/components/common-datagrid'
 import { REPORT_TYPE_LABEL } from '@/schema/report'
@@ -49,9 +51,13 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
 
   // const notificationContext = useContext(NotificationContext)
 
-  const DATAGRID_STORAGE_KEY = 'dx-datagrid-role-report'
-  const DATAGRID_UNIQUE_KEY = 'role-reports'
-  const dataGridRef = useRef<DataGridRef | null>(null)
+  const REPORT_DATAGRID_STORAGE_KEY = 'dx-datagrid-role-report'
+  const REPORT_DATAGRID_UNIQUE_KEY = 'role-reports'
+  const reportDataGridRef = useRef<DataGridRef | null>(null)
+
+  const SAP_DATABASE_DATAGRID_STORAGE_KEY = 'dx-datagrid-role-sap-database'
+  const SAP_DATABASE_DATAGRID_UNIQUE_KEY = 'role-sap-databases'
+  const sapDatabaseDataGridRef = useRef<DataGridRef | null>(null)
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
@@ -62,6 +68,8 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
   const rolePermissions = useRolePermissions(role?.id ?? '')
   const reports = useReports()
   const roleReports = useRoleReports(role?.code)
+  const sapDatabases = useSapDatabases()
+  const roleSapDatabases = useRoleSapDatabases(role?.code)
 
   const permissionsWithChildren = useMemo(() => {
     if (permissions.isLoading || permissions.data.length < 1) return []
@@ -83,12 +91,18 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
 
   const name = useWatch({ control: form.control, name: 'name' }) || ''
   const permissionsFormData = useWatch({ control: form.control, name: 'permissions' }) || []
-  const roles = useWatch({ control: form.control, name: 'roles' }) || []
+  const reportsFormData = useWatch({ control: form.control, name: 'reports' }) || []
+  const sapDatabasesFormData = useWatch({ control: form.control, name: 'sapDatabases' }) || []
 
-  const selectedRowKeys = useMemo(() => {
-    if (roles.length < 1) return []
-    return roles
-  }, [JSON.stringify(roles)])
+  const selectedReportRowKeys = useMemo(() => {
+    if (reportsFormData.length < 1) return []
+    return reportsFormData
+  }, [JSON.stringify(reportsFormData)])
+
+  const selectedSapDatabaseRowKeys = useMemo(() => {
+    if (sapDatabasesFormData.length < 1) return []
+    return sapDatabasesFormData
+  }, [JSON.stringify(sapDatabasesFormData)])
 
   const { executeAsync, isExecuting } = useAction(upsertRole)
 
@@ -113,7 +127,11 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
       if (result?.data && result?.data?.role && 'id' in result?.data?.role) {
         router.refresh()
         // notificationContext?.handleRefresh()
+
+        //* refetch every link the form resets from, stale data here would undo what was just saved
         rolePermissions.execute({ roleId: result.data.role.id })
+        roleReports.execute({ roleCode: result.data.role.code })
+        roleSapDatabases.execute({ roleCode: result.data.role.code })
 
         setTimeout(() => {
           if (isCreate) router.push(`/roles`)
@@ -209,23 +227,30 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
     form.setValue('permissions', newPermissions)
   }
 
-  const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
+  const handleViewReport = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const data = e.row?.data
     if (!data || !data?.code) return
     router.push(`/reports/${data?.code}/view`)
   }, [])
 
-  const handleOnSelectionChange = useCallback((e: DataGridTypes.SelectionChangedEvent) => {
+  const handleOnReportSelectionChange = useCallback((e: DataGridTypes.SelectionChangedEvent) => {
     //* exclude selection are row with isDefault === true
     const allowData = e.selectedRowsData.filter((row) => !row.isDefault)
 
     const values = allowData.map((row) => row.code)
 
-    form.setValue('roles', values)
-    if (values.length > 0) form.clearErrors('roles')
+    form.setValue('reports', values)
+    if (values.length > 0) form.clearErrors('reports')
   }, [])
 
-  function handleOnCellPrepared(e: DataGridTypes.CellPreparedEvent) {
+  const handleOnSapDatabaseSelectionChange = useCallback((e: DataGridTypes.SelectionChangedEvent) => {
+    const values = e.selectedRowsData.map((row) => row.dbCode)
+
+    form.setValue('sapDatabases', values)
+    if (values.length > 0) form.clearErrors('sapDatabases')
+  }, [])
+
+  function handleOnReportCellPrepared(e: DataGridTypes.CellPreparedEvent) {
     const column = e.column as any
     const data = e.data
     const cellElement = e.cellElement
@@ -252,7 +277,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
     //eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name])
 
-  //* set permissions & roles
+  //* set permissions & reports, databases
   useEffect(() => {
     if (!role) {
       const pData = permissions.data.filter((p) => !p.isParent)
@@ -265,7 +290,8 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
         name: '',
         description: null,
         permissions: permissionsInitialValues,
-        roles: [],
+        reports: [],
+        sapDatabases: [],
       }
 
       form.reset(roleObj)
@@ -274,6 +300,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
 
     let rps: { id: string; actions: string[] }[] = []
     let rrs: number[] = []
+    let rsds: string[] = []
 
     const pdata = permissions.data.filter((p) => !p.isParent)
 
@@ -285,30 +312,47 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
       rrs = roleReports.data.map((rp) => rp.reportCode)
     } else rrs = []
 
+    if (role && !roleSapDatabases.isLoading && roleSapDatabases.data.length > 0) {
+      rsds = roleSapDatabases.data.map((rsd) => rsd.sapDatabaseCode)
+    } else rsds = []
+
     if (role.key === 'admin') {
       rps = pdata.map((p) => ({ id: p.id, actions: p.allowedActions }))
       rrs = reports.data.map((r) => r.code)
+      rsds = sapDatabases.data.map((sapDb) => sapDb.dbCode)
     }
 
-    const roleObj = { ...role, permissions: rps, roles: rrs }
+    const roleObj = { ...role, permissions: rps, reports: rrs, sapDatabases: rsds }
 
     form.reset(roleObj)
+    //* only the data, a loading flag flipping is not a reason to throw away the user's edits
+    //eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isCreate,
-    JSON.stringify(role),
     JSON.stringify(permissions),
     JSON.stringify(rolePermissions),
     JSON.stringify(reports),
     JSON.stringify(roleReports),
+    JSON.stringify(roleSapDatabases),
+    JSON.stringify(sapDatabases),
   ])
 
   //* show loading
   useEffect(() => {
-    if (dataGridRef.current) {
-      if (reports.isLoading || roleReports.isLoading) dataGridRef.current.instance().beginCustomLoading('Loading data...')
-      else dataGridRef.current.instance().endCustomLoading()
+    if (reportDataGridRef.current) {
+      if (reports.isLoading || roleReports.isLoading) reportDataGridRef.current.instance().beginCustomLoading('Loading data...')
+      else reportDataGridRef.current.instance().endCustomLoading()
     }
-  }, [reports.isLoading, roleReports.isLoading, dataGridRef.current])
+  }, [reports.isLoading, roleReports.isLoading, reportDataGridRef.current])
+
+  //* show loading
+  useEffect(() => {
+    if (sapDatabaseDataGridRef.current) {
+      if (sapDatabases.isLoading || roleSapDatabases.isLoading)
+        sapDatabaseDataGridRef.current.instance().beginCustomLoading('Loading data...')
+      else sapDatabaseDataGridRef.current.instance().endCustomLoading()
+    }
+  }, [sapDatabases.isLoading, roleSapDatabases.isLoading, sapDatabaseDataGridRef.current])
 
   return (
     <FormProvider {...form}>
@@ -483,23 +527,23 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
                   <TabPanelItem title='Reports' visible={!isReportingDisabled}>
                     <Toolbar className='mt-5 px-4'>
                       <CommonPageHeaderToolbarItems
-                        dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
-                        dataGridRef={dataGridRef}
+                        dataGridUniqueKey={REPORT_DATAGRID_UNIQUE_KEY}
+                        dataGridRef={reportDataGridRef}
                         exportOptions={{ isHide: true }}
                       />
                     </Toolbar>
 
                     <PageContentWrapper className='h-[calc(100vh_-_180px)]'>
                       <CommonDataGrid
-                        dataGridRef={dataGridRef}
+                        dataGridRef={reportDataGridRef}
                         data={reports.data}
                         isLoading={reports.isLoading || roleReports.isLoading}
-                        storageKey={DATAGRID_STORAGE_KEY}
+                        storageKey={REPORT_DATAGRID_STORAGE_KEY}
                         keyExpr='code'
                         isSelectionEnable
                         dataGridStore={dataGridStore}
-                        selectedRowKeys={selectedRowKeys}
-                        callbacks={{ onCellPrepared: handleOnCellPrepared, onSelectionChanged: handleOnSelectionChange }}
+                        selectedRowKeys={selectedReportRowKeys}
+                        callbacks={{ onCellPrepared: handleOnReportCellPrepared, onSelectionChanged: handleOnReportSelectionChange }}
                       >
                         <Column dataField='code' minWidth={100} dataType='string' caption='ID' sortOrder='asc' />
                         <Column dataField='title' dataType='string' caption='Title' />
@@ -543,7 +587,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
                           <CanView subject='p-reports' action='view (owner)'>
                             <DataGridButton
                               icon='eyeopen'
-                              onClick={handleView}
+                              onClick={handleViewReport}
                               cssClass='!text-lg'
                               hint='View'
                               visible={(opt) => {
@@ -553,6 +597,43 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
                             />
                           </CanView>
                         </Column>
+                      </CommonDataGrid>
+                    </PageContentWrapper>
+                  </TabPanelItem>
+
+                  <TabPanelItem title='Companies'>
+                    <Toolbar className='mt-5 px-4'>
+                      <CommonPageHeaderToolbarItems
+                        dataGridUniqueKey={SAP_DATABASE_DATAGRID_UNIQUE_KEY}
+                        dataGridRef={sapDatabaseDataGridRef}
+                        exportOptions={{ isHide: true }}
+                      />
+                    </Toolbar>
+
+                    <PageContentWrapper className='h-[calc(100vh_-_180px)]'>
+                      <CommonDataGrid
+                        dataGridRef={sapDatabaseDataGridRef}
+                        data={sapDatabases.data}
+                        isLoading={sapDatabases.isLoading || roleSapDatabases.isLoading}
+                        storageKey={SAP_DATABASE_DATAGRID_STORAGE_KEY}
+                        keyExpr='dbCode'
+                        isSelectionEnable
+                        dataGridStore={dataGridStore}
+                        selectedRowKeys={selectedSapDatabaseRowKeys}
+                        callbacks={{ onSelectionChanged: handleOnSapDatabaseSelectionChange }}
+                      >
+                        <Column dataField='dbCode' minWidth={150} dataType='string' caption='Code' />
+                        <Column dataField='name' dataType='string' caption='Name' />
+                        <Column dataField='order' dataType='number' caption='Order' visible={false} sortOrder='asc' />
+                        <Column
+                          dataField='isActive'
+                          dataType='string'
+                          caption='Status'
+                          calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
+                        />
+
+                        <Column dataField='createdAt' dataType='datetime' caption='Created At' />
+                        <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
                       </CommonDataGrid>
                     </PageContentWrapper>
                   </TabPanelItem>

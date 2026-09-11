@@ -12,7 +12,6 @@ import { db } from '@/utils/db'
 import { getClientInfo, getLocationFromIp } from './common'
 import logger from '@/utils/logger'
 import { cookies } from 'next/headers'
-import { getSapServiceLayerToken } from './sap-auth'
 import { buildAbilityFor } from '@/utils/acl'
 import { safeParseInt } from '@/utils'
 
@@ -25,7 +24,7 @@ export async function getCurrentUserAbility() {
   const session = await auth()
 
   if (!session?.user) return null
-  const { id, code, roleCode, roleKey, roleName, rolePermissions } = session.user
+  const { id, code, roleCode, roleKey, roleName, rolePermissions, sapDbCode } = session.user
 
   return {
     userId: id,
@@ -33,6 +32,8 @@ export async function getCurrentUserAbility() {
     roleCode,
     roleKey,
     roleName,
+    //* null when no database is selected, matches ctx.dbCode from authenticationMiddleware
+    dbCode: sapDbCode ?? null,
     ability: buildAbilityFor({ roleKey: roleKey, rolePermissions: roleKey === 'admin' ? [] : rolePermissions }),
   }
 }
@@ -58,12 +59,23 @@ export const signInUser = action.schema(signinFormSchema).action(async ({ parsed
 
     //* Check if user exists
     if (!user || !user.email || !user.password) {
-      return { error: true, code: 401, message: 'User does not exist!', action: 'SIGNIN_USER' }
+      //* same wording as a wrong password, so the message never reveals which emails are registered
+      return {
+        error: true,
+        code: 401,
+        message: 'The email or password you entered is incorrect. Please check your details and try again.',
+        action: 'SIGNIN_USER',
+      }
     }
 
     //* check if user is locked
     if (user.isLocked) {
-      return { error: true, code: 401, message: 'Account is locked!. Please contact your administrator.', action: 'SIGNIN_USER' }
+      return {
+        error: true,
+        code: 401,
+        message: 'Your account is locked after too many failed sign-in attempts. Please contact your administrator to unlock it.',
+        action: 'SIGNIN_USER',
+      }
     }
 
     //* Clean up any existing session tokens
@@ -87,26 +99,12 @@ export const signInUser = action.schema(signinFormSchema).action(async ({ parsed
       data: { lastIpAddress: ip, location: location, lastSignin: new Date(), failedLoginAttempts: 0 },
     })
 
-    //* Authenticate with SAP Service Layer after successful application login'
-    let sapConnectionStatus = 'unknown'
-    let sapErrorMessage = ''
-
-    const response = await getSapServiceLayerToken()
-
-    if (response.error || !response?.data?.sapSession || !response?.data?.sapSession?.b1session || !response?.data?.sapSession?.routeid) {
-      sapConnectionStatus = 'failed'
-      sapErrorMessage = response.message
-    } else sapConnectionStatus = 'connected'
-
+    //* no SAP call here, the database is chosen after signin and there is nothing to connect to yet
     return {
       status: 200,
       message: 'Signin successful!',
       action: 'SIGNIN_USER',
       redirectUrl: callbackUrl || DEFAULT_SIGNIN_REDIRECT,
-      sapConnection: {
-        sapConnectionStatus,
-        sapErrorMessage,
-      },
       role: {
         id: user.role.id,
         key: user.role.key,
@@ -139,10 +137,20 @@ export const signInUser = action.schema(signinFormSchema).action(async ({ parsed
             })
           }
 
-          return { error: true, status: 401, message: 'Invalid Credentials!', action: 'SIGNIN_USER' }
+          return {
+            error: true,
+            status: 401,
+            message: 'The email or password you entered is incorrect. Please check your details and try again.',
+            action: 'SIGNIN_USER',
+          }
         }
         default:
-          return { error: true, status: 500, message: 'Failed to login! Please try again later.', action: 'SIGNIN_USER' }
+          return {
+            error: true,
+            status: 500,
+            message: 'We could not complete your sign-in. Please try again in a moment, or contact your administrator if it continues.',
+            action: 'SIGNIN_USER',
+          }
       }
     }
 

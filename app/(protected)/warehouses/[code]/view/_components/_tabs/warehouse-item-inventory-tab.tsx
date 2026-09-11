@@ -2,7 +2,7 @@
 
 import { Column, DataGridRef } from 'devextreme-react/data-grid'
 import { useEffect, useRef } from 'react'
-import Toolbar from 'devextreme-react/toolbar'
+import Toolbar, { Item } from 'devextreme-react/toolbar'
 
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
@@ -10,6 +10,7 @@ import CommonDataGrid from '@/components/common-datagrid'
 import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { useSapItemStockListByWarehouse } from '@/hooks/safe-actions/warehouse-item-inventory'
 import FormMessage from '@/components/forms/form-message'
+import { Badge } from '@/components/badge'
 
 type WarehouseItemInventoryTabProps = {
   warehouseCode: string
@@ -36,6 +37,13 @@ export default function WarehouseItemInventoryTab({ warehouseCode, isSynced, ite
   return (
     <div className='flex h-full w-full flex-col'>
       <Toolbar className='mt-5 px-4'>
+        <Item location='before' locateInMenu='auto'>
+          <Badge variant='soft-green' className='gap-1.5'>
+            <span className='size-1.5 rounded-full bg-green-500' />
+            Live From SAP
+          </Badge>
+        </Item>
+
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
@@ -60,7 +68,6 @@ export default function WarehouseItemInventoryTab({ warehouseCode, isSynced, ite
         >
           <Column dataField='ItemCode' dataType='string' minWidth={150} caption='MFG P/N' sortOrder='asc' />
           <Column dataField='ItemName' dataType='string' minWidth={200} caption='Description' />
-          <Column dataField='WhsCode' dataType='string' caption='Warehouse' />
           <Column dataField='OnHand' dataType='number' caption='On Hand' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
           <Column dataField='IsCommited' dataType='number' caption='Committed' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
           <Column dataField='OnOrder' dataType='number' caption='On Order' alignment='left' format={DEFAULT_NUMBER_FORMAT} />

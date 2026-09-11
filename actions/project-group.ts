@@ -6,7 +6,7 @@ import { Prisma } from '@prisma/client'
 import { paramsSchema } from '@/schema/common'
 import { picProjectGroupsFormSchema, projectGroupFormSchema, projectGroupPicFormSchema } from '@/schema/project-group'
 import { db } from '@/utils/db'
-import { action, authenticationMiddleware } from '@/utils/safe-action'
+import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe-action'
 import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import { importFormSchema } from '@/schema/import'
 import { getCurrentUserAbility } from './auth'
@@ -15,7 +15,7 @@ import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/perm
 
 const COMMON_PROJECT_GROUP_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectGroupOrderByWithRelationInput
 
-export async function getPgs(userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
+export async function getPgs(dbCode: string, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
   if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
 
   const { userId, userCode, ability } = userInfo
@@ -38,18 +38,21 @@ export async function getPgs(userInfo: Awaited<ReturnType<typeof getCurrentUserA
             }
           : { code: -1 }
 
-    return db.projectGroup.findMany({ orderBy: COMMON_PROJECT_GROUP_ORDER_BY, where })
+    return db.projectGroup.findMany({ orderBy: COMMON_PROJECT_GROUP_ORDER_BY, where: { ...where, dbCode } })
   } catch (error) {
     console.error(error)
     return []
   }
 }
 
-export const getPgsClient = action.use(authenticationMiddleware).action(async ({ ctx }) => {
-  return getPgs(ctx)
-})
+export const getPgsClient = action
+  .use(authenticationMiddleware)
+  .use(tenantMiddleware)
+  .action(async ({ ctx }) => {
+    return getPgs(ctx.dbCode, ctx)
+  })
 
-export async function getPgByCode(code: number, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
+export async function getPgByCode(dbCode: string, code: number, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
   if (!code || !userInfo || !userInfo.userId || !userInfo.userCode) return null
 
   const { userId, userCode, ability } = userInfo
@@ -73,12 +76,13 @@ export async function getPgByCode(code: number, userInfo: Awaited<ReturnType<typ
             }
           : { code: -1 }
 
-    const projectGroup = await db.projectGroup.findUnique({ where })
+    //! findUnique on an ability where crosses databases
+    const projectGroup = await db.projectGroup.findFirst({ where: { ...where, dbCode } })
 
     if (!projectGroup) return null
 
     //TODO: separate the fetching of customers and pics into separate actions & hooks
-    const pics = await db.projectGroupPic.findMany({ where: { projectGroupCode: code }, select: { userCode: true } })
+    const pics = await db.projectGroupPic.findMany({ where: { dbCode, projectGroupCode: code }, select: { userCode: true } })
 
     return { ...projectGroup, pics: pics.map((p) => p.userCode) }
   } catch (error) {
@@ -89,10 +93,11 @@ export async function getPgByCode(code: number, userInfo: Awaited<ReturnType<typ
 
 export const upsertPg = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(projectGroupFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, pics, ...data } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const include: Prisma.ProjectGroupInclude = {
       projectGroupPics: {
@@ -126,7 +131,7 @@ export const upsertPg = action
 
     try {
       if (code !== -1) {
-        const existingPg = await db.projectGroup.findUnique({ where: { code }, include })
+        const existingPg = await db.projectGroup.findFirst({ where: { code, dbCode }, include })
 
         if (!existingPg) {
           return { error: true, status: 404, message: 'Project group not found!', action: 'UPSERT_PROJECT_GROUP' }
@@ -134,20 +139,20 @@ export const upsertPg = action
 
         if (existingPg.name !== trimmedName) {
           //* check if the name is already exists
-          const existingPgName = await db.projectGroup.findFirst({ where: { name: trimmedName, code: { not: existingPg.code } } })
+          const existingPgName = await db.projectGroup.findFirst({ where: { dbCode, name: trimmedName, code: { not: existingPg.code } } })
           if (existingPgName) {
             return { error: true, status: 401, message: 'Project group name already exists!', action: 'UPSERT_PROJECT_GROUP' }
           }
         }
 
         const [updatedPg] = await db.$transaction([
-          db.projectGroup.update({ where: { code }, data: { ...data, name: trimmedName, updatedBy: userId } }),
+          db.projectGroup.update({ where: { id: existingPg.id }, data: { ...data, name: trimmedName, updatedBy: userId } }),
 
-          db.projectGroupPic.deleteMany({ where: { projectGroupCode: code } }),
+          db.projectGroupPic.deleteMany({ where: { dbCode, projectGroupCode: code } }),
 
           //* create new project group pics
           db.projectGroupPic.createMany({
-            data: pics.map((p) => ({ projectGroupCode: code, userCode: p })),
+            data: pics.map((p) => ({ dbCode, projectGroupCode: code, userCode: p })),
           }),
         ])
 
@@ -218,7 +223,7 @@ export const upsertPg = action
       }
 
       //* check if the name is already exists
-      const existingPg = await db.projectGroup.findFirst({ where: { name: trimmedName } })
+      const existingPg = await db.projectGroup.findFirst({ where: { dbCode, name: trimmedName } })
 
       if (existingPg) return { error: true, status: 401, message: 'Project group name already exists!', action: 'UPSERT_PROJECT_GROUP' }
 
@@ -226,12 +231,13 @@ export const upsertPg = action
       const newPg = await db.projectGroup.create({
         data: {
           ...data,
+          dbCode,
           name: trimmedName,
           createdBy: userId,
           updatedBy: userId,
           projectGroupPics: {
             createMany: {
-              data: pics.map((p) => ({ userCode: p })),
+              data: pics.map((p) => ({ dbCode, userCode: p })),
             },
           },
         },
@@ -297,14 +303,15 @@ export const upsertPg = action
 
 export const deleletePg = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(paramsSchema)
   .action(async ({ ctx, parsedInput: data }) => {
     try {
-      const projectGroup = await db.projectGroup.findUnique({ where: { code: data.code } })
+      const projectGroup = await db.projectGroup.findFirst({ where: { code: data.code, dbCode: ctx.dbCode } })
 
       if (!projectGroup) return { error: true, status: 404, message: 'Project group not found!', action: 'DELETE_PROJECT_GROUP' }
 
-      await db.projectGroup.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
+      await db.projectGroup.update({ where: { id: projectGroup.id }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 
       //* create notification
       // void createNotification(ctx, {
@@ -333,14 +340,15 @@ export const deleletePg = action
 
 export const restorePg = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(paramsSchema)
   .action(async ({ ctx, parsedInput: data }) => {
     try {
-      const projectGroup = await db.projectGroup.findUnique({ where: { code: data.code } })
+      const projectGroup = await db.projectGroup.findFirst({ where: { code: data.code, dbCode: ctx.dbCode } })
 
       if (!projectGroup) return { error: true, status: 404, message: 'Project group not found!', action: 'RESTORE_PROJECT_GROUP' }
 
-      await db.projectGroup.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+      await db.projectGroup.update({ where: { id: projectGroup.id }, data: { deletedAt: null, deletedBy: null } })
 
       //* create notification
       // void createNotification(ctx, {
@@ -369,10 +377,11 @@ export const restorePg = action
 
 export const importPgs = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(importFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { data, total, stats, isLastRow } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const names = data?.map((row) => row?.['Name']?.trim())?.filter(Boolean) || []
 
@@ -413,6 +422,7 @@ export const importPgs = action
 
         //* reshape data
         const toCreate: Prisma.ProjectGroupCreateManyInput = {
+          dbCode,
           name: trimmedName,
           description: row?.['Description'] || null,
           isActive: row?.['Active'] === '1' ? true : !row?.['Active'] ? undefined : false,
@@ -482,10 +492,11 @@ export const importPgs = action
 
 export const updatePgPics = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(projectGroupPicFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, pics } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const include: Prisma.ProjectGroupInclude = {
       projectGroupPics: {
@@ -516,7 +527,7 @@ export const updatePgPics = action
     }
 
     try {
-      const pg = await db.projectGroup.findUnique({ where: { code }, include })
+      const pg = await db.projectGroup.findFirst({ where: { code, dbCode }, include })
 
       if (!pg) {
         return { error: true, status: 404, message: 'Project group not found!', action: 'UPDATE_PROJECT_GROUP_PICS' }
@@ -526,16 +537,16 @@ export const updatePgPics = action
       const [updatedProjectGprojectGroup] = await db.$transaction([
         //* update project group
         db.projectGroup.update({
-          where: { code },
+          where: { id: pg.id },
           data: { updatedBy: userId },
         }),
 
         //* delete existing project group pics
-        db.projectGroupPic.deleteMany({ where: { projectGroupCode: code } }),
+        db.projectGroupPic.deleteMany({ where: { dbCode, projectGroupCode: code } }),
 
         //* create new project group pics
         db.projectGroupPic.createManyAndReturn({
-          data: pics.map((p) => ({ projectGroupCode: code, userCode: p })),
+          data: pics.map((p) => ({ dbCode, projectGroupCode: code, userCode: p })),
         }),
       ])
 
@@ -613,10 +624,11 @@ export const updatePgPics = action
 
 export const updatePicPgs = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(picProjectGroupsFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, groups } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const include: Prisma.ProjectGroupInclude = {
       projectGroupPics: {
@@ -648,7 +660,7 @@ export const updatePicPgs = action
     try {
       const currentAssignedPgs = (
         await db.projectGroupPic.findMany({
-          where: { userCode: code },
+          where: { dbCode, userCode: code },
           select: { projectGroup: { select: { code: true, name: true } } },
         })
       ).map((pc) => pc.projectGroup.code)
@@ -659,13 +671,14 @@ export const updatePicPgs = action
       const updatedPgs = await db.$transaction(async (tx) => {
         //* update project groups
         await tx.projectGroup.updateMany({
-          where: { code: { in: [...newlyAssignedPgs, ...unAssignedPgs] } },
+          where: { dbCode, code: { in: [...newlyAssignedPgs, ...unAssignedPgs] } },
           data: { updatedBy: userId },
         })
 
         //* delete the project group pics which based on the unAssignedPgs
         await tx.projectGroupPic.deleteMany({
           where: {
+            dbCode,
             projectGroupCode: { in: unAssignedPgs },
             userCode: code,
           },
@@ -673,11 +686,11 @@ export const updatePicPgs = action
 
         //* create the project group pics which based on the newlyAssignedPgs
         await tx.projectGroupPic.createMany({
-          data: newlyAssignedPgs.map((pi) => ({ projectGroupCode: pi, userCode: code })),
+          data: newlyAssignedPgs.map((pi) => ({ dbCode, projectGroupCode: pi, userCode: code })),
         })
 
         return await tx.projectGroup.findMany({
-          where: { code: { in: [...newlyAssignedPgs, ...unAssignedPgs] } },
+          where: { dbCode, code: { in: [...newlyAssignedPgs, ...unAssignedPgs] } },
           include,
         })
       })

@@ -63,7 +63,8 @@ model Role {
 
     users           User[]
     rolePermissions RolePermission[]
-    roleReports     RoleReport[]
+    roleReports      RoleReport[]
+    roleSapDatabases RoleSapDatabase[]
 }
 
 model Permission {
@@ -140,6 +141,7 @@ model Account {
 model Notification {
     id         String  @id @default(cuid())
     code       Int     @unique @default(autoincrement())
+    dbCode     String? //* null for global user or role events, set for a tenant event
     title      String
     message    String  @db.Text
     link       String?
@@ -166,6 +168,7 @@ model Notification {
 
     receipts NotificationReceipt[]
 
+    @@index([dbCode])
     //* Gin - Generalized Inverted Index (designed for fast and efficient querying of values such as Arrays, JSONB)
     @@index([userCodes], type: Gin)
     @@index([roleCodes], type: Gin)
@@ -191,10 +194,11 @@ model NotificationReceipt {
 model BusinessPartner {
     id       String  @id @default(cuid())
     code     Int     @unique @default(autoincrement())
+    dbCode   String
     isActive Boolean @default(true)
 
     //* sap fields
-    CardCode   String  @unique
+    CardCode   String
     CardName   String
     CardType   String
     CntctPrsn  String?
@@ -222,10 +226,14 @@ model BusinessPartner {
     addresses                  Address[]
     contacts                   Contact[]
     projectIndividualSuppliers ProjectIndividualSupplier[] @relation(name: "BusinessPartner-ProjectIndividualSupplier")
+
+    @@unique([dbCode, CardCode])
 }
 
 model Address {
     id                   String  @id @default(cuid())
+    dbCode               String
+    //* sap fields
     CardCode             String
     AddressName          String
     AddrType             String
@@ -251,14 +259,16 @@ model Address {
     updatedBy String?
     deletedBy String?
 
-    businessPartner BusinessPartner @relation(fields: [CardCode], references: [CardCode], onUpdate: Cascade, onDelete: Cascade)
+    businessPartner BusinessPartner @relation(fields: [dbCode, CardCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: Cascade)
 
-    @@unique([CardCode, AddressName, AddrType])
+    @@unique([dbCode, CardCode, AddressName, AddrType])
     @@index([CardCode])
 }
 
 model Contact {
     id          String  @id @default(cuid())
+    dbCode      String
+    //* sap fields
     CardCode    String
     ContactName String
     FirstName   String?
@@ -277,9 +287,9 @@ model Contact {
     updatedBy String?
     deletedBy String?
 
-    businessPartner BusinessPartner @relation(fields: [CardCode], references: [CardCode], onUpdate: Cascade, onDelete: Cascade)
+    businessPartner BusinessPartner @relation(fields: [dbCode, CardCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: Cascade)
 
-    @@unique([CardCode, ContactName])
+    @@unique([dbCode, CardCode, ContactName])
     @@index([CardCode])
 }
 
@@ -287,12 +297,13 @@ model Item {
     //TODO: remove manufacturerPartNumber, manufacturer, description - instead use sap fields
     id        String  @id @default(cuid())
     code      Int     @unique @default(autoincrement())
+    dbCode    String
     thumbnail String?
     notes     String?
     isActive  Boolean @default(true)
 
     //* sap fields
-    ItemCode   String   @unique
+    ItemCode   String
     ItemName   String?
     FirmCode   Int?
     FirmName   String?
@@ -311,6 +322,7 @@ model Item {
 
     projectItems ProjectItem[]
 
+    @@unique([dbCode, ItemCode])
     @@index([deletedAt])
     @@index([ItemCode(ops: raw("gin_trgm_ops"))], type: Gin)
     @@index([ItemName(ops: raw("gin_trgm_ops"))], type: Gin)
@@ -320,10 +332,11 @@ model Item {
 model Warehouse {
     id       String  @id @default(cuid())
     code     Int     @unique @default(autoincrement())
+    dbCode   String
     isActive Boolean @default(true)
 
     //* SAP fields
-    WarehouseCode        String  @unique
+    WarehouseCode        String
     WarehouseName        String
     Nettable             Boolean
     EnableBinLocations   Boolean
@@ -355,16 +368,19 @@ model Warehouse {
     binLocations      WarehouseBinLocation[]
     projectItems      ProjectItem[]
     projectWarehouses ProjectIndividualWarehouse[]
+
+    @@unique([dbCode, WarehouseCode])
 }
 
 model WarehouseBinLocation {
-    id   String @id @default(cuid())
-    code Int    @unique @default(autoincrement())
+    id     String @id @default(cuid())
+    code   Int    @unique @default(autoincrement())
+    dbCode String
 
-    //* SAP fields    
+    //* SAP fields
     WarehouseCode String
     Description   String?
-    BinCode       String  @unique
+    BinCode       String
     SL1Code       String
     SL2Code       String?
     SL3Code       String?
@@ -377,14 +393,17 @@ model WarehouseBinLocation {
     updatedBy String?
     deletedBy String?
 
-    warehouse    Warehouse     @relation(fields: [WarehouseCode], references: [WarehouseCode], onUpdate: Cascade, onDelete: Cascade)
+    warehouse    Warehouse     @relation(fields: [dbCode, WarehouseCode], references: [dbCode, WarehouseCode], onUpdate: Cascade, onDelete: Cascade)
     projectItems ProjectItem[] @relation()
+
+    @@unique([dbCode, BinCode])
 }
 
 model ProjectGroup {
     id          String  @id @default(cuid())
     code        Int     @unique @default(autoincrement())
-    name        String  @unique
+    dbCode      String
+    name        String
     description String?
     isActive    Boolean @default(true)
 
@@ -398,12 +417,14 @@ model ProjectGroup {
     projectIndividuals ProjectIndividual[] @relation()
     projectGroupPics   ProjectGroupPic[]   @relation(name: "ProjectGroup-ProjectGroupPic")
 
+    @@unique([dbCode, name])
     @@index([deletedAt])
     @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 model ProjectGroupPic {
     id               String @id @default(cuid())
+    dbCode           String
     projectGroupCode Int
     userCode         Int
 
@@ -418,6 +439,7 @@ model ProjectGroupPic {
     user         User         @relation(name: "User-ProjectGroupPic", fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
 
     @@unique([projectGroupCode, userCode])
+    @@index([dbCode])
     @@index([projectGroupCode])
     @@index([userCode])
 }
@@ -425,7 +447,8 @@ model ProjectGroupPic {
 model ProjectIndividual {
     id                      String   @id @default(cuid())
     code                    Int      @unique @default(autoincrement())
-    name                    String   @unique
+    dbCode                  String
+    name                    String
     groupCode               Int?
     description             String?
     isActive                Boolean  @default(true)
@@ -449,6 +472,7 @@ model ProjectIndividual {
     userSalesCloser             User?                        @relation(name: "User-ProjectIndividual-SalesCloser", fields: [salesCloser], references: [code], onUpdate: Cascade, onDelete: Cascade)
     projectIndividualWarehouses ProjectIndividualWarehouse[] @relation(name: "ProjectIndividual-ProjectIndividualWarehouse")
 
+    @@unique([dbCode, name])
     @@index([deletedAt])
     @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
 }
@@ -457,6 +481,7 @@ model ProjectIndividual {
 model ProjectItem {
     id                    String @id @default(cuid())
     code                  Int    @unique @default(autoincrement())
+    dbCode                String
     itemCode              Int
     projectIndividualCode Int
 
@@ -489,6 +514,8 @@ model ProjectItem {
     tfsStdPrice     Decimal?  @default(0) @db.Decimal(18, 6)
     omegaPrice      Decimal?  @default(0) @db.Decimal(18, 6)
 
+    syncStatus String @default("pending") //* pending, synced 
+
     mfr  String? //* temporary field manufacturer field
     desc String? //* temporary field description field
 
@@ -504,14 +531,16 @@ model ProjectItem {
 
     item                 Item                  @relation(fields: [itemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     projectIndividual    ProjectIndividual     @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    warehouse            Warehouse?            @relation(fields: [warehouseCode], references: [WarehouseCode], onUpdate: Cascade, onDelete: Cascade)
-    warehouseBinLocation WarehouseBinLocation? @relation(fields: [binCode], references: [BinCode], onUpdate: Cascade, onDelete: Cascade)
+    warehouse            Warehouse?            @relation(fields: [dbCode, warehouseCode], references: [dbCode, WarehouseCode], onUpdate: Cascade, onDelete: Cascade)
+    warehouseBinLocation WarehouseBinLocation? @relation(fields: [dbCode, binCode], references: [dbCode, BinCode], onUpdate: Cascade, onDelete: Cascade)
     dateReceivedByUser   User?                 @relation(fields: [dateReceivedBy], references: [code], onUpdate: Cascade, onDelete: Cascade)
 
     workOrderItems WorkOrderItem[]
 
+    @@unique([dbCode, DistNumber, warehouseCode, binCode, projectIndividualCode])
     @@index([projectIndividualCode])
     @@index([itemCode])
+    @@index([dbCode])
     @@index([deletedAt])
     @@index([desc(ops: raw("gin_trgm_ops"))], type: Gin)
     @@index([mfr(ops: raw("gin_trgm_ops"))], type: Gin)
@@ -520,6 +549,7 @@ model ProjectItem {
 
 model ProjectIndividualCustomer {
     id                    String @id @default(cuid())
+    dbCode                String
     projectIndividualCode Int
     userCode              Int
 
@@ -540,6 +570,7 @@ model ProjectIndividualCustomer {
 
 model ProjectIndividualSupplier {
     id                    String @id @default(cuid())
+    dbCode                String
     projectIndividualCode Int
     supplierCode          String
 
@@ -551,15 +582,17 @@ model ProjectIndividualSupplier {
     deletedBy String?
 
     projectIndividual ProjectIndividual @relation(name: "ProjectIndividual-ProjectIndividualSupplier", fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    businessPartner   BusinessPartner   @relation(name: "BusinessPartner-ProjectIndividualSupplier", fields: [supplierCode], references: [CardCode], onUpdate: Cascade, onDelete: Cascade)
+    businessPartner   BusinessPartner   @relation(name: "BusinessPartner-ProjectIndividualSupplier", fields: [dbCode, supplierCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: Cascade)
 
     @@unique([projectIndividualCode, supplierCode])
+    @@index([dbCode])
     @@index([projectIndividualCode])
     @@index([supplierCode])
 }
 
 model ProjectIndividualPic {
     id                    String @id @default(cuid())
+    dbCode                String
     projectIndividualCode Int
     userCode              Int
 
@@ -580,6 +613,7 @@ model ProjectIndividualPic {
 
 model ProjectIndividualWarehouse {
     id                    String @id @default(cuid())
+    dbCode                String
     projectIndividualCode Int
     warehouseCode         String
 
@@ -591,9 +625,10 @@ model ProjectIndividualWarehouse {
     deletedBy String?
 
     projectIndividual ProjectIndividual @relation("ProjectIndividual-ProjectIndividualWarehouse", fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    warehouse         Warehouse         @relation(fields: [warehouseCode], references: [WarehouseCode], onUpdate: Cascade, onDelete: Cascade)
+    warehouse         Warehouse         @relation(fields: [dbCode, warehouseCode], references: [dbCode, WarehouseCode], onUpdate: Cascade, onDelete: Cascade)
 
     @@unique([projectIndividualCode, warehouseCode])
+    @@index([dbCode])
     @@index([projectIndividualCode])
     @@index([warehouseCode])
 }
@@ -611,6 +646,7 @@ model ProjectIndividualWarehouse {
 model WorkOrder {
     id                      String    @id @default(cuid())
     code                    Int       @unique @default(autoincrement())
+    dbCode                  String
     projectIndividualCode   Int
     userCode                Int
     status                  String
@@ -619,13 +655,19 @@ model WorkOrder {
     shippingAddrCode        String?
     comments                String?
     customerPo              String?
-    salesOrderCode          Int?
-    purchaseOrderCode       Int?
     isAlternativeAddr       Boolean   @default(false)
     alternativeBillingAddr  String?
     alternativeShippingAddr String?
     expectedDeliveryDate    DateTime? @db.Date
     duplicatedFromCode      Int?
+
+    //* SAP fields
+    salesOrderCode       Int?
+    purchaseOrderCode    Int?
+    goodsReceiptDocNum   Int?
+    goodsReceiptDocEntry Int?
+    goodsIssueDocNum     Int?
+    goodsIssueDocEntry   Int?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -642,6 +684,7 @@ model WorkOrder {
     workOrderStatusUpdates WorkOrderStatusUpdate[]
     duplicateWorkOrders    WorkOrder[]             @relation("WorkOrder-DuplicatedFrom")
 
+    @@index([dbCode])
     @@index([projectIndividualCode])
     @@index([userCode])
 }
@@ -649,6 +692,7 @@ model WorkOrder {
 model WorkOrderStatusUpdate {
     id            String  @id @default(cuid())
     code          Int     @unique @default(autoincrement())
+    dbCode        String
     workOrderCode Int
     prevStatus    String
     currentStatus String
@@ -662,11 +706,13 @@ model WorkOrderStatusUpdate {
 
     workOrder WorkOrder @relation(fields: [workOrderCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
 
+    @@index([dbCode])
     @@index([workOrderCode])
 }
 
 //* isStockedIn -  //* when auto credit stock-in and lock qty upon WO creation was patched, set @default(true) for initial db push, set @default(false) - after inial db push to db
 model WorkOrderItem {
+    dbCode          String
     workOrderCode   Int
     projectItemCode Int
     qty             Decimal? @default(0) @db.Decimal(18, 2)
@@ -677,6 +723,7 @@ model WorkOrderItem {
     projectItem ProjectItem @relation(fields: [projectItemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
 
     @@unique([workOrderCode, projectItemCode])
+    @@index([dbCode])
     @@index([workOrderCode])
     @@index([projectItemCode])
 }
@@ -684,6 +731,7 @@ model WorkOrderItem {
 model FileAttachment {
     id          String @id @default(cuid())
     code        Int    @unique @default(autoincrement())
+    dbCode      String
     refCode     Int? //* unique code of a entity
     modulelName String
     name        String
@@ -696,7 +744,7 @@ model FileAttachment {
     uploadedBy String?
     updatedBy  String?
 
-    @@unique([modulelName, name])
+    @@unique([dbCode, modulelName, name])
     @@index([modulelName])
 }
 
@@ -732,8 +780,25 @@ model RoleReport {
     roleCode   Int
     reportCode Int
 
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy String?
+    updatedBy String?
+    deletedBy String?
+
     role   Role   @relation(fields: [roleCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     report Report @relation(fields: [reportCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([roleCode, reportCode])
+    @@index([roleCode])
+    @@index([reportCode])
+}
+
+model RoleSapDatabase {
+    id              String @id @default(cuid())
+    roleCode        Int
+    sapDatabaseCode String
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -742,9 +807,12 @@ model RoleReport {
     updatedBy String?
     deletedBy String?
 
-    @@unique([roleCode, reportCode])
+    role        Role        @relation(fields: [roleCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    sapDatabase SapDatabase @relation(fields: [sapDatabaseCode], references: [dbCode], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([roleCode, sapDatabaseCode])
     @@index([roleCode])
-    @@index([reportCode])
+    @@index([sapDatabaseCode])
 }
 
 model Settings {
@@ -762,10 +830,40 @@ model Settings {
     deletedBy String?
 }
 
+//* multi-tenant sap database switcher
+//* for the time being single user will access the DB and just stored the session seprately
+//* And just query / use session based on the selected SAP DB (db code)
+model SapDatabase {
+    id       String  @id @default(cuid())
+    name     String
+    dbCode   String  @unique
+    order    Int     @default(0)
+    isActive Boolean @default(true) //* inactive DBs will not be shown
+
+    createdAt       DateTime         @default(now())
+    updatedAt       DateTime         @default(now()) @updatedAt
+    sapSession       SapSession?
+    roleSapDatabases RoleSapDatabase[]
+}
+
+model SapSession {
+    id        String   @id @default(cuid())
+    dbCode    String   @unique //* one active session per DB
+    b1Session String
+    routeId   String?
+    expiresAt DateTime
+
+    sapDatabase SapDatabase @relation(fields: [dbCode], references: [dbCode], onUpdate: Cascade, onDelete: Cascade)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now()) @updatedAt
+}
+
 //* synchronization metadata table
 model SyncMeta {
     id          String   @id @default(uuid())
-    code        String   @unique
+    code        String
+    dbCode      String
     description String?
     lastSyncAt  DateTime @default(now())
 
@@ -775,6 +873,8 @@ model SyncMeta {
     createdBy String?
     updatedBy String?
     deletedBy String?
+
+    @@unique([dbCode, code])
 }
 
 //* add model system logs

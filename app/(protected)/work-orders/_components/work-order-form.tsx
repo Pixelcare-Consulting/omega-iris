@@ -532,7 +532,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
                   <ReadOnlyField
                     className='col-span-12 md:col-span-6 lg:col-span-3'
-                    title='Sales Order Code'
+                    title='SO Document #'
                     value={salesOrder.data?.DocNum || ''}
                     isLoading={salesOrder.isLoading}
                   />

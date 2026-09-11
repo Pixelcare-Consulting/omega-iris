@@ -3,6 +3,7 @@
 import axios from 'axios'
 import https from 'https'
 
+import { auth } from '@/auth'
 import { REQUEST_TIMEOUT, SAP_BASE_URL } from '@/constants/sap'
 import { SapCredentials, SapAuthCookies } from '@/types/sap'
 import logger from '@/utils/logger'
@@ -114,6 +115,21 @@ type CallSapServiceLayerApiParams = {
   headers?: Record<string, any>
   data?: any
   params?: Record<string, any>
+  //* defaults to the session's database, pass it when there is no session (scripts, jobs)
+  dbCode?: string
+}
+
+//* auth() reads next/headers, outside a request it throws, so an explicit dbCode is the only way in
+async function resolveDbCode(explicit?: string): Promise<string | null> {
+  if (explicit) return explicit
+
+  try {
+    const session = await auth()
+    return session?.user?.sapDbCode ?? null
+  } catch (error) {
+    logger.error(`Could not read the session to resolve the SAP database: ${error}`)
+    return null
+  }
 }
 
 //* Builds a failure payload in SAP's own OData error shape ({ error: { code, message: { lang, value } } }).
@@ -147,15 +163,22 @@ export async function callSapServiceLayerApi(config: CallSapServiceLayerApiParam
     return buildSapErrorResponse('PASS_THROUGH_MODE', 'SAP is in pass through mode, the request was not sent.')
   }
 
-  const firstAttempt = await sendSapServiceLayerRequest(config)
+  const dbCode = await resolveDbCode(config.dbCode)
+
+  if (!dbCode) {
+    logger.error(`${config.url} - No SAP database selected, request not sent`)
+    return buildSapErrorResponse('SAP_NO_DATABASE', 'No SAP database selected for this session.')
+  }
+
+  const firstAttempt = await sendSapServiceLayerRequest(config, dbCode)
 
   if (!firstAttempt.sessionRejected) return firstAttempt.data
 
   //* the cached session is dead ahead of its expiry, drop it and try once with a fresh login
   logger.warn(`${config.url} - SAP rejected the cached session, re-authenticating and retrying once`)
-  await invalidateSapServiceLayerToken(firstAttempt.usedB1Session)
+  await invalidateSapServiceLayerToken(dbCode, firstAttempt.usedB1Session)
 
-  const retry = await sendSapServiceLayerRequest(config)
+  const retry = await sendSapServiceLayerRequest(config, dbCode)
 
   //* only one retry, a second rejection is a real failure and must not loop
   if (retry.sessionRejected) logger.error(`${config.url} - SAP rejected the session again after re-authenticating`)
@@ -166,7 +189,8 @@ export async function callSapServiceLayerApi(config: CallSapServiceLayerApiParam
 //* Performs a single request. Reports whether SAP rejected the session so the caller can decide to
 //* re-authenticate, without retrying genuine request errors (bad payload, missing entity, timeout).
 async function sendSapServiceLayerRequest(
-  config: CallSapServiceLayerApiParams
+  config: CallSapServiceLayerApiParams,
+  dbCode: string
 ): Promise<{ data: any; sessionRejected: boolean; usedB1Session?: string }> {
   //* the session this attempt actually used, so an invalidation can be scoped to it
   let usedB1Session: string | undefined
@@ -176,7 +200,7 @@ async function sendSapServiceLayerRequest(
     const agent = new https.Agent({ rejectUnauthorized: false })
 
     //* Get the SAP Service Layer API Authorization cookies
-    const authCookies = await getSapServiceLayerToken()
+    const authCookies = await getSapServiceLayerToken(dbCode)
 
     if (
       authCookies.error ||

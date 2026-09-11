@@ -2,6 +2,7 @@ import { auth } from '@/auth'
 import { createMiddleware, createSafeActionClient } from 'next-safe-action'
 import { db } from './db'
 import { buildAbilityFor } from './acl'
+import { isSapDatabaseAllowedForRole } from './sap-database-access'
 
 function handleServerError(error: Error) {
   console.error(error)
@@ -51,9 +52,24 @@ export const authenticationMiddleware = createMiddleware().define(async ({ next 
       roleKey: role.key,
       roleName: role.name,
       ability,
+      dbCode: session.user.sapDbCode ?? null, //* null for global actions, tenantMiddleware narrows it to a string for tenant scoped ones
     },
   })
 })
+
+//* chain after authenticationMiddleware on any action that touches tenant data, ctx.dbCode is a string after this
+export const tenantMiddleware = createMiddleware<{ ctx: { dbCode: string | null; roleCode: number } }>().define(
+  async ({ next, ctx }) => {
+    if (!ctx.dbCode) throw { code: 401, message: 'No SAP database selected!', action: 'TENANT_MIDDLEWARE' }
+
+    //* the session keeps the database it was given, so access removed after signin is only caught here
+    const isAllowed = await isSapDatabaseAllowedForRole(ctx.dbCode, ctx.roleCode)
+
+    if (!isAllowed) throw { code: 403, message: 'No access to this SAP database!', action: 'TENANT_MIDDLEWARE' }
+
+    return next({ ctx: { dbCode: ctx.dbCode } })
+  }
+)
 
 //TODO: add authorization middle based on roles and permissions
 
