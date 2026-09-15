@@ -62,7 +62,7 @@ export async function createGoodsReceipt(dbCode: string, workOrderCode: number, 
       url: `${SAP_BASE_URL}/b1s/v1/InventoryGenEntries`,
       method: 'post',
       data: {
-        Comments: `Created from IRIS - Work Order #${workOrderCode}`,
+        Comments: `Created from IRIS - Work Order ${workOrderCode}`,
         DocumentLines: documentLines,
       },
     })
@@ -108,7 +108,7 @@ export async function createGoodsIssue(dbCode: string, workOrderCode: number, wo
       url: `${SAP_BASE_URL}/b1s/v1/InventoryGenExits`,
       method: 'post',
       data: {
-        Comments: `Created from IRIS - reversal of goods receipt - Work Order #${workOrderCode}`,
+        Comments: `Created from IRIS - reversal of goods receipt - Work Order ${workOrderCode}`,
         DocumentLines: documentLines,
       },
     })

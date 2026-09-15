@@ -13,8 +13,10 @@ import Popup from 'devextreme-react/popup'
 import Button from 'devextreme-react/button'
 import { useSession } from 'next-auth/react'
 import { DropDownButton, Item as DropDownButtonItem } from 'devextreme-react/drop-down-button'
+import { format } from 'date-fns'
 
 import { deleteWorkOrder, getWorkOrders, restoreWorkOrder, toggleWorkOrderInternal, updateWorkeOrderStatus } from '@/actions/work-order'
+import { syncWorkOrderDeliveriesFromSapClient } from '@/actions/work-order-delivery-sync'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -31,6 +33,9 @@ import { safeParseInt } from '@/utils'
 import { NotificationContext } from '@/context/notification'
 import { CommonOperationError } from '@/types/common'
 import CommonOperationErrorDataGrid from '@/components/common-operation-error-datagrid'
+import { Badge } from '@/components/badge'
+import { useJobSchedule, useSyncMeta } from '@/hooks/safe-actions/sync-meta'
+import { WO_DELIVERY_SYNC_JOB_CODE, WO_DELIVERY_SYNC_META_CODE } from '@/constants/sap'
 
 type WorkOrderTableProps = { workOrders: Awaited<ReturnType<typeof getWorkOrders>> }
 type DataSource = Awaited<ReturnType<typeof getWorkOrders>>
@@ -63,6 +68,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
   const [showToggleInternalConfirmation, setShowToggleInternalConfirmation] = useState(false)
   const [showDuplicateConfirmation, setShowDuplicateConfirmation] = useState(false)
   const [showCancelDuplicateConfirmation, setShowCancelDuplicateConfirmation] = useState(false)
+  const [showSyncFromSapConfirmation, setShowSyncFromSapConfirmation] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
 
   const [showUpdateStatusErrors, setShowUpdateStatusErrors] = useState(false)
@@ -75,6 +81,29 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
   const restoreWorkOrderData = useAction(restoreWorkOrder)
   const toggleInternalData = useAction(toggleWorkOrderInternal)
   const updateWorkeOrderStatusData = useAction(updateWorkeOrderStatus)
+  const syncFromSapData = useAction(syncWorkOrderDeliveriesFromSapClient)
+
+  const syncMeta = useSyncMeta(WO_DELIVERY_SYNC_META_CODE)
+  const jobSchedule = useJobSchedule(WO_DELIVERY_SYNC_JOB_CODE)
+
+  const lastSyncedLabel = useMemo(() => {
+    if (!syncMeta.data?.lastSyncAt) return 'Never synced'
+    return `Last delivery sync: ${format(syncMeta.data.lastSyncAt, 'PP, hh:mm a')}`
+  }, [syncMeta.data?.lastSyncAt])
+
+  //* tells the user the delivery status also comes in on its own, so they know a manual run is optional
+  const autoSyncLabel = useMemo(() => {
+    if (!jobSchedule.isEnabled) return 'Auto delivery sync: off'
+    return `Auto delivery sync: ${jobSchedule.label}`
+  }, [jobSchedule.isEnabled, jobSchedule.label])
+
+  const syncFromSapDescription = useMemo(() => {
+    const base = 'This syncs delivery status only. Items delivered in SAP are marked delivered here and the work order status follows.'
+
+    if (!jobSchedule.isEnabled) return `${base} Automatic syncing is off.`
+
+    return `${base} This also runs on its own ${jobSchedule.label}.`
+  }, [jobSchedule.isEnabled, jobSchedule.label])
 
   const workOrderToUpdate = useWatch({ control: form.control, name: 'workOrders' }) || []
 
@@ -390,6 +419,28 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
     }
   }
 
+  //* reads the closed deliveries of every work order in the system, the same run the cron does
+  const handleConfirmSyncFromSap = async () => {
+    setShowSyncFromSapConfirmation(false)
+
+    try {
+      const response = await syncFromSapData.executeAsync()
+      const result = response?.data
+
+      if (!result || result.error) {
+        toast.error(result?.message || 'Failed to sync delivery status from SAP')
+        return
+      }
+
+      toast.success(`Work order delivery status synced from SAP! ${result.message}`)
+      router.refresh()
+      syncMeta.execute({ code: WO_DELIVERY_SYNC_META_CODE })
+    } catch (error: any) {
+      console.error(error)
+      toast.error(error?.message || 'Failed to sync delivery status from SAP')
+    }
+  }
+
   const handleCloseUpdateStatusForm = useCallback(() => {
     form.reset()
     setTimeout(() => {
@@ -407,7 +458,20 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
   return (
     <div className='h-full w-full space-y-5'>
       <FormProvider {...form}>
-        <PageHeader title='Work Orders' description='Manage and track your work order effectively'>
+        <PageHeader
+          title={
+            <>
+              <span className='pr-1.5'>Work Orders</span>
+              {!syncMeta.isLoading && <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>}
+              {!jobSchedule.isLoading && (
+                <Badge variant={jobSchedule.isEnabled ? 'soft-slate' : 'soft-amber'} className='ml-1.5'>
+                  {autoSyncLabel}
+                </Badge>
+              )}
+            </>
+          }
+          description='Manage and track your work order effectively'
+        >
           {selectedRowKeys.length > 0 && (
             <CanView subject='p-work-orders' action='update status'>
               <Item location='after' locateInMenu='auto' widget='dxButton'>
@@ -430,6 +494,27 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
               </Item>
             </CanView>
           )}
+
+          <CanView subject='p-work-orders' action='sync from sap'>
+            <Item location='after' locateInMenu='auto' widget='dxButton'>
+              <Tooltip
+                target='#sync-from-sap'
+                contentRender={() => 'Sync delivery status from SAP'}
+                showEvent='mouseenter'
+                hideEvent='mouseleave'
+                position='top'
+              />
+              <LoadingButton
+                id='sync-from-sap'
+                icon='refresh'
+                isLoading={syncFromSapData.isExecuting}
+                text='Sync Delivery Status'
+                type='default'
+                stylingMode='outlined'
+                onClick={() => setShowSyncFromSapConfirmation(true)}
+              />
+            </Item>
+          </CanView>
 
           <CommonPageHeaderToolbarItems
             dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
@@ -681,6 +766,16 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             description={`Are you sure you want to cancel & duplicate this work order with work order # "${rowData?.code}"?`}
             onConfirm={() => handleConfirmCancelDuplicate(rowData?.code, rowData?.status)}
             onCancel={() => setShowCancelDuplicateConfirmation(false)}
+          />
+
+          <AlertDialog
+            isOpen={showSyncFromSapConfirmation}
+            title='Are you sure?'
+            height={200}
+            maxWidth={620}
+            description={syncFromSapDescription}
+            onConfirm={handleConfirmSyncFromSap}
+            onCancel={() => setShowSyncFromSapConfirmation(false)}
           />
 
           <CommonOperationErrorDataGrid

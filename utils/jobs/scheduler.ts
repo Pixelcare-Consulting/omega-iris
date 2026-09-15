@@ -2,13 +2,14 @@ import cron from 'node-cron'
 
 import logger from '@/utils/logger'
 import { projectItemSyncJob } from './project-item-sync'
+import { woDeliverySyncJob } from './wo-delivery-sync'
 import { Job } from './types'
 
 //* background jobs, started once per server process from instrumentation.ts
 //! single pm2 instance only — in cluster mode every worker would fire the same job
 
 //* adding a sync is one line here
-const JOBS: Job[] = [projectItemSyncJob]
+const JOBS: Job[] = [projectItemSyncJob, woDeliverySyncJob]
 
 //* survives the dev server re-running this module on hot reload
 const globalForJobs = global as unknown as { jobsStarted?: boolean; running?: Set<string> }

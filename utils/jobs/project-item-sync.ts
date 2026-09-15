@@ -134,8 +134,6 @@ async function fetchBatchRows(dbCode: string, lastSyncDate: Date): Promise<SapBa
   const totalPages = Math.ceil(totalCount / PROJECT_ITEM_SYNC_MAX_PAGE_SIZE)
   const paramList = buildParamList(lastSyncDate)
 
-  console.log({ paramList })
-
   const requestPromises: Promise<any>[] = []
 
   for (let page = 0; page < totalPages; page++) {
@@ -195,11 +193,11 @@ export async function syncProjectItemsFromSap(
   }
 
   //* only look up what the batch rows actually mention
-  const itemCodes = uniqueStrings(rows.map((row) => row.ItemCode))
-  const distNumbers = uniqueStrings(rows.map((row) => row.DistNumber))
-  const rowWarehouseCodes = uniqueStrings(rows.map((row) => row.WhsCode))
-  const rowBinCodes = uniqueStrings(rows.map((row) => row.BinCode))
-  const rowProjectCodes = unique(rows.map((row) => safeParseInt(row.U_ProjectID)).filter((code) => code > 0))
+  const itemCodes = uniqueStrings(rows.map((row) => row?.ItemCode))
+  const distNumbers = uniqueStrings(rows.map((row) => row?.DistNumber))
+  const rowWarehouseCodes = uniqueStrings(rows.map((row) => row?.WhsCode))
+  const rowBinCodes = uniqueStrings(rows.map((row) => row?.BinCode))
+  const rowProjectCodes = unique(rows.map((row) => safeParseInt(row?.U_ProjectID)).filter((code) => code > 0))
 
   const [items, projectIndividuals, warehouses, binLocations, existingProjectItems] = await Promise.all([
     findInChunks(itemCodes, (chunk) =>
@@ -238,11 +236,11 @@ export async function syncProjectItemsFromSap(
   const reshaped = new Map<string, Prisma.ProjectItemUncheckedCreateInput>()
 
   for (const row of rows) {
-    const itemCode = trimmed(row.ItemCode)
-    const distNumber = trimmed(row.DistNumber)
-    const warehouseCode = trimmed(row.WhsCode)
-    const binCode = trimmed(row.BinCode)
-    const projectIndividualCode = safeParseInt(row.U_ProjectID)
+    const itemCode = trimmed(row?.ItemCode)
+    const distNumber = trimmed(row?.DistNumber)
+    const warehouseCode = trimmed(row?.WhsCode)
+    const binCode = trimmed(row?.BinCode)
+    const projectIndividualCode = safeParseInt(row?.U_ProjectID)
 
     if (!distNumber) {
       skip(`${String(distNumber)} - batch number does not exist`)
@@ -278,25 +276,25 @@ export async function syncProjectItemsFromSap(
       warehouseCode,
       binCode,
       siteLocation: warehouseCode,
-      partNumber: trimmed(row.U_PartNumber),
-      dateCode: trimmed(row.U_DateCode),
-      countryOfOrigin: trimmed(row.MnfSerial),
-      lotCode: trimmed(row.U_LotCode),
-      packagingType: trimmed(row.U_PackagingType),
-      spq: trimmed(row.U_SPQ),
-      dateReceived: parseSapCompactDate(row.InDate),
+      partNumber: trimmed(row?.U_PartNumber),
+      dateCode: trimmed(row?.U_DateCode),
+      countryOfOrigin: trimmed(row?.MnfSerial),
+      lotCode: trimmed(row?.U_LotCode),
+      packagingType: trimmed(row?.U_PackagingType),
+      spq: trimmed(row?.U_SPQ),
+      dateReceived: parseSapCompactDate(row?.InDate),
       //* sap signs a delivery negative for stock going out, in IRIS the same movement is a move in
-      totalStock: Math.abs(safeParseFloat(row.Quantity)),
-      notes: trimmed(row.Notes),
-      owner: trimmed(row.U_Owner),
-      commodities: trimmed(row.U_Commodities),
-      group: trimmed(row.U_Group),
-      division: trimmed(row.U_Division),
-      site: trimmed(row.U_Site),
-      cmSite: trimmed(row.U_CMSite),
-      phase: safeParseInt(row.U_Phase) || null,
-      mfr: trimmed(row.FirmName),
-      desc: trimmed(row.ItemName),
+      totalStock: Math.abs(safeParseFloat(row?.Quantity)),
+      notes: trimmed(row?.Notes),
+      owner: trimmed(row?.U_Owner),
+      commodities: trimmed(row?.U_Commodities),
+      group: trimmed(row?.U_Group),
+      division: trimmed(row?.U_Division),
+      site: trimmed(row?.U_Site),
+      cmSite: trimmed(row?.U_CMSite),
+      phase: safeParseInt(row?.U_Phase) || null,
+      mfr: trimmed(row?.FirmName),
+      desc: trimmed(row?.ItemName),
       syncStatus: 'synced',
     })
   }

@@ -33,13 +33,19 @@ export const BATCH_MASTER_MAX_PAGE_SIZE = 1000
 
 //* Project Item Sync (batch details of every portal-synced warehouse)
 export const PROJECT_ITEM_SYNC_META_CODE = 'project-item-batch'
-
-//* lives here, not with the job, so client components can ask for the schedule without pulling the job into the bundle
 export const PROJECT_ITEM_SYNC_JOB_CODE = 'project-item-sync'
 
 export const PROJECT_ITEM_SYNC_QUERY_CODE = 'delivery-batch-details-by-sync-warehouses'
 export const PROJECT_ITEM_SYNC_COUNT_QUERY_CODE = 'delivery-batch-details-by-sync-warehouses-count'
 export const PROJECT_ITEM_SYNC_MAX_PAGE_SIZE = 1000
+
+//* Work Order Delivery Sync (batches of closed deliveries, marks work order items delivered)
+export const WO_DELIVERY_SYNC_META_CODE = 'wo-delivery-batch'
+export const WO_DELIVERY_SYNC_JOB_CODE = 'wo-delivery-sync'
+
+export const WO_DELIVERY_SYNC_QUERY_CODE = 'delivery-delivered-batch-details-sync-warehouses'
+export const WO_DELIVERY_SYNC_COUNT_QUERY_CODE = 'delivery-delivered-batch-details-sync-warehouses-count'
+export const WO_DELIVERY_SYNC_MAX_PAGE_SIZE = 1000
 
 //* Item Stock By Warehouse
 export const ITEM_STOCK_BY_WAREHOUSE_MAX_PAGE_SIZE = 1000
