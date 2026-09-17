@@ -78,6 +78,8 @@ type SapBatchRow = {
   U_ProjectID?: number | null
   U_CMSite?: string | null
   U_Phase?: number | null
+  U_OmegaPrice?: number | null
+  U_TFSPrice?: number | null
 
   //* delivery (ODLN)
   DoDocEntry?: number | null
@@ -312,8 +314,9 @@ export async function syncProjectItemsFromSap(
       site: trimmed(row?.U_Site),
       cmSite: trimmed(row?.U_CMSite),
       phase: safeParseInt(row?.U_Phase) || null,
+      omegaPrice: safeParseFloat(row?.U_OmegaPrice),
+      tfsStdPrice: safeParseFloat(row?.U_TFSPrice),
       // omegaPrice: safeParseFloat(row?.PoUnitPrice),
-      //TODO: add omega price, tfs std price -> loaded from the SAP batch UDF fields
       mfr: trimmed(row?.FirmName),
       desc: trimmed(row?.ItemName),
       syncStatus: 'synced',
