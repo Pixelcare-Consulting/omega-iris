@@ -748,7 +748,7 @@ export default function ProjectIndividualItemTab({
                     />
                   </CanView>
 
-                  <CanView subject='p-projects-individual-inventory' action='edit'>
+                  {/* <CanView subject='p-projects-individual-inventory' action='edit'>
                     <DataGridButton
                       icon='edit'
                       onClick={handleEdit}
@@ -759,7 +759,7 @@ export default function ProjectIndividualItemTab({
                         return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner)
                       }}
                     />
-                  </CanView>
+                  </CanView> */}
 
                   {/* <CanView subject='p-projects-individual-inventory' action='delete'>
                     <DataGridButton

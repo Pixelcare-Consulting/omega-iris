@@ -107,6 +107,16 @@ export default function WorkOrderUpdateStatusForm({
     return options
   }, [JSON.stringify(filterStatus)])
 
+  //* warn when cancelling/deleting a work order that was already delivered or partially delivered - the DO in SAP must be cancelled first
+  const showDeliveredCancellationWarning = useMemo(() => {
+    const selectedStatus = safeParseInt(currentStatus)
+
+    return (
+      (filterStatus === WORK_ORDER_STATUS_VALUE_MAP['Delivered'] || filterStatus === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery']) &&
+      (selectedStatus === WORK_ORDER_STATUS_VALUE_MAP['Cancelled'] || selectedStatus === WORK_ORDER_STATUS_VALUE_MAP['Deleted'])
+    )
+  }, [filterStatus, currentStatus])
+
   const filteredWorkOrderStatuses = useMemo(() => {
     return filteredWorkOrderStatusOptions.map((s) => `"${s.label}"`)
   }, [JSON.stringify(filteredWorkOrderStatusOptions)])
@@ -257,6 +267,14 @@ export default function WorkOrderUpdateStatusForm({
                     message={`Please make sure that the following work order(s) have the same status: ${selectedRowKeys.join(', ')}.`}
                   />
                 </>
+              )}
+
+              {showDeliveredCancellationWarning && (
+                <Alert
+                  className='col-span-12'
+                  variant='error'
+                  message={`This work order is already "${filterStatus === WORK_ORDER_STATUS_VALUE_MAP['Delivered'] ? 'Delivered' : 'Partial Delivery'}". Please cancel its Delivery Order (DO) in SAP first, then cancel or delete this work order in IRIS. Proceeding without cancelling the DO may cause item stock discrepancies in SAP.`}
+                />
               )}
 
               <ReadOnlyField className='col-span-12 md:col-span-6' title='Date & Time' value={format(new Date(), 'MM/dd/yyyy hh:mm a')} />

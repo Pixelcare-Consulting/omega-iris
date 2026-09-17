@@ -252,12 +252,9 @@ export async function creditStock(params: CreditStockParams) {
 
     const lineItems = existingWorkOrder.workOrderItems
 
-    //* only credit stocks-in only when new status is 'In Process' and old status is between 'Open' and 'Pending'
-    if (
-      oldStatus >= WORK_ORDER_STATUS_VALUE_MAP['Open'] &&
-      oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Pending'] &&
-      newStatus == WORK_ORDER_STATUS_VALUE_MAP['In Process']
-    ) {
+    //* only credit stocks-in only when new status is 'Open' or 'Pending' and old status === 0,
+    //*  means after work order is created by admin - default to 'Open' or by customer - default to 'Pending'
+    if (oldStatus === 0 && (newStatus == WORK_ORDER_STATUS_VALUE_MAP['Open'] || newStatus == WORK_ORDER_STATUS_VALUE_MAP['Pending'])) {
       const entries: CommonErrorEntry[] = []
 
       for (const li of lineItems) {
@@ -335,11 +332,10 @@ export async function creditStock(params: CreditStockParams) {
       newStatus === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery']
     ) {
       //* process only the line items that has isDelivered = false and included in deliveredProjectItems
-      // // only line items that are stocked in will be credited / processed to stock-out (delivered)
-      const lineItemsToProcess = lineItems.filter((li) => !li.isDelivered && deliveredProjectItems.includes(li.projectItem.code))
-      // const lineItemsToProcess = lineItems.filter(
-      //   (li) => !li.isDelivered && deliveredProjectItems.includes(li.projectItem.code) && li.isStockedIn
-      // )
+      //? only line items that are stocked in will be credited / processed to stock-out (delivered)
+      const lineItemsToProcess = lineItems.filter(
+        (li) => !li.isDelivered && deliveredProjectItems.includes(li.projectItem.code) && li.isStockedIn
+      )
 
       //* update isDelivered to true of work order items
       await Promise.all(
@@ -386,9 +382,8 @@ export async function creditStock(params: CreditStockParams) {
     ) {
       //* process only the line items that has isDelivered = false
       //? deliveredProjectItems is not being used here
-      // // only line items that are stocked in will be credited / processed to stock-out (delivered)
-      const lineItemsToProcess = lineItems.filter((li) => !li.isDelivered)
-      // const lineItemsToProcess = lineItems.filter((li) => !li.isDelivered && li.isStockedIn)
+      //? only line items that are stocked in will be credited / processed to stock-out (delivered)
+      const lineItemsToProcess = lineItems.filter((li) => !li.isDelivered && li.isStockedIn)
 
       //* update isDelivered to true of work order items
       await Promise.all(
@@ -429,7 +424,8 @@ export async function creditStock(params: CreditStockParams) {
     //* rollback on Cancelled / Deleted
     if (newStatus === WORK_ORDER_STATUS_VALUE_MAP['Cancelled'] || newStatus === WORK_ORDER_STATUS_VALUE_MAP['Deleted']) {
       //* reverse the goods receipt with a goods issue, nothing to reverse when the work order was never verified
-      if (existingWorkOrder.goodsReceiptDocEntry) {
+      //! skip when already issued, cancelled then deleted would post a second goods issue
+      if (existingWorkOrder.goodsReceiptDocEntry && !existingWorkOrder.goodsIssueDocEntry) {
         const goodsIssue = await createGoodsIssue(dbCode, existingWorkOrder.code, lineItems)
 
         //* let the caller roll back, the stock is still received in sap
@@ -445,10 +441,13 @@ export async function creditStock(params: CreditStockParams) {
         })
       }
 
-      //* if between or equal to 'In Process' and 'Verified' and then cancel or delete, then rollback stock
-      if (oldStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process'] && oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Verified']) {
+      //* if between or equal to 'Open' and 'Verified' and then cancel or delete, then rollback stock
+      //* only line items that are stocked in will be rollback
+      if (oldStatus >= WORK_ORDER_STATUS_VALUE_MAP['Open'] && oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Verified']) {
+        const inProcessLineItems = lineItems.filter((li) => li.isStockedIn)
+
         await Promise.all(
-          lineItems.map((li) => {
+          inProcessLineItems.map((li) => {
             const pItem = li.projectItem
             const qty = safeParseInt(li.qty)
 
@@ -466,7 +465,7 @@ export async function creditStock(params: CreditStockParams) {
       //* only process line items that has isDelivered = true
       if (oldStatus >= WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery'] && oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Delivered']) {
         const deliveredLineItems = lineItems.filter((li) => li.isDelivered)
-        const inProcessLineItems = lineItems.filter((li) => !li.isDelivered)
+        const inProcessLineItems = lineItems.filter((li) => !li.isDelivered && li.isStockedIn)
 
         //* if old status is 'Partial Delivery', revert stock from stock-in (In-process)
         //* only inProcessLineItems that are stocked in will be rollback
@@ -540,8 +539,7 @@ export const upsertWorkOrder = action
     const isDuplicate = code === -1 && duplicatedFromCode
 
     //* by default set isStockedIn to true - because upon creation of work order, all line items will be credited to stock-in
-    const woItems = lineItems.map(({ maxQty, ...li }) => li)
-    // const woItems = lineItems.map(({ maxQty, ...li }) => ({ ...li, isStockedIn: true }))
+    const woItems = lineItems.map(({ maxQty, ...li }) => ({ ...li, dbCode, isStockedIn: true }))
 
     const include = {
       projectIndividual: {
@@ -585,20 +583,30 @@ export const upsertWorkOrder = action
           return { error: true, status: 404, message: 'Work order not found!', action: 'UPSERT_WORK_ORDER' }
         }
 
-        const [updatedWorkOrder] = await db.$transaction([
-          //* update work order
-          db.workOrder.update({
-            where: { id: existingWorkOrder.id },
-            data: { ...data, updatedBy: userId },
-            include: { projectIndividual: { select: { name: true } } },
-          }),
+        //! status only changes through updateWorkeOrderStatus - a stale form would revert it and skip the stock movement
+        const { status, ...header } = data
 
-          //* delete the existing work order items
-          db.workOrderItem.deleteMany({ where: { dbCode, workOrderCode: code } }),
+        //! line items are locked after creation, only update the header - recreating them resets isDelivered
+        const updatedWorkOrder = await db.workOrder.update({
+          where: { id: existingWorkOrder.id },
+          data: { ...header, updatedBy: userId },
+          include: { projectIndividual: { select: { name: true } } },
+        })
 
-          //* create new work order items
-          db.workOrderItem.createMany({ data: woItems.map((li) => ({ ...li, dbCode, workOrderCode: code })) }),
-        ])
+        // const [updatedWorkOrder] = await db.$transaction([
+        //   //* update work order
+        //   db.workOrder.update({
+        //     where: { id: existingWorkOrder.id },
+        //     data: { ...data, updatedBy: userId },
+        //     include: { projectIndividual: { select: { name: true } } },
+        //   }),
+
+        //   //* delete the existing work order items
+        //   db.workOrderItem.deleteMany({ where: { dbCode, workOrderCode: code } }),
+
+        //   //* create new work order items
+        //   db.workOrderItem.createMany({ data: woItems.map((li) => ({ ...li, dbCode, workOrderCode: code })) }),
+        // ])
 
         // const assignedPics = existingWorkOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
         // const owner = existingWorkOrder.userCode
@@ -627,19 +635,73 @@ export const upsertWorkOrder = action
         ? await db.workOrder.findFirst({ where: { code: duplicatedFromCode, dbCode } })
         : null
 
-      const newWorkOrder = await db.workOrder.create({
-        data: {
-          ...data,
-          dbCode,
-          duplicatedFromCode: duplicatedFromCode ?? null,
-          createdAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.createdAt : undefined,
-          createdBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.createdBy,
-          updatedAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.updatedAt : undefined,
-          updatedBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.updatedBy,
-          workOrderItems: { createMany: { data: woItems.map((li) => ({ ...li, dbCode })) } },
+      // const newWorkOrder = await db.workOrder.create({
+      //   data: {
+      //     ...data,
+      //     dbCode,
+      //     duplicatedFromCode: duplicatedFromCode ?? null,
+      //     createdAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.createdAt : undefined,
+      //     createdBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.createdBy,
+      //     updatedAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.updatedAt : undefined,
+      //     updatedBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.updatedBy,
+      //     workOrderItems: { createMany: { data: woItems.map((li) => ({ ...li, dbCode })) } },
+      //   },
+      //   include,
+      // })
+
+      const newWorkOrder = await db.$transaction(
+        async (tx) => {
+          //* create new work order
+          const wo = await tx.workOrder.create({
+            data: {
+              ...data,
+              dbCode,
+              duplicatedFromCode: duplicatedFromCode ?? null,
+              createdAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.createdAt : undefined,
+              createdBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.createdBy,
+              updatedAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.updatedAt : undefined,
+              updatedBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.updatedBy,
+              workOrderItems: { createMany: { data: woItems } },
+            },
+            include,
+          })
+
+          //* credit stock-in upon successful creation of work order
+          //* it should be status = 'Open' or 'Pending' for it to be credited
+          const creditStocks = await creditStock({
+            tx,
+            dbCode,
+            workOrderCode: wo.code,
+            prevStatus: null,
+            currStatus: wo.status,
+            deliveredProjectItems: [],
+          })
+
+          //* handle credit stock error
+          if (creditStocks) {
+            const isCreditStockError = creditStocks?.error
+            const errors = creditStocks?.errors
+            const entries = errors?.entries
+
+            if (isCreditStockError && errors && entries && entries.length > 0) {
+              const outOfStockItems = entries.map((e: any) => e.id).join(', ')
+
+              const error = {
+                error: true,
+                status: 400,
+                message: `Work order creation failed. Project item(s) #${outOfStockItems} does not have enough available to order.`,
+                action: 'CREDIT_STOCK',
+              }
+
+              throw error
+            }
+          }
+
+          return wo
         },
-        include,
-      })
+        //* one stock-in update per line, the 5s default is not enough for large work orders
+        { timeout: 120000, maxWait: 10000 }
+      )
 
       // const assignedPics = newWorkOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
       // const owner = newWorkOrder.userCode
@@ -715,6 +777,11 @@ export const deleteWorkOrder = action
       const existingWorkOrder = await db.workOrder.findFirst({ where: { code: data.code, dbCode }, include })
 
       if (!existingWorkOrder) return { error: true, status: 404, message: 'Work order not found!', action: 'DELETE_WORK_ORDER' }
+
+      //* already deleted, e.g. double click or retry
+      if (existingWorkOrder.deletedAt) {
+        return { error: true, status: 400, message: 'Work order is already deleted!', action: 'DELETE_WORK_ORDER' }
+      }
 
       // const assignedPics = existingWorkOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
       // const owner = existingWorkOrder.userCode

@@ -42,13 +42,12 @@ export type ProjectItemSyncResult = {
 }
 
 type SapBatchRow = {
+  //* batch (OBTN)
   AbsEntry?: number | null
   ItemCode?: string | null
   ItemName?: string | null
   FirmCode?: number | null
   FirmName?: string | null
-  LastPurPrc?: number | null
-  AvgPrice?: number | null
   Status?: string | null
   DistNumber: string
   MnfSerial?: string | null
@@ -58,6 +57,14 @@ type SapBatchRow = {
   ExpDate?: string | null
   Notes?: string | null
   SysNumber?: number | null
+  GrpoBatchCreateDate?: string | null
+  GrpoBatchUpdateDate?: string | null
+
+  //* price traced back to the grpo line, and the po line behind it when there is one
+  GrpoUnitPrice?: number | null
+  PoUnitPrice?: number | null
+  PoDocEntry?: number | null
+
   U_DateCode?: string | null
   U_Group?: string | null
   U_Division?: string | null
@@ -71,13 +78,25 @@ type SapBatchRow = {
   U_ProjectID?: number | null
   U_CMSite?: string | null
   U_Phase?: number | null
-  CreateDate?: string | null
-  UpdateDate?: string | null
+
+  //* delivery (ODLN)
+  DoDocEntry?: number | null
+  DoDocNum?: number | null
+  DoDocDate?: string | null
+  CardCode?: string | null
+  CardName?: string | null
+  DocStatus?: string | null
+  DoBatchCreateDate?: string | null
+  DoBatchUpdateDate?: string | null
+  DocLine?: number | null
+
+  //* warehouse and bin
   WhsCode: string
   WhsName?: string | null
   Quantity?: number | null
-  CommitQty?: number | null
-  OnHandQty?: number | null
+  //* per-bin split of Quantity, null when the warehouse has no bins
+  BinQuantity?: number | null
+  BinAbs?: number | null
   BinCode?: string | null
 }
 
@@ -293,6 +312,8 @@ export async function syncProjectItemsFromSap(
       site: trimmed(row?.U_Site),
       cmSite: trimmed(row?.U_CMSite),
       phase: safeParseInt(row?.U_Phase) || null,
+      // omegaPrice: safeParseFloat(row?.PoUnitPrice),
+      //TODO: add omega price, tfs std price -> loaded from the SAP batch UDF fields
       mfr: trimmed(row?.FirmName),
       desc: trimmed(row?.ItemName),
       syncStatus: 'synced',

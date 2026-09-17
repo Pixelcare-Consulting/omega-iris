@@ -247,6 +247,7 @@ export async function syncWorkOrderDeliveriesFromSap(
         select: {
           projectItemCode: true,
           isDelivered: true,
+          isStockedIn: true,
           projectItem: { select: { code: true, DistNumber: true, item: { select: { ItemCode: true } } } },
         },
       },
@@ -272,8 +273,9 @@ export async function syncWorkOrderDeliveriesFromSap(
     }
 
     //* the lines this run newly delivers, an already delivered line is left alone so its stock is never moved twice
+    //! only stocked in lines, creditStock skips the rest so they must not count toward fully delivered
     const deliveredProjectItems = lineItems
-      .filter((lineItem) => !lineItem.isDelivered)
+      .filter((lineItem) => !lineItem.isDelivered && lineItem.isStockedIn)
       .filter((lineItem) => {
         const distNumber = trimmed(lineItem.projectItem?.DistNumber)
         const itemCode = trimmed(lineItem.projectItem.item?.ItemCode)

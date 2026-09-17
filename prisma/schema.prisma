@@ -61,8 +61,8 @@ model Role {
     updatedBy String?
     deletedBy String?
 
-    users           User[]
-    rolePermissions RolePermission[]
+    users            User[]
+    rolePermissions  RolePermission[]
     roleReports      RoleReport[]
     roleSapDatabases RoleSapDatabase[]
 }
@@ -717,7 +717,7 @@ model WorkOrderItem {
     projectItemCode Int
     qty             Decimal? @default(0) @db.Decimal(18, 2)
     isDelivered     Boolean  @default(false)
-    // isStockedIn     Boolean  @default(false)
+    isStockedIn     Boolean  @default(false)
 
     workOrder   WorkOrder   @relation(fields: [workOrderCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     projectItem ProjectItem @relation(fields: [projectItemCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
@@ -840,8 +840,8 @@ model SapDatabase {
     order    Int     @default(0)
     isActive Boolean @default(true) //* inactive DBs will not be shown
 
-    createdAt       DateTime         @default(now())
-    updatedAt       DateTime         @default(now()) @updatedAt
+    createdAt        DateTime          @default(now())
+    updatedAt        DateTime          @default(now()) @updatedAt
     sapSession       SapSession?
     roleSapDatabases RoleSapDatabase[]
 }
