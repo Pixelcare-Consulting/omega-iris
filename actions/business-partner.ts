@@ -18,7 +18,7 @@ import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe
 import { getSapErrorMessage, isSapError, safeParseInt } from '@/utils'
 import logger from '@/utils/logger'
 import { callSapServiceLayerApi } from './sap-service-layer'
-import { BP_MASTER_MAX_PAGE_SIZE, SAP_BASE_URL } from '@/constants/sap'
+import { BP_MASTER_MAX_PAGE_SIZE, SAP_BASE_URL, SAP_NO_PAGINATION } from '@/constants/sap'
 import { DuplicateFields, ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import { getAddresses, getMasterAddresses } from './address'
 import { getContacts, getMasterContacts } from './contact'
@@ -604,6 +604,28 @@ export async function getBpMasterCount(cardType: string) {
     })
 
     return safeParseInt(totalCount)
+  } catch (error) {
+    console.log(error, `Failed to fetch bp master count from SAP: Card Type (${cardType})`)
+    return 0
+  }
+}
+
+export async function getBpMasterCount2(cardType: string) {
+  try {
+    //* must mirror getBpMasterByPage's card type filter, otherwise the page count is derived from a different population
+    //? mirror also if theres issue with currencies, getBpMasterByPage only return bp which does not have any issues related with fields used in crossjoin
+    //* when count and getBpMasterByPage does not match the overall total count, syncMeta will miss behave and does not get updated
+    const cardTypeFilter =
+      cardType === 'C' || cardType === 'L'
+        ? `(CardType eq 'cCustomer' or CardType eq 'cLid')`
+        : `(CardType eq '${BUSINESS_PARTNER_STD_API_VALUES_MAP[cardType] || 'cLid'}')`
+
+    const response = await callSapServiceLayerApi({
+      url: `${SAP_BASE_URL}/b1s/v1/$crossjoin(BusinessPartners,BusinessPartnerGroups,PaymentTermsTypes,Currencies)?$expand=BusinessPartners($select=CardCode),BusinessPartnerGroups($select=Code),PaymentTermsTypes($select=GroupNumber),Currencies($select=Code)&$filter=BusinessPartners/GroupCode eq BusinessPartnerGroups/Code and BusinessPartners/PayTermsGrpCode eq PaymentTermsTypes/GroupNumber and BusinessPartners/Currency eq Currencies/Code and ${cardTypeFilter} and BusinessPartners/U_Portal_Sync eq 'Y'`,
+      headers: { Prefer: SAP_NO_PAGINATION },
+    })
+
+    return safeParseInt(response?.value?.length || 0)
   } catch (error) {
     console.log(error, `Failed to fetch bp master count from SAP: Card Type (${cardType})`)
     return 0

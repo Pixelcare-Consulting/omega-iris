@@ -17,6 +17,7 @@ import {
   deleteBp,
   getBpMasterByPage,
   getBpMasterCount,
+  getBpMasterCount2,
   getBps,
   importBp,
   restoreBp,
@@ -403,7 +404,8 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
 
     try {
       //* get total count of bp master from sap
-      const totalCount = await getBpMasterCount(cardType)
+
+      const totalCount = await getBpMasterCount2(cardType)
 
       if (totalCount < 1) {
         toast.error('Failed to fetch customer master from SAP!')
