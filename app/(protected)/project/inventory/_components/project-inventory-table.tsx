@@ -1,15 +1,21 @@
 'use client'
 
 import { Column, DataGridTypes, DataGridRef, Button as DataGridButton, Summary, TotalItem, GroupItem } from 'devextreme-react/data-grid'
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { differenceInDays, format } from 'date-fns'
+import { Item } from 'devextreme-react/toolbar'
+import Tooltip from 'devextreme-react/tooltip'
+import { useAction } from 'next-safe-action/hooks'
+import { toast } from 'sonner'
 
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import CommonDataGrid from '@/components/common-datagrid'
-import { getAllProjectItems, getProjecItems } from '@/actions/project-item'
+import { getAllProjectItems, getProjecItems, syncProjectItemsFromSapClient } from '@/actions/project-item'
+import AlertDialog from '@/components/alert-dialog'
+import LoadingButton from '@/components/loading-button'
 import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { useSession } from 'next-auth/react'
 import { hideActionButton } from '@/utils/devextreme'
@@ -38,16 +44,50 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
   const syncMeta = useSyncMeta(PROJECT_ITEM_SYNC_META_CODE)
   const jobSchedule = useJobSchedule(PROJECT_ITEM_SYNC_JOB_CODE)
 
+  const [showSyncFromSapConfirmation, setShowSyncFromSapConfirmation] = useState(false)
+  const syncFromSapData = useAction(syncProjectItemsFromSapClient)
+
   const lastSyncedLabel = useMemo(() => {
     if (!syncMeta.data?.lastSyncAt) return 'Never synced'
     return `Last synced: ${format(syncMeta.data.lastSyncAt, 'PP, hh:mm a')}`
   }, [syncMeta.data?.lastSyncAt])
 
-  //* tells the user the batches keep coming in on their own, this page has no manual sync button
+  //* tells the user the batches keep coming in on their own, so a manual sync is only for when they cannot wait
   const autoSyncLabel = useMemo(() => {
     if (!jobSchedule.isEnabled) return 'Auto sync: off'
     return `Auto sync: ${jobSchedule.label}`
   }, [jobSchedule.isEnabled, jobSchedule.label])
+
+  const syncFromSapDescription = useMemo(() => {
+    const base =
+      'This syncs delivery batches from SAP for every project in the system. Existing batches are updated and new ones are added.'
+
+    if (!jobSchedule.isEnabled) return `${base} Automatic syncing is off, so batches only come in when someone syncs by hand.`
+
+    return `${base} This also runs on its own ${jobSchedule.label}, so a manual sync is only needed when you cannot wait for the next run.`
+  }, [jobSchedule.isEnabled, jobSchedule.label])
+
+  //* same run the cron does, the action takes no project so it covers the whole database
+  const handleConfirmSyncFromSap = async () => {
+    setShowSyncFromSapConfirmation(false)
+
+    try {
+      const response = await syncFromSapData.executeAsync()
+      const result = response?.data
+
+      if (!result || result.error) {
+        toast.error(result?.message || 'Failed to sync from SAP')
+        return
+      }
+
+      toast.success(`Project items synced from SAP! ${result.message}`)
+      router.refresh()
+      syncMeta.execute({ code: PROJECT_ITEM_SYNC_META_CODE })
+    } catch (error: any) {
+      console.error(error)
+      toast.error(error?.message || 'Failed to sync from SAP')
+    }
+  }
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
@@ -150,12 +190,45 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
         }
         description='Manage and track your project individual inventory effectively'
       >
+        <CanView subject='p-projects-individual-inventory' action='sync from sap'>
+          <Item location='after' locateInMenu='auto' widget='dxButton'>
+            <Tooltip
+              target='#sync-project-items-from-sap'
+              contentRender={() => 'Sync batches from SAP'}
+              showEvent='mouseenter'
+              hideEvent='mouseleave'
+              position='top'
+            />
+            <LoadingButton
+              id='sync-project-items-from-sap'
+              icon='refresh'
+              isLoading={syncFromSapData.isExecuting}
+              text='Sync from SAP'
+              loadingText='Syncing'
+              type='default'
+              stylingMode='outlined'
+              onClick={() => setShowSyncFromSapConfirmation(true)}
+            />
+          </Item>
+        </CanView>
+
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
+          isLoading={syncFromSapData.isExecuting}
           exportOptions={{ subjects: 'p-projects-individual-inventory', actions: 'export' }}
         />
       </PageHeader>
+
+      <AlertDialog
+        isOpen={showSyncFromSapConfirmation}
+        title='Are you sure?'
+        height={230}
+        maxWidth={620}
+        description={syncFromSapDescription}
+        onConfirm={handleConfirmSyncFromSap}
+        onCancel={() => setShowSyncFromSapConfirmation(false)}
+      />
 
       <PageContentWrapper className='h-[calc(100%_-_92px)]'>
         <CommonDataGrid
