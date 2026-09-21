@@ -537,7 +537,7 @@ model ProjectItem {
 
     workOrderItems WorkOrderItem[]
 
-    @@unique([dbCode, DistNumber, warehouseCode, binCode, projectIndividualCode])
+    @@unique([dbCode, DistNumber, itemCode, warehouseCode, binCode, projectIndividualCode])
     @@index([projectIndividualCode])
     @@index([itemCode])
     @@index([dbCode])

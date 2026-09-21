@@ -103,9 +103,16 @@ type SapBatchRow = {
 }
 
 //* the unique key of ProjectItem, with '' standing in for the nullable parts
+//* itemCode is part of the key, one batch number can carry different items across projects and warehouses
 //! binCode is nullable so postgres treats those rows as always distinct — the constraint never catches them, dedupe has to happen here
-function rowKey(distNumber: string, warehouseCode: string | null, binCode: string | null, projectIndividualCode: number) {
-  return [distNumber, warehouseCode ?? '', binCode ?? '', projectIndividualCode].join('|')
+function rowKey(
+  distNumber: string,
+  itemCode: string,
+  warehouseCode: string | null,
+  binCode: string | null,
+  projectIndividualCode: number
+) {
+  return [distNumber, itemCode, warehouseCode ?? '', binCode ?? '', projectIndividualCode].join('|')
 }
 
 function trimmed(value?: string | null) {
@@ -236,7 +243,14 @@ export async function syncProjectItemsFromSap(
     findInChunks(distNumbers, (chunk) =>
       db.projectItem.findMany({
         where: { dbCode, DistNumber: { in: chunk } },
-        select: { id: true, DistNumber: true, warehouseCode: true, binCode: true, projectIndividualCode: true },
+        select: {
+          id: true,
+          DistNumber: true,
+          warehouseCode: true,
+          binCode: true,
+          projectIndividualCode: true,
+          item: { select: { ItemCode: true } },
+        },
       })
     ),
   ])
@@ -248,7 +262,13 @@ export async function syncProjectItemsFromSap(
 
   const existingByKey = new Map(
     existingProjectItems.map((projectItem) => [
-      rowKey(projectItem.DistNumber!, projectItem.warehouseCode, projectItem.binCode, projectItem.projectIndividualCode),
+      rowKey(
+        projectItem.DistNumber!,
+        projectItem.item.ItemCode,
+        projectItem.warehouseCode,
+        projectItem.binCode,
+        projectItem.projectIndividualCode
+      ),
       projectItem.id,
     ])
   )
@@ -289,7 +309,7 @@ export async function syncProjectItemsFromSap(
       continue
     }
 
-    reshaped.set(rowKey(distNumber, warehouseCode, binCode, projectIndividualCode), {
+    reshaped.set(rowKey(distNumber, itemCode, warehouseCode, binCode, projectIndividualCode), {
       dbCode,
       itemCode: itemCodeToCode.get(itemCode)!,
       projectIndividualCode,
@@ -333,7 +353,16 @@ export async function syncProjectItemsFromSap(
     if (existingId) {
       //! only the sap owned fields — cost, prices, site location and stock in/out are edited in the portal and must survive a sync
       //! totalStock too, work orders credit and debit it in the portal, sap would overwrite those movements
-      const { dbCode: _dbCode, DistNumber, warehouseCode, binCode, projectIndividualCode, totalStock, ...sapOwned } = data
+      const {
+        dbCode: _dbCode,
+        DistNumber,
+        itemCode,
+        warehouseCode,
+        binCode,
+        projectIndividualCode,
+        totalStock,
+        ...sapOwned
+      } = data
       toUpdate.push({ id: existingId, data: { ...sapOwned, updatedBy: userId } })
       continue
     }
