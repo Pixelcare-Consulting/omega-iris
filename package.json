@@ -21,7 +21,8 @@
     "db:studio": "pnpm prisma studio --browser none",
     "db:seed": "pnpm db:seed:dim-date && pnpm db:seed:sap-database",
     "db:seed:dim-date": "tsx prisma/seed-dim-date.ts",
-    "db:seed:sap-database": "tsx prisma/seed-sap-database.ts"
+    "db:seed:sap-database": "tsx prisma/seed-sap-database.ts",
+    "db:backfill:user-bp-db": "tsx prisma/backfill-user-customer-db.ts"
   },
   "dependencies": {
     "@auth/core": "0.38.0",

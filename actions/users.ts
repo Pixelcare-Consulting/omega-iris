@@ -7,7 +7,7 @@ import z from 'zod'
 
 import { paramsSchema } from '@/schema/common'
 import { basicInfoFormSchema, changePasswordFormSchema, userFormSchema } from '@/schema/user'
-import { action, authenticationMiddleware } from '@/utils/safe-action'
+import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe-action'
 import { db } from '@/utils/db'
 import { DuplicateFields } from '@/types/common'
 import { createNotification } from './notification'
@@ -16,6 +16,10 @@ import { PERMISSIONS_CODES } from '@/constants/permission'
 const COMMON_USER_INCLUDE = {
   role: true,
   profile: true,
+  //* carries the sap database a business partner user belongs to, the users list badges its name
+  customer: {
+    select: { CardCode: true, CardName: true, GroupName: true, sapDatabase: { select: { dbCode: true, name: true } } },
+  },
 } satisfies Prisma.UserInclude
 
 const COMMON_USER_ORDER_BY = { code: 'asc' } satisfies Prisma.UserOrderByWithRelationInput
@@ -142,11 +146,19 @@ export async function getAccountByUserId(id: string) {
 
 export const upsertUser = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(userFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, password, confirmPassword, newPassword, newConfirmPassword, roleKey, isForceToChangePassword, isLocked, ...data } =
+    const { code, password, confirmPassword, newPassword, newConfirmPassword, roleKey, isForceToChangePassword, isLocked, ...rest } =
       parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
+
+    //* a card code only means something next to its database, so stamp the active one and clear it together with the code
+    const data = {
+      ...rest,
+      customerDbCode: rest.customerCode ? dbCode : null,
+      supplierDbCode: rest.supplierCode ? dbCode : null,
+    }
 
     try {
       const [existingUsername, existingEmail] = await Promise.all([

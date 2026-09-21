@@ -95,6 +95,17 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
   )
   const roles = useRoles()
 
+  //! useBps only returns the active database, so a customer from another one is missing and the field renders blank
+  //* keep the saved customer in the list, otherwise editing an unrelated field would silently clear it
+  const customerOptions = useMemo(() => {
+    const options = customers.data || []
+    const saved = user?.customer
+
+    if (!saved || options.some((option) => option.CardCode === saved.CardCode)) return options
+
+    return [{ ...saved, GroupName: saved.GroupName || saved.sapDatabase?.name || null }, ...options]
+  }, [JSON.stringify(customers.data), JSON.stringify(user?.customer)])
+
   const isAdmin = useMemo(() => {
     if (!session) return false
     return session.user.roleKey === 'admin'
@@ -289,7 +300,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
 
                   <div className='col-span-12 md:col-span-6'>
                     <SelectBoxField
-                      data={customers.data}
+                      data={customerOptions}
                       isLoading={customers.isLoading}
                       control={form.control}
                       name='customerCode'

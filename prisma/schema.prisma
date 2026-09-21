@@ -27,6 +27,9 @@ model User {
     failedLoginAttempts      Int       @default(0) //* failed login attempts will be reset to 0 when user is unlocked and succesfully signin
     customerCode             String?
     supplierCode             String?
+    //* which sap database the card code above belongs to, a card code repeats across databases
+    customerDbCode           String?
+    supplierDbCode           String?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -38,6 +41,10 @@ model User {
     accounts Account[]
     profile  Profile?
     role     Role      @relation(fields: [roleCode], references: [code])
+
+    //! SetNull not Cascade — removing a business partner must never delete the user account
+    customer BusinessPartner? @relation(name: "User-Customer", fields: [customerDbCode, customerCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: SetNull)
+    supplier BusinessPartner? @relation(name: "User-Supplier", fields: [supplierDbCode, supplierCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: SetNull)
 
     projectGroupPics              ProjectGroupPic[]           @relation(name: "User-ProjectGroupPic")
     projectIndividualSalesClosers ProjectIndividual[]         @relation(name: "User-ProjectIndividual-SalesCloser")
@@ -226,6 +233,9 @@ model BusinessPartner {
     addresses                  Address[]
     contacts                   Contact[]
     projectIndividualSuppliers ProjectIndividualSupplier[] @relation(name: "BusinessPartner-ProjectIndividualSupplier")
+    sapDatabase                SapDatabase                 @relation(fields: [dbCode], references: [dbCode], onUpdate: Cascade, onDelete: Restrict)
+    customerUsers              User[]                      @relation(name: "User-Customer")
+    supplierUsers              User[]                      @relation(name: "User-Supplier")
 
     @@unique([dbCode, CardCode])
 }
@@ -844,6 +854,7 @@ model SapDatabase {
     updatedAt        DateTime          @default(now()) @updatedAt
     sapSession       SapSession?
     roleSapDatabases RoleSapDatabase[]
+    businessPartners BusinessPartner[]
 }
 
 model SapSession {

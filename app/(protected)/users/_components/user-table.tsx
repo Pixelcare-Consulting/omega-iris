@@ -14,6 +14,7 @@ import { createRandomUser } from '@/utils/faker'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '../../_components/common-page-header-toolbar-item'
 import AlertDialog from '@/components/alert-dialog'
+import { Badge } from '@/components/badge'
 import CommonDataGrid from '@/components/common-datagrid'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
@@ -57,6 +58,31 @@ export default function UserTable({ users }: UserTableProps) {
     const lastSignin = data?.lastSignin
     if (!lastSignin || !isValid(lastSignin)) return ''
     return format(lastSignin, 'MM-dd-yyyy hh:mm a')
+  }, [])
+
+  //* the badge is rendered, not stored, so search and filter only see it through the calculated value
+  const roleCalculateCellValue = useCallback((rowData: DataSource[number]) => {
+    const roleName = rowData?.role?.name || ''
+    const dbName = rowData?.customer?.sapDatabase?.name
+
+    if (rowData?.role?.key !== 'business-partner' || !dbName) return roleName
+
+    return `${roleName} ${dbName}`
+  }, [])
+
+  //* a business partner points at one sap database, show which one under the role
+  const roleCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
+    const data = e.data as DataSource[number]
+    const dbName = data?.customer?.sapDatabase?.name
+
+    if (data?.role?.key !== 'business-partner' || !dbName) return data?.role?.name || ''
+
+    return (
+      <div className='flex flex-col items-start gap-1'>
+        <span>{data.role.name}</span>
+        <Badge variant='soft-blue'>{dbName}</Badge>
+      </div>
+    )
   }, [])
 
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
@@ -192,7 +218,13 @@ export default function UserTable({ users }: UserTableProps) {
             calculateCellValue={(rowData) => `${rowData.fname} ${rowData.lname}`}
           />
           <Column dataField='email' dataType='string' caption='Email Address' />
-          <Column dataField='role.name' dataType='string' caption='Role' />
+          <Column
+            dataField='role.name'
+            dataType='string'
+            caption='Role'
+            calculateCellValue={roleCalculateCellValue}
+            cellRender={roleCellRender}
+          />
           <Column
             dataField='isActive'
             dataType='string'
