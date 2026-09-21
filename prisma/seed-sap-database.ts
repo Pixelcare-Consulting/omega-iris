@@ -1,3 +1,10 @@
+//* Usage
+//*   pnpm db:seed:sap-database    —— seeds the sap databases listed below
+//*   pnpm db:seed                 —— runs this together with the dim date seed
+//*
+//* seeds the tenant list every dbCode in the app is scoped to
+//! createMany, so re-running it on an already seeded database fails on the unique dbCode
+
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
