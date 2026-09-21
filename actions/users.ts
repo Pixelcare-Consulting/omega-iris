@@ -113,12 +113,16 @@ export const getUserByCodeClient = action
     return getUserByCode(data.code)
   })
 
-export async function getUsersByRoleKey(key: string) {
+export async function getUsersByRoleKey(dbCode: string, key: string) {
   if (!key) return []
 
   try {
     return db.user.findMany({
-      where: { role: { key }, ...(key === 'business-partner' ? { NOT: [{ customerCode: null }, { customerCode: '' }] } : {}) },
+      where: {
+        role: { key },
+        //! a bp user belongs to one company, offering one from another database links a project across tenants
+        ...(key === 'business-partner' ? { customerDbCode: dbCode, NOT: [{ customerCode: null }, { customerCode: '' }] } : {}),
+      },
       include: COMMON_USER_INCLUDE,
       orderBy: COMMON_USER_ORDER_BY,
     })
@@ -129,9 +133,10 @@ export async function getUsersByRoleKey(key: string) {
 
 export const getUsersByRoleKeyClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(z.object({ key: z.string() }))
-  .action(async ({ parsedInput: data }) => {
-    return getUsersByRoleKey(data.key)
+  .action(async ({ ctx, parsedInput: data }) => {
+    return getUsersByRoleKey(ctx.dbCode, data.key)
   })
 
 export async function getAccountByUserId(id: string) {
