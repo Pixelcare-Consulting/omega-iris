@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { FormProvider, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -8,16 +8,25 @@ import { useAction } from 'next-safe-action/hooks'
 import { Popup, ToolbarItem } from 'devextreme-react/popup'
 import Button from 'devextreme-react/button'
 import { ProgressBar } from 'devextreme-react/progress-bar'
+import { PulseLoader } from 'react-spinners'
 
 import Alert from '@/components/alert'
+import { Icons } from '@/components/icons'
 import { signInUser } from '@/actions/auth'
 import { type SigninForm, signinFormSchema } from '@/schema/auth'
 import TextBoxField from '@/components/forms/text-box-field'
 import LoadingButton from '@/components/loading-button'
 import { DEFAULT_SIGNIN_REDIRECT } from '@/constants/route'
+import { delay } from '@/utils'
 
 const MAXIMUM_SECONDS = 10
-const MAXIMUM_COUNTDOWN = 5
+const MAXIMUM_COUNTDOWN = 3
+
+//* floor on the loading panel, a cached build signs in faster than the popup can be read
+const MIN_LOADING_MS = 900
+
+//* how long the filled bar stays up before the panel swaps
+const SETTLE_MS = 450
 
 export default function SigninForm() {
   const [error, setError] = useState<string | undefined>()
@@ -52,7 +61,8 @@ export default function SigninForm() {
     setCountdown(MAXIMUM_COUNTDOWN)
 
     try {
-      const response = await executeAsync(formValues)
+      //* a fast signin would otherwise flash the popup before it can be read
+      const [response] = await Promise.all([executeAsync(formValues), delay(MIN_LOADING_MS)])
       const result = response?.data
 
       if (result && !result.error) {
@@ -64,14 +74,18 @@ export default function SigninForm() {
         }
 
         setRedirectUrl(redirectUrl)
+        setError(undefined)
+
+        //* fill the bar first, then swap the panel, so it lands instead of being yanked
+        setSeconds(0)
+        await delay(SETTLE_MS)
 
         setIsLoading(false)
-        setSeconds(0)
-        setError(undefined)
 
         return
       }
 
+      //! no fill to full here, a completed bar in front of an error reads as success
       if (result && result.error) {
         setRedirectUrl(undefined)
 
@@ -85,28 +99,19 @@ export default function SigninForm() {
     }
   }
 
-  const statusFormat = useCallback(
-    (ratio: number) => {
-      let message = ''
-      const percent = `${ratio * 100}%`
-
-      if (seconds >= 8 && seconds <= 10) message = 'Authenticating your credentials...'
-      else if (seconds >= 5 && seconds <= 7) message = 'Checking your status...'
-      else if (seconds >= 2 && seconds <= 4) message = 'Preparing your workspace...'
-      else if (seconds === 1) message = 'Finalizing...'
-
-      return `[${percent}]: ${message}`
-    },
-    [seconds]
-  )
+  //* the bar shows how far along we are, so the message sits under it instead of inside
+  const statusMessage = useMemo(() => {
+    if (seconds >= 8) return 'Authenticating your credentials'
+    if (seconds >= 5) return 'Checking your status'
+    if (seconds >= 2) return 'Preparing your workspace'
+    return 'Almost there'
+  }, [seconds])
 
   useEffect(() => {
     if (isLoading && !intervalRef.current) {
       intervalRef.current = setInterval(() => {
-        setSeconds((prev) => {
-          if (prev !== 1) return prev - 1
-          return prev
-        })
+        //! hold at 1 while waiting — success sets seconds to 0, so the bar only completes when the request does
+        setSeconds((prev) => (prev !== 1 ? prev - 1 : prev))
       }, 1000)
     }
 
@@ -158,38 +163,47 @@ export default function SigninForm() {
         </form>
       </FormProvider>
 
-      {/* //TODO: change database term as location -> change database name - instead of using dbCode using meaning name istead e.g. (US Company, PH Company etc) */}
-
-      <Popup visible={isOpen} dragEnabled={false} showCloseButton={false} showTitle={false} height='auto' maxWidth={460}>
-        <div className='px-2 py-4'>
+      <Popup visible={isOpen} dragEnabled={false} showCloseButton={false} showTitle={false} height='auto' maxWidth={520}>
+        <div className='px-12 py-14'>
           {isLoading && (
-            <>
-              <h2 className='text-center text-lg font-semibold'>Signing you in</h2>
-              <p className='mt-1 text-center text-sm text-slate-500'>This only takes a moment.</p>
+            <div className='flex flex-col items-center text-center duration-300 animate-in fade-in zoom-in-95 motion-reduce:animate-none'>
+              <PulseLoader color='#ed1c24' size={14} margin={6} />
 
+              <h2 className='mt-9 text-2xl font-bold tracking-tight text-primary'>Signing you in</h2>
+              <p className='mt-2.5 text-sm text-slate-500'>Checking your credentials and setting up your workspace.</p>
+
+              {/* //* devextreme snaps between values, the transition makes the jump to full sweep instead */}
               <ProgressBar
-                className='mx-auto mt-6 [&_.dx-progressbar-status]:inline-block [&_.dx-progressbar-status]:w-full [&_.dx-progressbar-status]:text-center'
-                width='90%'
+                className='mt-9 w-full [&_.dx-progressbar-range]:transition-[width] [&_.dx-progressbar-range]:duration-500 [&_.dx-progressbar-range]:ease-out [&_.dx-progressbar-status]:hidden'
                 min={0}
                 max={MAXIMUM_SECONDS}
-                statusFormat={statusFormat}
                 value={MAXIMUM_SECONDS - seconds}
               />
-            </>
+
+              <p className='mt-3.5 text-sm text-slate-400'>{statusMessage}</p>
+            </div>
           )}
 
           {!isLoading && error && (
-            <Alert variant='error'>
-              <p className='font-semibold'>We couldn&apos;t sign you in</p>
-              <p className='mt-0.5 font-normal'>{error}</p>
-            </Alert>
+            <div className='flex flex-col items-center text-center duration-300 animate-in fade-in zoom-in-95 motion-reduce:animate-none'>
+              <h2 className='text-2xl font-bold tracking-tight text-primary'>We couldn&apos;t sign you in</h2>
+              <p className='mt-2.5 text-sm text-slate-500'>Check the details below and try again.</p>
+
+              <Alert className='mt-8 w-full text-left' variant='error'>
+                {error}
+              </Alert>
+            </div>
           )}
 
           {!isLoading && !error && redirectUrl && (
-            <Alert variant='success'>
-              <p className='font-semibold'>You&apos;re signed in successfully</p>
-              <p className='mt-0.5 font-normal'>Taking you to your dashboard in {countdown}s.</p>
-            </Alert>
+            <div className='flex flex-col items-center text-center duration-300 animate-in fade-in zoom-in-95 motion-reduce:animate-none'>
+              <span className='flex size-16 items-center justify-center rounded-full bg-green-500/15'>
+                <Icons.check className='size-8 text-green-500' />
+              </span>
+
+              <h2 className='mt-8 text-2xl font-bold tracking-tight text-primary'>You&apos;re signed in</h2>
+              <p className='mt-2.5 text-sm text-slate-500'>Taking you to your dashboard in {countdown}s.</p>
+            </div>
           )}
         </div>
 

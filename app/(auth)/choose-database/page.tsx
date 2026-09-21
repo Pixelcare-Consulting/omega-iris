@@ -17,7 +17,7 @@ export default async function ChooseDatabasePage() {
 
         <div className='flex flex-col items-center gap-1.5 text-center'>
           <h1 className='text-3xl font-bold tracking-tight text-primary sm:text-4xl'>Choose Company</h1>
-          <p className='text-balance text-sm text-slate-500'>Select the company company you&apos;ll work in for this session.</p>
+          <p className='text-balance text-sm text-slate-500'>Select the company you&apos;ll work in for this session.</p>
         </div>
 
         <SessionProvider session={session}>
