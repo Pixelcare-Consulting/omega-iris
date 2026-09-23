@@ -8,6 +8,7 @@ import { Job } from './types'
 import { creditStock } from '@/actions/work-order'
 import { callSapServiceLayerApi } from '@/actions/sap-service-layer'
 import { WORK_ORDER_STATUS_VALUE_MAP } from '@/schema/work-order'
+import { isCustomTfsEnabled } from '@/utils/sap-database-access'
 import {
   SAP_BASE_URL,
   WO_DELIVERY_SYNC_COUNT_QUERY_CODE,
@@ -162,6 +163,11 @@ export async function syncWorkOrderDeliveriesFromSap(
   dbCode: string,
   options?: { userId?: string | null; trigger?: 'cron' | 'manual' }
 ): Promise<WoDeliverySyncResult> {
+  //! the manual button calls this too, so the guard lives here and not only in the loop below
+  if (!(await isCustomTfsEnabled(dbCode))) {
+    throw new Error('The custom TFS process is off for this database, so work order deliveries are not synced from SAP.')
+  }
+
   const startedAt = Date.now()
   const trigger = options?.trigger || 'cron'
   const userId = options?.userId || null
@@ -376,7 +382,11 @@ export async function syncWorkOrderDeliveriesFromSap(
 
 //* one run across every active database, used by the cron
 export async function syncWorkOrderDeliveriesForAllDatabases() {
-  const databases = await db.sapDatabase.findMany({ where: { isActive: true }, select: { dbCode: true } })
+  //! only databases running the custom tfs process, the rest mark deliveries by hand
+  const databases = await db.sapDatabase.findMany({
+    where: { isActive: true, isEnabledCustomTfsProcess: true },
+    select: { dbCode: true },
+  })
 
   const results: WoDeliverySyncResult[] = []
 

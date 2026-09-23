@@ -28,6 +28,7 @@ import AlertDialog from '@/components/alert-dialog'
 import { safeParseInt } from '@/utils'
 import { NotificationContext } from '@/context/notification'
 import { CommonOperationError } from '@/types/common'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 
 type WorkOrderUpdateStatusFormProps = {
   selectedRowKeys: number[]
@@ -53,6 +54,7 @@ export default function WorkOrderUpdateStatusForm({
   setUpdateStatusErrors,
 }: WorkOrderUpdateStatusFormProps) {
   const router = useRouter()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   // const notificationContext = useContext(NotificationContext)
 
@@ -269,7 +271,7 @@ export default function WorkOrderUpdateStatusForm({
                 </>
               )}
 
-              {showDeliveredCancellationWarning && (
+              {showDeliveredCancellationWarning && isCustomTfsEnabled && (
                 <Alert
                   className='col-span-12'
                   variant='error'

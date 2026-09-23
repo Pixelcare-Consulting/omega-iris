@@ -8,10 +8,11 @@ import { useRouter } from 'nextjs-toploader/app'
 
 import { cn } from '@/utils'
 import { useMediaQuery } from '@/hooks/use-media-query'
-import { filterNavigationByAbility, markSelectedAndExpand, navigation } from '@/constants/menu'
+import { filterNavigationByAbility, filterNavigationByFlags, markSelectedAndExpand, navigation } from '@/constants/menu'
 import { usePathname } from 'next/navigation'
 import { DxEvent, PointerInteractionEvent } from 'devextreme/events'
 import { AbilityContext } from '@/context/ability'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 
 type SidebarProps = { isOpen: boolean; setIsOpen: React.Dispatch<React.SetStateAction<boolean>>; children: React.ReactNode }
 
@@ -20,6 +21,7 @@ export default function Sidebar({ isOpen, setIsOpen, children }: SidebarProps) {
   const router = useRouter()
 
   const ability = useContext(AbilityContext)
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   const treeViewRef = useRef<TreeViewRef>(null)
   const autoCloseWhenSmall = useRef<boolean>(false)
@@ -80,11 +82,12 @@ export default function Sidebar({ isOpen, setIsOpen, children }: SidebarProps) {
   useEffect(() => {
     if (!ability) return
 
-    const filteredNav = filterNavigationByAbility(navigation, ability)
+    const allowedNav = filterNavigationByAbility(navigation, ability)
+    const filteredNav = filterNavigationByFlags(allowedNav, { isCustomTfsEnabled })
     const updatedItems = markSelectedAndExpand(filteredNav, path)
 
     setItems(updatedItems)
-  }, [ability, path])
+  }, [ability, path, isCustomTfsEnabled])
 
   return (
     <Drawer

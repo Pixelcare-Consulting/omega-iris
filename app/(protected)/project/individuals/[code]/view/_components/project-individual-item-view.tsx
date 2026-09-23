@@ -92,14 +92,24 @@ export default function ProjectIndividualItemView({ data, onClose, hiddenFields 
           className='col-span-12 md:col-span-6 lg:col-span-4'
           title='Warehouse'
           value={data?.warehouse ? `${data.warehouse.WarehouseName} (${data.warehouse.WarehouseCode})` : ''}
+          isHide={hiddenFields.includes('warehouseCode')}
         />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Bin Location' value={data?.binCode || ''} />
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-4'
+          title='Bin Location'
+          value={data?.binCode || ''}
+          isHide={hiddenFields.includes('binCode')}
+        />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Batch #' value={data?.DistNumber || ''}>
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-4'
+          title='Batch #'
+          value={data?.DistNumber || ''}
+          isHide={hiddenFields.includes('DistNumber')}
+        >
           {data?.DistNumber ? <Copy value={data.DistNumber} /> : null}
         </ReadOnlyField>
-
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Site Location' value={data?.siteLocation || ''} />
 
@@ -109,11 +119,14 @@ export default function ProjectIndividualItemView({ data, onClose, hiddenFields 
 
         <Separator className='col-span-12' />
 
-        <ProjectIndividualItemSapInventory
-          warehouseCode={data?.warehouseCode}
-          itemCode={item?.ItemCode}
-          emptyText='No warehouse is set for this item, so there is no SAP stock to show.'
-        />
+        {/* //* nothing to show without a warehouse, so the panel goes with it */}
+        {!hiddenFields.includes('warehouseCode') && (
+          <ProjectIndividualItemSapInventory
+            warehouseCode={data?.warehouseCode}
+            itemCode={item?.ItemCode}
+            emptyText='No warehouse is set for this item, so there is no SAP stock to show.'
+          />
+        )}
 
         <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Project Item' description='Project item details' />
@@ -121,7 +134,6 @@ export default function ProjectIndividualItemView({ data, onClose, hiddenFields 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='ID' value={data.code}>
           <Copy value={data.code} />
         </ReadOnlyField>
-
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Owner' value={data?.owner || ''} />
 

@@ -26,6 +26,7 @@ import TextAreaField from '@/components/forms/text-area-field'
 import Separator from '@/components/separator'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import { usePermissions } from '@/hooks/safe-actions/permission'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 import { useRolePermissions } from '@/hooks/safe-actions/role-permission'
 import { Icons } from '@/components/icons'
 import { titleCase } from '@/utils'
@@ -64,6 +65,8 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
   const isCreate = code === 'add' || !role
   const isReportingDisabled = process.env.NEXT_PUBLIC_DISABLE_REPORTING === 'true'
 
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
+
   const permissions = usePermissions()
   const rolePermissions = useRolePermissions(role?.id ?? '')
   const reports = useReports()
@@ -74,15 +77,18 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
   const permissionsWithChildren = useMemo(() => {
     if (permissions.isLoading || permissions.data.length < 1) return []
 
-    return permissions.data
+    //* hide the warehouse rows while the custom tfs process is off — hidden only, a role that already holds them keeps them
+    const visiblePermissions = isCustomTfsEnabled ? permissions.data : permissions.data.filter((p) => p.code !== 'p-warehouses')
+
+    return visiblePermissions
       .filter((p) => p.isParent || !p.parentId)
       .map((p) => {
         if (p.isParent) {
-          return { ...p, children: permissions.data.filter((c) => c.parentId === p.id).sort((a, b) => a.name.localeCompare(b.name)) }
+          return { ...p, children: visiblePermissions.filter((c) => c.parentId === p.id).sort((a, b) => a.name.localeCompare(b.name)) }
         }
         return { ...p, children: [] }
       })
-  }, [JSON.stringify(permissions)])
+  }, [isCustomTfsEnabled, JSON.stringify(permissions)])
 
   const form = useForm<RoleForm>({
     mode: 'onChange',

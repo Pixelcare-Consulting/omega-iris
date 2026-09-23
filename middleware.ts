@@ -71,6 +71,11 @@ export default auth((req) => {
     return NextResponse.redirect(new URL(`/signin?callbackUrl=${encodedCallbackUrl}`, nextUrl))
   }
 
+  //* the warehouse module only exists while the custom tfs process is on
+  if (isAuthenticated && !session?.user?.isEnabledCustomTfsProcess && nextUrl.pathname.startsWith('/warehouses')) {
+    return NextResponse.redirect(new URL(DEFAULT_SIGNIN_REDIRECT, nextUrl))
+  }
+
   //TODO: route authorization check based on roles - can be implemented in middleware or protected layout
   return NextResponse.next()
 })

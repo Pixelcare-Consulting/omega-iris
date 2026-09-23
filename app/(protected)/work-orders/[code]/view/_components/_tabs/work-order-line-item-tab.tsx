@@ -40,6 +40,8 @@ import LoadingButton from '@/components/loading-button'
 import { differenceInDays } from 'date-fns'
 import { HiddenFieldsContext } from '@/context/hidden-fields-context'
 import Column from '@/components/column'
+import { TFS_ONLY_FIELDS } from '@/constants/project-item'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 
 type WorkOrderLineItemTabProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
@@ -50,6 +52,7 @@ type DataSource = Record<string, any> & WorkOrderItemForm
 
 export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: WorkOrderLineItemTabProps) {
   const { data: session } = useSession()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-work-order-item'
   const DATAGRID_UNIQUE_KEY = 'project-order-items'
@@ -85,9 +88,12 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
   }, [workOrderStatus])
 
   const hiddenFields = useMemo(() => {
-    if (isBusinessPartner) return projectIndividual.projectItemHiddenFields
-    return []
-  }, [isBusinessPartner, JSON.stringify(projectIndividual)])
+    //* warehouse, bin and batch have no meaning outside the custom tfs process
+    const tfsFields = isCustomTfsEnabled ? [] : TFS_ONLY_FIELDS
+
+    if (isBusinessPartner) return [...projectIndividual.projectItemHiddenFields, ...tfsFields]
+    return tfsFields
+  }, [isBusinessPartner, isCustomTfsEnabled, JSON.stringify(projectIndividual)])
 
   const woItems = useMemo(() => {
     if (workOrderItems.isLoading || workOrderItems.data.length < 1) return []

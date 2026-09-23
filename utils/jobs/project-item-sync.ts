@@ -6,6 +6,7 @@ import { db } from '@/utils/db'
 import logger from '@/utils/logger'
 import { chunkArray, safeParseFloat, safeParseInt } from '@/utils'
 import { parseSapCompactDate } from '@/utils/sap'
+import { isCustomTfsEnabled } from '@/utils/sap-database-access'
 import { Job } from './types'
 import { callSapServiceLayerApi } from '@/actions/sap-service-layer'
 import {
@@ -77,7 +78,7 @@ type SapBatchRow = {
   U_PartNumber?: string | null
   U_ProjectID?: number | null
   U_CMSite?: string | null
-  U_Phase?: number | null
+  U_Phase?: string | null
   U_OmegaPrice?: number | null
   U_TFSPrice?: number | null
 
@@ -105,13 +106,7 @@ type SapBatchRow = {
 //* the unique key of ProjectItem, with '' standing in for the nullable parts
 //* itemCode is part of the key, one batch number can carry different items across projects and warehouses
 //! binCode is nullable so postgres treats those rows as always distinct — the constraint never catches them, dedupe has to happen here
-function rowKey(
-  distNumber: string,
-  itemCode: string,
-  warehouseCode: string | null,
-  binCode: string | null,
-  projectIndividualCode: number
-) {
+function rowKey(distNumber: string, itemCode: string, warehouseCode: string | null, binCode: string | null, projectIndividualCode: number) {
   return [distNumber, itemCode, warehouseCode ?? '', binCode ?? '', projectIndividualCode].join('|')
 }
 
@@ -190,6 +185,11 @@ export async function syncProjectItemsFromSap(
   dbCode: string,
   options?: { userId?: string | null; trigger?: 'cron' | 'manual' }
 ): Promise<ProjectItemSyncResult> {
+  //! the manual button calls this too, so the guard lives here and not only in the loop below
+  if (!(await isCustomTfsEnabled(dbCode))) {
+    throw new Error('The custom TFS process is off for this database, so project items are not synced from SAP.')
+  }
+
   const startedAt = Date.now()
   const trigger = options?.trigger || 'cron'
   const userId = options?.userId || null
@@ -333,7 +333,7 @@ export async function syncProjectItemsFromSap(
       division: trimmed(row?.U_Division),
       site: trimmed(row?.U_Site),
       cmSite: trimmed(row?.U_CMSite),
-      phase: safeParseInt(row?.U_Phase) || null,
+      phase: trimmed(row?.U_Phase?.toString()),
       omegaPrice: safeParseFloat(row?.U_OmegaPrice),
       tfsStdPrice: safeParseFloat(row?.U_TFSPrice),
       // omegaPrice: safeParseFloat(row?.PoUnitPrice),
@@ -353,16 +353,7 @@ export async function syncProjectItemsFromSap(
     if (existingId) {
       //! only the sap owned fields — cost, prices, site location and stock in/out are edited in the portal and must survive a sync
       //! totalStock too, work orders credit and debit it in the portal, sap would overwrite those movements
-      const {
-        dbCode: _dbCode,
-        DistNumber,
-        itemCode,
-        warehouseCode,
-        binCode,
-        projectIndividualCode,
-        totalStock,
-        ...sapOwned
-      } = data
+      const { dbCode: _dbCode, DistNumber, itemCode, warehouseCode, binCode, projectIndividualCode, totalStock, ...sapOwned } = data
       toUpdate.push({ id: existingId, data: { ...sapOwned, updatedBy: userId } })
       continue
     }
@@ -412,7 +403,11 @@ export async function syncProjectItemsFromSap(
 
 //* one run across every active database, used by the cron
 export async function syncProjectItemsForAllDatabases() {
-  const databases = await db.sapDatabase.findMany({ where: { isActive: true }, select: { dbCode: true } })
+  //! only databases running the custom tfs process, the rest keep their project items by hand
+  const databases = await db.sapDatabase.findMany({
+    where: { isActive: true, isEnabledCustomTfsProcess: true },
+    select: { dbCode: true },
+  })
 
   const results: ProjectItemSyncResult[] = []
 

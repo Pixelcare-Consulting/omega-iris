@@ -24,6 +24,7 @@ import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/perm
 import { createNotification } from './notification'
 import { CommonErrorEntry, CommonOperationError } from '@/types/common'
 import { createGoodsIssue, createGoodsReceipt } from './goods-movement'
+import { isCustomTfsEnabled } from '@/utils/sap-database-access'
 
 const COMMON_WORK_ORDER_INCLUDE = {
   projectIndividual: {
@@ -292,7 +293,12 @@ export async function creditStock(params: CreditStockParams) {
 
     //* post the goods receipt to sap once the work order is verified
     //! must run before the 'do nothing' branch below, verified falls into that range
-    if (newStatus === WORK_ORDER_STATUS_VALUE_MAP['Verified'] && oldStatus !== WORK_ORDER_STATUS_VALUE_MAP['Verified']) {
+    //? off for a database without the custom tfs process, and the branch then falls through to the stock branches
+    if (
+      newStatus === WORK_ORDER_STATUS_VALUE_MAP['Verified'] &&
+      oldStatus !== WORK_ORDER_STATUS_VALUE_MAP['Verified'] &&
+      (await isCustomTfsEnabled(dbCode))
+    ) {
       //* already has a goods receipt, don't post a second one
       if (!existingWorkOrder.goodsReceiptDocEntry) {
         const goodsReceipt = await createGoodsReceipt(dbCode, existingWorkOrder.code, lineItems)
@@ -425,7 +431,8 @@ export async function creditStock(params: CreditStockParams) {
     if (newStatus === WORK_ORDER_STATUS_VALUE_MAP['Cancelled'] || newStatus === WORK_ORDER_STATUS_VALUE_MAP['Deleted']) {
       //* reverse the goods receipt with a goods issue, nothing to reverse when the work order was never verified
       //! skip when already issued, cancelled then deleted would post a second goods issue
-      if (existingWorkOrder.goodsReceiptDocEntry && !existingWorkOrder.goodsIssueDocEntry) {
+      //! also skipped when the custom tfs process is off, so a receipt posted before the flag went off stays in sap and is reversed by hand
+      if (existingWorkOrder.goodsReceiptDocEntry && !existingWorkOrder.goodsIssueDocEntry && (await isCustomTfsEnabled(dbCode))) {
         const goodsIssue = await createGoodsIssue(dbCode, existingWorkOrder.code, lineItems)
 
         //* let the caller roll back, the stock is still received in sap

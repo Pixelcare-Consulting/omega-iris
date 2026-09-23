@@ -15,6 +15,7 @@ import { safeParseFloat } from '@/utils'
 import { DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
 import ProjectIndividualItemSapInventory from '@/app/(protected)/project/individuals/[code]/view/_components/project-individual-item-sap-inventory'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 
 type ProjectInventoryOverviewTabProps = {
   projectItem: NonNullable<Awaited<ReturnType<typeof getAllProjectItemByCode>>>
@@ -22,6 +23,7 @@ type ProjectInventoryOverviewTabProps = {
 
 export default function ProjectInventoryOverviewTab({ projectItem }: ProjectInventoryOverviewTabProps) {
   const { data: session } = useSession()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   const item = projectItem.item
 
@@ -170,11 +172,22 @@ export default function ProjectInventoryOverviewTab({ projectItem }: ProjectInve
           className='col-span-12 md:col-span-6 lg:col-span-4'
           title='Warehouse'
           value={projectItem?.warehouse ? `${projectItem.warehouse.WarehouseName} (${projectItem.warehouse.WarehouseCode})` : ''}
+          isHide={!isCustomTfsEnabled}
         />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Bin Location' value={projectItem?.binCode || ''} />
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-4'
+          title='Bin Location'
+          value={projectItem?.binCode || ''}
+          isHide={!isCustomTfsEnabled}
+        />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Batch #' value={projectItem?.DistNumber || ''}>
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-4'
+          title='Batch #'
+          value={projectItem?.DistNumber || ''}
+          isHide={!isCustomTfsEnabled}
+        >
           {projectItem?.DistNumber ? <Copy value={projectItem.DistNumber} /> : null}
         </ReadOnlyField>
 
@@ -186,11 +199,14 @@ export default function ProjectInventoryOverviewTab({ projectItem }: ProjectInve
 
         <Separator className='col-span-12' />
 
-        <ProjectIndividualItemSapInventory
-          warehouseCode={projectItem?.warehouseCode}
-          itemCode={item?.ItemCode}
-          emptyText='No warehouse is set for this item, so there is no SAP stock to show.'
-        />
+        {/* //* nothing to show without a warehouse, so the panel goes with it */}
+        {isCustomTfsEnabled && (
+          <ProjectIndividualItemSapInventory
+            warehouseCode={projectItem?.warehouseCode}
+            itemCode={item?.ItemCode}
+            emptyText='No warehouse is set for this item, so there is no SAP stock to show.'
+          />
+        )}
 
         {!isBusinessPartner && (
           <>

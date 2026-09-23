@@ -1030,7 +1030,7 @@ export const importProjectItems = action
           division: row?.['Division'] || null,
           site: row?.['Site'] || null,
           cmSite: row?.['CM_Site'] || null,
-          phase: safeParseInt(row?.['Phase']) || null,
+          phase: row?.['Phase'] ? String(row['Phase']) : null,
           tfsStdPrice: safeParseFloat(row?.['TFS_Standard_Price']),
           omegaPrice: safeParseFloat(row?.['Omega_Price']),
           createdBy: userId,

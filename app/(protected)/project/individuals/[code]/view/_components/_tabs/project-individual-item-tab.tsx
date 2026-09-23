@@ -50,6 +50,8 @@ import { HiddenFieldsContext } from '@/context/hidden-fields-context'
 import { Badge } from '@/components/badge'
 import { useJobSchedule, useSyncMeta } from '@/hooks/safe-actions/sync-meta'
 import { PROJECT_ITEM_SYNC_JOB_CODE, PROJECT_ITEM_SYNC_META_CODE } from '@/constants/sap'
+import { TFS_ONLY_FIELDS } from '@/constants/project-item'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 
 type ProjectIndividualItemTabProps = {
   projectCode: number
@@ -76,6 +78,7 @@ export default function ProjectIndividualItemTab({
 }: ProjectIndividualItemTabProps) {
   const { data: session } = useSession()
   const router = useRouter()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual-item'
   const DATAGRID_UNIQUE_KEY = 'project-individual-items'
@@ -138,9 +141,12 @@ export default function ProjectIndividualItemTab({
   }, [JSON.stringify(session)])
 
   const hiddenFields = useMemo(() => {
-    if (isBusinessPartner) return projectItemHiddenFields
-    return []
-  }, [isBusinessPartner, JSON.stringify(projectItemHiddenFields)])
+    //* warehouse, bin and batch have no meaning outside the custom tfs process
+    const tfsFields = isCustomTfsEnabled ? [] : TFS_ONLY_FIELDS
+
+    if (isBusinessPartner) return [...projectItemHiddenFields, ...tfsFields]
+    return tfsFields
+  }, [isBusinessPartner, isCustomTfsEnabled, JSON.stringify(projectItemHiddenFields)])
 
   const thumbnailCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
     const data = e.data as DataSource[number]
@@ -535,13 +541,13 @@ export default function ProjectIndividualItemTab({
       {!isViewMode ? (
         <div className='flex h-full w-full flex-col'>
           <Toolbar className='mt-5 px-4'>
-            {!syncMeta.isLoading && (
+            {isCustomTfsEnabled && !syncMeta.isLoading && (
               <Item location='before' locateInMenu='auto'>
                 <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>
               </Item>
             )}
 
-            {!jobSchedule.isLoading && (
+            {isCustomTfsEnabled && !jobSchedule.isLoading && (
               <Item location='before' locateInMenu='auto'>
                 <Badge variant={jobSchedule.isEnabled ? 'soft-slate' : 'soft-amber'}>{autoSyncLabel}</Badge>
               </Item>
@@ -564,26 +570,28 @@ export default function ProjectIndividualItemTab({
               </CanView>
             )}
 
-            <CanView subject='p-projects-individual-inventory' action='sync from sap'>
-              <Item location='after' locateInMenu='auto' widget='dxMenu'>
-                <Tooltip
-                  target='#sync-from-sap'
-                  contentRender={() => 'Sync batches from SAP'}
-                  showEvent='mouseenter'
-                  hideEvent='mouseleave'
-                  position='top'
-                />
-                <LoadingButton
-                  id='sync-from-sap'
-                  icon='refresh'
-                  isLoading={isLoading || importData.isExecuting || syncFromSapData.isExecuting}
-                  text='Sync from SAP'
-                  type='default'
-                  stylingMode='outlined'
-                  onClick={() => setShowSyncFromSapConfirmation(true)}
-                />
-              </Item>
-            </CanView>
+            {isCustomTfsEnabled && (
+              <CanView subject='p-projects-individual-inventory' action='sync from sap'>
+                <Item location='after' locateInMenu='auto' widget='dxMenu'>
+                  <Tooltip
+                    target='#sync-from-sap'
+                    contentRender={() => 'Sync batches from SAP'}
+                    showEvent='mouseenter'
+                    hideEvent='mouseleave'
+                    position='top'
+                  />
+                  <LoadingButton
+                    id='sync-from-sap'
+                    icon='refresh'
+                    isLoading={isLoading || importData.isExecuting || syncFromSapData.isExecuting}
+                    text='Sync from SAP'
+                    type='default'
+                    stylingMode='outlined'
+                    onClick={() => setShowSyncFromSapConfirmation(true)}
+                  />
+                </Item>
+              </CanView>
+            )}
 
             <CommonPageHeaderToolbarItems
               dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
@@ -591,15 +599,19 @@ export default function ProjectIndividualItemTab({
               isLoading={items.isLoading || isLoading || importData.isExecuting}
               isEnableImport
               onImport={handleImport}
-              // addButton={{
-              //   text: 'Add Item',
-              //   onClick: handleAdd,
-              //   isHide: isBusinessPartner,
-              //   subjects: 'p-projects-individual-inventory',
-              //   actions: 'create',
-              // }}
+              addButton={{
+                text: 'Add Item',
+                onClick: handleAdd,
+                isHide: isBusinessPartner || isCustomTfsEnabled,
+                subjects: 'p-projects-individual-inventory',
+                actions: 'create',
+              }}
               customs={{ exportToExcel }}
-              importOptions={{ isHide: true || isBusinessPartner, subjects: 'p-projects-individual-inventory', actions: 'import' }}
+              importOptions={{
+                isHide: isBusinessPartner || isCustomTfsEnabled,
+                subjects: 'p-projects-individual-inventory',
+                actions: 'import',
+              }}
               exportOptions={{ subjects: 'p-projects-individual-inventory', actions: 'export' }}
             />
 
@@ -615,9 +627,12 @@ export default function ProjectIndividualItemTab({
               isLoading={items.isLoading}
               storageKey={DATAGRID_STORAGE_KEY}
               keyExpr='code'
-              // isSelectionEnable={
-              //   CanView({ isReturnBoolean: true, subject: 'p-projects-individual-inventory', action: ['delete'] }) ? true : false
-              // }
+              isSelectionEnable={
+                !isCustomTfsEnabled && CanView({ isReturnBoolean: true, subject: 'p-projects-individual-inventory', action: ['delete'] })
+                  ? true
+                  : false
+              }
+              selectedRowKeys={selectedRowKeys}
               dataGridStore={dataGridStore}
               callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChanged, onContentReady: handleOnContentReady }}
             >
@@ -748,7 +763,7 @@ export default function ProjectIndividualItemTab({
                     />
                   </CanView>
 
-                  {/* <CanView subject='p-projects-individual-inventory' action='edit'>
+                  <CanView subject='p-projects-individual-inventory' action='edit'>
                     <DataGridButton
                       icon='edit'
                       onClick={handleEdit}
@@ -756,12 +771,12 @@ export default function ProjectIndividualItemTab({
                       hint='Edit'
                       visible={(opt) => {
                         const data = opt?.row?.data
-                        return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner)
+                        return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner || isCustomTfsEnabled)
                       }}
                     />
-                  </CanView> */}
+                  </CanView>
 
-                  {/* <CanView subject='p-projects-individual-inventory' action='delete'>
+                  <CanView subject='p-projects-individual-inventory' action='delete'>
                     <DataGridButton
                       icon='trash'
                       onClick={handleDelete}
@@ -769,10 +784,10 @@ export default function ProjectIndividualItemTab({
                       hint='Delete'
                       visible={(opt) => {
                         const data = opt?.row?.data
-                        return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner)
+                        return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner || isCustomTfsEnabled)
                       }}
                     />
-                  </CanView> */}
+                  </CanView>
 
                   {/* <DataGridButton
                   icon='undo'

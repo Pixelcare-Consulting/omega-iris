@@ -24,6 +24,7 @@ export type ExtendedUser = {
   isOAuth: boolean
   isDefaultPasswordChanged: boolean
   sapDbCode: string | null
+  isEnabledCustomTfsProcess: boolean
 }
 
 declare module 'next-auth' {
@@ -105,6 +106,7 @@ export const callbacks: NextAuthConfig['callbacks'] = {
         isDefaultPasswordChanged,
         isOAuth: !!existingAccount,
         sapDbCode: token.sapDbCode ?? null,
+        isEnabledCustomTfsProcess: false,
       }
 
       //* update token.user when triggered update of session
@@ -130,6 +132,16 @@ export const callbacks: NextAuthConfig['callbacks'] = {
 
       //* mirror onto token.user so call sites stay on session.user
       token.user.sapDbCode = token.sapDbCode ?? null
+
+      //* read every call, not only on update — the flag is flipped straight in the database and must not wait for a company switch
+      const activeSapDatabase = token.sapDbCode
+        ? await db.sapDatabase.findUnique({
+            where: { dbCode: token.sapDbCode },
+            select: { isEnabledCustomTfsProcess: true },
+          })
+        : null
+
+      token.user.isEnabledCustomTfsProcess = !!activeSapDatabase?.isEnabledCustomTfsProcess
 
       return token
     } catch (error) {

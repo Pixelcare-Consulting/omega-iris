@@ -36,6 +36,23 @@ export async function isSapDatabaseAllowedForRole(dbCode: string, roleCode?: num
   return sapDatabases.some((sapDb) => sapDb.dbCode === dbCode)
 }
 
+//* true when the database runs the custom tfs process, for jobs and server code that have no session
+export async function isCustomTfsEnabled(dbCode?: string | null) {
+  if (!dbCode) return false
+
+  try {
+    const sapDatabase = await db.sapDatabase.findUnique({
+      where: { dbCode },
+      select: { isEnabledCustomTfsProcess: true },
+    })
+
+    return !!sapDatabase?.isEnabledCustomTfsProcess
+  } catch (error) {
+    console.error(error)
+    return false
+  }
+}
+
 //* one lookup for callers that need to know both whether the database is still allowed and
 //* whether the role has any other database left to fall back to
 export async function getSapDatabaseAccess(dbCode?: string | null, roleCode?: number | null) {

@@ -23,6 +23,7 @@ import { useBatchesMasterByWarehouseProjectCode } from '@/hooks/safe-actions/bat
 import ProjectIndividualBatchTab from './_tabs/project-individual-batch-tab'
 import ProjectIndividualWarehouseTab from './_tabs/project-individual-warehouse-tab'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 
 type ViewProjectIndividualProps = {
   projectIndividual: NonNullable<Awaited<ReturnType<typeof getPiByCode>>>
@@ -30,14 +31,21 @@ type ViewProjectIndividualProps = {
 
 export default function ViewProjectIndividual({ projectIndividual }: ViewProjectIndividualProps) {
   const { data: session } = useSession()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
   const router = useRouter()
 
   const customerUsers = useUsersByRoleKey('business-partner')
   const nonCustomerUsers = useNonBpUsers()
   const items = useProjecItems(projectIndividual.code)
   const suppliers = useBps('S', true)
-  const batches = useBatchesMasterByWarehouseProjectCode(projectIndividual.code, projectIndividual.warehouses)
-  const warehouses = useWarehouses(true)
+  //* warehouse and batch data is only fetched while the custom tfs process is on
+  // const batches = useBatchesMasterByWarehouseProjectCode(
+  //   projectIndividual.code,
+  //   projectIndividual.warehouses,
+  //   undefined,
+  //   isCustomTfsEnabled
+  // )
+  const warehouses = useWarehouses(true, undefined, isCustomTfsEnabled)
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
@@ -101,13 +109,15 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
                 <ProjectIndividualPicTab projectCode={projectIndividual.code} pics={projectIndividual.pics} users={nonCustomerUsers} />
               </TabPanelITem>
 
-              <TabPanelITem title='Warehouses'>
-                <ProjectIndividualWarehouseTab
-                  projectCode={projectIndividual.code}
-                  warehouses={projectIndividual.warehouses}
-                  warehousesData={warehouses}
-                />
-              </TabPanelITem>
+              {isCustomTfsEnabled && (
+                <TabPanelITem title='Warehouses'>
+                  <ProjectIndividualWarehouseTab
+                    projectCode={projectIndividual.code}
+                    warehouses={projectIndividual.warehouses}
+                    warehousesData={warehouses}
+                  />
+                </TabPanelITem>
+              )}
             </>
           )}
 

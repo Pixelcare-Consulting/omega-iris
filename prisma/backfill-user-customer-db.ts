@@ -55,9 +55,7 @@ async function main() {
     orderBy: { code: 'asc' },
   })
 
-  const cardCodes = [
-    ...new Set(users.flatMap((user) => [user.customerCode, user.supplierCode]).filter((code): code is string => !!code)),
-  ]
+  const cardCodes = [...new Set(users.flatMap((user) => [user.customerCode, user.supplierCode]).filter((code): code is string => !!code))]
 
   const partners = await db.businessPartner.findMany({
     where: { CardCode: { in: cardCodes } },

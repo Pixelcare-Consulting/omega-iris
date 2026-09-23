@@ -17,6 +17,7 @@ import { format } from 'date-fns'
 
 import { deleteWorkOrder, getWorkOrders, restoreWorkOrder, toggleWorkOrderInternal, updateWorkeOrderStatus } from '@/actions/work-order'
 import { syncWorkOrderDeliveriesFromSapClient } from '@/actions/work-order-delivery-sync'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -42,6 +43,7 @@ type DataSource = Awaited<ReturnType<typeof getWorkOrders>>
 
 export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
   const { data: session } = useSession()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
   const router = useRouter()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-work-order'
@@ -462,8 +464,10 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
           title={
             <>
               <span className='pr-1.5'>Work Orders</span>
-              {!syncMeta.isLoading && <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>}
-              {!jobSchedule.isLoading && (
+              {isCustomTfsEnabled && !syncMeta.isLoading && (
+                <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>
+              )}
+              {isCustomTfsEnabled && !jobSchedule.isLoading && (
                 <Badge variant={jobSchedule.isEnabled ? 'soft-slate' : 'soft-amber'} className='ml-1.5'>
                   {autoSyncLabel}
                 </Badge>
@@ -495,26 +499,28 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
             </CanView>
           )}
 
-          <CanView subject='p-work-orders' action='sync from sap'>
-            <Item location='after' locateInMenu='auto' widget='dxButton'>
-              <Tooltip
-                target='#sync-from-sap'
-                contentRender={() => 'Sync delivery status from SAP'}
-                showEvent='mouseenter'
-                hideEvent='mouseleave'
-                position='top'
-              />
-              <LoadingButton
-                id='sync-from-sap'
-                icon='refresh'
-                isLoading={syncFromSapData.isExecuting}
-                text='Sync Delivery Status'
-                type='default'
-                stylingMode='outlined'
-                onClick={() => setShowSyncFromSapConfirmation(true)}
-              />
-            </Item>
-          </CanView>
+          {isCustomTfsEnabled && (
+            <CanView subject='p-work-orders' action='sync from sap'>
+              <Item location='after' locateInMenu='auto' widget='dxButton'>
+                <Tooltip
+                  target='#sync-from-sap'
+                  contentRender={() => 'Sync delivery status from SAP'}
+                  showEvent='mouseenter'
+                  hideEvent='mouseleave'
+                  position='top'
+                />
+                <LoadingButton
+                  id='sync-from-sap'
+                  icon='refresh'
+                  isLoading={syncFromSapData.isExecuting}
+                  text='Sync Delivery Status'
+                  type='default'
+                  stylingMode='outlined'
+                  onClick={() => setShowSyncFromSapConfirmation(true)}
+                />
+              </Item>
+            </CanView>
+          )}
 
           <CommonPageHeaderToolbarItems
             dataGridUniqueKey={DATAGRID_UNIQUE_KEY}

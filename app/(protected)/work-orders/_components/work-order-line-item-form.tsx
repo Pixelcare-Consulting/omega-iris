@@ -23,6 +23,8 @@ import TooltipWrapper from '@/components/tooltip-wrapper'
 import { FormDebug } from '@/components/forms/form-debug'
 import { HiddenFieldsContext } from '@/context/hidden-fields-context'
 import Column from '@/components/column'
+import { TFS_ONLY_FIELDS } from '@/constants/project-item'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 
 type WorkOrderLineItemFormProps = {
   projectName?: string
@@ -44,6 +46,7 @@ export default function WorkOrderLineItemForm({
   hiddenFields = [],
 }: WorkOrderLineItemFormProps) {
   const { data: session } = useSession()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
   const mainForm = useFormContext<WorkOrderForm>()
 
   const dataGridRef = useRef<DataGridRef | null>(null)
@@ -79,6 +82,12 @@ export default function WorkOrderLineItemForm({
   const isLocked = useMemo(() => {
     return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['Open']
   }, [workOrderStatus])
+
+  //* warehouse, bin and batch have no meaning outside the custom tfs process
+  const gridHiddenFields = useMemo(
+    () => (isCustomTfsEnabled ? hiddenFields : [...hiddenFields, ...TFS_ONLY_FIELDS]),
+    [isCustomTfsEnabled, JSON.stringify(hiddenFields)]
+  )
 
   const errorMessage = useMemo(() => {
     const noLineItemsError = errors?.lineItems?.message || ''
@@ -439,7 +448,7 @@ export default function WorkOrderLineItemForm({
             onContentReady: handleOnContentReady,
           }}
         >
-          <HiddenFieldsContext.Provider value={{ hiddenFields }}>
+          <HiddenFieldsContext.Provider value={{ hiddenFields: gridHiddenFields }}>
             <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' allowEditing={false} sortOrder='asc' />
             <Column dataField='DistNumber' dataType='string' minWidth={100} caption='Batch #' allowEditing={false} />
             <Column dataField='owner' dataType='string' caption='Owner' allowEditing={false} />

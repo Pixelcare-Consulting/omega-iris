@@ -30,6 +30,7 @@ import SwitchField from '@/components/forms/switch-field'
 import CanView from '@/components/acl/can-view'
 import { useBps } from '@/hooks/safe-actions/business-partner'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 import { NotificationContext } from '@/context/notification'
 import { DEFAULT_PROJECT_ITEM_HIDDEN_FIELDS, PROJECT_ITEM_COLUMNS_MAP } from '@/constants/project-item'
 import Separator from '@/components/separator'
@@ -40,6 +41,7 @@ type ProjectIndividualFormProps = { pageMetaData: PageMetadata; projectIndividua
 export default function ProjectIndividualForm({ pageMetaData, projectIndividual }: ProjectIndividualFormProps) {
   const router = useRouter()
   const { data: session } = useSession()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   const { code } = useParams() as { code: string }
 
@@ -87,7 +89,9 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
   const customerUsers = useUsersByRoleKey('business-partner')
   const nonCustomerUsers = useNonBpUsers()
   const suppliers = useBps('S', true)
-  const warehouses = useWarehouses(true)
+
+  //* warehouses are only fetched while the custom tfs process is on
+  const warehouses = useWarehouses(true, undefined, isCustomTfsEnabled)
 
   const handleOnSubmit = async (formData: ProjectIndividualForm) => {
     try {
@@ -292,28 +296,30 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                 />
               </div>
 
-              <div className='col-span-12 md:col-span-6'>
-                <TagBoxField
-                  data={warehouses.data}
-                  isLoading={warehouses.isLoading}
-                  control={form.control}
-                  name='warehouses'
-                  label='Warehouses'
-                  valueExpr='WarehouseCode'
-                  displayExpr={(item) => (item ? `${item?.WarehouseName} (${item?.WarehouseCode})` : '')}
-                  searchExpr={['WarehouseName', 'WarehouseCode']}
-                  extendedProps={{
-                    tagBoxOptions: {
-                      itemRender: (params) => {
-                        return commonItemRender({
-                          title: params?.WarehouseName,
-                          value: params?.WarehouseCode,
-                        })
+              {isCustomTfsEnabled && (
+                <div className='col-span-12 md:col-span-6'>
+                  <TagBoxField
+                    data={warehouses.data}
+                    isLoading={warehouses.isLoading}
+                    control={form.control}
+                    name='warehouses'
+                    label='Warehouses'
+                    valueExpr='WarehouseCode'
+                    displayExpr={(item) => (item ? `${item?.WarehouseName} (${item?.WarehouseCode})` : '')}
+                    searchExpr={['WarehouseName', 'WarehouseCode']}
+                    extendedProps={{
+                      tagBoxOptions: {
+                        itemRender: (params) => {
+                          return commonItemRender({
+                            title: params?.WarehouseName,
+                            value: params?.WarehouseCode,
+                          })
+                        },
                       },
-                    },
-                  }}
-                />
-              </div>
+                    }}
+                  />
+                </div>
+              )}
 
               {isAdmin && (
                 <div className='col-span-12 md:col-span-6 lg:col-span-3'>
