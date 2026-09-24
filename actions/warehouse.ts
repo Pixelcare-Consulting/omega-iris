@@ -2,7 +2,6 @@
 
 import z from 'zod'
 import { Prisma } from '@prisma/client'
-import { isAfter, isSameDay } from 'date-fns'
 
 import { paramsSchema } from '@/schema/common'
 import { whBinLocationFormSchema, warehouseFormSchema } from '@/schema/warehouse'
@@ -15,8 +14,7 @@ import { PERMISSIONS_CODES } from '@/constants/permission'
 import { importFormSchema } from '@/schema/import'
 import { callSapServiceLayerApi } from './sap-service-layer'
 import { getMasterBinLocations, getWarehouseBinLocations } from './warehouse-bin-location'
-import { SAP_BASE_URL, WAREHOUSE_MASTER_MAX_PAGE_SIZE } from '@/constants/sap'
-import { parseSapCompactDate } from '@/utils/sap'
+import { SAP_BASE_URL, SAP_NO_PAGINATION, WAREHOUSE_MASTER_MAX_PAGE_SIZE } from '@/constants/sap'
 import { getSapErrorMessage, isSapError, safeParseInt } from '@/utils'
 import logger from '@/utils/logger'
 import { getCurrentUserAbility } from './auth'
@@ -385,19 +383,59 @@ export const restoreWarehouse = action
     }
   })
 
-export async function getWarehouseMaster() {
+export async function getWarehouseMasterCount() {
   try {
-    //* warehouse master is small enough to be fetched in a single call, no paging needed
+    const totalCount = await callSapServiceLayerApi({ url: `${SAP_BASE_URL}/b1s/v1/Warehouses/$count?$filter=U_Portal_Sync eq 'Y'` })
+    return safeParseInt(totalCount)
+  } catch (error) {
+    console.log({ error })
+    logger.error(error, 'Failed to fetch warehouse master count from SAP')
+    return 0
+  }
+}
+
+export async function getWarehouseMasterByPage(page: number) {
+  try {
+    const skip = page * WAREHOUSE_MASTER_MAX_PAGE_SIZE //* offset
+
     const req = (await callSapServiceLayerApi({
-      method: 'post',
-      url: `${SAP_BASE_URL}/b1s/v1/SQLQueries('query18')/List`,
+      url: `${SAP_BASE_URL}/b1s/v1/Warehouses?$select=WarehouseCode,WarehouseName,Nettable,EnableBinLocations,DefaultBin,Street,AddressName2,AddressName3,StreetNo,BuildingFloorRoom,Block,City,ZipCode,County,Country,State,GlobalLocationNumber,U_Portal_Sync&$filter=U_Portal_Sync eq 'Y'&$skip=${skip}&$orderby=WarehouseCode asc`,
       headers: { Prefer: `odata.maxpagesize=${WAREHOUSE_MASTER_MAX_PAGE_SIZE}` },
     })) as { value?: any[] } | null
 
-    return (req?.value || []).filter(Boolean).sort((a, b) => String(a?.WarehouseCode).localeCompare(String(b?.WarehouseCode)))
+    const warehouses = (req?.value || []).filter(Boolean)
+    if (warehouses.length < 1) return []
+
+    //* country and state names are looked up separately, so warehouses with no country/state are kept (like a left join)
+    const countryCodes = Array.from(new Set(warehouses.map((wh) => wh?.Country).filter(Boolean) as string[]))
+    const stateFilter = countryCodes.map((code) => `Country eq '${code}'`).join(' or ')
+
+    const [countries, states] = await Promise.all([
+      countryCodes.length > 0
+        ? (callSapServiceLayerApi({
+            url: `${SAP_BASE_URL}/b1s/v1/Countries?$select=Code,Name`,
+            headers: { Prefer: SAP_NO_PAGINATION },
+          }) as Promise<{ value?: any[] } | null>)
+        : null,
+      countryCodes.length > 0
+        ? (callSapServiceLayerApi({
+            url: `${SAP_BASE_URL}/b1s/v1/States?$select=Code,Country,Name&$filter=${stateFilter}`,
+            headers: { Prefer: SAP_NO_PAGINATION },
+          }) as Promise<{ value?: any[] } | null>)
+        : null,
+    ])
+
+    const countryNameMap = new Map<string, string>((countries?.value || []).map((c) => [c?.Code, c?.Name]))
+    const stateNameMap = new Map<string, string>((states?.value || []).map((s) => [`${s?.Country}|${s?.Code}`, s?.Name]))
+
+    return warehouses.map((wh) => ({
+      ...wh,
+      CountryName: wh?.Country ? (countryNameMap.get(wh.Country) ?? null) : null,
+      StateName: wh?.Country && wh?.State ? (stateNameMap.get(`${wh.Country}|${wh.State}`) ?? null) : null,
+    }))
   } catch (error) {
     console.log({ error })
-    logger.error(error, 'Failed to fetch warehouse master from SAP')
+    logger.error(error, `Failed to fetch warehouse master from SAP: Page (${page})`)
     return []
   }
 }
@@ -604,29 +642,14 @@ export const syncFromSap = action
     const SYNC_META_CODE = 'warehouse'
 
     try {
-      //* get last sync date
-      const syncMeta = await db.syncMeta.findFirst({ where: { dbCode, code: SYNC_META_CODE } })
-      const lastSyncDate = syncMeta?.lastSyncAt || new Date('01/01/2020')
-
       const binLocationMap = new Map<string, any[]>()
       const batch: Prisma.WarehouseUncheckedCreateInput[] = []
 
+      //* sap's Warehouses entity has no create/update date, so every portal-synced warehouse is upserted
       for (let i = 0; i < data.length; i++) {
         const errors: ImportSyncErrorEntry[] = []
         const row = data[i]
-        const rowNumber = stats.completed + i + 1 //* global row number across chunks
-
-        //* skip (not an error): not created/updated since last sync
-        //* the sql query endpoint returns compact yyyyMMdd dates with no time component
-        const createDate = parseSapCompactDate(row?.CreateDate)
-        const updateDate = parseSapCompactDate(row?.UpdateDate)
-
-        const isCreateDateSameDay = createDate ? isSameDay(createDate, lastSyncDate) : false
-        const isUpdateDateSameDay = updateDate ? isSameDay(updateDate, lastSyncDate) : false
-        const isCreateDateAfter = createDate ? isAfter(createDate, lastSyncDate) : false
-        const isUpdateDateAfter = updateDate ? isAfter(updateDate, lastSyncDate) : false
-
-        if (!(isCreateDateSameDay || isUpdateDateSameDay || isCreateDateAfter || isUpdateDateAfter)) continue
+        const rowNumber = stats.completed + i + 1 //* global row number across pages
 
         //* check required fields
         if (!row || !row?.WarehouseCode) errors.push({ field: 'WarehouseCode', message: 'Missing required field' })
@@ -645,29 +668,27 @@ export const syncFromSap = action
           //* sap fields
           WarehouseCode: row.WarehouseCode,
           WarehouseName: row?.WarehouseName || '',
-          Nettable: row?.Nettable === 'Y',
-          EnableBinLocations: row?.EnableBinLocations === 'Y',
+          Nettable: row?.Nettable === 'tYES',
+          EnableBinLocations: row?.EnableBinLocations === 'tYES',
           DefaultBin: row?.DefaultBin ? safeParseInt(row.DefaultBin) : null,
           Street: row?.Street || null,
-          Address2: row?.Address2 || null,
-          Address3: row?.Address3 || null,
+          Address2: row?.AddressName2 || null,
+          Address3: row?.AddressName3 || null,
           StreetNo: row?.StreetNo || null,
           BuildingFloorRoom: row?.BuildingFloorRoom || null,
           Block: row?.Block || null,
           City: row?.City || null,
           ZipCode: row?.ZipCode || null,
           County: row?.County || null,
-          CountryCode: row?.CountryCode || null,
+          CountryCode: row?.Country || null,
           CountryName: row?.CountryName || null,
-          StateCode: row?.StateCode || null,
+          StateCode: row?.State || null,
           StateName: row?.StateName || null,
           GlobalLocationNumber: row?.GlobalLocationNumber || null,
         })
       }
 
-      //* sap bin locations carry no create/update date, and editing a bin in sap (obin) does not
-      //* bump the warehouse master's UpdateDate (owhs) — so bins are refreshed for every warehouse
-      //* in the chunk, not just the date-filtered batch, otherwise bin-only changes never reach the portal
+      //* bins are refreshed for every warehouse in the chunk, so bin-only changes in sap reach the portal
       const chunkWarehouseCodes = Array.from(new Set(data.map((row: any) => row?.WarehouseCode).filter(Boolean) as string[]))
 
       //* a bin's parent warehouse must exist (fk), so only refresh codes that are being upserted
@@ -726,7 +747,7 @@ export const syncFromSap = action
       }
 
       //* commit the chunk, single transaction since data is already chunked (max 1 chunk per call)
-      //* timeout raised: bins are now refreshed for every warehouse in the chunk, not just the batch
+      //* timeout raised: bins are refreshed for every warehouse in the chunk
       await db.$transaction(
         async (tx) => {
           await Promise.all(

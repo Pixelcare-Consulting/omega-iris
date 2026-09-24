@@ -12,7 +12,15 @@ import { Item } from 'devextreme-react/toolbar'
 import Tooltip from 'devextreme-react/tooltip'
 import ProgressBar from 'devextreme-react/progress-bar'
 
-import { deleleteWarehouse, getWarehouseMaster, getWarehouses, restoreWarehouse, syncFromSap, syncToSap } from '@/actions/warehouse'
+import {
+  deleleteWarehouse,
+  getWarehouseMasterByPage,
+  getWarehouseMasterCount,
+  getWarehouses,
+  restoreWarehouse,
+  syncFromSap,
+  syncToSap,
+} from '@/actions/warehouse'
 import PageHeader from '@/app/(protected)/_components/page-header'
 import { Badge } from '@/components/badge'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
@@ -23,7 +31,7 @@ import CommonDataGrid from '@/components/common-datagrid'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import LoadingButton from '@/components/loading-button'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
-import { SYNC_TO_SAP_CHUNK_SIZE } from '@/constants/sap'
+import { SYNC_TO_SAP_CHUNK_SIZE, WAREHOUSE_MASTER_MAX_PAGE_SIZE } from '@/constants/sap'
 import { NotificationContext } from '@/context/notification'
 import { useSyncMeta } from '@/hooks/safe-actions/sync-meta'
 import { SyncToSapForm, syncToSapFormSchema } from '@/schema/warehouse'
@@ -291,9 +299,8 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
     setSyncFromSapState((prev) => ({ ...prev, showConfirmation: false, stats: { ...INITIAL_STATS, status: 'processing' } }))
 
     try {
-      //* fetch the whole warehouse master from sap, it is small enough to be fetched in a single call
-      const warehouseMaster = await getWarehouseMaster()
-      const totalCount = warehouseMaster.length
+      //* get total count of warehouse master from sap
+      const totalCount = await getWarehouseMasterCount()
 
       if (totalCount < 1) {
         toast.error('Failed to fetch warehouse master from SAP!')
@@ -302,28 +309,43 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
         return
       }
 
-      const chunks = chunkArray(warehouseMaster, SYNC_TO_SAP_CHUNK_SIZE)
+      const totalPage = Math.ceil(totalCount / WAREHOUSE_MASTER_MAX_PAGE_SIZE)
 
-      //* trigger sync by chunk
+      //* trigger sync by page
       let stats: Stats = { total: totalCount, completed: 0, synced: 0, progress: 0, errors: [], status: 'processing' }
 
-      for (let i = 0; i < chunks.length; i++) {
-        const isLastChunk = i === chunks.length - 1
+      for (let page = 0; page <= totalPage; page++) {
+        const isLastPage = page === totalPage
 
-        const response = await syncFromSapData.executeAsync({
-          data: chunks[i],
-          total: totalCount,
-          stats,
-          isLastRow: isLastChunk,
-        })
-        const result = response?.data
+        //* fetch warehouse master from sap per page
+        const pageData = await getWarehouseMasterByPage(page)
 
-        if (result?.error) {
-          setSyncFromSapState((prev) => ({ ...prev, stats: { ...prev.stats, errors: [...prev.stats.errors, ...result.stats.errors] } }))
-          stats.errors = [...stats.errors, ...result.stats.errors]
-        } else if (result?.stats) {
-          setSyncFromSapState((prev) => ({ ...prev, stats: result.stats }))
-          stats = result.stats
+        if (pageData.length < 1) {
+          if (isLastPage) stats.status = 'completed'
+          continue
+        }
+
+        //* send the page in small chunks, the sync fetches bin locations per warehouse
+        const chunks = chunkArray(pageData, SYNC_TO_SAP_CHUNK_SIZE)
+
+        for (let i = 0; i < chunks.length; i++) {
+          const isLastChunk = i === chunks.length - 1
+
+          const response = await syncFromSapData.executeAsync({
+            data: chunks[i],
+            total: totalCount,
+            stats,
+            isLastRow: isLastPage && isLastChunk,
+          })
+          const result = response?.data
+
+          if (result?.error) {
+            setSyncFromSapState((prev) => ({ ...prev, stats: { ...prev.stats, errors: [...prev.stats.errors, ...result.stats.errors] } }))
+            stats.errors = [...stats.errors, ...result.stats.errors]
+          } else if (result?.stats) {
+            setSyncFromSapState((prev) => ({ ...prev, stats: result.stats }))
+            stats = result.stats
+          }
         }
       }
 
