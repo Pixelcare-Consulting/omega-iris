@@ -236,6 +236,7 @@ model BusinessPartner {
     sapDatabase                SapDatabase                 @relation(fields: [dbCode], references: [dbCode], onUpdate: Cascade, onDelete: Restrict)
     customerUsers              User[]                      @relation(name: "User-Customer")
     supplierUsers              User[]                      @relation(name: "User-Supplier")
+    supplierWorkOrders         WorkOrder[]                 @relation(name: "BusinessPartner-WorkOrderSupplier")
 
     @@unique([dbCode, CardCode])
 }
@@ -670,6 +671,7 @@ model WorkOrder {
     alternativeShippingAddr String?
     expectedDeliveryDate    DateTime? @db.Date
     duplicatedFromCode      Int?
+    supplierCode            String?
 
     //* SAP fields
     salesOrderCode       Int?
@@ -678,6 +680,10 @@ model WorkOrder {
     goodsReceiptDocEntry Int?
     goodsIssueDocNum     Int?
     goodsIssueDocEntry   Int?
+    grpoDocNum           Int?
+    grpoDocEntry         Int?
+    goodsReturnDocNum    Int?
+    goodsReturnDocEntry  Int?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -689,6 +695,7 @@ model WorkOrder {
     projectIndividual ProjectIndividual @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     user              User              @relation(fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
     duplicatedFrom    WorkOrder?        @relation("WorkOrder-DuplicatedFrom", fields: [duplicatedFromCode], references: [code], onUpdate: Cascade, onDelete: SetNull)
+    supplier          BusinessPartner?  @relation(name: "BusinessPartner-WorkOrderSupplier", fields: [dbCode, supplierCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: Restrict)
 
     workOrderItems         WorkOrderItem[]
     workOrderStatusUpdates WorkOrderStatusUpdate[]

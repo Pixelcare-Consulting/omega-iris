@@ -108,7 +108,7 @@ export async function createGoodsIssue(dbCode: string, workOrderCode: number, wo
       url: `${SAP_BASE_URL}/b1s/v1/InventoryGenExits`,
       method: 'post',
       data: {
-        Comments: `Created from IRIS - reversal of goods receipt - Work Order ${workOrderCode}`,
+        Comments: `Created from IRIS - reversal of Goods Receipt - Work Order ${workOrderCode}`,
         DocumentLines: documentLines,
       },
     })
@@ -133,38 +133,135 @@ export async function createGoodsIssue(dbCode: string, workOrderCode: number, wo
   }
 }
 
-// export async function cancelGoodsReceipt(dbCode: string, docEntry: number) {
-//   try {
-//     //* check doc entry
-//     if (!docEntry || docEntry < 1) {
-//       return {
-//         error: true,
-//         status: 400,
-//         message: 'Failed to cancel goods receipt due to invalid doc entry!',
-//         action: 'CANCEL_GOODS_RECEIPT',
-//       }
-//     }
+export async function createGrpo(dbCode: string, workOrderCode: number, supplierCode: string, woLineItems: GoodsReceiptLineItem[]) {
+  try {
+    //* grpo is posted against a vendor, sap rejects it without one
+    if (!supplierCode) {
+      return {
+        error: true,
+        status: 400,
+        message: 'Failed to create goods receipt PO due to missing supplier!',
+        action: 'CREATE_GRPO',
+      }
+    }
 
-//     const result = await callSapServiceLayerApi({
-//       dbCode,
-//       url: `${SAP_BASE_URL}/b1s/v1/InventoryGenEntries(${docEntry})/Cancel`,
-//       method: 'post',
-//     })
+    const documentLines = buildDocumentLines(woLineItems)
 
-//     if (result?.error) {
-//       return {
-//         error: true,
-//         status: 500,
-//         message: result.error?.message?.value || 'Failed to cancel goods receipt!',
-//         action: 'CANCEL_GOODS_RECEIPT',
-//       }
-//     }
-//   } catch (error: any) {
-//     return {
-//       error: true,
-//       status: 500,
-//       message: error?.message || 'Failed to cancel goods receipt!',
-//       action: 'CANCEL_GOODS_RECEIPT',
-//     }
-//   }
-// }
+    //* nothing to receive, sap rejects an empty document
+    if (documentLines.length < 1) {
+      return {
+        error: true,
+        status: 400,
+        message: 'Failed to create goods receipt PO due to missing document lines!',
+        action: 'CREATE_GRPO',
+      }
+    }
+
+    //* post goods receipt po
+    const result = await callSapServiceLayerApi({
+      dbCode,
+      url: `${SAP_BASE_URL}/b1s/v1/PurchaseDeliveryNotes`,
+      method: 'post',
+      data: {
+        CardCode: supplierCode,
+        Comments: `Created from IRIS - Work Order ${workOrderCode}`,
+        DocumentLines: documentLines,
+      },
+    })
+
+    if (result?.error) {
+      return {
+        error: true,
+        status: 500,
+        message: result.error?.message?.value || 'Failed to create goods receipt PO!',
+        action: 'CREATE_GRPO',
+      }
+    }
+
+    return result
+  } catch (error: any) {
+    return {
+      error: true,
+      status: 500,
+      message: error?.message || 'Failed to create goods receipt PO!',
+      action: 'CREATE_GRPO',
+    }
+  }
+}
+
+//* reverses a grpo, lines are copied from the grpo itself so each one links back to its base line
+export async function createGoodsReturn(dbCode: string, workOrderCode: number, grpoDocEntry: number) {
+  try {
+    if (!grpoDocEntry || grpoDocEntry < 1) {
+      return {
+        error: true,
+        status: 400,
+        message: 'Failed to create goods return due to invalid goods receipt PO doc entry!',
+        action: 'CREATE_GOODS_RETURN',
+      }
+    }
+
+    const grpo = await callSapServiceLayerApi({
+      dbCode,
+      url: `${SAP_BASE_URL}/b1s/v1/PurchaseDeliveryNotes(${grpoDocEntry})`,
+      method: 'get',
+    })
+
+    if (grpo?.error) {
+      return {
+        error: true,
+        status: 500,
+        message: grpo.error?.message?.value || 'Failed to get goods receipt PO!',
+        action: 'CREATE_GOODS_RETURN',
+      }
+    }
+
+    const documentLines = ((grpo?.DocumentLines ?? []) as any[]).map((line) => ({
+      BaseType: 20, //* 20 = goods receipt po
+      BaseEntry: grpoDocEntry,
+      BaseLine: line.LineNum,
+      Quantity: line.Quantity,
+      BatchNumbers: ((line.BatchNumbers ?? []) as any[]).map((b) => ({ BatchNumber: b.BatchNumber, Quantity: b.Quantity })),
+    }))
+
+    //* nothing to return, sap rejects an empty document
+    if (documentLines.length < 1) {
+      return {
+        error: true,
+        status: 400,
+        message: 'Failed to create goods return due to missing document lines!',
+        action: 'CREATE_GOODS_RETURN',
+      }
+    }
+
+    //* post goods return
+    const result = await callSapServiceLayerApi({
+      dbCode,
+      url: `${SAP_BASE_URL}/b1s/v1/PurchaseReturns`,
+      method: 'post',
+      data: {
+        CardCode: grpo?.CardCode,
+        Comments: `Created from IRIS - reversal of Goods Receipt PO ${grpo?.DocNum} - Work Order ${workOrderCode}`,
+        DocumentLines: documentLines,
+      },
+    })
+
+    if (result?.error) {
+      return {
+        error: true,
+        status: 500,
+        message: result.error?.message?.value || 'Failed to create goods return!',
+        action: 'CREATE_GOODS_RETURN',
+      }
+    }
+
+    return result
+  } catch (error: any) {
+    return {
+      error: true,
+      status: 500,
+      message: error?.message || 'Failed to create goods return!',
+      action: 'CREATE_GOODS_RETURN',
+    }
+  }
+}

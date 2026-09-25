@@ -33,6 +33,8 @@ import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Separator from '@/components/separator'
 import { usePis } from '@/hooks/safe-actions/project-individual'
 import { usePiCustomersByProjectCode } from '@/hooks/safe-actions/project-individual-customer'
+import { usePiSuppliersByProjectCode } from '@/hooks/safe-actions/project-individual-supplier'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 import { useUserByCode } from '@/hooks/safe-actions/user'
 import { commonItemRender } from '@/utils/devextreme'
 import ReadOnlyField from '@/components/read-only-field'
@@ -98,6 +100,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
         alternativeBillingAddr: null,
         alternativeShippingAddr: null,
         duplicatedFromCode: null,
+        supplierCode: null,
 
         //* sap fields
         salesOrderCode: null,
@@ -127,10 +130,21 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
     }
   }, [isCreate, JSON.stringify(workOrder)])
 
+  const customTfsProcess = useCustomTfsProcess()
+
+  //* supplier is only required for the custom tfs process, the base schema can't see the flag
+  const workOrderSchema = useMemo(() => {
+    if (!customTfsProcess.isEnabled) return workOrderFormSchema
+
+    return workOrderFormSchema.superRefine((data, ctx) => {
+      if (!data.supplierCode) ctx.addIssue({ code: 'custom', path: ['supplierCode'], message: 'Supplier is required' })
+    })
+  }, [customTfsProcess.isEnabled])
+
   const form = useForm({
     mode: 'onChange',
     values: formValues,
-    resolver: zodResolver(workOrderFormSchema),
+    resolver: zodResolver(workOrderSchema),
   })
 
   const { replace } = useFieldArray({ control: form.control, name: 'lineItems' })
@@ -158,6 +172,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
   const workOrderItems = useWoItemsByWoCode(workOrder?.code)
 
   const piCustomers = usePiCustomersByProjectCode(projectCode)
+  const piSuppliers = usePiSuppliersByProjectCode(projectCode)
   const customer = useUserByCode(userCode)
   const salesOrder = useSalesOrderByWorkOrderCode(workOrder?.code)
   const duplicatedFromWorkOrder = useDuplicatedFromWoByCode(duplicatedFromCode ? safeParseInt(duplicatedFromCode) : null)
@@ -324,6 +339,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
       form.setValue('alternativeBillingAddr', duplicatedFromWorkOrderData?.alternativeBillingAddr)
       form.setValue('alternativeShippingAddr', duplicatedFromWorkOrderData?.alternativeShippingAddr)
       form.setValue('expectedDeliveryDate', duplicatedFromWorkOrderData?.expectedDeliveryDate)
+      form.setValue('supplierCode', duplicatedFromWorkOrderData?.supplierCode)
       form.setValue('duplicatedFromCode', value)
     }
   }, [duplicatedFromCode, JSON.stringify(duplicatedFromWorkOrder)])
@@ -452,6 +468,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                   isRequired
                   callback={() => {
                     form.setValue('userCode', 0)
+                    form.setValue('supplierCode', null)
                     form.setValue('lineItems', [])
                   }}
                   extendedProps={{
@@ -496,6 +513,35 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                   }}
                 />
               </div>
+
+              {customTfsProcess.isEnabled && (
+                <div className='col-span-12 md:col-span-6'>
+                  <SelectBoxField
+                    data={piSuppliers.data}
+                    isLoading={piSuppliers.isLoading}
+                    control={form.control}
+                    name='supplierCode'
+                    label='Supplier'
+                    description='This supplier will be used for the GRPO that is automatically created in SAP when this work order is "Verified".'
+                    valueExpr='supplierCode'
+                    displayExpr={(item) => (item ? `${item?.businessPartner?.CardName} (${item?.supplierCode})` : '')}
+                    searchExpr={['supplierCode', 'businessPartner.CardName']}
+                    isRequired
+                    extendedProps={{
+                      selectBoxOptions: {
+                        //* locked once the grpo is posted, the goods return goes back to the grpo's supplier
+                        disabled: !!workOrder?.grpoDocEntry,
+                        itemRender: (params) => {
+                          return commonItemRender({
+                            title: params?.businessPartner?.CardName,
+                            value: params?.supplierCode,
+                          })
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              )}
 
               <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Status' value={selectedStatus || ''} />
 

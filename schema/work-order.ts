@@ -124,6 +124,10 @@ export const workOrderFormSchema = z.object({
     .nullish()
     .transform((val) => val || null),
   duplicatedFromCode: z.coerce.number().nullish(),
+  supplierCode: z
+    .string()
+    .nullish()
+    .transform((val) => val || null),
 
   //* work order items
   lineItems: z.array(workOrderItemFormSchema).min(1, { message: 'Please select & set at least one item' }),

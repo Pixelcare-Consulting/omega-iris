@@ -23,7 +23,7 @@ import { getCurrentUserAbility } from './auth'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { createNotification } from './notification'
 import { CommonErrorEntry, CommonOperationError } from '@/types/common'
-import { createGoodsIssue, createGoodsReceipt } from './goods-movement'
+import { createGoodsReturn, createGrpo } from './goods-movement'
 import { isCustomTfsEnabled } from '@/utils/sap-database-access'
 
 const COMMON_WORK_ORDER_INCLUDE = {
@@ -36,6 +36,7 @@ const COMMON_WORK_ORDER_INCLUDE = {
     },
   },
   user: { select: { code: true, fname: true, lname: true, email: true, customerCode: true } },
+  supplier: { select: { CardCode: true, CardName: true } },
 } satisfies Prisma.WorkOrderInclude
 
 const COMMON_WORK_ORDER_ORDER_BY = { createdAt: 'desc' } satisfies Prisma.WorkOrderOrderByWithRelationInput
@@ -291,7 +292,7 @@ export async function creditStock(params: CreditStockParams) {
       }
     }
 
-    //* post the goods receipt to sap once the work order is verified
+    //* post the goods receipt po to sap once the work order is verified
     //! must run before the 'do nothing' branch below, verified falls into that range
     //? off for a database without the custom tfs process, and the branch then falls through to the stock branches
     if (
@@ -299,23 +300,33 @@ export async function creditStock(params: CreditStockParams) {
       oldStatus !== WORK_ORDER_STATUS_VALUE_MAP['Verified'] &&
       (await isCustomTfsEnabled(dbCode))
     ) {
-      //* already has a goods receipt, don't post a second one
-      if (!existingWorkOrder.goodsReceiptDocEntry) {
-        const goodsReceipt = await createGoodsReceipt(dbCode, existingWorkOrder.code, lineItems)
+      //* already has a grpo, don't post a second one
+      if (!existingWorkOrder.grpoDocEntry) {
+        //* let the caller roll back the status update, a grpo needs a supplier
+        if (!existingWorkOrder.supplierCode) {
+          return {
+            error: true,
+            status: 400,
+            message: `Failed to verify work order ${existingWorkOrder.code} due to missing supplier!`,
+            action: 'CREDIT_STOCK',
+          }
+        }
+
+        const grpo = await createGrpo(dbCode, existingWorkOrder.code, existingWorkOrder.supplierCode, lineItems)
 
         //* let the caller roll back the status update, sap already has the stock
-        if (goodsReceipt?.error) return goodsReceipt
+        if (grpo?.error) return grpo
 
-        const docEntry = safeParseInt(goodsReceipt?.DocEntry)
-        const docNum = safeParseInt(goodsReceipt?.DocNum)
+        const docEntry = safeParseInt(grpo?.DocEntry)
+        const docNum = safeParseInt(grpo?.DocNum)
 
         await tx.workOrder.update({
           where: { id: existingWorkOrder.id },
-          data: { goodsReceiptDocEntry: docEntry, goodsReceiptDocNum: docNum },
+          data: { grpoDocEntry: docEntry, grpoDocNum: docNum },
         })
 
-        //* hand the work order back, a rollback wipes the column and the caller still needs to reverse this in sap
-        return { postedGoodsReceiptWorkOrderCode: existingWorkOrder.code }
+        //* hand the doc entry back, a rollback wipes the column and the caller still needs to reverse this in sap
+        return { postedGrpo: { workOrderCode: existingWorkOrder.code, docEntry } }
       }
     }
 
@@ -429,21 +440,21 @@ export async function creditStock(params: CreditStockParams) {
 
     //* rollback on Cancelled / Deleted
     if (newStatus === WORK_ORDER_STATUS_VALUE_MAP['Cancelled'] || newStatus === WORK_ORDER_STATUS_VALUE_MAP['Deleted']) {
-      //* reverse the goods receipt with a goods issue, nothing to reverse when the work order was never verified
-      //! skip when already issued, cancelled then deleted would post a second goods issue
-      //! also skipped when the custom tfs process is off, so a receipt posted before the flag went off stays in sap and is reversed by hand
-      if (existingWorkOrder.goodsReceiptDocEntry && !existingWorkOrder.goodsIssueDocEntry && (await isCustomTfsEnabled(dbCode))) {
-        const goodsIssue = await createGoodsIssue(dbCode, existingWorkOrder.code, lineItems)
+      //* reverse the grpo with a goods return, nothing to reverse when the work order was never verified
+      //! skip when already returned, cancelled then deleted would post a second goods return
+      //! also skipped when the custom tfs process is off, so a grpo posted before the flag went off stays in sap and is reversed by hand
+      if (existingWorkOrder.grpoDocEntry && !existingWorkOrder.goodsReturnDocEntry && (await isCustomTfsEnabled(dbCode))) {
+        const goodsReturn = await createGoodsReturn(dbCode, existingWorkOrder.code, existingWorkOrder.grpoDocEntry)
 
         //* let the caller roll back, the stock is still received in sap
-        if (goodsIssue?.error) return goodsIssue
+        if (goodsReturn?.error) return goodsReturn
 
-        //* keep the receipt refs so the pair shows which receipt this issue reversed
+        //* keep the grpo refs so the pair shows which grpo this return reversed
         await tx.workOrder.update({
           where: { id: existingWorkOrder.id },
           data: {
-            goodsIssueDocEntry: safeParseInt(goodsIssue?.DocEntry),
-            goodsIssueDocNum: safeParseInt(goodsIssue?.DocNum),
+            goodsReturnDocEntry: safeParseInt(goodsReturn?.DocEntry),
+            goodsReturnDocNum: safeParseInt(goodsReturn?.DocNum),
           },
         })
       }
@@ -580,6 +591,21 @@ export const upsertWorkOrder = action
     } satisfies Prisma.WorkOrderInclude
 
     try {
+      //* supplier is required for the custom tfs process, the grpo on verify is posted against it
+      if (await isCustomTfsEnabled(dbCode)) {
+        if (!data.supplierCode) {
+          return { error: true, status: 400, message: 'Supplier is required!', action: 'UPSERT_WORK_ORDER' }
+        }
+
+        const piSupplier = await db.projectIndividualSupplier.findFirst({
+          where: { dbCode, projectIndividualCode: data.projectIndividualCode, supplierCode: data.supplierCode },
+        })
+
+        if (!piSupplier) {
+          return { error: true, status: 400, message: 'Supplier is not assigned to the selected project!', action: 'UPSERT_WORK_ORDER' }
+        }
+      }
+
       if (code !== -1) {
         const existingWorkOrder = await db.workOrder.findFirst({
           where: { code, dbCode },
@@ -1371,7 +1397,7 @@ export const updateWorkeOrderStatus = action
     const workOrderCodes = workOrders.map((wo) => wo.code)
 
     //! declared outside the try so the catch can reverse them, a rollback clears the doc entry columns but not sap
-    const postedGoodsReceiptWorkOrderCodes: number[] = []
+    const postedGrpos: { workOrderCode: number; docEntry: number }[] = []
 
     try {
       const existingWorkOrders = await db.workOrder.findMany({ where: { dbCode, code: { in: workOrderCodes } } })
@@ -1438,7 +1464,7 @@ export const updateWorkeOrderStatus = action
 
           //* remember what sap already accepted, the rollback below cannot undo it
           creditStocks.forEach((cs) => {
-            if (cs?.postedGoodsReceiptWorkOrderCode) postedGoodsReceiptWorkOrderCodes.push(cs.postedGoodsReceiptWorkOrderCode)
+            if (cs?.postedGrpo) postedGrpos.push(cs.postedGrpo)
           })
 
           if (creditStocks && creditStocks.length > 0) {
@@ -1501,24 +1527,13 @@ export const updateWorkeOrderStatus = action
     } catch (error: any) {
       console.error(error)
 
-      //* the rollback cannot reach sap, so reverse every receipt this run already posted
-      //? this leaves a goods receipt & goods issue in sap that net to zero, the cost of posting to sap inside the transaction, due to unexpected error
-      for (const code of postedGoodsReceiptWorkOrderCodes) {
-        //* read outside the rolled back transaction, only the status & doc refs were undone, the line items are still there
-        const workOrder = await db.workOrder.findFirst({
-          where: { code, dbCode },
-          include: { workOrderItems: { include: { projectItem: { include: { item: true } } } } },
-        })
+      //* the rollback cannot reach sap, so reverse every grpo this run already posted
+      //? this leaves a grpo & goods return in sap that net to zero, the cost of posting to sap inside the transaction, due to unexpected error
+      for (const { workOrderCode, docEntry } of postedGrpos) {
+        //! best effort, a failed reverse leaves stock received in sap that needs a goods return by hand
+        const goodsReturn = await createGoodsReturn(dbCode, workOrderCode, docEntry)
 
-        //! best effort, a failed reverse leaves stock received in sap that needs a goods issue by hand
-        if (!workOrder) {
-          console.error(`Failed to reverse goods receipt of work order ${code}: work order not found`)
-          continue
-        }
-
-        const goodsIssue = await createGoodsIssue(dbCode, workOrder.code, workOrder.workOrderItems)
-
-        if (goodsIssue?.error) console.error(`Failed to reverse goods receipt of work order ${code}: ${goodsIssue.message}`)
+        if (goodsReturn?.error) console.error(`Failed to reverse goods receipt PO of work order ${workOrderCode}: ${goodsReturn.message}`)
       }
 
       const errors = error?.errors ?? []
