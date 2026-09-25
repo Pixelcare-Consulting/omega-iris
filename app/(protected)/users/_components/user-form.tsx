@@ -29,6 +29,9 @@ import { commonItemRender } from '@/utils/devextreme'
 import CanView from '@/components/acl/can-view'
 import { NotificationContext } from '@/context/notification'
 import { useSession } from 'next-auth/react'
+import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
+import TagBoxField from '@/components/forms/tag-box-field'
+import { HIDDEN_FIELD_MODULES } from '@/constants/hidden-field'
 
 type UserFormProps = { pageMetaData: PageMetadata; user: Awaited<ReturnType<typeof getUserByCode>> }
 
@@ -42,11 +45,24 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
 
   const isCreate = code === 'add' || !user
 
+  const hiddenFieldModules = useMemo(
+    () =>
+      HIDDEN_FIELD_MODULES.map((m) => ({
+        ...m,
+        options: Object.entries(m.columns).map(([key, value]) => ({ label: value, value: key })),
+      })),
+    []
+  )
+
+  //* every module starts with an empty list, so a user without a saved row is still valid
+  const emptyHiddenFields = useMemo(() => Object.fromEntries(HIDDEN_FIELD_MODULES.map((m) => [m.moduleName, [] as string[]])), [])
+
   const values = useMemo(() => {
     if (user)
       return {
         ...user,
         roleKey: user.role.key,
+        hiddenFields: { ...emptyHiddenFields, ...Object.fromEntries(user.hiddenFields.map((row) => [row.moduleName, row.fields])) },
         password: '',
         confirmPassword: '',
         newPassword: '',
@@ -73,6 +89,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
         supplierCode: '',
         isForceToChangePassword: true,
         isLocked: false,
+        hiddenFields: emptyHiddenFields,
       }
     }
 
@@ -108,13 +125,13 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
 
   const isAdmin = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'admin'
+    return session.user.roleKey === SUPER_USER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const roleOptions = useMemo(() => {
     if (!roles.data || roles.data.length < 1 || roles.isLoading) return []
 
-    return roles.data.filter((role) => (isAdmin ? true : role.key !== 'admin')).map((role) => role)
+    return roles.data.filter((role) => (isAdmin ? true : role.key !== SUPER_USER_ROLE_KEY)).map((role) => role)
   }, [JSON.stringify(roles), isAdmin])
 
   const handleOnSubmit = async (formData: UserForm) => {
@@ -293,7 +310,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                 <SwitchField control={form.control} name='isLocked' label='Locked' description='Locked user cannot sign in' />
               </div>
 
-              {roleKey && roleKey === 'business-partner' && (
+              {roleKey && roleKey === BUSINESS_PARTNER_ROLE_KEY && (
                 <>
                   <Separator className='col-span-12' />
                   <ReadOnlyFieldHeader className='col-span-12 mb-2' title='SAP Details' description='User SAP information' />
@@ -345,6 +362,29 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                       }}
                     />
                   </div> */}
+                </>
+              )}
+
+              {/* //* admins see every field, so only other roles get hidden fields */}
+              {roleKey && roleKey !== SUPER_USER_ROLE_KEY && (
+                <>
+                  <Separator className='col-span-12' />
+                  <ReadOnlyFieldHeader className='col-span-12 mb-2' title='Hidden Fields' description='Fields this user will not see' />
+
+                  {hiddenFieldModules.map((m) => (
+                    <div key={m.moduleName} className='col-span-12 md:col-span-6'>
+                      <TagBoxField
+                        data={m.options}
+                        control={form.control}
+                        name={`hiddenFields.${m.moduleName}`}
+                        label={m.label}
+                        valueExpr='value'
+                        displayExpr='label'
+                        searchExpr={['label', 'value']}
+                        description={m.description}
+                      />
+                    </div>
+                  ))}
                 </>
               )}
             </div>

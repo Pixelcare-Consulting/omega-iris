@@ -5,6 +5,7 @@ import { PrismaAdapter } from '@auth/prisma-adapter'
 
 import { db } from './utils/db'
 import authConfig from './auth.config'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 //* module augmentation for next-auth
 export type ExtendedUser = {
@@ -119,7 +120,7 @@ export const callbacks: NextAuthConfig['callbacks'] = {
                 where: {
                   dbCode: session.sapDbCode,
                   isActive: true,
-                  ...(role.key !== 'admin' && { roleSapDatabases: { some: { roleCode: role.code } } }),
+                  ...(role.key !== SUPER_USER_ROLE_KEY && { roleSapDatabases: { some: { roleCode: role.code } } }),
                 },
               })
             : null

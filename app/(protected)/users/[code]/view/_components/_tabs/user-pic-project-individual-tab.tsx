@@ -22,6 +22,7 @@ import CommonDataGrid from '@/components/common-datagrid'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import { usePiPicsByUserCode } from '@/hooks/safe-actions/project-individual-pic'
 import { usePis } from '@/hooks/safe-actions/project-individual'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type UserPicProjectIndividualTabProps = {
   userCode: number
@@ -40,7 +41,7 @@ export default function UserPicProjectIndividualTab({ userCode, projects, piPics
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const currentAssignedProjects = useMemo(() => {

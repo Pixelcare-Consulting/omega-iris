@@ -18,6 +18,7 @@ import TextBoxField from '@/components/forms/text-box-field'
 import LoadingButton from '@/components/loading-button'
 import { DEFAULT_SIGNIN_REDIRECT } from '@/constants/route'
 import { delay } from '@/utils'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 const MAXIMUM_SECONDS = 10
 const MAXIMUM_COUNTDOWN = 3
@@ -68,7 +69,7 @@ export default function SigninForm() {
       if (result && !result.error) {
         const { redirectUrl, role } = result
 
-        if (role && role.key === 'business-partner') {
+        if (role && role.key === BUSINESS_PARTNER_ROLE_KEY) {
           window.location.assign(DEFAULT_SIGNIN_REDIRECT)
           return
         }

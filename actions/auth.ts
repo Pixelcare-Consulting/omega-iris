@@ -14,6 +14,7 @@ import logger from '@/utils/logger'
 import { cookies } from 'next/headers'
 import { buildAbilityFor } from '@/utils/acl'
 import { safeParseInt } from '@/utils'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 export async function getCurrentUser() {
   const session = await auth()
@@ -34,7 +35,7 @@ export async function getCurrentUserAbility() {
     roleName,
     //* null when no database is selected, matches ctx.dbCode from authenticationMiddleware
     dbCode: sapDbCode ?? null,
-    ability: buildAbilityFor({ roleKey: roleKey, rolePermissions: roleKey === 'admin' ? [] : rolePermissions }),
+    ability: buildAbilityFor({ roleKey: roleKey, rolePermissions: roleKey === SUPER_USER_ROLE_KEY ? [] : rolePermissions }),
   }
 }
 

@@ -21,6 +21,7 @@ import { getCurrentUserAbility } from './auth'
 import { safeParseInt } from '@/utils'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { createNotification } from './notification'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 const COMMON_PROJECT_INDIVIDUAL_INCLUDE = {
   projectGroup: { select: { code: true, name: true } },
@@ -238,7 +239,7 @@ export const upsertPi = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -262,7 +263,7 @@ export const upsertPi = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -786,7 +787,7 @@ export const updatePiCustomers = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -1021,7 +1022,7 @@ export const updatePiPics = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -1156,7 +1157,7 @@ export const updateCustomerPis = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -1304,7 +1305,7 @@ export const updatePicPis = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],

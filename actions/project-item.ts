@@ -18,6 +18,7 @@ import { getCurrentUserAbility } from './auth'
 import { ProjectItemSyncResult, syncProjectItemsFromSap } from '@/utils/jobs/project-item-sync'
 import { PROJECT_ITEM_SYNC_JOB_CODE } from '@/constants/sap'
 import { runJobExclusive } from '@/utils/jobs/scheduler'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 const COMMON_PROJECT_ITEM_INCLUDE = {
   item: true,
@@ -287,7 +288,7 @@ export const upsertProjectItem = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -311,7 +312,7 @@ export const upsertProjectItem = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -422,7 +423,7 @@ export const deleteProjectItem = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -446,7 +447,7 @@ export const deleteProjectItem = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -525,7 +526,7 @@ export const deleteProjectItems = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -549,7 +550,7 @@ export const deleteProjectItems = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -633,7 +634,7 @@ export const restoreProjectItems = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -657,7 +658,7 @@ export const restoreProjectItems = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -735,7 +736,7 @@ export const restoreProjectItem = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -759,7 +760,7 @@ export const restoreProjectItem = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -887,7 +888,7 @@ export const importProjectItems = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -911,7 +912,7 @@ export const importProjectItems = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],

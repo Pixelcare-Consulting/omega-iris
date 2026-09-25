@@ -16,6 +16,7 @@ import CanView from '@/components/acl/can-view'
 import { useSession } from 'next-auth/react'
 import ProjectGroupPicTab from './_tabs/project-group-pic-tab'
 import { useNonBpUsers } from '@/hooks/safe-actions/user'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 type ViewProjectGroupProps = {
   projectGroup: NonNullable<Awaited<ReturnType<typeof getPgByCode>>>
@@ -72,7 +73,7 @@ export default function ViewProjectGroup({ projectGroup }: ViewProjectGroupProps
             <ProjectGroupProjectsTab groupCode={projectGroup.code} projects={projects} />
           </TabPanelITem>
 
-          {session?.user.roleKey === 'admin' && (
+          {session?.user.roleKey === SUPER_USER_ROLE_KEY && (
             <TabPanelITem title='PICs'>
               <ProjectGroupPicTab projectGroupCode={projectGroup.code} pics={projectGroup.pics} users={nonCustomerUsers} />
             </TabPanelITem>

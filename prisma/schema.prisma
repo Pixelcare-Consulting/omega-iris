@@ -52,6 +52,25 @@ model User {
     projectIndividualCustomers    ProjectIndividualCustomer[] @relation(name: "User-ProjectIndividualCustomer")
     workOrders                    WorkOrder[]
     projectItemDateReceivedBy     ProjectItem[]               @relation()
+    hiddenFields                  UserHiddenField[]
+}
+
+//* fields a user cannot see, one row per module, applies across every company
+model UserHiddenField {
+    id         String   @id @default(cuid())
+    userCode   Int
+    moduleName String
+    fields     String[] @default([])
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now()) @updatedAt
+    createdBy String?
+    updatedBy String?
+
+    user User @relation(fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([userCode, moduleName])
+    @@index([userCode])
 }
 
 model Role {

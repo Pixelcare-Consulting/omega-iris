@@ -31,6 +31,7 @@ import { HiddenFieldsContext } from '@/context/hidden-fields-context'
 import Column from '@/components/column'
 import { TFS_ONLY_FIELDS } from '@/constants/project-item'
 import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type WorkOrderLineItemsFormProps = {
   workOrderCode: number
@@ -105,7 +106,7 @@ export default function WorkOrderLineItemForm({
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const isLocked = useMemo(() => {

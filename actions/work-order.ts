@@ -25,6 +25,7 @@ import { createNotification } from './notification'
 import { CommonErrorEntry, CommonOperationError } from '@/types/common'
 import { createGoodsReturn, createGrpo } from './goods-movement'
 import { isCustomTfsEnabled } from '@/utils/sap-database-access'
+import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 const COMMON_WORK_ORDER_INCLUDE = {
   projectIndividual: {
@@ -89,7 +90,7 @@ export async function getWorkOrders(dbCode: string, userInfo: Awaited<ReturnType
         : canViewOwned
           ? {
               OR: [{ userCode }, { createdBy: userId }, { projectIndividualCode: { in: allowedProjects.map((pi) => pi.code) } }],
-              ...(roleKey === 'business-partner' ? { isInternal: false } : {}),
+              ...(roleKey === BUSINESS_PARTNER_ROLE_KEY ? { isInternal: false } : {}),
             }
           : { userCode: -1 }
 
@@ -148,7 +149,7 @@ export async function getWorkOrderByCode(dbCode: string, code: number, userInfo:
           ? {
               code,
               OR: [{ userCode }, { createdBy: userId }, { projectIndividualCode: { in: allowedProjects.map((pi) => pi.code) } }],
-              ...(roleKey === 'business-partner' ? { isInternal: false } : {}),
+              ...(roleKey === BUSINESS_PARTNER_ROLE_KEY ? { isInternal: false } : {}),
             }
           : { code: -1 }
 
@@ -579,7 +580,7 @@ export const upsertWorkOrder = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -795,7 +796,7 @@ export const deleteWorkOrder = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -895,7 +896,7 @@ export const restoreWorkOrder = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -970,7 +971,7 @@ export const upsertWorkOrderLineItem = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -1085,7 +1086,7 @@ export const upsertWorkOrderLineItems = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -1199,7 +1200,7 @@ export const deleteWorkOrderLineItem = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -1286,7 +1287,7 @@ export const deleteWorkOrderLineItems = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -1383,7 +1384,7 @@ export const updateWorkeOrderStatus = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -1576,7 +1577,7 @@ export const updatePartialWorkOrderStatusUpdate = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -1670,7 +1671,7 @@ export const toggleWorkOrderInternal = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],

@@ -27,7 +27,10 @@ import { PROJECT_ITEM_SYNC_JOB_CODE, PROJECT_ITEM_SYNC_META_CODE } from '@/const
 import Column from '@/components/column'
 import { HiddenFieldsContext } from '@/context/hidden-fields-context'
 import { TFS_ONLY_FIELDS } from '@/constants/project-item'
+import { MODULE_NAME } from '@/constants/module'
+import { useCurrentUserHiddenFields } from '@/hooks/safe-actions/user-hidden-field'
 import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type ProjectInventoryTableProps = {
   allProjectItems: Awaited<ReturnType<typeof getAllProjectItems>>
@@ -39,8 +42,13 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
   const router = useRouter()
   const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
-  //* warehouse, bin and batch have no meaning outside the custom tfs process
-  const hiddenFields = useMemo(() => (isCustomTfsEnabled ? [] : TFS_ONLY_FIELDS), [isCustomTfsEnabled])
+  const userHiddenFields = useCurrentUserHiddenFields(MODULE_NAME.PROJECT_ITEMS)
+
+  const hiddenFields = useMemo(() => {
+    //* warehouse, bin and batch have no meaning outside the custom tfs process
+    const tfsFields = isCustomTfsEnabled ? [] : TFS_ONLY_FIELDS
+    return [...userHiddenFields.data, ...tfsFields]
+  }, [isCustomTfsEnabled, JSON.stringify(userHiddenFields.data)])
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual-inventory'
   const DATAGRID_UNIQUE_KEY = 'project-individual-inventory'
@@ -99,7 +107,7 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const thumbnailCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
@@ -253,36 +261,18 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
             <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
             <Column dataField='DistNumber' dataType='string' minWidth={100} caption='Batch #' />
             <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} visible={false} />
+            {/* //* project and project group only exist here, the rest follows the project inventory tab */}
             <Column dataField='projectIndividual.name' dataType='string' caption='Project' />
-            <Column dataField='projectIndividual.projectGroup.name' dataType='string' caption='Group' visible={false} />
+            <Column dataField='projectIndividual.projectGroup.name' dataType='string' caption='Project Group' visible={false} />
             <Column dataField='owner' dataType='string' caption='Owner' />
 
-            <Column dataField='group' dataType='string' caption='Item Group' visible={false} />
-            <Column dataField='division' dataType='string' caption='Division' visible={false} />
-            <Column dataField='site' dataType='string' caption='Site' visible={false} />
-            <Column dataField='cmSite' dataType='string' caption='CM Site' visible={false} />
-            <Column dataField='phase' dataType='string' caption='Phase' visible={false} />
-
-            {!isBusinessPartner && (
-              <>
-                <Column
-                  dataField='tfsStdPrice'
-                  dataType='number'
-                  caption='TFS Std Price'
-                  alignment='left'
-                  format={DEFAULT_CURRENCY_FORMAT}
-                  visible={false}
-                />
-                <Column
-                  dataField='omegaPrice'
-                  dataType='number'
-                  caption='Omega Price'
-                  alignment='left'
-                  format={DEFAULT_CURRENCY_FORMAT}
-                  visible={false}
-                />
-              </>
-            )}
+            <Column dataField='group' dataType='string' caption='Group' />
+            <Column dataField='division' dataType='string' caption='Division' />
+            <Column dataField='site' dataType='string' caption='Site' />
+            <Column dataField='cmSite' dataType='string' caption='CM Site' />
+            <Column dataField='phase' dataType='string' caption='Phase' />
+            <Column dataField='tfsStdPrice' dataType='number' caption='TFS Std Price' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
+            <Column dataField='omegaPrice' dataType='number' caption='Omega Price' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
 
             <Column dataField='item.ItemCode' dataType='string' caption='MFG P/N' />
             <Column dataField='partNumber' dataType='string' caption='Part Number' />

@@ -18,6 +18,7 @@ import { formatNumber } from 'devextreme/localization'
 import { safeParseInt } from '@/utils'
 import WarehouseBatchView from '../warehouse-batches-view'
 import FormMessage from '@/components/forms/form-message'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type WarehouseBatchTabProps = {
   warehouseCode: string
@@ -41,7 +42,7 @@ export default function WarehouseBatchTab({ warehouseCode, isSynced, batches }: 
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const siteLocationCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {

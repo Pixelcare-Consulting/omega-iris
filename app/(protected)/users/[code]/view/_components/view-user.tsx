@@ -22,6 +22,7 @@ import UserPicProjectGroupTab from './_tabs/user-pic-project-group-tab'
 import { usePgs } from '@/hooks/safe-actions/project-group'
 import { usePgPicsByUserCode } from '@/hooks/safe-actions/project-group-pic'
 import UserProjectsClosedTab from './_tabs/user-projects-closed-tab'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type ViewUserProps = {
   user: NonNullable<Awaited<ReturnType<typeof getUserByCode>>>
@@ -33,9 +34,9 @@ export default function ViewUser({ user }: ViewUserProps) {
   const projects = usePis()
   const groups = usePgs()
 
-  const piCustomers = usePiCustomersByUserCode(user.role.key === 'business-partner' ? user.code : undefined)
-  const piPics = usePiPicsByUserCode(user.role.key !== 'business-partner' ? user.code : undefined)
-  const pgPics = usePgPicsByUserCode(user.role.key !== 'business-partner' ? user.code : undefined)
+  const piCustomers = usePiCustomersByUserCode(user.role.key === BUSINESS_PARTNER_ROLE_KEY ? user.code : undefined)
+  const piPics = usePiPicsByUserCode(user.role.key !== BUSINESS_PARTNER_ROLE_KEY ? user.code : undefined)
+  const pgPics = usePgPicsByUserCode(user.role.key !== BUSINESS_PARTNER_ROLE_KEY ? user.code : undefined)
   const pisClosed = usePisBySalesCloser(user.code)
 
   return (
@@ -78,26 +79,26 @@ export default function ViewUser({ user }: ViewUserProps) {
             <UserOverviewTab user={user} />
           </TabPanelITem>
 
-          <TabPanelITem title='Groups' visible={user.role.key !== 'business-partner' ? true : false}>
+          <TabPanelITem title='Groups' visible={user.role.key !== BUSINESS_PARTNER_ROLE_KEY ? true : false}>
             <UserPicProjectGroupTab userCode={user.code} groups={groups} pgPics={pgPics} />
           </TabPanelITem>
 
-          <TabPanelITem title='Projects' visible={user.role.key === 'business-partner' && user?.customerCode ? true : false}>
+          <TabPanelITem title='Projects' visible={user.role.key === BUSINESS_PARTNER_ROLE_KEY && user?.customerCode ? true : false}>
             <UserCustomerProjectIndividualTab userCode={user.code} projects={projects} piCustomers={piCustomers} />
           </TabPanelITem>
 
-          <TabPanelITem title='Projects' visible={user.role.key !== 'business-partner' ? true : false}>
+          <TabPanelITem title='Projects' visible={user.role.key !== BUSINESS_PARTNER_ROLE_KEY ? true : false}>
             <UserPicProjectIndividualTab userCode={user.code} projects={projects} piPics={piPics} />
           </TabPanelITem>
 
-          <TabPanelITem title='Projects Closed' visible={user.role.key !== 'business-partner' ? true : false}>
+          <TabPanelITem title='Projects Closed' visible={user.role.key !== BUSINESS_PARTNER_ROLE_KEY ? true : false}>
             <UserProjectsClosedTab projectsClosed={pisClosed} />
           </TabPanelITem>
 
           {/* <TabPanelITem
             title='Customer Details'
             badge='SAP'
-            visible={user.role.key === 'business-partner' && user?.customerCode ? true : false}
+            visible={user.role.key === BUSINESS_PARTNER_ROLE_KEY && user?.customerCode ? true : false}
           >
             <ScrollView useNative>
               <UnderDevelopment className='h-[60vh]' />
@@ -107,7 +108,7 @@ export default function ViewUser({ user }: ViewUserProps) {
           {/* <TabPanelITem
             title='Supplier Details'
             badge='SAP'
-            visible={user.role.key === 'business-partner' && user?.supplierCode ? true : false}
+            visible={user.role.key === BUSINESS_PARTNER_ROLE_KEY && user?.supplierCode ? true : false}
           >
             <ScrollView useNative>
               <UnderDevelopment className='h-[60vh]' />

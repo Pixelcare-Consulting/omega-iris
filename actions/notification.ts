@@ -11,6 +11,7 @@ import { paramsSchema } from '@/schema/common'
 import { PERMISSIONS_ALLOWED_ACTIONS } from '@/constants/permission'
 import { add } from 'date-fns'
 import { EXPIRESAT_MONTH_COUNT } from '@/constants/notification'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 export async function getNotifications(dbCode: string | null, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>, limit?: number) {
   if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
@@ -141,7 +142,7 @@ export async function createNotification(
     const allowedRoles = await db.role.findMany({
       where: {
         OR: [
-          { key: 'admin' },
+          { key: SUPER_USER_ROLE_KEY },
           {
             rolePermissions: {
               some: {

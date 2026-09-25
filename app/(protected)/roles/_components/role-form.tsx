@@ -43,6 +43,7 @@ import CommonPageHeaderToolbarItems from '../../_components/common-page-header-t
 import CommonDataGrid from '@/components/common-datagrid'
 import { REPORT_TYPE_LABEL } from '@/schema/report'
 import { hideActionButton } from '@/utils/devextreme'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 type RoleFormProps = { pageMetaData: PageMetadata; role: Awaited<ReturnType<typeof getRolesByCode>> }
 
@@ -113,7 +114,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
   const { executeAsync, isExecuting } = useAction(upsertRole)
 
   const handleOnSubmit = async (formData: RoleForm) => {
-    if (formData.key === 'admin') {
+    if (formData.key === SUPER_USER_ROLE_KEY) {
       toast.success('Role updated successfully!')
       return
     }
@@ -322,7 +323,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
       rsds = roleSapDatabases.data.map((rsd) => rsd.sapDatabaseCode)
     } else rsds = []
 
-    if (role.key === 'admin') {
+    if (role.key === SUPER_USER_ROLE_KEY) {
       rps = pdata.map((p) => ({ id: p.id, actions: p.allowedActions }))
       rrs = reports.data.map((r) => r.code)
       rsds = sapDatabases.data.map((sapDb) => sapDb.dbCode)

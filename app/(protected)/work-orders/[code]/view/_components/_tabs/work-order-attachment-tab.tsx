@@ -32,6 +32,8 @@ import FileUploadErrorDataGrid from '@/components/file-upload-error-datagrid'
 import WorkOrderAttachmentView from '../work-order-attachment-view'
 import { useSession } from 'next-auth/react'
 import { hideActionButton } from '@/utils/devextreme'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
+import { MODULE_NAME } from '@/constants/module'
 
 type WorkOrderAttachmentTabProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
@@ -74,7 +76,7 @@ export default function WorkOrderAttachmentTab({ workOrder, fileAttachments }: W
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const handleView = useCallback(
@@ -144,7 +146,7 @@ export default function WorkOrderAttachmentTab({ workOrder, fileAttachments }: W
         if (batch.length === batchSize || isLast) {
           const response = await uploadFileAttachmentData.executeAsync({
             files: batch,
-            modulelName: 'work-orders',
+            modulelName: MODULE_NAME.WORK_ORDERS,
             refCode: workOrder.code,
             total: toUploadFiles.length,
             stats,
@@ -168,7 +170,7 @@ export default function WorkOrderAttachmentTab({ workOrder, fileAttachments }: W
           toast.success(`File${toUploadFiles.length > 1 ? 's' : ''} uploaded successfully! ${stats.errors.length} errors found.`)
           setStats((prev: any) => ({ ...prev, total: 0, completed: 0, progress: 0, status: 'processing' }))
           form.reset()
-          fileAttachments.executeAsync({ modulelName: 'work-orders', refCode: workOrder.code })
+          fileAttachments.executeAsync({ modulelName: MODULE_NAME.WORK_ORDERS, refCode: workOrder.code })
         }
 
         if (stats.errors.length > 0) {
@@ -198,7 +200,7 @@ export default function WorkOrderAttachmentTab({ workOrder, fileAttachments }: W
         if (!result.error) {
           setTimeout(() => {
             router.refresh()
-            fileAttachments.executeAsync({ modulelName: 'work-orders', refCode: workOrder.code })
+            fileAttachments.executeAsync({ modulelName: MODULE_NAME.WORK_ORDERS, refCode: workOrder.code })
           }, 1500)
 
           return result.message

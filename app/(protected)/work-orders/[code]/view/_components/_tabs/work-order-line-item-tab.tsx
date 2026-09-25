@@ -41,7 +41,10 @@ import { differenceInDays } from 'date-fns'
 import { HiddenFieldsContext } from '@/context/hidden-fields-context'
 import Column from '@/components/column'
 import { TFS_ONLY_FIELDS } from '@/constants/project-item'
+import { MODULE_NAME } from '@/constants/module'
+import { useCurrentUserHiddenFields } from '@/hooks/safe-actions/user-hidden-field'
 import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type WorkOrderLineItemTabProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
@@ -80,20 +83,20 @@ export default function WorkOrderLineItemTab({ workOrder, workOrderItems }: Work
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const isLocked = useMemo(() => {
     return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['Open']
   }, [workOrderStatus])
 
+  const userHiddenFields = useCurrentUserHiddenFields(MODULE_NAME.PROJECT_ITEMS)
+
   const hiddenFields = useMemo(() => {
     //* warehouse, bin and batch have no meaning outside the custom tfs process
     const tfsFields = isCustomTfsEnabled ? [] : TFS_ONLY_FIELDS
-
-    if (isBusinessPartner) return [...projectIndividual.projectItemHiddenFields, ...tfsFields]
-    return tfsFields
-  }, [isBusinessPartner, isCustomTfsEnabled, JSON.stringify(projectIndividual)])
+    return [...userHiddenFields.data, ...tfsFields]
+  }, [isCustomTfsEnabled, JSON.stringify(userHiddenFields.data)])
 
   const woItems = useMemo(() => {
     if (workOrderItems.isLoading || workOrderItems.data.length < 1) return []

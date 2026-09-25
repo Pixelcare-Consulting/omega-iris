@@ -24,6 +24,7 @@ import ProjectIndividualBatchTab from './_tabs/project-individual-batch-tab'
 import ProjectIndividualWarehouseTab from './_tabs/project-individual-warehouse-tab'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
+import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 type ViewProjectIndividualProps = {
   projectIndividual: NonNullable<Awaited<ReturnType<typeof getPiByCode>>>
@@ -34,7 +35,7 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
   const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
   const router = useRouter()
 
-  const customerUsers = useUsersByRoleKey('business-partner')
+  const customerUsers = useUsersByRoleKey(BUSINESS_PARTNER_ROLE_KEY)
   const nonCustomerUsers = useNonBpUsers()
   const items = useProjecItems(projectIndividual.code)
   const suppliers = useBps('S', true)
@@ -87,7 +88,7 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
             <ProjectIndividualOverviewTab projectIndividual={projectIndividual} />
           </TabPanelITem>
 
-          {session?.user.roleKey === 'admin' && (
+          {session?.user.roleKey === SUPER_USER_ROLE_KEY && (
             <>
               <TabPanelITem title='Customers'>
                 <ProjectIndividualCustomerTab
@@ -123,15 +124,10 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
 
           <CanView subject='p-projects-individual-inventory' action={['view', 'view (owner)']}>
             <TabPanelITem title='Inventory'>
-              <ProjectIndividualItemTab
-                projectCode={projectIndividual.code}
-                projectName={projectIndividual.name}
-                projectItemHiddenFields={projectIndividual.projectItemHiddenFields}
-                items={items}
-              />
+              <ProjectIndividualItemTab projectCode={projectIndividual.code} projectName={projectIndividual.name} items={items} />
             </TabPanelITem>
 
-            {/* {session?.user.roleKey === 'admin' && (
+            {/* {session?.user.roleKey === SUPER_USER_ROLE_KEY && (
               <TabPanelITem title='Batches'>
                 <ProjectIndividualBatchTab projectCode={projectIndividual.code} batches={batches} />
               </TabPanelITem>

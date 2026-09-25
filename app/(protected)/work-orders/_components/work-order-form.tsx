@@ -54,6 +54,9 @@ import DateBoxField from '@/components/forms/date-box-field'
 import { useDuplicatedFromWoByCode } from '@/hooks/safe-actions/work-order'
 import { subtract } from 'mathjs'
 import { Badge } from '@/components/badge'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
+import { MODULE_NAME } from '@/constants/module'
+import { useCurrentUserHiddenFields } from '@/hooks/safe-actions/user-hidden-field'
 
 type WorkOrderFormProps = {
   pageMetaData: PageMetadata
@@ -80,7 +83,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
   const formValues = useMemo(() => {
     const roleKey = session?.user.roleKey
-    const isBusinessPartner = roleKey === 'business-partner'
+    const isBusinessPartner = roleKey === BUSINESS_PARTNER_ROLE_KEY
 
     if (workOrder) return { ...workOrder, lineItems: [] }
 
@@ -179,16 +182,14 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const selectedStatus = useMemo(() => WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === status)?.label, [status])
   const selectedProject = useMemo(() => projects.data.find((p) => p.code === projectCode), [JSON.stringify(projects), projectCode])
 
-  const hiddenFields = useMemo(() => {
-    if (isBusinessPartner) return selectedProject?.projectItemHiddenFields
-    return []
-  }, [isBusinessPartner, JSON.stringify(selectedProject)])
+  //* the line item table adds the tfs only fields itself
+  const hiddenFields = useCurrentUserHiddenFields(MODULE_NAME.PROJECT_ITEMS).data
 
   const addresses = useAddresses(customer?.data?.customerCode ?? '')
 
@@ -315,7 +316,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
   //* set userCode (owner) automatically if user is business partner (customer)
   useEffect(() => {
-    if (session?.user.roleKey === 'business-partner' && session.user) form.setValue('userCode', session?.user.code)
+    if (session?.user.roleKey === BUSINESS_PARTNER_ROLE_KEY && session.user) form.setValue('userCode', session?.user.code)
   }, [JSON.stringify(session), userCode])
 
   //* if duplicatedFromCode is exist, then prepopulate the form with the duplicatedFromWorkOrder data
@@ -557,7 +558,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                 />
               )}
 
-              {session?.user.roleKey !== 'business-partner' && (
+              {session?.user.roleKey !== BUSINESS_PARTNER_ROLE_KEY && (
                 <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                   <SwitchField control={form.control} name='isInternal' label='Internal' description='Is this an internal work order?' />
                 </div>

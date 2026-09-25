@@ -12,6 +12,7 @@ import { importFormSchema } from '@/schema/import'
 import { getCurrentUserAbility } from './auth'
 import { createNotification } from './notification'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 const COMMON_PROJECT_GROUP_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectGroupOrderByWithRelationInput
 
@@ -117,7 +118,7 @@ export const upsertPg = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -516,7 +517,7 @@ export const updatePgPics = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -648,7 +649,7 @@ export const updatePicPgs = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],

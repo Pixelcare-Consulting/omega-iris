@@ -51,12 +51,14 @@ import { Badge } from '@/components/badge'
 import { useJobSchedule, useSyncMeta } from '@/hooks/safe-actions/sync-meta'
 import { PROJECT_ITEM_SYNC_JOB_CODE, PROJECT_ITEM_SYNC_META_CODE } from '@/constants/sap'
 import { TFS_ONLY_FIELDS } from '@/constants/project-item'
+import { MODULE_NAME } from '@/constants/module'
+import { useCurrentUserHiddenFields } from '@/hooks/safe-actions/user-hidden-field'
 import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type ProjectIndividualItemTabProps = {
   projectCode: number
   projectName: string
-  projectItemHiddenFields?: string[]
   items: ReturnType<typeof useProjecItems>
 }
 type DataSource = Awaited<ReturnType<typeof getProjecItems>>
@@ -73,7 +75,6 @@ const INITIAL_SYNC_SECTION_STATE: SyncSectionState = {
 export default function ProjectIndividualItemTab({
   projectCode,
   projectName,
-  projectItemHiddenFields = [],
   items,
 }: ProjectIndividualItemTabProps) {
   const { data: session } = useSession()
@@ -137,16 +138,16 @@ export default function ProjectIndividualItemTab({
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
+
+  const userHiddenFields = useCurrentUserHiddenFields(MODULE_NAME.PROJECT_ITEMS)
 
   const hiddenFields = useMemo(() => {
     //* warehouse, bin and batch have no meaning outside the custom tfs process
     const tfsFields = isCustomTfsEnabled ? [] : TFS_ONLY_FIELDS
-
-    if (isBusinessPartner) return [...projectItemHiddenFields, ...tfsFields]
-    return tfsFields
-  }, [isBusinessPartner, isCustomTfsEnabled, JSON.stringify(projectItemHiddenFields)])
+    return [...userHiddenFields.data, ...tfsFields]
+  }, [isCustomTfsEnabled, JSON.stringify(userHiddenFields.data)])
 
   const thumbnailCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
     const data = e.data as DataSource[number]

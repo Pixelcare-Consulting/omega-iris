@@ -10,6 +10,7 @@ import Separator from '@/components/separator'
 import Copy from '@/components/copy'
 import { Badge } from '@/components/badge'
 import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type UserOverviewTabProps = {
   user: NonNullable<Awaited<ReturnType<typeof getUserByCode>>>
@@ -35,7 +36,7 @@ export default function UserOverviewTab({ user }: UserOverviewTabProps) {
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Role' value={user.role.name}>
           {/* //* a business partner belongs to one sap database, name it beside the role */}
-          {user.role.key === 'business-partner' && user.customer?.sapDatabase?.name && (
+          {user.role.key === BUSINESS_PARTNER_ROLE_KEY && user.customer?.sapDatabase?.name && (
             <Badge variant='soft-blue'>{user.customer.sapDatabase.name}</Badge>
           )}
         </ReadOnlyField>

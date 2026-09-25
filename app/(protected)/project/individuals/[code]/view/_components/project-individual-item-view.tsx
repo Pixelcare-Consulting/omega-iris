@@ -16,6 +16,7 @@ import ProjectIndividualItemSapInventory from './project-individual-item-sap-inv
 import Separator from '@/components/separator'
 import { safeParseFloat } from '@/utils'
 import { useSession } from 'next-auth/react'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type ProjectIndividualItemViewProps = {
   data: Awaited<ReturnType<typeof getProjecItems>>[number]
@@ -34,7 +35,7 @@ export default function ProjectIndividualItemView({ data, onClose, hiddenFields 
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   return (

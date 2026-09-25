@@ -14,6 +14,7 @@ import { safeParseFloat } from '@/utils'
 import { differenceInDays, format, isValid } from 'date-fns'
 import Separator from '@/components/separator'
 import { useSession } from 'next-auth/react'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type WorkOrderLineItemViewProps = {
   data: Record<string, any> & WorkOrderItemForm
@@ -33,7 +34,7 @@ export default function WorkOrderLineItemView({ data, onClose, hiddenFields = []
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   return (

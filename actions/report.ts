@@ -7,6 +7,7 @@ import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { markReportAsDefaultSchema, REPORT_TYPE_LABEL, reportFormSchema, ReportType } from '@/schema/report'
 import { getCurrentUserAbility } from './auth'
+import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 const COMMON_REPORT_ORDER_BY = { code: 'asc' } satisfies Prisma.ReportOrderByWithRelationInput
 
@@ -17,7 +18,7 @@ export async function getReports(userInfo: Awaited<ReturnType<typeof getCurrentU
 
   try {
     const where: Prisma.ReportWhereInput | undefined =
-      roleKey === 'admin'
+      roleKey === SUPER_USER_ROLE_KEY
         ? undefined
         : {
             OR: [{ roleReports: { some: { roleCode } } }, { isDefault: true }],
@@ -48,12 +49,12 @@ export async function getDashboardReports(userInfo: Awaited<ReturnType<typeof ge
     const where: Prisma.ReportWhereInput = {
       type: '1',
       isActive: true,
-      ...(roleKey !== 'admin' ? (roleKey !== 'business-partner' ? {} : { isInternal: false }) : {}),
+      ...(roleKey !== SUPER_USER_ROLE_KEY ? (roleKey !== BUSINESS_PARTNER_ROLE_KEY ? {} : { isInternal: false }) : {}),
       OR: [
         { isDefault: true },
         {
           isFeatured: true,
-          ...(roleKey !== 'admin' ? { roleReports: { some: { roleCode } } } : {}),
+          ...(roleKey !== SUPER_USER_ROLE_KEY ? { roleReports: { some: { roleCode } } } : {}),
         },
       ],
     }
@@ -81,12 +82,12 @@ export async function getPaginatedReports(userInfo: Awaited<ReturnType<typeof ge
     const where: Prisma.ReportWhereInput = {
       type: '2',
       isActive: true,
-      ...(roleKey !== 'admin' ? (roleKey !== 'business-partner' ? {} : { isInternal: false }) : {}),
+      ...(roleKey !== SUPER_USER_ROLE_KEY ? (roleKey !== BUSINESS_PARTNER_ROLE_KEY ? {} : { isInternal: false }) : {}),
       OR: [
         { isDefault: true },
         {
           isFeatured: true,
-          ...(roleKey !== 'admin' ? { roleReports: { some: { roleCode } } } : {}),
+          ...(roleKey !== SUPER_USER_ROLE_KEY ? { roleReports: { some: { roleCode } } } : {}),
         },
       ],
     }

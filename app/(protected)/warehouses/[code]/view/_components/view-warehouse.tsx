@@ -23,6 +23,7 @@ import { usePisByWarehouseCode } from '@/hooks/safe-actions/project-individual'
 import WarehouseItemInventoryTab from './_tabs/warehouse-item-inventory-tab'
 import { useSapItemStockListByWarehouse } from '@/hooks/safe-actions/warehouse-item-inventory'
 import { useSession } from 'next-auth/react'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 type ViewWarehouseProps = {
   warehouse: NonNullable<Awaited<ReturnType<typeof getWarehouseByCode>>>
@@ -99,7 +100,7 @@ export default function ViewWarehouse({ warehouse }: ViewWarehouseProps) {
             </TabPanelITem>
           </CanView>
 
-          {session?.user.roleKey === 'admin' && (
+          {session?.user.roleKey === SUPER_USER_ROLE_KEY && (
             <CanView subject='p-projects-individuals' action={['view', 'view (owner)']}>
               <TabPanelITem title='Projects'>
                 <WarehouseProjectTab projects={projects} />

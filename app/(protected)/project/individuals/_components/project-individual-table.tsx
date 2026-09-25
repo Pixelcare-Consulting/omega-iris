@@ -22,6 +22,7 @@ import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import { NotificationContext } from '@/context/notification'
 import { useSession } from 'next-auth/react'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type ProjectIndividualTableProps = { projectIndividuals: Awaited<ReturnType<typeof getPis>> }
 type DataSource = Awaited<ReturnType<typeof getPis>>
@@ -62,7 +63,7 @@ export default function ProjectIndividualsTable({ projectIndividuals }: ProjectI
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {

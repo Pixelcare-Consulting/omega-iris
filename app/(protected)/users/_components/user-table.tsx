@@ -22,6 +22,7 @@ import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import { NotificationContext } from '@/context/notification'
 import { useSession } from 'next-auth/react'
 import { sendEmail } from '@/actions/email'
+import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 type UserTableProps = { users: Awaited<ReturnType<typeof getUsers>> }
 type DataSource = Awaited<ReturnType<typeof getUsers>>
@@ -50,7 +51,7 @@ export default function UserTable({ users }: UserTableProps) {
 
   const isAdmin = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'admin'
+    return session.user.roleKey === SUPER_USER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const lastSigninCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
@@ -65,7 +66,7 @@ export default function UserTable({ users }: UserTableProps) {
     const roleName = rowData?.role?.name || ''
     const dbName = rowData?.customer?.sapDatabase?.name
 
-    if (rowData?.role?.key !== 'business-partner' || !dbName) return roleName
+    if (rowData?.role?.key !== BUSINESS_PARTNER_ROLE_KEY || !dbName) return roleName
 
     return `${roleName} ${dbName}`
   }, [])
@@ -75,7 +76,7 @@ export default function UserTable({ users }: UserTableProps) {
     const data = e.data as DataSource[number]
     const dbName = data?.customer?.sapDatabase?.name
 
-    if (data?.role?.key !== 'business-partner' || !dbName) return data?.role?.name || ''
+    if (data?.role?.key !== BUSINESS_PARTNER_ROLE_KEY || !dbName) return data?.role?.name || ''
 
     return (
       <div className='flex flex-col items-start gap-1'>
@@ -260,7 +261,7 @@ export default function UserTable({ users }: UserTableProps) {
                 visible={(opt) => {
                   const data = opt?.row?.data
                   const roleKey = data?.role?.key
-                  return hideActionButton(data?.deletedAt || data?.deletedBy || (!isAdmin && roleKey === 'admin'))
+                  return hideActionButton(data?.deletedAt || data?.deletedBy || (!isAdmin && roleKey === SUPER_USER_ROLE_KEY))
                 }}
               />
             </CanView>
@@ -274,7 +275,7 @@ export default function UserTable({ users }: UserTableProps) {
                 visible={(opt) => {
                   const data = opt?.row?.data
                   const roleKey = data?.role?.key
-                  return hideActionButton(data?.deletedAt || data?.deletedBy || (!isAdmin && roleKey === 'admin'))
+                  return hideActionButton(data?.deletedAt || data?.deletedBy || (!isAdmin && roleKey === SUPER_USER_ROLE_KEY))
                 }}
               />
             </CanView>

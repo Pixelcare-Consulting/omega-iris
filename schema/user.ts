@@ -22,11 +22,13 @@ export const userFormSchema = z
     supplierCode: z.string().nullish(),
     isForceToChangePassword: z.boolean().nullish(),
     isLocked: z.boolean().nullish(),
+    //* module name -> hidden field keys, see HIDDEN_FIELD_MODULES
+    hiddenFields: z.record(z.string(), z.array(z.string()).nullish()).default({}),
   })
   //TODO: Customer is not required for now, uncomment this when customer is required
   // .refine(
   //   (formObj) => {
-  //     if (formObj.roleKey === 'business-partner') return formObj.customerCode && formObj.customerCode.length >= 1
+  //     if (formObj.roleKey === BUSINESS_PARTNER_ROLE_KEY) return formObj.customerCode && formObj.customerCode.length >= 1
   //     else return true
   //   },
   //   { message: 'Customer code is required', path: ['customerCode'] }

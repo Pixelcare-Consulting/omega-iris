@@ -17,6 +17,7 @@ import { useSalesOrderByWorkOrderCode } from '@/hooks/safe-actions/sales-order'
 import { useAddressById } from '@/hooks/safe-actions/address'
 import { format, isValid } from 'date-fns'
 import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type WorkOrderOverviewTabProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
@@ -66,7 +67,7 @@ export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAdd
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   return (

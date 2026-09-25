@@ -22,6 +22,7 @@ import { useWarehouseSubLevelCodes } from '@/hooks/safe-actions/warehouse-sublev
 import { deleleteWarehouseBinLocation, getWarehouseBinLocations, restoreWarehouseBinLocation } from '@/actions/warehouse-bin-location'
 import WarehouseBinLocationForm from '@/app/(protected)/warehouses/_components/warehouse-bin-location-form'
 import WarehouseBinLocationView from '@/app/(protected)/warehouses/_components/warehouse-bin-location-view'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type WarehouseBinLocationTabProps = {
   warehouseCode: string
@@ -67,7 +68,7 @@ export default function WarehouseBinLocationTab({
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const handleAdd = useCallback(() => {

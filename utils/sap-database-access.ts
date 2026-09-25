@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client'
 
 import { db } from './db'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 //? NOTE: this lives outside /actions on purpose. safe-action.ts cannot import a file that uses `action`
 //? without creating a circular dependency, and tenantMiddleware needs these checks.
@@ -20,7 +21,7 @@ export async function getSapDatabasesForRole(roleCode?: number | null) {
     return db.sapDatabase.findMany({
       where: {
         ...SAP_DATABASE_ACCESS_WHERE,
-        ...(role.key !== 'admin' && { roleSapDatabases: { some: { roleCode } } }),
+        ...(role.key !== SUPER_USER_ROLE_KEY && { roleSapDatabases: { some: { roleCode } } }),
       },
       orderBy: SAP_DATABASE_ACCESS_ORDER_BY,
     })

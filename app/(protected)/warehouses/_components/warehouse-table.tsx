@@ -39,6 +39,7 @@ import { Stats, SyncSectionState } from '@/types/common'
 import { chunkArray } from '@/utils'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import CanView from '@/components/acl/can-view'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 type WarehousesTableProps = { warehouses: Awaited<ReturnType<typeof getWarehouses>> }
 type DataSource = Awaited<ReturnType<typeof getWarehouses>>
@@ -511,7 +512,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
                 hint='Delete'
                 visible={(opt) => {
                   const data = opt?.row?.data
-                  return hideActionButton(data?.deletedAt || data?.deletedBy || data?.syncStatus === 'synced' || data.key === 'admin')
+                  return hideActionButton(data?.deletedAt || data?.deletedBy || data?.syncStatus === 'synced' || data.key === SUPER_USER_ROLE_KEY)
                 }}
               />
             </CanView>

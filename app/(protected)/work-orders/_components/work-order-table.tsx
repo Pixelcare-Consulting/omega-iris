@@ -37,6 +37,7 @@ import CommonOperationErrorDataGrid from '@/components/common-operation-error-da
 import { Badge } from '@/components/badge'
 import { useJobSchedule, useSyncMeta } from '@/hooks/safe-actions/sync-meta'
 import { WO_DELIVERY_SYNC_JOB_CODE, WO_DELIVERY_SYNC_META_CODE } from '@/constants/sap'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type WorkOrderTableProps = { workOrders: Awaited<ReturnType<typeof getWorkOrders>> }
 type DataSource = Awaited<ReturnType<typeof getWorkOrders>>
@@ -116,7 +117,7 @@ export default function WorkOrderTable({ workOrders }: WorkOrderTableProps) {
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const workOrderToUpdateInfo = useMemo(() => {
