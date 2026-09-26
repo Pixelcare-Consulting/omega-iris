@@ -48,6 +48,7 @@ import { useManufacturers } from '@/hooks/safe-actions/manufacturer'
 import { NotificationContext } from '@/context/notification'
 import { chunkArray, safeParseInt } from '@/utils'
 import { ITEM_MASTER_MAX_PAGE_SIZE, SYNC_TO_SAP_CHUNK_SIZE } from '@/constants/sap'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 
 type ItemTableProps = { items: Awaited<ReturnType<typeof getItems>> }
 type DataSource = Awaited<ReturnType<typeof getItems>>
@@ -63,6 +64,7 @@ const INITIAL_SYNC_SECTION_STATE: SyncSectionState = {
 
 export default function ItemTable({ items }: ItemTableProps) {
   const router = useRouter()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-inventory'
   const DATAGRID_UNIQUE_KEY = 'inventory'
@@ -494,12 +496,12 @@ export default function ItemTable({ items }: ItemTableProps) {
         title={
           <>
             <span className='pr-1.5'>Item Master</span>
-            <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>
+            {isCustomTfsEnabled && <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>}
           </>
         }
         description='Manage and track your item master effectively'
       >
-        {selectedRowKeys.length > 0 && (
+        {isCustomTfsEnabled && selectedRowKeys.length > 0 && (
           <CanView subject='p-inventory' action='sync to sap'>
             <Item location='after' locateInMenu='auto' widget='dxButton'>
               <Tooltip
@@ -523,7 +525,7 @@ export default function ItemTable({ items }: ItemTableProps) {
           </CanView>
         )}
 
-        {selectedRowKeys.length < 1 && (
+        {isCustomTfsEnabled && selectedRowKeys.length < 1 && (
           <CanView subject='p-inventory' action='sync from sap'>
             <Item location='after' locateInMenu='auto' widget='dxButton'>
               {!syncMeta.isLoading && (
@@ -588,7 +590,8 @@ export default function ItemTable({ items }: ItemTableProps) {
           data={items}
           storageKey={DATAGRID_STORAGE_KEY}
           keyExpr='code'
-          isSelectionEnable
+          //* selection only feeds sync to sap, which non-tfs companies can't use
+          isSelectionEnable={isCustomTfsEnabled}
           dataGridStore={dataGridStore}
           selectedRowKeys={selectedRowKeys}
           callbacks={{ onCellPrepared: handleOnCellPrepared, onSelectionChanged: handleOnSelectionChanged }}

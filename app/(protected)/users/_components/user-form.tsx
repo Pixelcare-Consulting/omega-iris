@@ -32,6 +32,7 @@ import { useSession } from 'next-auth/react'
 import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
 import TagBoxField from '@/components/forms/tag-box-field'
 import { HIDDEN_FIELD_MODULES } from '@/constants/hidden-field'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 
 type UserFormProps = { pageMetaData: PageMetadata; user: Awaited<ReturnType<typeof getUserByCode>> }
 
@@ -41,6 +42,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
   const { code } = useParams() as { code: string }
 
   const { data: session } = useSession()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
   const notificationContext = useContext(NotificationContext)
 
   const isCreate = code === 'add' || !user
@@ -106,10 +108,10 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
 
   const { executeAsync, isExecuting } = useAction(upsertUser)
 
-  const customers = useBps(
-    ['C', ...(process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' ? [] : ['L'])],
-    process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' ? true : false
-  )
+  //* synced-only applies to isEnabledCustomTfsProcess true companies, others still get pending & lead customers
+  const isSyncedStrict = process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' && isCustomTfsEnabled
+
+  const customers = useBps(['C', ...(isSyncedStrict ? [] : ['L'])], isSyncedStrict)
   const roles = useRoles()
 
   //! useBps only returns the active database, so a customer from another one is missing and the field renders blank

@@ -48,6 +48,7 @@ import { useAccountTypes } from '@/hooks/safe-actions/account-type'
 import { useBusinessTypes } from '@/hooks/safe-actions/business-type'
 import { parseExcelFile } from '@/utils/xlsx'
 import { NotificationContext } from '@/context/notification'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 
 type CustomerTableProps = { bps: Awaited<ReturnType<typeof getBps>> }
 type DataSource = Awaited<ReturnType<typeof getBps>>
@@ -63,6 +64,7 @@ const INITIAL_SYNC_SECTION_STATE: SyncSectionState = {
 
 export default function CustomerTable({ bps }: CustomerTableProps) {
   const router = useRouter()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-customer'
   const DATAGRID_UNIQUE_KEY = 'customers'
@@ -475,12 +477,12 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
         title={
           <>
             <span className='pr-1.5'>Customers</span>
-            <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>
+            {isCustomTfsEnabled && <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>}
           </>
         }
         description='Manage and track your customers effectively'
       >
-        {selectedRowKeys.length > 0 && (
+        {isCustomTfsEnabled && selectedRowKeys.length > 0 && (
           <CanView subject='p-customers' action='sync to sap'>
             <Item location='after' locateInMenu='auto' widget='dxButton'>
               <Tooltip
@@ -504,7 +506,7 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
           </CanView>
         )}
 
-        {selectedRowKeys.length < 1 && (
+        {isCustomTfsEnabled && selectedRowKeys.length < 1 && (
           <CanView subject='p-customers' action='sync from sap'>
             <Item location='after' locateInMenu='auto' widget='dxButton'>
               {!syncMeta.isLoading && (
@@ -568,7 +570,8 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
           data={bps}
           storageKey={DATAGRID_STORAGE_KEY}
           keyExpr='code'
-          isSelectionEnable
+          //* selection only feeds sync to sap, which non-tfs companies can't use
+          isSelectionEnable={isCustomTfsEnabled}
           dataGridStore={dataGridStore}
           selectedRowKeys={selectedRowKeys}
           callbacks={{ onCellPrepared: handleOnCellPrepared, onSelectionChanged: handleOnSelectionChanged }}

@@ -19,6 +19,7 @@ import { ProjectItemSyncResult, syncProjectItemsFromSap } from '@/utils/jobs/pro
 import { PROJECT_ITEM_SYNC_JOB_CODE } from '@/constants/sap'
 import { runJobExclusive } from '@/utils/jobs/scheduler'
 import { SUPER_USER_ROLE_KEY } from '@/constants/role'
+import { isCustomTfsEnabled } from '@/utils/sap-database-access'
 
 const COMMON_PROJECT_ITEM_INCLUDE = {
   item: true,
@@ -944,6 +945,9 @@ export const importProjectItems = action
 
       const projectWarehouseCodes = projectWarehouses.map((w) => w.WarehouseCode)
 
+      //* synced-only applies to isEnabledCustomTfsProcess true companies, others can still import pending items
+      const isSyncedStrict = process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' && (await isCustomTfsEnabled(dbCode))
+
       for (let i = 0; i < data.length; i++) {
         const errors: ImportSyncErrorEntry[] = []
         const row = data[i]
@@ -960,8 +964,8 @@ export const importProjectItems = action
         //* check if MFG_P/N of an item exist in the db
         if (row?.['MFG_P/N'] && !baseItem) errors.push({ field: 'MFG P/N', message: 'MFG P/N does not exist' })
 
-        //* check if NEXT_PUBLIC_SYNCED_STRICT is true, cannot import item "pending" or unsync item when NEXT_PUBLIC_SYNCED_STRICT is true
-        if (process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' && baseItem?.syncStatus !== 'synced') {
+        //* in synced-only mode, pending or unsynced items cannot be imported
+        if (isSyncedStrict && baseItem?.syncStatus !== 'synced') {
           errors.push({ field: 'MFG P/N', message: 'Item is not synced' })
         }
 

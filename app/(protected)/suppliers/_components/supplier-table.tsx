@@ -31,6 +31,7 @@ import { Stats, SyncSectionState } from '@/types/common'
 import { BP_MASTER_MAX_PAGE_SIZE } from '@/constants/sap'
 import ProgressBar from 'devextreme-react/progress-bar'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 
 type SupplierTableProps = { bps: Awaited<ReturnType<typeof getBps>> }
 type DataSource = Awaited<ReturnType<typeof getBps>>
@@ -46,6 +47,7 @@ const INITIAL_SYNC_SECTION_STATE: SyncSectionState = {
 
 export default function SupplierTable({ bps }: SupplierTableProps) {
   const router = useRouter()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-supplier'
   const DATAGRID_UNIQUE_KEY = 'suppliers'
@@ -165,12 +167,12 @@ export default function SupplierTable({ bps }: SupplierTableProps) {
         title={
           <>
             <span className='pr-1.5'>Suppliers</span>
-            <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>
+            {isCustomTfsEnabled && <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>}
           </>
         }
         description='Manage and track your suppliers effectively'
       >
-        {selectedRowKeys.length < 1 && (
+        {isCustomTfsEnabled && selectedRowKeys.length < 1 && (
           <CanView subject='p-suppliers' action='sync from sap'>
             <Item location='after' locateInMenu='auto' widget='dxButton'>
               {!syncMeta.isLoading && (
