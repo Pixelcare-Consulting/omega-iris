@@ -14,3 +14,6 @@ JOIN "ProjectIndividual" T1 ON T1."code" = T0."projectIndividualCode"
 JOIN "ProjectGroup" T3 ON T3."code" = T1."groupCode"
 JOIN "Item" T4 ON T4."code" = T0."itemCode"
 WHERE T3."name" = 'Broker Buy';
+
+--* sample query execution
+SELECT * FROM vw_pi_broker_buy

@@ -12,3 +12,6 @@ FROM (
         ('7', 'Cancelled'),
         ('8', 'Deleted')
 ) AS t(value, name);
+
+--* sample query execution
+SELECT * FROM vw_wo_status

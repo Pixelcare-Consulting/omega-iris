@@ -1,5 +1,9 @@
 --* Get work order status updates by workOrderCode with status names
+--* dropped first: p_db_code changes the signature, a replace would leave the old unscoped one behind
+DROP FUNCTION IF EXISTS fn_get_wo_status_updates_by_code(INT);
+
 CREATE OR REPLACE FUNCTION fn_get_wo_status_updates_by_code(
+    p_db_code         TEXT,
     p_work_order_code INT
 )
 RETURNS TABLE (
@@ -47,10 +51,11 @@ BEGIN
         ON T4."id" = T0."updatedBy"   --* match via id
         AND T4."deletedAt" IS NULL
     WHERE
-        T0."workOrderCode" = p_work_order_code
+        T0."dbCode" = p_db_code                --* a code from another company must not resolve
+        AND T0."workOrderCode" = p_work_order_code
     ORDER BY T0."createdAt" ASC;
 END;
 $$;
 
 --* sample query execution
-SELECT * FROM fn_get_wo_status_updates_by_code(16);
+SELECT * FROM fn_get_wo_status_updates_by_code('OMEGA_P02_TESTING', 16);

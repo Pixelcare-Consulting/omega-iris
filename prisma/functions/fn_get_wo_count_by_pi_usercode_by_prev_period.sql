@@ -1,5 +1,9 @@
 --* Get open and closed work orders count and total stock grouped by project individual by userCode (as customer) by previous period
+--* dropped first: p_db_code changes the signature, a replace would leave the old unscoped one behind
+DROP FUNCTION IF EXISTS fn_get_wo_count_by_pi_usercode_by_prev_period(INT, TEXT);
+
 CREATE OR REPLACE FUNCTION fn_get_wo_count_by_pi_usercode_by_prev_period(
+    p_db_code   TEXT,
     p_user_code INT DEFAULT 0,
     p_period    TEXT DEFAULT 'all-time'
 )
@@ -66,9 +70,11 @@ BEGIN
         AND T1."userCode" = p_user_code                --* filter by userCode
     LEFT JOIN "ProjectGroup" T2
         ON T2."code" = T0."groupCode"
+        AND T2."dbCode" = p_db_code
         AND T2."deletedAt" IS NULL
     LEFT JOIN "WorkOrder" T3
         ON T3."projectIndividualCode" = T0."code"
+        AND T3."dbCode" = p_db_code                --* kept in the join, in the where it would drop projects with no work orders
         AND T3."deletedAt" IS NULL
         AND (
             v_start_date IS NULL
@@ -81,7 +87,8 @@ BEGIN
             SUM(S0."totalStock") AS "totalStock"
         FROM "ProjectItem" S0
         WHERE
-            S0."deletedAt" IS NULL
+            S0."dbCode" = p_db_code
+            AND S0."deletedAt" IS NULL
             AND (
                 v_start_date IS NULL
                 OR S0."createdAt" BETWEEN v_start_date AND v_end_date
@@ -89,7 +96,8 @@ BEGIN
         GROUP BY S0."projectIndividualCode"
     ) T4 ON T4."projectIndividualCode" = T0."code"
     WHERE
-        T0."deletedAt" IS NULL
+        T0."dbCode" = p_db_code                --* company scope, not an optional filter
+        AND T0."deletedAt" IS NULL
         AND T0."isActive" = TRUE
     GROUP BY
         T0."code",
@@ -106,6 +114,6 @@ END;
 $$;
 
 --* sample query execution
-SELECT * FROM fn_get_wo_count_by_pi_usercode_by_prev_period(5);
-SELECT * FROM fn_get_wo_count_by_pi_usercode_by_prev_period(5, 'month');
-SELECT * FROM fn_get_wo_count_by_pi_usercode_by_prev_period(5, 'quarter');
+SELECT * FROM fn_get_wo_count_by_pi_usercode_by_prev_period('OMEGA_P02_TESTING', 5);
+SELECT * FROM fn_get_wo_count_by_pi_usercode_by_prev_period('OMEGA_P02_TESTING', 5, 'month');
+SELECT * FROM fn_get_wo_count_by_pi_usercode_by_prev_period('OMEGA_P02_TESTING', 5, 'quarter');

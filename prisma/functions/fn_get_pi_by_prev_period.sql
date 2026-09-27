@@ -1,6 +1,10 @@
 --* Get project individual by previous period
+--* dropped first: p_db_code changes the signature, a replace would leave the old unscoped one behind
+DROP FUNCTION IF EXISTS fn_get_pi_by_prev_period(TEXT);
+
 CREATE OR REPLACE FUNCTION fn_get_pi_by_prev_period(
-    p_period TEXT DEFAULT 'all-time'
+    p_db_code TEXT,
+    p_period  TEXT DEFAULT 'all-time'
 )
 RETURNS TABLE (
     "id"          TEXT,
@@ -73,7 +77,8 @@ BEGIN
         T0."deletedBy"
     FROM "ProjectIndividual" T0
     WHERE
-        T0."deletedAt" IS NULL
+        T0."dbCode" = p_db_code                --* company scope, not an optional filter
+        AND T0."deletedAt" IS NULL
         AND (
             v_start_date IS NULL  --* all-time: no filter
             OR T0."createdAt" BETWEEN v_start_date AND v_end_date
@@ -83,5 +88,5 @@ END;
 $$;
 
 --* sample query execution
-SELECT * FROM fn_get_pi_by_prev_period()
-SELECT * FROM fn_get_pi_by_prev_period('month')
+SELECT * FROM fn_get_pi_by_prev_period('OMEGA_P02_TESTING')
+SELECT * FROM fn_get_pi_by_prev_period('OMEGA_P02_TESTING', 'month')

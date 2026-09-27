@@ -1,5 +1,9 @@
 --* Get work orders by optional filters: partNumber, mpn (ItemCode), projectName, projectGroupName, customerPo, trackingNum
+--* dropped first: p_db_code changes the signature, a replace would leave the old unscoped one behind
+DROP FUNCTION IF EXISTS fn_get_wo_details_by_filters(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION fn_get_wo_details_by_filters(
+    p_db_code           TEXT,
     p_part_number       TEXT DEFAULT NULL,
     p_mpn               TEXT DEFAULT NULL,
     p_project_name      TEXT DEFAULT NULL,
@@ -81,7 +85,8 @@ BEGIN
         T0."bpPhone1"
     FROM "vw_wo" T0
     WHERE
-        (p_status IS NULL OR T0."status" = p_status)
+        T0."dbCode" = p_db_code                --* company scope, not an optional filter
+        AND (p_status IS NULL OR T0."status" = p_status)
         --* filter by partNumber
         AND (p_part_number IS NULL OR EXISTS (
             SELECT 1 FROM "WorkOrderItem" T1
@@ -91,7 +96,8 @@ BEGIN
             INNER JOIN "Item" T3 
                 ON T3."code" = T2."itemCode" 
                 AND T3."deletedAt" IS NULL
-            WHERE T1."workOrderCode" = T0."code"
+            WHERE T1."dbCode" = p_db_code
+            AND T1."workOrderCode" = T0."code"
             AND T2."partNumber" ILIKE '%' || p_part_number || '%'
         ))
         --* filter by mpn
@@ -103,7 +109,8 @@ BEGIN
             INNER JOIN "Item" T3 
                 ON T3."code" = T2."itemCode" 
                 AND T3."deletedAt" IS NULL
-            WHERE T1."workOrderCode" = T0."code"
+            WHERE T1."dbCode" = p_db_code
+            AND T1."workOrderCode" = T0."code"
             AND T3."ItemCode" ILIKE '%' || p_mpn || '%'
         ))
         --* filter by project name
@@ -115,20 +122,21 @@ BEGIN
         --* filter by tracking number via work order status updates
         AND (p_tracking_num IS NULL OR EXISTS (
             SELECT 1 FROM "WorkOrderStatusUpdate" T4
-            WHERE T4."workOrderCode" = T0."code"
+            WHERE T4."dbCode" = p_db_code
+            AND T4."workOrderCode" = T0."code"
             AND T4."trackingNum" ILIKE '%' || p_tracking_num || '%'
         ));
 END;
 $$;
 
 --* sample query execution
-SELECT * FROM fn_get_wo_details_by_filters();
-SELECT * FROM fn_get_wo_details_by_filters(p_part_number := 'ABC123');
-SELECT * FROM fn_get_wo_details_by_filters(p_mpn := 'XYZ-001');
-SELECT * FROM fn_get_wo_details_by_filters(p_project_name := 'Broker');
-SELECT * FROM fn_get_wo_details_by_filters(p_project_group_name := 'Broker Buy');
-SELECT * FROM fn_get_wo_details_by_filters(p_part_number := 'ABC123', p_mpn := 'XYZ-001');
-SELECT * FROM fn_get_wo_details_by_filters(p_part_number := 'ABC123', p_project_name := 'Broker');
+SELECT * FROM fn_get_wo_details_by_filters('OMEGA_P02_TESTING');
+SELECT * FROM fn_get_wo_details_by_filters('OMEGA_P02_TESTING', p_part_number := 'ABC123');
+SELECT * FROM fn_get_wo_details_by_filters('OMEGA_P02_TESTING', p_mpn := 'XYZ-001');
+SELECT * FROM fn_get_wo_details_by_filters('OMEGA_P02_TESTING', p_project_name := 'Broker');
+SELECT * FROM fn_get_wo_details_by_filters('OMEGA_P02_TESTING', p_project_group_name := 'Broker Buy');
+SELECT * FROM fn_get_wo_details_by_filters('OMEGA_P02_TESTING', p_part_number := 'ABC123', p_mpn := 'XYZ-001');
+SELECT * FROM fn_get_wo_details_by_filters('OMEGA_P02_TESTING', p_part_number := 'ABC123', p_project_name := 'Broker');
 
 
 

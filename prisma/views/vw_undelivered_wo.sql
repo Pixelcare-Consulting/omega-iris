@@ -4,3 +4,6 @@ SELECT T0.*
 FROM "WorkOrder" T0
 WHERE T0."status" <> '6'
 ORDER BY T0."createdAt" DESC;
+
+--* sample query execution
+SELECT * FROM vw_undelivered_wo

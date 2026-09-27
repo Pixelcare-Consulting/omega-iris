@@ -1,5 +1,9 @@
 --* (Optimized Query) Get project items with item details, project name and project group name by optional filters
+--* dropped first: p_db_code changes the signature, a replace would leave the old unscoped one behind
+DROP FUNCTION IF EXISTS fn_get_pitems_details_by_filter_1_1(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION fn_get_pitems_details_by_filter_1_1(
+    p_db_code            TEXT,
     p_project_name       TEXT DEFAULT NULL,
     p_project_group_name TEXT DEFAULT NULL,
     p_mpn                TEXT DEFAULT NULL,
@@ -55,7 +59,8 @@ BEGIN
             ON T2."code" = T1."groupCode"
             AND T2."deletedAt" IS NULL
         WHERE
-            T1."deletedAt" IS NULL
+            T1."dbCode" = p_db_code            --* company scope, not an optional filter
+            AND T1."deletedAt" IS NULL
             AND (p_project_name IS NULL OR T1."name" ILIKE '%' || p_project_name || '%')
             AND (p_project_group_name IS NULL OR T2."name" ILIKE '%' || p_project_group_name || '%')
     ),
@@ -69,7 +74,8 @@ BEGIN
             T3."ItmsGrpNam"
         FROM "Item" T3
         WHERE
-            "deletedAt" IS NULL
+            T3."dbCode" = p_db_code            --* company scope, not an optional filter
+            AND T3."deletedAt" IS NULL
             AND (p_mpn IS NULL OR T3."ItemCode" ILIKE '%' || p_mpn || '%')
             AND (p_description IS NULL OR T3."ItemName" ILIKE '%' || p_description || '%')
             AND (p_manufacturer IS NULL OR T3."FirmName" ILIKE '%' || p_manufacturer || '%')
@@ -100,8 +106,9 @@ BEGIN
     INNER JOIN filtered_projects T1 ON T1."code" = T0."projectIndividualCode"
     INNER JOIN filtered_items T3 ON T3."code" = T0."itemCode"
     WHERE
-        T0."deletedAt" IS NULL
-        AND T0."deletedBy" IS NULL 
+        T0."dbCode" = p_db_code                --* company scope, not an optional filter
+        AND T0."deletedAt" IS NULL
+        AND T0."deletedBy" IS NULL
         AND (p_desc IS NULL OR T0."desc" ILIKE '%' || p_desc || '%')
         AND (p_mfr IS NULL OR T0."mfr" ILIKE '%' || p_mfr || '%')
         AND (p_part_number IS NULL OR T0."partNumber" ILIKE '%' || p_part_number || '%')
@@ -110,7 +117,7 @@ END;
 $$;
 
 --* sample query execution
-SELECT * FROM fn_get_pitems_details_by_filter_1_1();
-SELECT * FROM fn_get_pitems_details_by_filter_1_1(p_project_name := 'Broker');
-SELECT * FROM fn_get_pitems_details_by_filter_1_1(p_project_group_name := 'Broker Buy');
-SELECT * FROM fn_get_pitems_details_by_filter_1_1(p_project_name := 'Broker', p_project_group_name := 'Broker Buy');
+SELECT * FROM fn_get_pitems_details_by_filter_1_1('OMEGA_P02_TESTING');
+SELECT * FROM fn_get_pitems_details_by_filter_1_1('OMEGA_P02_TESTING', p_project_name := 'Broker');
+SELECT * FROM fn_get_pitems_details_by_filter_1_1('OMEGA_P02_TESTING', p_project_group_name := 'Broker Buy');
+SELECT * FROM fn_get_pitems_details_by_filter_1_1('OMEGA_P02_TESTING', p_project_name := 'Broker', p_project_group_name := 'Broker Buy');
