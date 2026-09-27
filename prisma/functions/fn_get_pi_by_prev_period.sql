@@ -88,5 +88,5 @@ END;
 $$;
 
 --* sample query execution
-SELECT * FROM fn_get_pi_by_prev_period('OMEGA_P02_TESTING')
-SELECT * FROM fn_get_pi_by_prev_period('OMEGA_P02_TESTING', 'month')
+SELECT * FROM fn_get_pi_by_prev_period('OMEGA_P02_TESTING');
+SELECT * FROM fn_get_pi_by_prev_period('OMEGA_P02_TESTING', 'month');
