@@ -11,8 +11,9 @@ import {
   projectIndividualFormSchema,
   projectIndividualPicFormSchema,
   projectIndividualSupplierFormSchema,
+  projectIndividualWarehouseFormSchema,
 } from '@/schema/project-individual'
-import { action, authenticationMiddleware } from '@/utils/safe-action'
+import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe-action'
 import z from 'zod'
 import { ImportSyncErrorEntry } from '@/types/common'
 import { importFormSchema } from '@/schema/import'
@@ -20,6 +21,7 @@ import { getCurrentUserAbility } from './auth'
 import { safeParseInt } from '@/utils'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { createNotification } from './notification'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 const COMMON_PROJECT_INDIVIDUAL_INCLUDE = {
   projectGroup: { select: { code: true, name: true } },
@@ -28,7 +30,7 @@ const COMMON_PROJECT_INDIVIDUAL_INCLUDE = {
 
 const COMMON_PROJECT_INDIVIDUAL_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectIndividualOrderByWithRelationInput
 
-export async function getPis(userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
+export async function getPis(dbCode: string, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
   if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
 
   const { userId, userCode, ability } = userInfo
@@ -51,23 +53,26 @@ export async function getPis(userInfo: Awaited<ReturnType<typeof getCurrentUserA
             }
           : { code: -1 }
 
-    return db.projectIndividual.findMany({ include: COMMON_PROJECT_INDIVIDUAL_INCLUDE, orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY, where })
+    return db.projectIndividual.findMany({ include: COMMON_PROJECT_INDIVIDUAL_INCLUDE, orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY, where: { ...where, dbCode } })
   } catch (error) {
     console.error(error)
     return []
   }
 }
 
-export const getPisClient = action.use(authenticationMiddleware).action(async ({ ctx }) => {
-  return getPis(ctx)
-})
+export const getPisClient = action
+  .use(authenticationMiddleware)
+  .use(tenantMiddleware)
+  .action(async ({ ctx }) => {
+    return getPis(ctx.dbCode, ctx)
+  })
 
-export async function getPisByGroupCode(groupCode: number) {
+export async function getPisByGroupCode(dbCode: string, groupCode: number) {
   if (!groupCode) return []
 
   try {
     return db.projectIndividual.findMany({
-      where: { deletedAt: null, deletedBy: null, projectGroup: { code: groupCode } },
+      where: { dbCode, deletedAt: null, deletedBy: null, projectGroup: { code: groupCode } },
       include: COMMON_PROJECT_INDIVIDUAL_INCLUDE,
       orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY,
     })
@@ -79,17 +84,42 @@ export async function getPisByGroupCode(groupCode: number) {
 
 export const getPisByGroupCodeClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(z.object({ groupCode: z.coerce.number() }))
-  .action(async ({ parsedInput }) => {
-    return getPisByGroupCode(parsedInput.groupCode)
+  .action(async ({ ctx, parsedInput }) => {
+    return getPisByGroupCode(ctx.dbCode, parsedInput.groupCode)
   })
 
-export async function getPisBySalesCloser(salesCloser: number) {
+//* project individuals that have the given warehouse assigned to them
+export async function getPisByWarehouseCode(dbCode: string, warehouseCode?: string | null) {
+  if (!warehouseCode) return []
+
+  try {
+    return db.projectIndividual.findMany({
+      where: { dbCode, deletedAt: null, deletedBy: null, projectIndividualWarehouses: { some: { warehouseCode } } },
+      include: COMMON_PROJECT_INDIVIDUAL_INCLUDE,
+      orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY,
+    })
+  } catch (error) {
+    console.error(error)
+    return []
+  }
+}
+
+export const getPisByWarehouseCodeClient = action
+  .use(authenticationMiddleware)
+  .use(tenantMiddleware)
+  .schema(z.object({ warehouseCode: z.string().nullish() }))
+  .action(async ({ ctx, parsedInput }) => {
+    return getPisByWarehouseCode(ctx.dbCode, parsedInput.warehouseCode)
+  })
+
+export async function getPisBySalesCloser(dbCode: string, salesCloser: number) {
   if (!salesCloser) return []
 
   try {
     return db.projectIndividual.findMany({
-      where: { deletedAt: null, deletedBy: null, salesCloser },
+      where: { dbCode, deletedAt: null, deletedBy: null, salesCloser },
       include: COMMON_PROJECT_INDIVIDUAL_INCLUDE,
       orderBy: COMMON_PROJECT_INDIVIDUAL_ORDER_BY,
     })
@@ -101,12 +131,13 @@ export async function getPisBySalesCloser(salesCloser: number) {
 
 export const getPisBySalesCloserClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(z.object({ salesCloser: z.coerce.number() }))
-  .action(async ({ parsedInput }) => {
-    return getPisBySalesCloser(parsedInput.salesCloser)
+  .action(async ({ ctx, parsedInput }) => {
+    return getPisBySalesCloser(ctx.dbCode, parsedInput.salesCloser)
   })
 
-export async function getPiByCode(code: number, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
+export async function getPiByCode(dbCode: string, code: number, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
   if (!code || !userInfo || !userInfo.userId || !userInfo.userCode) return null
 
   const { userId, userCode, ability, roleKey } = userInfo
@@ -130,15 +161,16 @@ export async function getPiByCode(code: number, userInfo: Awaited<ReturnType<typ
             }
           : { code: -1 }
 
-    const projectIndividuals = await db.projectIndividual.findUnique({ where, include: COMMON_PROJECT_INDIVIDUAL_INCLUDE })
+    const projectIndividuals = await db.projectIndividual.findFirst({ where: { ...where, dbCode }, include: COMMON_PROJECT_INDIVIDUAL_INCLUDE })
 
     if (!projectIndividuals) return null
 
     //TODO: separate the fetching of customers and pics into separate actions & hooks
-    const [customers, suppliers, pics] = await Promise.all([
-      db.projectIndividualCustomer.findMany({ where: { projectIndividualCode: code }, select: { userCode: true } }),
-      db.projectIndividualSupplier.findMany({ where: { projectIndividualCode: code }, select: { supplierCode: true } }),
-      db.projectIndividualPic.findMany({ where: { projectIndividualCode: code }, select: { userCode: true } }),
+    const [customers, suppliers, pics, warehouses] = await Promise.all([
+      db.projectIndividualCustomer.findMany({ where: { dbCode, projectIndividualCode: code }, select: { userCode: true } }),
+      db.projectIndividualSupplier.findMany({ where: { dbCode, projectIndividualCode: code }, select: { supplierCode: true } }),
+      db.projectIndividualPic.findMany({ where: { dbCode, projectIndividualCode: code }, select: { userCode: true } }),
+      db.projectIndividualWarehouse.findMany({ where: { dbCode, projectIndividualCode: code }, select: { warehouseCode: true } }),
     ])
 
     return {
@@ -146,6 +178,7 @@ export async function getPiByCode(code: number, userInfo: Awaited<ReturnType<typ
       customers: customers.map((c) => c.userCode),
       suppliers: suppliers.map((s) => s.supplierCode),
       pics: pics.map((p) => p.userCode),
+      warehouses: warehouses.map((w) => w.warehouseCode),
     }
   } catch (error) {
     console.error(error)
@@ -153,12 +186,12 @@ export async function getPiByCode(code: number, userInfo: Awaited<ReturnType<typ
   }
 }
 
-export async function getPisByBpUserCode(userCode?: number | null) {
+export async function getPisByBpUserCode(dbCode: string, userCode?: number | null) {
   try {
     if (!userCode) return []
 
     const projectIndividualCustomers = await db.projectIndividualCustomer.findMany({
-      where: { userCode },
+      where: { dbCode, userCode },
       orderBy: { user: { code: 'asc' } },
       select: { projectIndividual: true },
     })
@@ -174,17 +207,19 @@ export async function getPisByBpUserCode(userCode?: number | null) {
 
 export const getPisByBpUserCodeClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(z.object({ userCode: z.coerce.number().nullish() }))
-  .action(async ({ parsedInput: data }) => {
-    return getPisByBpUserCode(data.userCode)
+  .action(async ({ ctx, parsedInput: data }) => {
+    return getPisByBpUserCode(ctx.dbCode, data.userCode)
   })
 
 export const upsertPi = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(projectIndividualFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, customers, suppliers, pics, ...data } = parsedInput
-    const { userId, userCode } = ctx
+    const { code, customers, suppliers, pics, warehouses, ...data } = parsedInput
+    const { userId, userCode, dbCode } = ctx
 
     const include: Prisma.ProjectIndividualInclude = {
       projectIndividualCustomers: {
@@ -204,7 +239,7 @@ export const upsertPi = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -228,7 +263,7 @@ export const upsertPi = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -242,7 +277,7 @@ export const upsertPi = action
     try {
       //* update project individual
       if (code !== -1) {
-        const existingPi = await db.projectIndividual.findUnique({ where: { code }, include })
+        const existingPi = await db.projectIndividual.findFirst({ where: { code, dbCode }, include })
 
         if (!existingPi) {
           return { error: true, status: 404, message: 'Project individual not found!', action: 'UPSERT_PROJECT_INDIVIDUAL' }
@@ -250,7 +285,7 @@ export const upsertPi = action
 
         if (existingPi.name !== trimmedName) {
           //* check if the name is already exists
-          const existingPiName = await db.projectIndividual.findFirst({ where: { name: trimmedName, code: { not: existingPi.code } } })
+          const existingPiName = await db.projectIndividual.findFirst({ where: { dbCode, name: trimmedName, code: { not: existingPi.code } } })
           if (existingPiName) {
             return { error: true, status: 401, message: 'Project individual name already exists!', action: 'UPSERT_PROJECT_INDIVIDUAL' }
           }
@@ -259,32 +294,40 @@ export const upsertPi = action
         const [updatedPi] = await db.$transaction([
           //* update project individual
           db.projectIndividual.update({
-            where: { code },
+            where: { id: existingPi.id },
             data: { ...data, name: trimmedName, updatedBy: userId },
           }),
 
           //* delete existing project individual customers
-          db.projectIndividualCustomer.deleteMany({ where: { projectIndividualCode: code } }),
+          db.projectIndividualCustomer.deleteMany({ where: { dbCode, projectIndividualCode: code } }),
 
           //* create new project individual customers
           db.projectIndividualCustomer.createMany({
-            data: customers.map((c) => ({ projectIndividualCode: code, userCode: c })),
+            data: customers.map((c) => ({ dbCode, projectIndividualCode: code, userCode: c })),
           }),
 
           //* delete existing project individual suppliers
-          db.projectIndividualSupplier.deleteMany({ where: { projectIndividualCode: code } }),
+          db.projectIndividualSupplier.deleteMany({ where: { dbCode, projectIndividualCode: code } }),
 
           //* create new project individual suppliers
           db.projectIndividualSupplier.createMany({
-            data: suppliers.map((s) => ({ projectIndividualCode: code, supplierCode: s })),
+            data: suppliers.map((s) => ({ dbCode, projectIndividualCode: code, supplierCode: s })),
           }),
 
           //* delete existing project individual pics
-          db.projectIndividualPic.deleteMany({ where: { projectIndividualCode: code } }),
+          db.projectIndividualPic.deleteMany({ where: { dbCode, projectIndividualCode: code } }),
 
           //* create new project individual pics
           db.projectIndividualPic.createMany({
-            data: pics.map((p) => ({ projectIndividualCode: code, userCode: p })),
+            data: pics.map((p) => ({ dbCode, projectIndividualCode: code, userCode: p })),
+          }),
+
+          //* delete existing project individual warehouses
+          db.projectIndividualWarehouse.deleteMany({ where: { dbCode, projectIndividualCode: code } }),
+
+          //* create new project individual warehouses
+          db.projectIndividualWarehouse.createMany({
+            data: warehouses.map((w) => ({ dbCode, projectIndividualCode: code, warehouseCode: w })),
           }),
         ])
 
@@ -399,7 +442,7 @@ export const upsertPi = action
       }
 
       //* check if the name is already exists
-      const existingPi = await db.projectIndividual.findFirst({ where: { name: trimmedName } })
+      const existingPi = await db.projectIndividual.findFirst({ where: { dbCode, name: trimmedName } })
 
       if (existingPi) {
         return { error: true, status: 401, message: 'Project individual name already exists!', action: 'UPSERT_PROJECT_INDIVIDUAL' }
@@ -409,15 +452,19 @@ export const upsertPi = action
       const newPi = await db.projectIndividual.create({
         data: {
           ...data,
+          dbCode,
           name: trimmedName,
           projectIndividualCustomers: {
-            createMany: { data: customers.map((c) => ({ userCode: c })) },
+            createMany: { data: customers.map((c) => ({ dbCode, userCode: c })) },
           },
           projectIndividualSuppliers: {
-            createMany: { data: suppliers.map((s) => ({ supplierCode: s })) },
+            createMany: { data: suppliers.map((s) => ({ dbCode, supplierCode: s })) },
           },
           projectIndividualPics: {
-            createMany: { data: pics.map((p) => ({ userCode: p })) },
+            createMany: { data: pics.map((p) => ({ dbCode, userCode: p })) },
+          },
+          projectIndividualWarehouses: {
+            createMany: { data: warehouses.map((w) => ({ dbCode, warehouseCode: w })) },
           },
           createdBy: userId,
           updatedBy: userId,
@@ -505,15 +552,16 @@ export const upsertPi = action
 
 export const deleletePi = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(paramsSchema)
   .action(async ({ ctx, parsedInput: data }) => {
     try {
-      const projectIndividual = await db.projectIndividual.findUnique({ where: { code: data.code } })
+      const projectIndividual = await db.projectIndividual.findFirst({ where: { code: data.code, dbCode: ctx.dbCode } })
 
       if (!projectIndividual)
         return { error: true, status: 404, message: 'Project individual not found!', action: 'DELETE_PROJECT_INDIVIDUAL' }
 
-      await db.projectIndividual.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
+      await db.projectIndividual.update({ where: { id: projectIndividual.id }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 
       //* create notification
       // void createNotification(ctx, {
@@ -542,16 +590,17 @@ export const deleletePi = action
 
 export const restorePi = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(paramsSchema)
   .action(async ({ ctx, parsedInput: data }) => {
     try {
-      const projectIndividual = await db.projectIndividual.findUnique({ where: { code: data.code } })
+      const projectIndividual = await db.projectIndividual.findFirst({ where: { code: data.code, dbCode: ctx.dbCode } })
 
       if (!projectIndividual) {
         return { error: true, status: 404, message: 'Project individual not found!', action: 'RESTORE_PROJECT_INDIVIDUAL' }
       }
 
-      await db.projectIndividual.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+      await db.projectIndividual.update({ where: { id: projectIndividual.id }, data: { deletedAt: null, deletedBy: null } })
 
       //* create notification
       // void createNotification(ctx, {
@@ -580,10 +629,11 @@ export const restorePi = action
 
 export const importPis = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(importFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { data, total, stats, isLastRow } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const names = data?.map((row) => row?.['Name']?.trim())?.filter(Boolean) || []
     const salesClosers = data?.map((row) => safeParseInt(row?.['Sales_Closer']))?.filter(Boolean) || []
@@ -595,9 +645,9 @@ export const importPis = action
 
       //* get existing project individual names
       const [piNames, piSalesClosers, pgCodes] = await Promise.all([
-        db.projectIndividual.findMany({ where: { name: { in: names } }, select: { name: true } }),
+        db.projectIndividual.findMany({ where: { dbCode, name: { in: names } }, select: { name: true } }),
         db.user.findMany({ where: { code: { in: salesClosers } }, select: { code: true } }),
-        db.projectGroup.findMany({ where: { code: { in: groupCodes } }, select: { code: true } }),
+        db.projectGroup.findMany({ where: { dbCode, code: { in: groupCodes } }, select: { code: true } }),
       ])
 
       const existingPiNames = piNames.map((pi) => pi.name)
@@ -641,6 +691,7 @@ export const importPis = action
 
         //* reshape data
         const toCreate: Prisma.ProjectIndividualCreateManyInput = {
+          dbCode,
           name: trimmedName,
           groupCode: safeParseInt(row?.['Group_ID']) || null,
           description: row?.['Description'] || null,
@@ -659,11 +710,13 @@ export const importPis = action
         skipDuplicates: true,
       })
 
-      const progress = ((stats.completed + batch.length) / total) * 100
+      //* progress based on rows attempted, so it always reaches 100%
+      const progress = total > 0 ? ((stats.completed + data.length) / total) * 100 : 100
 
       const updatedStats = {
         ...stats,
-        completed: stats.completed + batch.length,
+        completed: stats.completed + data.length,
+        synced: stats.synced + batch.length, //* only rows actually created
         progress,
         status: progress >= 100 || isLastRow ? 'completed' : 'processing',
       }
@@ -682,7 +735,7 @@ export const importPis = action
 
       return {
         status: 200,
-        message: `${updatedStats.completed} project individual created successfully!`,
+        message: `${updatedStats.synced}/${total} project individual created successfully!`,
         action: 'IMPORT_PROJECT_INDIVIDUALS',
         stats: updatedStats,
       }
@@ -710,10 +763,11 @@ export const importPis = action
 
 export const updatePiCustomers = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(projectIndividualCustomerFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, customers } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const include: Prisma.ProjectIndividualInclude = {
       projectIndividualCustomers: {
@@ -733,7 +787,7 @@ export const updatePiCustomers = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -743,7 +797,7 @@ export const updatePiCustomers = action
     }
 
     try {
-      const pi = await db.projectIndividual.findUnique({ where: { code }, include })
+      const pi = await db.projectIndividual.findFirst({ where: { code, dbCode }, include })
 
       if (!pi) {
         return { error: true, status: 404, message: 'Project individual not found!', action: 'UPDATE_PROJECT_INDIVIDUAL_CUSTOMERS' }
@@ -753,16 +807,16 @@ export const updatePiCustomers = action
       const [updatedPi] = await db.$transaction([
         //* update project individual
         db.projectIndividual.update({
-          where: { code },
+          where: { id: pi.id },
           data: { updatedBy: userId },
         }),
 
         //* delete existing project individual customers
-        db.projectIndividualCustomer.deleteMany({ where: { projectIndividualCode: code } }),
+        db.projectIndividualCustomer.deleteMany({ where: { dbCode, projectIndividualCode: code } }),
 
         //* create new project individual customers
         db.projectIndividualCustomer.createManyAndReturn({
-          data: customers.map((c) => ({ projectIndividualCode: code, userCode: c })),
+          data: customers.map((c) => ({ dbCode, projectIndividualCode: code, userCode: c })),
         }),
       ])
 
@@ -844,13 +898,14 @@ export const updatePiCustomers = action
 
 export const updatePiSuppliers = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(projectIndividualSupplierFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, suppliers } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     try {
-      const pi = await db.projectIndividual.findUnique({ where: { code } })
+      const pi = await db.projectIndividual.findFirst({ where: { code, dbCode } })
 
       if (!pi) {
         return { error: true, status: 404, message: 'Project individual not found!', action: 'UPDATE_PROJECT_INDIVIDUAL_SUPPLIERS' }
@@ -860,16 +915,16 @@ export const updatePiSuppliers = action
       const [updatedPi] = await db.$transaction([
         //* update project individual
         db.projectIndividual.update({
-          where: { code },
+          where: { id: pi.id },
           data: { updatedBy: userId },
         }),
 
         //* delete existing project individual suppliers
-        db.projectIndividualSupplier.deleteMany({ where: { projectIndividualCode: code } }),
+        db.projectIndividualSupplier.deleteMany({ where: { dbCode, projectIndividualCode: code } }),
 
         //* create new project individual suppliers
         db.projectIndividualSupplier.createManyAndReturn({
-          data: suppliers.map((s) => ({ projectIndividualCode: code, supplierCode: s })),
+          data: suppliers.map((s) => ({ dbCode, projectIndividualCode: code, supplierCode: s })),
         }),
       ])
 
@@ -891,12 +946,63 @@ export const updatePiSuppliers = action
     }
   })
 
+export const updatePiWarehouses = action
+  .use(authenticationMiddleware)
+  .use(tenantMiddleware)
+  .schema(projectIndividualWarehouseFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { code, warehouses } = parsedInput
+    const { userId, dbCode } = ctx
+
+    try {
+      const pi = await db.projectIndividual.findFirst({ where: { code, dbCode } })
+
+      if (!pi) {
+        return { error: true, status: 404, message: 'Project individual not found!', action: 'UPDATE_PROJECT_INDIVIDUAL_WAREHOUSES' }
+      }
+
+      //* update project individual
+      const [updatedPi] = await db.$transaction([
+        //* update project individual
+        db.projectIndividual.update({
+          where: { id: pi.id },
+          data: { updatedBy: userId },
+        }),
+
+        //* delete existing project individual warehouses
+        db.projectIndividualWarehouse.deleteMany({ where: { dbCode, projectIndividualCode: code } }),
+
+        //* create new project individual warehouses
+        db.projectIndividualWarehouse.createManyAndReturn({
+          data: warehouses.map((w) => ({ dbCode, projectIndividualCode: code, warehouseCode: w })),
+        }),
+      ])
+
+      return {
+        status: 200,
+        message: `Project individual's warehouses updated successfully!`,
+        action: 'UPDATE_PROJECT_INDIVIDUAL_WAREHOUSES',
+        data: { projectIndividual: updatedPi },
+      }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'UPDATE_PROJECT_INDIVIDUAL_WAREHOUSES',
+      }
+    }
+  })
+
 export const updatePiPics = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(projectIndividualPicFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, pics } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const include: Prisma.ProjectIndividualInclude = {
       projectIndividualPics: {
@@ -916,7 +1022,7 @@ export const updatePiPics = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -926,7 +1032,7 @@ export const updatePiPics = action
     }
 
     try {
-      const pi = await db.projectIndividual.findUnique({ where: { code }, include })
+      const pi = await db.projectIndividual.findFirst({ where: { code, dbCode }, include })
 
       if (!pi) {
         return { error: true, status: 404, message: 'Project individual not found!', action: 'UPDATE_PROJECT_INDIVIDUAL_PICS' }
@@ -936,16 +1042,16 @@ export const updatePiPics = action
       const [updatedPi] = await db.$transaction([
         //* update project individual
         db.projectIndividual.update({
-          where: { code },
+          where: { id: pi.id },
           data: { updatedBy: userId },
         }),
 
         //* delete existing project individual pics
-        db.projectIndividualPic.deleteMany({ where: { projectIndividualCode: code } }),
+        db.projectIndividualPic.deleteMany({ where: { dbCode, projectIndividualCode: code } }),
 
         //* create new project individual pics
         db.projectIndividualPic.createManyAndReturn({
-          data: pics.map((p) => ({ projectIndividualCode: code, userCode: p })),
+          data: pics.map((p) => ({ dbCode, projectIndividualCode: code, userCode: p })),
         }),
       ])
 
@@ -1027,10 +1133,11 @@ export const updatePiPics = action
 
 export const updateCustomerPis = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(customerProjectIndividualsFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, projects } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const include: Prisma.ProjectIndividualInclude = {
       projectIndividualCustomers: {
@@ -1050,7 +1157,7 @@ export const updateCustomerPis = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -1062,7 +1169,7 @@ export const updateCustomerPis = action
     try {
       const currentAssignedPis = (
         await db.projectIndividualCustomer.findMany({
-          where: { userCode: code },
+          where: { dbCode, userCode: code },
           select: { projectIndividual: { select: { code: true, name: true } } },
         })
       ).map((pc) => pc.projectIndividual.code)
@@ -1073,13 +1180,14 @@ export const updateCustomerPis = action
       const updatedPis = await db.$transaction(async (tx) => {
         //* update project individuals
         await tx.projectIndividual.updateMany({
-          where: { code: { in: [...newlyAssignedPis, ...unAssignedPis] } },
+          where: { dbCode, code: { in: [...newlyAssignedPis, ...unAssignedPis] } },
           data: { updatedBy: userId },
         })
 
         //* delete the project individual customers which based on the unAssignedPis
         await tx.projectIndividualCustomer.deleteMany({
           where: {
+            dbCode,
             projectIndividualCode: { in: unAssignedPis },
             userCode: code,
           },
@@ -1087,11 +1195,11 @@ export const updateCustomerPis = action
 
         //* create the project individual customers which based on the newlyAssignedPis
         await tx.projectIndividualCustomer.createMany({
-          data: newlyAssignedPis.map((pi) => ({ projectIndividualCode: pi, userCode: code })),
+          data: newlyAssignedPis.map((pi) => ({ dbCode, projectIndividualCode: pi, userCode: code })),
         })
 
         return await tx.projectIndividual.findMany({
-          where: { code: { in: [...newlyAssignedPis, ...unAssignedPis] } },
+          where: { dbCode, code: { in: [...newlyAssignedPis, ...unAssignedPis] } },
           include,
         })
       })
@@ -1173,10 +1281,11 @@ export const updateCustomerPis = action
 
 export const updatePicPis = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(picProjectIndividualsFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, projects } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const include: Prisma.ProjectIndividualInclude = {
       projectIndividualPics: {
@@ -1196,7 +1305,7 @@ export const updatePicPis = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -1208,7 +1317,7 @@ export const updatePicPis = action
     try {
       const currentAssignedPis = (
         await db.projectIndividualPic.findMany({
-          where: { userCode: code },
+          where: { dbCode, userCode: code },
           select: { projectIndividual: { select: { code: true, name: true } } },
         })
       ).map((pc) => pc.projectIndividual.code)
@@ -1219,13 +1328,14 @@ export const updatePicPis = action
       const updatedPis = await db.$transaction(async (tx) => {
         //* update project individuals
         await tx.projectIndividual.updateMany({
-          where: { code: { in: [...newlyAssignedPis, ...unAssignedPis] } },
+          where: { dbCode, code: { in: [...newlyAssignedPis, ...unAssignedPis] } },
           data: { updatedBy: userId },
         })
 
         //* delete the project individual pics which based on the unAssignedPis
         await tx.projectIndividualPic.deleteMany({
           where: {
+            dbCode,
             projectIndividualCode: { in: unAssignedPis },
             userCode: code,
           },
@@ -1233,11 +1343,11 @@ export const updatePicPis = action
 
         //* create the project individual pics which based on the newlyAssignedPis
         await tx.projectIndividualPic.createMany({
-          data: newlyAssignedPis.map((pi) => ({ projectIndividualCode: pi, userCode: code })),
+          data: newlyAssignedPis.map((pi) => ({ dbCode, projectIndividualCode: pi, userCode: code })),
         })
 
         return await tx.projectIndividual.findMany({
-          where: { code: { in: [...newlyAssignedPis, ...unAssignedPis] } },
+          where: { dbCode, code: { in: [...newlyAssignedPis, ...unAssignedPis] } },
           include,
         })
       })

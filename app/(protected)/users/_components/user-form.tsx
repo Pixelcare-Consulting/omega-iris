@@ -29,6 +29,10 @@ import { commonItemRender } from '@/utils/devextreme'
 import CanView from '@/components/acl/can-view'
 import { NotificationContext } from '@/context/notification'
 import { useSession } from 'next-auth/react'
+import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
+import TagBoxField from '@/components/forms/tag-box-field'
+import { HIDDEN_FIELD_MODULES } from '@/constants/hidden-field'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 
 type UserFormProps = { pageMetaData: PageMetadata; user: Awaited<ReturnType<typeof getUserByCode>> }
 
@@ -38,15 +42,29 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
   const { code } = useParams() as { code: string }
 
   const { data: session } = useSession()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
   const notificationContext = useContext(NotificationContext)
 
   const isCreate = code === 'add' || !user
+
+  const hiddenFieldModules = useMemo(
+    () =>
+      HIDDEN_FIELD_MODULES.map((m) => ({
+        ...m,
+        options: Object.entries(m.columns).map(([key, value]) => ({ label: value, value: key })),
+      })),
+    []
+  )
+
+  //* every module starts with an empty list, so a user without a saved row is still valid
+  const emptyHiddenFields = useMemo(() => Object.fromEntries(HIDDEN_FIELD_MODULES.map((m) => [m.moduleName, [] as string[]])), [])
 
   const values = useMemo(() => {
     if (user)
       return {
         ...user,
         roleKey: user.role.key,
+        hiddenFields: { ...emptyHiddenFields, ...Object.fromEntries(user.hiddenFields.map((row) => [row.moduleName, row.fields])) },
         password: '',
         confirmPassword: '',
         newPassword: '',
@@ -73,6 +91,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
         supplierCode: '',
         isForceToChangePassword: true,
         isLocked: false,
+        hiddenFields: emptyHiddenFields,
       }
     }
 
@@ -89,21 +108,32 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
 
   const { executeAsync, isExecuting } = useAction(upsertUser)
 
-  const customers = useBps(
-    ['C', ...(process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' ? [] : ['L'])],
-    process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' ? true : false
-  )
+  //* synced-only applies to isEnabledCustomTfsProcess true companies, others still get pending & lead customers
+  const isSyncedStrict = process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' && isCustomTfsEnabled
+
+  const customers = useBps(['C', ...(isSyncedStrict ? [] : ['L'])], isSyncedStrict)
   const roles = useRoles()
+
+  //! useBps only returns the active database, so a customer from another one is missing and the field renders blank
+  //* keep the saved customer in the list, otherwise editing an unrelated field would silently clear it
+  const customerOptions = useMemo(() => {
+    const options = customers.data || []
+    const saved = user?.customer
+
+    if (!saved || options.some((option) => option.CardCode === saved.CardCode)) return options
+
+    return [{ ...saved, GroupName: saved.GroupName || saved.sapDatabase?.name || null }, ...options]
+  }, [JSON.stringify(customers.data), JSON.stringify(user?.customer)])
 
   const isAdmin = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'admin'
+    return session.user.roleKey === SUPER_USER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const roleOptions = useMemo(() => {
     if (!roles.data || roles.data.length < 1 || roles.isLoading) return []
 
-    return roles.data.filter((role) => (isAdmin ? true : role.key !== 'admin')).map((role) => role)
+    return roles.data.filter((role) => (isAdmin ? true : role.key !== SUPER_USER_ROLE_KEY)).map((role) => role)
   }, [JSON.stringify(roles), isAdmin])
 
   const handleOnSubmit = async (formData: UserForm) => {
@@ -282,14 +312,14 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                 <SwitchField control={form.control} name='isLocked' label='Locked' description='Locked user cannot sign in' />
               </div>
 
-              {roleKey && roleKey === 'business-partner' && (
+              {roleKey && roleKey === BUSINESS_PARTNER_ROLE_KEY && (
                 <>
                   <Separator className='col-span-12' />
                   <ReadOnlyFieldHeader className='col-span-12 mb-2' title='SAP Details' description='User SAP information' />
 
                   <div className='col-span-12 md:col-span-6'>
                     <SelectBoxField
-                      data={customers.data}
+                      data={customerOptions}
                       isLoading={customers.isLoading}
                       control={form.control}
                       name='customerCode'
@@ -334,6 +364,29 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                       }}
                     />
                   </div> */}
+                </>
+              )}
+
+              {/* //* admins see every field, so only other roles get hidden fields */}
+              {roleKey && roleKey !== SUPER_USER_ROLE_KEY && (
+                <>
+                  <Separator className='col-span-12' />
+                  <ReadOnlyFieldHeader className='col-span-12 mb-2' title='Hidden Fields' description='Fields this user will not see' />
+
+                  {hiddenFieldModules.map((m) => (
+                    <div key={m.moduleName} className='col-span-12 md:col-span-6'>
+                      <TagBoxField
+                        data={m.options}
+                        control={form.control}
+                        name={`hiddenFields.${m.moduleName}`}
+                        label={m.label}
+                        valueExpr='value'
+                        displayExpr='label'
+                        searchExpr={['label', 'value']}
+                        description={m.description}
+                      />
+                    </div>
+                  ))}
                 </>
               )}
             </div>

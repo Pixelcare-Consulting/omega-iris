@@ -12,6 +12,7 @@ export const PERMISSIONS_ALLOWED_ACTIONS = {
   UPDATE_STATUS: 'update status',
   RECEIVE_NOTIFICATIONS: 'receive notifications',
   RECEIVE_NOTIFICATIONS_OWNER: 'receive notifications (owner)',
+  VIEW_BATCHES: 'view batches',
 } as const
 
 export const PERMISSIONS_CODES = {
@@ -27,4 +28,6 @@ export const PERMISSIONS_CODES = {
   SETTINGS: 'p-settings',
   USERS: 'p-users',
   'WORK ORDERS': 'p-work-orders',
+  WAREHOUSES: 'p-warehouses',
+  'WAREHOUSE BIN LOCATIONS': 'p-warehouses-bin-locations',
 } as const

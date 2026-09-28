@@ -2,7 +2,6 @@
 
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import DataGrid, {
-  Column,
   DataGridRef,
   Editing,
   Item,
@@ -41,8 +40,6 @@ import {
 } from '@/constants/devextreme'
 import { WORK_ORDER_STATUS_VALUE_MAP, WorkOrderForm, WorkOrderItemForm } from '@/schema/work-order'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
-import { useWarehouses } from '@/hooks/safe-actions/warehouse'
-import useUsers from '@/hooks/safe-actions/user'
 import { toast } from 'sonner'
 import AlertDialog from '@/components/alert-dialog'
 import { getWorkOrderByCode } from '@/actions/work-order'
@@ -51,13 +48,18 @@ import FormMessage from '@/components/forms/form-message'
 import { cn, safeParseFloat, safeParseInt } from '@/utils'
 import { subtract } from 'mathjs'
 import { FormDebug } from '@/components/forms/form-debug'
-import { Icons } from '@/components/icons'
 import { parseExcelFile } from '@/utils/xlsx'
 import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import WorkOrderLineItemForm from './work-order-line-item-form'
-import LoadingButton from '@/components/loading-button'
 import { useDuplicatedFromWoByCode } from '@/hooks/safe-actions/work-order'
+import { useParams } from 'next/navigation'
+import Alert from '@/components/alert'
+import { HiddenFieldsContext } from '@/context/hidden-fields-context'
+import Column from '@/components/column'
+import { TFS_ONLY_FIELDS } from '@/constants/project-item'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type WorkOrderLineItemsFormProps = {
   workOrder: Awaited<ReturnType<typeof getWorkOrderByCode>>
@@ -67,6 +69,7 @@ type WorkOrderLineItemsFormProps = {
   projectName?: string
   projectGroupName?: string
   isLoading?: boolean
+  hiddenFields?: string[]
 }
 
 export default function WorkOrderLineItemTable({
@@ -77,8 +80,14 @@ export default function WorkOrderLineItemTable({
   projectName,
   projectGroupName,
   isLoading,
+  hiddenFields = [],
 }: WorkOrderLineItemsFormProps) {
   const { data: session } = useSession()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
+
+  const { code } = useParams() as { code: string }
+
+  const isCreate = code === 'add' || !workOrder
 
   const dataGridRef = useRef<DataGridRef | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -104,17 +113,42 @@ export default function WorkOrderLineItemTable({
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const isLocked = useMemo(() => {
-    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process']
+    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['Open']
   }, [workOrderStatus])
+
+  //* warehouse, bin and batch have no meaning outside the custom tfs process
+  const gridHiddenFields = useMemo(
+    () => (isCustomTfsEnabled ? hiddenFields : [...hiddenFields, ...TFS_ONLY_FIELDS]),
+    [isCustomTfsEnabled, JSON.stringify(hiddenFields)]
+  )
 
   const handleAdd = useCallback(() => {
     setRowData(null)
     setIsOpen(true)
   }, [])
+
+  const duplicatedFromWorkOrderProblematicItems = useMemo(() => {
+    if (duplicatedFromWorkOrder.isLoading || !duplicatedFromWorkOrder?.data) return []
+
+    const duplicatedFromWorkOrderData = duplicatedFromWorkOrder.data
+
+    const pItemCodes = duplicatedFromWorkOrderData?.workOrderItems
+      .map((woItem) => {
+        const pItem = woItem.projectItem
+        const totalStock = safeParseFloat(pItem?.totalStock)
+        const stockIn = safeParseFloat(pItem?.stockIn)
+        const availableToOrder = subtract(totalStock, stockIn)
+        return { projectItemCode: pItem?.code, qty: safeParseInt(woItem.qty), maxQty: availableToOrder, isDelivered: false }
+      })
+      .filter((woItem) => woItem.maxQty <= 0 || woItem.maxQty < woItem.qty)
+      .map((woItem) => woItem.projectItemCode)
+
+    return pItemCodes.sort()
+  }, [JSON.stringify(duplicatedFromWorkOrder)])
 
   const handleSingleDelete = useCallback(
     (e: DataGridTypes.ColumnButtonClickEvent) => {
@@ -335,6 +369,8 @@ export default function WorkOrderLineItemTable({
     if (!duplicatedFromWorkOrder.isLoading && duplicatedFromWorkOrder.data) {
       const duplicatedFromWorkOrderData = duplicatedFromWorkOrder.data
 
+      //* only retain line items that has stock and has enough stock for the requested items,
+      //* item that has available to order less than the qty will be removed
       const lineItemValue = duplicatedFromWorkOrderData?.workOrderItems
         .map((woItem) => {
           const pItem = woItem.projectItem
@@ -344,6 +380,7 @@ export default function WorkOrderLineItemTable({
           return { projectItemCode: pItem?.code, qty: safeParseInt(woItem.qty), maxQty: availableToOrder, isDelivered: false }
         })
         .filter((woItem) => woItem.maxQty > 0)
+        .filter((woItem) => woItem.qty <= woItem.maxQty)
 
       setTimeout(() => {
         form.setValue('lineItems', lineItemValue)
@@ -367,8 +404,9 @@ export default function WorkOrderLineItemTable({
           const stockIn = safeParseFloat(pItem?.stockIn)
           const stockOut = safeParseFloat(pItem?.stockOut)
           const totalStock = safeParseFloat(pItem?.totalStock)
+          const tfsStdPrice = safeParseFloat(pItem?.tfsStdPrice)
+          const omegaPrice = safeParseFloat(pItem?.omegaPrice)
 
-          const warehouse = pItem?.warehouse
           const dateReceivedBy = pItem?.dateReceivedByUser ? [pItem?.dateReceivedByUser?.fname, pItem?.dateReceivedByUser?.lname].filter(Boolean).join(' ') : '' // prettier-ignore
           const isDeleted = pItem?.deletedAt || pItem?.deletedBy
 
@@ -382,7 +420,8 @@ export default function WorkOrderLineItemTable({
             countryOfOrigin: pItem?.countryOfOrigin || '',
             lotCode: pItem?.lotCode || '',
             palletNo: pItem?.palletNo || '',
-            warehouse: warehouse?.name || '',
+            warehouseCode: pItem?.warehouseCode || '',
+            binCode: pItem?.binCode || '',
             dateReceived: pItem?.dateReceived,
             dateReceivedBy,
             isDeleted,
@@ -402,6 +441,14 @@ export default function WorkOrderLineItemTable({
             mfr: pItem?.mfr || '',
             desc: pItem?.desc || '',
             commodities: pItem?.commodities || '',
+            group: pItem?.group || '',
+            division: pItem?.division || '',
+            site: pItem?.site || '',
+            cmSite: pItem?.cmSite || '',
+            phase: pItem?.phase || '',
+            tfsStdPrice,
+            omegaPrice,
+            DistNumber: pItem?.DistNumber || '',
             createdAt: pItem?.createdAt,
             createdBy: pItem?.createdBy,
             updatedAt: pItem?.updatedAt,
@@ -453,6 +500,14 @@ export default function WorkOrderLineItemTable({
       {/* <FormDebug form={form} keys={['lineItems']} /> */}
 
       <div className='col-span-12'>
+        {isCreate && duplicatedFromWorkOrderProblematicItems.length > 0 && (
+          <Alert
+            className='w-100'
+            variant='warning'
+            message={`The following project item(s) could not be loaded because they are out of stock or the requested quantity exceeds the available to order: ${duplicatedFromWorkOrderProblematicItems.join(', ')}`}
+          />
+        )}
+
         <DataGrid
           ref={dataGridRef}
           dataSource={workOrderItemsDataSource}
@@ -468,165 +523,215 @@ export default function WorkOrderLineItemTable({
           onRowUpdated={handleOnRowUpdated}
           onSelectionChanged={handleOnSelectionChanged}
         >
-          <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' sortOrder='asc' allowEditing={false} />
-          <Column
-            dataField='isDelivered'
-            dataType='string'
-            minWidth={120}
-            caption='Delivered'
-            calculateCellValue={(rowData) => (rowData?.isDelivered ? 'Yes' : 'No')}
-            cellRender={(cell) => (cell?.data?.isDelivered ? 'Yes' : 'No')}
-            allowEditing={false}
-            alignment='left'
-          />
-
-          <Column dataField='owner' dataType='string' caption='Owner' allowEditing={false} />
-          <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
-          <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
-          <Column dataField='FirmName' dataType='string' caption='Manufacturer' allowEditing={false} visible={false} />
-          <Column dataField='mfr' dataType='string' caption='MFR' allowEditing={false} />
-          <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} visible={false} />
-          <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
-          <Column dataField='commodities' dataType='string' caption='Commodities' allowEditing={false} />
-
-          {!isBusinessPartner ? (
-            <>
-              <Column dataField='dateCode' dataType='string' caption='DC' allowEditing={false} />
-              <Column dataField='countryOfOrigin' dataType='string' caption='COO' allowEditing={false} />
-              <Column dataField='lotCode' dataType='string' caption='Lot Code' allowEditing={false} />
-              <Column dataField='palletNo' dataType='string' caption='Pallet No' allowEditing={false} />
-              <Column dataField='siteLocation' dataType='string' caption='Site Location' allowEditing={false} />
-              <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' allowEditing={false} />
-              <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' allowEditing={false} />
-              <Column dataField='dateReceived' dataType='datetime' caption='Date Received' allowEditing={false} />
-              <Column dataField='dateReceivedBy' dataType='string' caption='Date Received By' allowEditing={false} />
-              <Column dataField='packagingType' dataType='string' caption='Packaging Type' allowEditing={false} />
-              <Column dataField='spq' dataType='string' caption='SPQ' allowEditing={false} />
-              <Column
-                dataField='cost'
-                dataType='number'
-                caption='Cost'
-                alignment='left'
-                format={DEFAULT_CURRENCY_FORMAT}
-                allowEditing={false}
-              />
-
-              <Column
-                dataField='totalStock'
-                dataType='number'
-                caption='Total Stock'
-                alignment='left'
-                format={DEFAULT_NUMBER_FORMAT}
-                allowEditing={false}
-              />
-
-              <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} />
-
-              <Column
-                dataField='stockIn'
-                dataType='number'
-                caption='Stock-In (In Process)'
-                alignment='left'
-                format={DEFAULT_NUMBER_FORMAT}
-                allowEditing={false}
-              />
-              <Column
-                dataField='stockOut'
-                dataType='number'
-                caption='Stock-Out (Delivered)'
-                alignment='left'
-                format={DEFAULT_NUMBER_FORMAT}
-                allowEditing={false}
-              />
-            </>
-          ) : null}
-
-          <Column
-            dataField='agingDays'
-            dataType='number'
-            caption='Aging Days'
-            alignment='left'
-            calculateCellValue={(rowData) => (rowData?.createdAt ? differenceInDays(new Date(), rowData?.createdAt) : 0)}
-            format={DEFAULT_NUMBER_FORMAT}
-            allowEditing={false}
-          />
-
-          <Column
-            dataField='availableToOrder'
-            dataType='number'
-            caption='Available To Order'
-            alignment='left'
-            format={DEFAULT_NUMBER_FORMAT}
-            allowEditing={false}
-            fixed
-            fixedPosition='right'
-          />
-          <Column
-            dataField='qty'
-            dataType='number'
-            caption={`Quantity${isLocked ? ' (Locked)' : ''}`}
-            format={DEFAULT_NUMBER_FORMAT}
-            alignment='left'
-            allowEditing={isLocked ? false : true}
-            cssClass={cn(isLocked ? '!bg-slate-100' : '')}
-            fixed
-            fixedPosition='right'
-          >
-            <CustomRule
-              validationCallback={(e) => {
-                const data = e?.data
-                return data?.qty >= 1 && data?.qty <= data?.availableToOrder
-              }}
-              message='Quantity must be greater than 1 and less than or equal to the available to order'
+          <HiddenFieldsContext.Provider value={{ hiddenFields: gridHiddenFields }}>
+            <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' sortOrder='asc' allowEditing={false} />
+            <Column dataField='DistNumber' dataType='string' minWidth={100} caption='Batch #' allowEditing={false} />
+            <Column
+              dataField='isDelivered'
+              dataType='string'
+              minWidth={120}
+              caption='Delivered'
+              calculateCellValue={(rowData) => (rowData?.isDelivered ? 'Yes' : 'No')}
+              cellRender={(cell) => (cell?.data?.isDelivered ? 'Yes' : 'No')}
+              allowEditing={false}
+              alignment='left'
             />
-          </Column>
 
-          <Column type='buttons' minWidth={100} fixed fixedPosition='right' caption='Actions'>
-            <DataGridButton
-              icon='trash'
-              onClick={handleSingleDelete}
-              cssClass='!text-lg !text-red-500'
-              hint='Delete'
-              visible={isLocked ? false : true}
+            <Column dataField='owner' dataType='string' caption='Owner' allowEditing={false} />
+
+            <Column dataField='group' dataType='string' caption='Group' allowEditing={false} />
+            <Column dataField='division' dataType='string' caption='Division' allowEditing={false} />
+            <Column dataField='site' dataType='string' caption='Site' allowEditing={false} />
+            <Column dataField='cmSite' dataType='string' caption='CM Site' allowEditing={false} />
+            <Column dataField='phase' dataType='string' caption='Phase' allowEditing={false} />
+            <Column
+              dataField='tfsStdPrice'
+              dataType='number'
+              caption='TFS Std Price'
+              alignment='left'
+              format={DEFAULT_CURRENCY_FORMAT}
+              allowEditing={false}
             />
-          </Column>
+            <Column
+              dataField='omegaPrice'
+              dataType='number'
+              caption='Omega Price'
+              alignment='left'
+              format={DEFAULT_CURRENCY_FORMAT}
+              allowEditing={false}
+            />
 
-          <Summary>
-            <TotalItem column='availableToOrder' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
-            <TotalItem column='stockIn' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
-            <TotalItem column='stockOut' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
-            <TotalItem column='totalStock' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
-            <TotalItem column='qty' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
-          </Summary>
+            <Column dataField='ItemCode' dataType='string' caption='MFG P/N' allowEditing={false} />
+            <Column dataField='partNumber' dataType='string' caption='Part Number' allowEditing={false} />
+            <Column dataField='FirmName' dataType='string' caption='Manufacturer' allowEditing={false} visible={false} />
+            <Column dataField='mfr' dataType='string' caption='MFR' allowEditing={false} />
+            <Column dataField='ItemName' dataType='string' caption='Description' allowEditing={false} visible={false} />
+            <Column dataField='desc' dataType='string' caption='Desc' allowEditing={false} />
+            <Column dataField='commodities' dataType='string' caption='Commodities' allowEditing={false} />
 
-          <LoadPanel
-            enabled={isLoading || workOrderItems.isLoading || projectItems.isLoading || isImporting}
-            shadingColor='rgb(241, 245, 249)'
-            showIndicator
-            showPane
-            shading
-          />
-          <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
-          <SearchPanel visible highlightCaseSensitive={false} />
-          <Sorting mode='multiple' />
-          <Scrolling mode='standard' useNative />
-          <ColumnFixing enabled />
-          {!isLocked ? <Selection mode='multiple' /> : null}
+            {!isBusinessPartner ? (
+              <>
+                <Column dataField='dateCode' dataType='string' caption='DC' allowEditing={false} />
+                <Column dataField='countryOfOrigin' dataType='string' caption='COO' allowEditing={false} />
+                <Column dataField='lotCode' dataType='string' caption='Lot Code' allowEditing={false} />
+                <Column dataField='palletNo' dataType='string' caption='Pallet No' allowEditing={false} />
+                <Column dataField='warehouseCode' dataType='string' caption='Warehouse' allowEditing={false} />
+                <Column dataField='binCode' dataType='string' caption='Bin Location' allowEditing={false} />
+                <Column dataField='siteLocation' dataType='string' caption='Site Location' allowEditing={false} />
+                <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' allowEditing={false} />
+                <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' allowEditing={false} />
+                <Column dataField='dateReceived' dataType='datetime' caption='Date Received' allowEditing={false} />
+                <Column dataField='dateReceivedBy' dataType='string' caption='Date Received By' allowEditing={false} />
+                <Column dataField='packagingType' dataType='string' caption='Packaging Type' allowEditing={false} />
+                <Column dataField='spq' dataType='string' caption='SPQ' allowEditing={false} />
+                <Column
+                  dataField='cost'
+                  dataType='number'
+                  caption='Cost'
+                  alignment='left'
+                  format={DEFAULT_CURRENCY_FORMAT}
+                  allowEditing={false}
+                />
 
-          <Toolbar>
-            <Item location='before' name='searchPanel' cssClass='[&>.dx-toolbar-item-content>.dx-datagrid-search-panel]:ml-0' />
+                <Column
+                  dataField='totalStock'
+                  dataType='number'
+                  caption='Total Stock'
+                  alignment='left'
+                  format={DEFAULT_NUMBER_FORMAT}
+                  allowEditing={false}
+                />
 
-            {selectedRowKeys.length > 0 ? (
+                <Column dataField='notes' dataType='string' caption='Notes' allowEditing={false} />
+
+                <Column
+                  dataField='stockIn'
+                  dataType='number'
+                  caption='Stock-In (In Process)'
+                  alignment='left'
+                  format={DEFAULT_NUMBER_FORMAT}
+                  allowEditing={false}
+                />
+                <Column
+                  dataField='stockOut'
+                  dataType='number'
+                  caption='Stock-Out (Delivered)'
+                  alignment='left'
+                  format={DEFAULT_NUMBER_FORMAT}
+                  allowEditing={false}
+                />
+              </>
+            ) : null}
+
+            <Column
+              dataField='agingDays'
+              dataType='number'
+              caption='Aging Days'
+              alignment='left'
+              calculateCellValue={(rowData) => (rowData?.createdAt ? differenceInDays(new Date(), rowData?.createdAt) : 0)}
+              format={DEFAULT_NUMBER_FORMAT}
+              allowEditing={false}
+            />
+
+            <Column
+              dataField='availableToOrder'
+              dataType='number'
+              caption='Available To Order'
+              alignment='left'
+              format={DEFAULT_NUMBER_FORMAT}
+              allowEditing={false}
+              fixed
+              fixedPosition='right'
+            />
+            <Column
+              dataField='qty'
+              dataType='number'
+              caption={`Quantity${isLocked ? ' (Locked)' : ''}`}
+              format={DEFAULT_NUMBER_FORMAT}
+              alignment='left'
+              allowEditing={isLocked ? false : true}
+              cssClass={cn(isLocked ? '!bg-slate-100' : '')}
+              fixed
+              fixedPosition='right'
+            >
+              <CustomRule
+                validationCallback={(e) => {
+                  const data = e?.data
+                  return data?.qty >= 1 && data?.qty <= data?.availableToOrder
+                }}
+                message='Quantity must be greater than 1 and less than or equal to the available to order'
+              />
+            </Column>
+
+            <Column type='buttons' minWidth={100} fixed fixedPosition='right' caption='Actions'>
+              <DataGridButton
+                icon='trash'
+                onClick={handleSingleDelete}
+                cssClass='!text-lg !text-red-500'
+                hint='Delete'
+                visible={isLocked ? false : true}
+              />
+            </Column>
+
+            <Summary>
+              <TotalItem column='availableToOrder' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+              <TotalItem column='stockIn' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+              <TotalItem column='stockOut' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+              <TotalItem column='totalStock' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+              <TotalItem column='qty' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
+            </Summary>
+
+            <LoadPanel
+              enabled={isLoading || workOrderItems.isLoading || projectItems.isLoading || isImporting}
+              shadingColor='rgb(241, 245, 249)'
+              showIndicator
+              showPane
+              shading
+            />
+            <Editing mode='cell' allowUpdating={true} allowAdding={false} allowDeleting={false} />
+            <SearchPanel visible highlightCaseSensitive={false} />
+            <Sorting mode='multiple' />
+            <Scrolling mode='standard' useNative />
+            <ColumnFixing enabled />
+            {!isLocked ? <Selection mode='multiple' /> : null}
+
+            <Toolbar>
+              <Item location='before' name='searchPanel' cssClass='[&>.dx-toolbar-item-content>.dx-datagrid-search-panel]:ml-0' />
+
+              {selectedRowKeys.length > 0 ? (
+                <Item location='after' widget='dxButton'>
+                  <Tooltip target='#delete' contentRender={() => 'Delete'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />
+
+                  <Button
+                    id='delete-selecteed'
+                    icon='trash'
+                    text={`${selectedRowKeys.length} : Delete`}
+                    type='default'
+                    stylingMode='outlined'
+                    onClick={() => setShowDeleteSelectedConfirmation(true)}
+                    disabled={
+                      !projectCode || isLocked
+                        ? true
+                        : false || isLoading || workOrderItems.isLoading || projectItems.isLoading || isImporting
+                    }
+                  />
+                </Item>
+              ) : null}
+
               <Item location='after' widget='dxButton'>
-                <Tooltip target='#delete' contentRender={() => 'Delete'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />
-
+                <Tooltip
+                  target='#add-button'
+                  contentRender={() => 'Add Line Item(s)'}
+                  showEvent='mouseenter'
+                  hideEvent='mouseleave'
+                  position='top'
+                />
                 <Button
-                  id='delete-selecteed'
-                  icon='trash'
-                  text={`${selectedRowKeys.length} : Delete`}
+                  id='add-button'
+                  icon='add'
                   type='default'
-                  stylingMode='outlined'
-                  onClick={() => setShowDeleteSelectedConfirmation(true)}
+                  stylingMode='contained'
+                  onClick={handleAdd}
                   disabled={
                     !projectCode || isLocked
                       ? true
@@ -634,56 +739,38 @@ export default function WorkOrderLineItemTable({
                   }
                 />
               </Item>
-            ) : null}
 
-            <Item location='after' widget='dxButton'>
-              <Tooltip
-                target='#add-button'
-                contentRender={() => 'Add Line Item(s)'}
-                showEvent='mouseenter'
-                hideEvent='mouseleave'
-                position='top'
+              <Item location='after' widget='dxButton'>
+                <Tooltip
+                  target='#import-line-items'
+                  contentRender={() => 'Import'}
+                  showEvent='mouseenter'
+                  hideEvent='mouseleave'
+                  position='top'
+                />
+
+                <Button
+                  id='import-line-items'
+                  icon='import'
+                  disabled={
+                    !projectCode || isLocked
+                      ? true
+                      : false || isLoading || workOrderItems.isLoading || projectItems.isLoading || isImporting
+                  }
+                  onClick={() => fileInputRef.current?.click()}
+                />
+              </Item>
+
+              <Item
+                visible={false}
+                location='after'
+                render={() => <input type='file' className='hidden' ref={fileInputRef} onChange={handleFileUpload} />}
               />
-              <Button
-                id='add-button'
-                icon='add'
-                type='default'
-                stylingMode='contained'
-                onClick={handleAdd}
-                disabled={
-                  !projectCode || isLocked ? true : false || isLoading || workOrderItems.isLoading || projectItems.isLoading || isImporting
-                }
-              />
-            </Item>
+            </Toolbar>
 
-            <Item location='after' widget='dxButton'>
-              <Tooltip
-                target='#import-line-items'
-                contentRender={() => 'Import'}
-                showEvent='mouseenter'
-                hideEvent='mouseleave'
-                position='top'
-              />
-
-              <Button
-                id='import-line-items'
-                icon='import'
-                disabled={
-                  !projectCode || isLocked ? true : false || isLoading || workOrderItems.isLoading || projectItems.isLoading || isImporting
-                }
-                onClick={() => fileInputRef.current?.click()}
-              />
-            </Item>
-
-            <Item
-              visible={false}
-              location='after'
-              render={() => <input type='file' className='hidden' ref={fileInputRef} onChange={handleFileUpload} />}
-            />
-          </Toolbar>
-
-          <Pager visible allowedPageSizes={DATAGRID_PAGE_SIZES} showInfo displayMode='full' showPageSizeSelector showNavigationButtons />
-          <Paging defaultPageSize={DATAGRID_DEFAULT_PAGE_SIZE} />
+            <Pager visible allowedPageSizes={DATAGRID_PAGE_SIZES} showInfo displayMode='full' showPageSizeSelector showNavigationButtons />
+            <Paging defaultPageSize={DATAGRID_DEFAULT_PAGE_SIZE} />
+          </HiddenFieldsContext.Provider>
         </DataGrid>
 
         <Popup visible={isOpen} dragEnabled={false} showTitle={false} onHiding={() => setIsOpen(false)} maxWidth={1600} height={750}>
@@ -694,6 +781,7 @@ export default function WorkOrderLineItemTable({
             setIsOpen={setIsOpen}
             projectItems={projectItems}
             workOrderStatus={workOrderStatus}
+            hiddenFields={gridHiddenFields}
           />
         </Popup>
 

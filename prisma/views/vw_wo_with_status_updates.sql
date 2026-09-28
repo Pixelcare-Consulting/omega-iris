@@ -1,7 +1,11 @@
 --* Create view for work order with status updates
-CREATE OR REPLACE VIEW "vw_wo_with_status_updates" AS 
-SELECT 
+--* dropped first: a replace cannot add a column in the middle
+DROP VIEW IF EXISTS "vw_wo_with_status_updates";
+
+CREATE OR REPLACE VIEW "vw_wo_with_status_updates" AS
+SELECT
 	T0."code",
+    T0."dbCode",
 	T0."userCode",
 	T0."status",
 	T0."isInternal",
@@ -24,3 +28,6 @@ FROM "WorkOrder" T0
 LEFT JOIN "WorkOrderStatusUpdate" T1 ON T0."code" = T1."workOrderCode"
 LEFT JOIN "ProjectIndividual" T2 ON T2."code" = T0."projectIndividualCode"
 LEFT JOIN "ProjectGroup" T3 ON T3."code" = T2."groupCode"
+
+--* sample query execution
+SELECT * FROM vw_wo_with_status_updates

@@ -15,6 +15,7 @@ import {
   ClipboardList,
   UserX2,
   Loader,
+  Database,
 } from 'lucide-react'
 
 export const Icons = {
@@ -34,4 +35,5 @@ export const Icons = {
   msgSquareText: MessageSquareText,
   clipboadList: ClipboardList,
   userX: UserX2,
+  database: Database,
 }

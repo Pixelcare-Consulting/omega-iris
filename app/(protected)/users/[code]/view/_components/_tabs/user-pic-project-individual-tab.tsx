@@ -2,10 +2,11 @@
 
 import { Column, DataGridTypes, DataGridRef, Button } from 'devextreme-react/data-grid'
 import { toast } from 'sonner'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'nextjs-toploader/app'
 import { useAction } from 'next-safe-action/hooks'
 import Toolbar, { Item } from 'devextreme-react/toolbar'
+import { Button as DxButton } from 'devextreme-react/button'
 import { isEqual } from 'radash'
 import Tooltip from 'devextreme-react/tooltip'
 import { useForm, useWatch } from 'react-hook-form'
@@ -21,6 +22,7 @@ import CommonDataGrid from '@/components/common-datagrid'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import { usePiPicsByUserCode } from '@/hooks/safe-actions/project-individual-pic'
 import { usePis } from '@/hooks/safe-actions/project-individual'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type UserPicProjectIndividualTabProps = {
   userCode: number
@@ -39,7 +41,7 @@ export default function UserPicProjectIndividualTab({ userCode, projects, piPics
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const currentAssignedProjects = useMemo(() => {
@@ -67,6 +69,35 @@ export default function UserPicProjectIndividualTab({ userCode, projects, piPics
   const selectedRowKeys = useWatch({ control: form.control, name: 'projects' }) || []
 
   const dataGridRef = useRef<DataGridRef | null>(null)
+  const hasClearedStoredFilterRef = useRef(false)
+
+  const [showSelectedOnly, setShowSelectedOnly] = useState(false)
+
+  //* filter the grid down to the selected rows only, filtering (unlike swapping the data source) keeps the selection intact
+  const selectedOnlyFilterValue = useMemo(() => {
+    if (!showSelectedOnly || selectedRowKeys.length < 1) return null
+
+    const conditions = selectedRowKeys.map((key) => ['code', '=', key])
+    if (conditions.length === 1) return conditions[0]
+
+    return conditions.reduce<any[]>((acc, condition) => (acc.length < 1 ? [condition] : [...acc, 'or', condition]), [])
+  }, [showSelectedOnly, JSON.stringify(selectedRowKeys)])
+
+  //* nothing selected means there is nothing to narrow down to, so the toggle falls back to showing all rows
+  const isShowingSelectedOnly = showSelectedOnly && selectedRowKeys.length > 0
+
+  //* the "show selected only" filter gets persisted by state storing, so drop it once on load to always start showing all rows
+  const handleOnContentReady = useCallback((e: DataGridTypes.ContentReadyEvent) => {
+    if (hasClearedStoredFilterRef.current) return
+
+    const instance = e.component
+    if (!instance) return
+
+    hasClearedStoredFilterRef.current = true
+
+    const restoredFilterValue = instance.option('filterValue')
+    if (restoredFilterValue && JSON.stringify(restoredFilterValue).includes('code')) instance.clearFilter('filterValue')
+  }, [])
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
@@ -110,6 +141,11 @@ export default function UserPicProjectIndividualTab({ userCode, projects, piPics
     })
   }
 
+  //* nothing selected means there is nothing to narrow down to, so fall back to showing all rows
+  useEffect(() => {
+    if (selectedRowKeys.length < 1 && showSelectedOnly) setShowSelectedOnly(false)
+  }, [selectedRowKeys.length, showSelectedOnly])
+
   //* show loading
   useEffect(() => {
     if (dataGridRef.current) {
@@ -120,19 +156,31 @@ export default function UserPicProjectIndividualTab({ userCode, projects, piPics
 
   return (
     <div className='flex h-full w-full flex-col'>
-      <Toolbar className='mt-5'>
+      <Toolbar className='mt-5 px-4'>
+        <Item location='before' locateInMenu='auto' widget='dxButton'>
+          <Tooltip
+            target='#show-selected-only-button'
+            contentRender={() => (isShowingSelectedOnly ? 'Show all projects' : 'Show selected projects only')}
+            showEvent='mouseenter'
+            hideEvent='mouseleave'
+            position='top'
+          />
+          <DxButton
+            id='show-selected-only-button'
+            icon='selectall'
+            text={`${selectedRowKeys.length} selected`}
+            type='default'
+            stylingMode={isShowingSelectedOnly ? 'contained' : 'outlined'}
+            disabled={projects.isLoading || piPics.isLoading || selectedRowKeys.length < 1}
+            onClick={() => setShowSelectedOnly((prev) => !prev)}
+          />
+        </Item>
+
         <Item location='after' locateInMenu='auto' widget='dxButton'>
           <Tooltip target='#save-button' contentRender={() => 'Save'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />
           <LoadingButton
             id='save-button'
             icon='save'
-            text={
-              isEqual(currentAssignedProjects, selectedRowKeys)
-                ? undefined
-                : selectedRowKeys.length > 0
-                  ? `${selectedRowKeys.length} selected`
-                  : 'Clear'
-            }
             isLoading={isExecuting}
             type='default'
             stylingMode='contained'
@@ -154,7 +202,8 @@ export default function UserPicProjectIndividualTab({ userCode, projects, piPics
           isSelectionEnable
           dataGridStore={dataGridStore}
           selectedRowKeys={selectedRowKeys}
-          callbacks={{ onSelectionChanged: handleOnSelectionChange }}
+          filterValue={selectedOnlyFilterValue}
+          callbacks={{ onSelectionChanged: handleOnSelectionChange, onContentReady: handleOnContentReady }}
         >
           <Column dataField='code' minWidth={100} dataType='string' caption='ID' sortOrder='asc' />
           <Column dataField='name' dataType='string' />

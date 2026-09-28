@@ -13,3 +13,4 @@ ALTER SEQUENCE "WorkOrder_code_seq" RESTART WITH 1
 ALTER SEQUENCE "WorkOrderStatusUpdate_code_seq" RESTART WITH 1
 ALTER SEQUENCE "FileAttachment_code_seq" RESTART WITH 1
 ALTER SEQUENCE "Report_code_seq" RESTART WITH 1
+ALTER SEQUENCE "Warehouse_code_seq" RESTART WITH 1

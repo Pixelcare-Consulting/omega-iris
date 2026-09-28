@@ -5,10 +5,11 @@ export type DuplicateFields = { field: string; name: string; message: string }[]
 
 export type Stats = {
   total: number
-  completed: number
+  completed: number //* rows attempted (drives progress)
+  synced: number //* rows actually written to DB/SAP (drives the message)
   progress: number
   errors: ImportSyncError[]
-  status: string //* "processing" | "completed" | "error"
+  status: string //* idle | "processing" | "completed" | "error"
 }
 
 export type FileUploadStats = {
@@ -16,7 +17,14 @@ export type FileUploadStats = {
   completed: number
   progress: number
   errors: FileAttachmentError[]
-  status: string //* "processing" | "completed" | "error"
+  status: string //* idle | "processing" | "completed" | "error"
+}
+
+export type SyncSectionState = {
+  stats: Stats
+  errors: ImportSyncError[]
+  showError: boolean
+  showConfirmation: boolean
 }
 
 export type ImportSyncErrorEntry = { field: string; message: string }

@@ -9,6 +9,7 @@ import { usePathname } from 'next/navigation'
 import { findNavByPath, navigation } from '@/constants/menu'
 import { AbilityContext } from '@/context/ability'
 import { useIdleSignout } from '@/hooks/use-idle-signout'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 type ACLGuardProviderProps = {
   session: Session | null
@@ -32,7 +33,7 @@ export default function ACLGuardProvider({ session, children }: ACLGuardProvider
       return
     }
 
-    if (user.roleKey === 'admin') setAbility(buildAbilityFor({ roleKey: user.roleKey, rolePermissions: [] }))
+    if (user.roleKey === SUPER_USER_ROLE_KEY) setAbility(buildAbilityFor({ roleKey: user.roleKey, rolePermissions: [] }))
     else setAbility(buildAbilityFor({ roleKey: user.roleKey, rolePermissions: user.rolePermissions }))
   }, [user])
 

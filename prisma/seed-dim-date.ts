@@ -1,3 +1,10 @@
+//* Usage
+//*   pnpm db:seed:dim-date    —— fills DimDate for 2020-01-01 to 2035-12-31
+//*   pnpm db:seed             —— runs this together with the sap database seed
+//*
+//* the date dimension the reporting sql functions and views join against
+//* skipDuplicates, so re-running is safe — widen the range in main() to extend it
+
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()

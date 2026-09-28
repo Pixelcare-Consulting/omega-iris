@@ -5,9 +5,7 @@ import { PrismaAdapter } from '@auth/prisma-adapter'
 
 import { db } from './utils/db'
 import authConfig from './auth.config'
-import logger from './utils/logger'
-import { authenticateSapServiceLayer } from './actions/sap-service-layer'
-import { SapAuthCookies, SapCredentials } from './types/sap'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 //* module augmentation for next-auth
 export type ExtendedUser = {
@@ -25,8 +23,9 @@ export type ExtendedUser = {
   isOnline: boolean
   isActive: boolean
   isOAuth: boolean
-  sapSession: SapAuthCookies | null
   isDefaultPasswordChanged: boolean
+  sapDbCode: string | null
+  isEnabledCustomTfsProcess: boolean
 }
 
 declare module 'next-auth' {
@@ -38,12 +37,13 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     user: ExtendedUser
-    sapSession: SapAuthCookies | null
+    //! keep at the top level — token.user is rebuilt from the db on every refresh and would drop it
+    sapDbCode?: string
   }
 }
 
 export const callbacks: NextAuthConfig['callbacks'] = {
-  jwt: async ({ token, session, trigger, user }) => {
+  jwt: async ({ token, session, trigger }) => {
     try {
       //* anything returned here will be saved in the JWT and forwarded to the session callback
 
@@ -80,32 +80,9 @@ export const callbacks: NextAuthConfig['callbacks'] = {
 
       const { id, code, username, fname, lname, email, emailVerified, isActive, isOnline, isDefaultPasswordChanged, role } = existingUser
 
-      //* user - fields only available after login and for the next subsequent calls it will be undefined
-      //* trigger authenticate SAP only once after login, on subsequent calls it will not be triggered
-      if (user) {
-        //* Authenticate with SAP Service Layer and add session to token
-        //* Only do this in Node.js environment, not in Edge Runtime
-
-        const credentials: SapCredentials = {
-          baseUrl: process.env.SAP_BASE_URL || '',
-          companyDb: process.env.SAP_COMPANY_DB || '',
-          userName: process.env.SAP_USERNAME || '',
-          password: process.env.SAP_PASSWORD || '',
-        }
-
-        const authCookies = await authenticateSapServiceLayer(credentials)
-
-        if (
-          authCookies.error ||
-          !authCookies?.data ||
-          !authCookies?.data?.sapSession ||
-          !authCookies?.data?.sapSession?.b1session ||
-          !authCookies?.data?.sapSession?.routeid
-        ) {
-          logger.error(`SAP Service Layer authentication failed: ${authCookies?.message}`)
-          token.sapSession = null
-        } else token.sapSession = authCookies.data.sapSession
-      }
+      //? NOTE: The SAP Service Layer session is NOT established here. Logging in from this callback opened a
+      //? B1 session per user sign-in that was never cached nor logged out, holding a license slot until it
+      //? timed out. SAP sessions are owned by getSapServiceLayerToken(), which caches and reuses a single one.
 
       const rolePermissions = role.rolePermissions.map((rp) => ({
         id: rp.permissionId,
@@ -129,11 +106,43 @@ export const callbacks: NextAuthConfig['callbacks'] = {
         isOnline,
         isDefaultPasswordChanged,
         isOAuth: !!existingAccount,
-        sapSession: null,
+        sapDbCode: token.sapDbCode ?? null,
+        isEnabledCustomTfsProcess: false,
       }
 
       //* update token.user when triggered update of session
-      if (trigger === 'update') token.user = session.user
+      if (trigger === 'update') {
+        //* dbCode comes from the client — check it is a real, active database first
+        if ('sapDbCode' in (session ?? {})) {
+          //* the database must be active and assigned to the user's role, admin may use any
+          const sapDatabase = session.sapDbCode
+            ? await db.sapDatabase.findFirst({
+                where: {
+                  dbCode: session.sapDbCode,
+                  isActive: true,
+                  ...(role.key !== SUPER_USER_ROLE_KEY && { roleSapDatabases: { some: { roleCode: role.code } } }),
+                },
+              })
+            : null
+
+          token.sapDbCode = sapDatabase?.dbCode
+        }
+
+        if (session?.user) token.user = session.user
+      }
+
+      //* mirror onto token.user so call sites stay on session.user
+      token.user.sapDbCode = token.sapDbCode ?? null
+
+      //* read every call, not only on update — the flag is flipped straight in the database and must not wait for a company switch
+      const activeSapDatabase = token.sapDbCode
+        ? await db.sapDatabase.findUnique({
+            where: { dbCode: token.sapDbCode },
+            select: { isEnabledCustomTfsProcess: true },
+          })
+        : null
+
+      token.user.isEnabledCustomTfsProcess = !!activeSapDatabase?.isEnabledCustomTfsProcess
 
       return token
     } catch (error) {
@@ -143,12 +152,7 @@ export const callbacks: NextAuthConfig['callbacks'] = {
   },
   session: async ({ token, session }) => {
     //* anything returned here will be avaible to the client
-    if (token.user) {
-      session.user = {
-        ...token.user,
-        sapSession: token.sapSession,
-      }
-    }
+    if (token.user) session.user = { ...token.user }
 
     return session
   },

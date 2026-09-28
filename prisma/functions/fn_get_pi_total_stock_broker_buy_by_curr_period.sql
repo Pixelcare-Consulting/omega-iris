@@ -1,6 +1,10 @@
 --* Get sum of total stock per project individual under 'Broker Buy' group by current period
+--* dropped first: p_db_code changes the signature, a replace would leave the old unscoped one behind
+DROP FUNCTION IF EXISTS fn_get_pi_total_stock_broker_buy_by_curr_period(TEXT);
+
 CREATE OR REPLACE FUNCTION fn_get_pi_total_stock_broker_buy_by_curr_period(
-    p_period TEXT DEFAULT 'all-time'
+    p_db_code TEXT,
+    p_period  TEXT DEFAULT 'all-time'
 )
 RETURNS TABLE (
     "code"       INT,
@@ -37,19 +41,22 @@ BEGIN
     FROM "ProjectIndividual" T0
     LEFT JOIN "ProjectItem" T1
         ON T1."projectIndividualCode" = T0."code"
+        AND T1."dbCode" = p_db_code        --* kept in the join, in the where it would drop projects with no items
         AND T1."deletedAt" IS NULL
         AND T1."deletedBy" IS NULL 
         AND (
             v_start_date IS NULL
             OR T1."createdAt" >= v_start_date
         )
-    INNER JOIN "ProjectGroup" T2                
+    INNER JOIN "ProjectGroup" T2
         ON T2."code" = T0."groupCode"
+        AND T2."dbCode" = p_db_code    --* every company has its own Broker Buy group
         AND T2."deletedAt" IS NULL
         AND T2."deletedBy" IS NULL
         AND T2."name" = 'Broker Buy'   --* Broker Buy only        
     WHERE
-        T0."deletedAt" IS NULL
+        T0."dbCode" = p_db_code                --* company scope, not an optional filter
+        AND T0."deletedAt" IS NULL
         AND T0."deletedBy" IS NULL
         AND T0."isActive" = TRUE
     GROUP BY
@@ -64,6 +71,6 @@ $$;
 
 
 --* sample query execution
-SELECT * FROM fn_get_pi_total_stock_broker_buy_by_curr_period();
-SELECT * FROM fn_get_pi_total_stock_broker_buy_by_curr_period('month');
-SELECT * FROM fn_get_pi_total_stock_broker_buy_by_curr_period('annual');
+SELECT * FROM fn_get_pi_total_stock_broker_buy_by_curr_period('OMEGA_P02_TESTING');
+SELECT * FROM fn_get_pi_total_stock_broker_buy_by_curr_period('OMEGA_P02_TESTING', 'month');
+SELECT * FROM fn_get_pi_total_stock_broker_buy_by_curr_period('OMEGA_P02_TESTING', 'annual');

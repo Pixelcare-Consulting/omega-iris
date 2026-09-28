@@ -1,5 +1,9 @@
 --* Get project items with item details, project name and project group name by optional filters
+--* dropped first: p_db_code changes the signature, a replace would leave the old unscoped one behind
+DROP FUNCTION IF EXISTS fn_get_pitems_details_by_filter(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION fn_get_pitems_details_by_filter(
+    p_db_code            TEXT,
     p_project_name       TEXT DEFAULT NULL,
     p_project_group_name TEXT DEFAULT NULL,
     p_mpn                TEXT DEFAULT NULL,
@@ -17,7 +21,7 @@ RETURNS TABLE (
     "projectIndividualCode" INT,
     "projectName"           TEXT,
     "projectGroupName"      TEXT,
-    "warehouseCode"         INT,
+    "warehouseCode"         TEXT,
     "partNumber"            TEXT,
     "dateCode"              TEXT,
     "countryOfOrigin"       TEXT,
@@ -132,7 +136,8 @@ BEGIN
         ON T6."id" = T0."deletedBy"
         AND T6."deletedAt" IS NULL
     WHERE
-        T0."deletedAt" IS NULL
+        T0."dbCode" = p_db_code                --* company scope, not an optional filter
+        AND T0."deletedAt" IS NULL
         --* filter by project name
         AND (p_project_name IS NULL OR T1."name" ILIKE '%' || p_project_name || '%')
         --* filter by project group name
@@ -154,7 +159,7 @@ END;
 $$;
 
 --* sample query execution
-SELECT * FROM fn_get_pitems_details_by_filter();
-SELECT * FROM fn_get_pitems_details_by_filter(p_project_name := 'Broker');
-SELECT * FROM fn_get_pitems_details_by_filter(p_project_group_name := 'Broker Buy');
-SELECT * FROM fn_get_pitems_details_by_filter(p_project_name := 'Broker', p_project_group_name := 'Broker Buy');
+SELECT * FROM fn_get_pitems_details_by_filter('OMEGA_P02_TESTING');
+SELECT * FROM fn_get_pitems_details_by_filter('OMEGA_P02_TESTING', p_project_name := 'Broker');
+SELECT * FROM fn_get_pitems_details_by_filter('OMEGA_P02_TESTING', p_project_group_name := 'Broker Buy');
+SELECT * FROM fn_get_pitems_details_by_filter('OMEGA_P02_TESTING', p_project_name := 'Broker', p_project_group_name := 'Broker Buy');

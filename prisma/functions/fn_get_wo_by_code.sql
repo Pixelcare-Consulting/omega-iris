@@ -1,5 +1,9 @@
 --* Get work order by workOrderCode with project and user details
+--* dropped first: p_db_code changes the signature, a replace would leave the old unscoped one behind
+DROP FUNCTION IF EXISTS fn_get_wo_by_code(INT);
+
 CREATE OR REPLACE FUNCTION fn_get_wo_by_code(
+    p_db_code         TEXT,
     p_work_order_code INT
 )
 RETURNS TABLE (
@@ -88,9 +92,10 @@ BEGIN
         AND T3."deletedAt" IS NULL
     LEFT JOIN "vw_wo_status" T4          
         ON T4."value" = T0."status"
-        LEFT JOIN "BusinessPartner" T5          
-        ON T5."CardCode" = T3."customerCode"
-        AND T5."deletedAt" IS NULL    
+    LEFT JOIN "BusinessPartner" T5
+        ON T5."dbCode" = T3."customerDbCode"   --* card code repeats across databases, note: it will change if (T3.customerCode, T3.customerDbCode) of users will be move to their own separate table 
+        AND T5."CardCode" = T3."customerCode" --* note: it will change if (T3.customerCode, T3.customerDbCode) of users will be move to their own separate table  
+        AND T5."deletedAt" IS NULL
     LEFT JOIN "User" T6
         ON T6."id" = T0."createdBy"   --* match via id
         AND T6."deletedAt" IS NULL
@@ -98,10 +103,11 @@ BEGIN
         ON T7."id" = T0."updatedBy"   --* match via id
         AND T7."deletedAt" IS NULL            
     WHERE
-        T0."code" = p_work_order_code
+        T0."dbCode" = p_db_code                --* a code from another company must not resolve
+        AND T0."code" = p_work_order_code
         AND T0."deletedAt" IS NULL;
 END;
 $$;
 
 --* sample query execution
-SELECT * FROM fn_get_wo_by_code(16);
+SELECT * FROM fn_get_wo_by_code('OMEGA_P02_TESTING', 16);

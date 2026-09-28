@@ -10,6 +10,7 @@ import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Copy from '@/components/copy'
 import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
 import Separator from '@/components/separator'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type ProjectIndividualOverviewTabProps = {
   projectIndividual: NonNullable<Awaited<ReturnType<typeof getPiByCode>>>
@@ -20,7 +21,7 @@ export default function ProjectIndividualOverviewTab({ projectIndividual }: Proj
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const salesCloser = projectIndividual?.userSalesCloser

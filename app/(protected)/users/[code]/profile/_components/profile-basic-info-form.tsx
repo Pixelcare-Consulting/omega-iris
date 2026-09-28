@@ -19,6 +19,7 @@ import Copy from '@/components/copy'
 import { FormDebug } from '@/components/forms/form-debug'
 import { useEffect, useMemo } from 'react'
 import { isEmpty } from 'radash'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 type ProfileBasicInfoFormProps = {
   user: NonNullable<Awaited<ReturnType<typeof getUserByCode>>>
@@ -53,7 +54,7 @@ export default function ProfileBasicInfoForm({ user }: ProfileBasicInfoFormProps
 
   const isAdmin = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'admin'
+    return session.user.roleKey === SUPER_USER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const handleOnSubmit = async (formData: BasicInfoForm) => {

@@ -4,7 +4,7 @@ import z from 'zod'
 
 import { action, authenticationMiddleware } from '@/utils/safe-action'
 import { callSapServiceLayerApi } from './sap-service-layer'
-import { SAP_BASE_URL } from '@/constants/sap'
+import { SAP_BASE_URL, SAP_NO_PAGINATION } from '@/constants/sap'
 
 export async function getStates(countryCode: string) {
   if (!countryCode) return []
@@ -12,7 +12,7 @@ export async function getStates(countryCode: string) {
   try {
     return await callSapServiceLayerApi({
       url: `${SAP_BASE_URL}/b1s/v1/States?$select=Code,Name&$filter=Country eq '${countryCode}'`,
-      headers: { Prefer: 'odata.maxpagesize=999' },
+      headers: { Prefer: SAP_NO_PAGINATION },
     })
   } catch (error) {
     console.error(error)

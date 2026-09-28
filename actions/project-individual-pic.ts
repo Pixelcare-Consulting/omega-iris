@@ -3,7 +3,7 @@
 import { Prisma } from '@prisma/client'
 import z from 'zod'
 
-import { action, authenticationMiddleware } from '@/utils/safe-action'
+import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe-action'
 import { db } from '@/utils/db'
 
 const COMMON_PI_PIC_INCLUDE = {
@@ -11,12 +11,12 @@ const COMMON_PI_PIC_INCLUDE = {
 } satisfies Prisma.ProjectIndividualPicInclude
 const COMMON_PI_PIC_ORDER_BY = { user: { code: 'asc' } } satisfies Prisma.ProjectIndividualPicOrderByWithRelationInput
 
-export async function getPiPicsByProjectCode(projectCode?: number | null) {
+export async function getPiPicsByProjectCode(dbCode: string, projectCode?: number | null) {
   if (!projectCode) return []
 
   try {
     return db.projectIndividualPic.findMany({
-      where: { projectIndividualCode: projectCode },
+      where: { dbCode, projectIndividualCode: projectCode },
       include: COMMON_PI_PIC_INCLUDE,
       orderBy: COMMON_PI_PIC_ORDER_BY,
     })
@@ -28,16 +28,17 @@ export async function getPiPicsByProjectCode(projectCode?: number | null) {
 
 export const getPiPicsByProjectCodeClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(z.object({ projectCode: z.number().nullish() }))
-  .action(async ({ parsedInput: data }) => {
-    return getPiPicsByProjectCode(data.projectCode)
+  .action(async ({ ctx, parsedInput: data }) => {
+    return getPiPicsByProjectCode(ctx.dbCode, data.projectCode)
   })
 
-export async function getPiPicsByUserCode(userCode?: number | null) {
+export async function getPiPicsByUserCode(dbCode: string, userCode?: number | null) {
   if (!userCode) return []
 
   try {
-    return db.projectIndividualPic.findMany({ where: { userCode } })
+    return db.projectIndividualPic.findMany({ where: { dbCode, userCode } })
   } catch (error) {
     console.error(error)
     return []
@@ -46,7 +47,8 @@ export async function getPiPicsByUserCode(userCode?: number | null) {
 
 export const getPiPicsByUserCodeClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(z.object({ userCode: z.number().nullish() }))
-  .action(async ({ parsedInput: data }) => {
-    return getPiPicsByUserCode(data.userCode)
+  .action(async ({ ctx, parsedInput: data }) => {
+    return getPiPicsByUserCode(ctx.dbCode, data.userCode)
   })

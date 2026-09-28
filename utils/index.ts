@@ -2,6 +2,7 @@ import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import * as clipboard from 'clipboard-polyfill'
 import notify from 'devextreme/ui/notify'
+import cronstrue from 'cronstrue'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -86,6 +87,18 @@ export function safeParseFloat(value: any) {
   return isNaN(num) || !isFinite(num) ? 0 : num
 }
 
+//* True when a callSapServiceLayerApi result is a failure rather than data.
+//* SAP returns errors as { error: { code, message: { lang, value } } } and failures we synthesise
+//* use the same shape, so this one check covers SAP errors, auth failures and network failures.
+export function isSapError(response: any): boolean {
+  return !!response?.error
+}
+
+//* Extracts a readable message from a failed callSapServiceLayerApi result.
+export function getSapErrorMessage(response: any, fallback = 'Unknown SAP error'): string {
+  return response?.error?.message?.value || fallback
+}
+
 export function safeParseInt(value: any, radix?: number) {
   const num = parseInt(value, radix)
   return isNaN(num) || !isFinite(num) ? 0 : num
@@ -98,6 +111,17 @@ export function toBase64(file: File) {
     reader.onload = () => resolve(reader.result as string)
     reader.onerror = (error) => reject('Failed to process file')
   })
+}
+
+//* turns a cron expression into words for the ui, falls back to the raw expression when it cannot be read
+export function describeCronSchedule(schedule?: string | null) {
+  if (!schedule) return ''
+
+  try {
+    return cronstrue.toString(schedule, { verbose: false, use24HourTimeFormat: false }).toLowerCase()
+  } catch {
+    return schedule
+  }
 }
 
 //* splits an array into smaller chunks

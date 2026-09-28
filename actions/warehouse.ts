@@ -4,16 +4,77 @@ import z from 'zod'
 import { Prisma } from '@prisma/client'
 
 import { paramsSchema } from '@/schema/common'
-import { warehouseFormSchema } from '@/schema/warehouse'
+import { whBinLocationFormSchema, warehouseFormSchema } from '@/schema/warehouse'
 import { db } from '@/utils/db'
-import { action, authenticationMiddleware } from '@/utils/safe-action'
+import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe-action'
+import { DuplicateFields, ImportSyncErrorEntry } from '@/types/common'
+import { capitalize } from 'radash'
+import { createNotification } from './notification'
+import { PERMISSIONS_CODES } from '@/constants/permission'
+import { importFormSchema } from '@/schema/import'
+import { callSapServiceLayerApi } from './sap-service-layer'
+import { getMasterBinLocations, getWarehouseBinLocations } from './warehouse-bin-location'
+import { SAP_BASE_URL, SAP_NO_PAGINATION, WAREHOUSE_MASTER_MAX_PAGE_SIZE } from '@/constants/sap'
+import { getSapErrorMessage, isSapError, safeParseInt } from '@/utils'
+import logger from '@/utils/logger'
+import { getCurrentUserAbility } from './auth'
 
 const COMMON_WAREHOUSE_ORDER_BY = { code: 'asc' } satisfies Prisma.WarehouseOrderByWithRelationInput
 
-export async function getWarehouses(isDefault?: boolean | null) {
+export async function getWarehouses(dbCode: string, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>, isSynced?: boolean) {
+  if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
+
+  const { userCode, ability } = userInfo
+
   try {
+    let allowedProjects: { code: number }[] = []
+    const canViewAll = ability?.can('view', 'p-warehouses')
+    const canViewOwned = ability?.can('view (owner)', 'p-warehouses')
+
+    //* get allowed project for performance optimization, we wont get deep joins in the work order query
+    //* only get allowed project if canViewAll is false and canViewOwned is true
+    if (ability && !canViewAll && canViewOwned) {
+      allowedProjects = await db.projectIndividual.findMany({
+        where: {
+          dbCode,
+          OR: [
+            {
+              projectGroup: {
+                projectGroupPics: {
+                  some: { userCode },
+                },
+              },
+            },
+            {
+              projectIndividualPics: {
+                some: { userCode },
+              },
+            },
+            {
+              projectIndividualCustomers: {
+                some: { userCode },
+              },
+            },
+          ],
+        },
+        select: { code: true },
+      })
+    }
+
+    //* canViewOwned means can view all warehouses if you are assigned to the project individual as pic,
+    //* or customer, or a project group pic of the project
+    const where: Prisma.WarehouseWhereInput =
+      !ability || canViewAll
+        ? { ...(isSynced ? { syncStatus: 'synced' } : {}) }
+        : canViewOwned
+          ? {
+              ...(isSynced ? { syncStatus: 'synced' } : {}),
+              projectWarehouses: { some: { projectIndividualCode: { in: allowedProjects.map((p) => p.code) } } },
+            }
+          : { code: -1 }
+
     return db.warehouse.findMany({
-      where: { deletedAt: null, deletedBy: null, ...(isDefault ? { isDefault } : {}) },
+      where: { ...where, dbCode },
       orderBy: COMMON_WAREHOUSE_ORDER_BY,
     })
   } catch (error) {
@@ -24,16 +85,132 @@ export async function getWarehouses(isDefault?: boolean | null) {
 
 export const getWarehousesClient = action
   .use(authenticationMiddleware)
-  .schema(z.object({ isDefault: z.boolean().nullish().default(false) }))
-  .action(async ({ parsedInput }) => {
-    return getWarehouses(parsedInput.isDefault)
+  .use(tenantMiddleware)
+  .schema(z.object({ isSynced: z.boolean().optional() }))
+  .action(async ({ ctx, parsedInput: data }) => {
+    return getWarehouses(ctx.dbCode, ctx, data.isSynced)
   })
 
-export async function getWarehouseByCode(code: number) {
-  if (!code) return null
+//* only the warehouses assigned to the given project individual
+export async function getWarehousesByProjectCode(
+  dbCode: string,
+  projectCode: number | null | undefined,
+  userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>
+) {
+  if (!projectCode) return []
+  if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
+
+  const { userCode, ability } = userInfo
 
   try {
-    return db.warehouse.findUnique({ where: { code } })
+    const canViewAll = ability?.can('view', 'p-warehouses')
+    const canViewOwned = ability?.can('view (owner)', 'p-warehouses')
+
+    if (ability && !canViewAll && !canViewOwned) return []
+
+    //* a view (owner) user may only read warehouses of a project they are assigned to,
+    //* otherwise the project code can be used to enumerate warehouses of any project
+    if (ability && !canViewAll && canViewOwned) {
+      const allowedProject = await db.projectIndividual.findFirst({
+        where: {
+          dbCode,
+          code: projectCode,
+          OR: [
+            {
+              projectGroup: {
+                projectGroupPics: {
+                  some: { userCode },
+                },
+              },
+            },
+            {
+              projectIndividualPics: {
+                some: { userCode },
+              },
+            },
+            {
+              projectIndividualCustomers: {
+                some: { userCode },
+              },
+            },
+          ],
+        },
+        select: { code: true },
+      })
+
+      if (!allowedProject) return []
+    }
+
+    return db.warehouse.findMany({
+      where: { dbCode, projectWarehouses: { some: { projectIndividualCode: projectCode } } },
+      orderBy: COMMON_WAREHOUSE_ORDER_BY,
+    })
+  } catch (error) {
+    console.error(error)
+    return []
+  }
+}
+
+export const getWarehousesByProjectCodeClient = action
+  .use(authenticationMiddleware)
+  .use(tenantMiddleware)
+  .schema(z.object({ projectCode: z.coerce.number().nullish() }))
+  .action(async ({ ctx, parsedInput }) => {
+    return getWarehousesByProjectCode(ctx.dbCode, parsedInput.projectCode, ctx)
+  })
+
+export async function getWarehouseByCode(dbCode: string, code: number, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
+  if (!code) return null
+  if (!userInfo || !userInfo.userId || !userInfo.userCode) return null
+
+  const { userCode, ability } = userInfo
+
+  try {
+    let allowedProjects: { code: number }[] = []
+    const canViewAll = ability?.can('view', 'p-warehouses')
+    const canViewOwned = ability?.can('view (owner)', 'p-warehouses')
+
+    //* get allowed project for performance optimization, we wont get deep joins in the warehouse query
+    //* only get allowed project if canViewAll is false and canViewOwned is true
+    if (ability && !canViewAll && canViewOwned) {
+      allowedProjects = await db.projectIndividual.findMany({
+        where: {
+          dbCode,
+          OR: [
+            {
+              projectGroup: {
+                projectGroupPics: {
+                  some: { userCode },
+                },
+              },
+            },
+            {
+              projectIndividualPics: {
+                some: { userCode },
+              },
+            },
+            {
+              projectIndividualCustomers: {
+                some: { userCode },
+              },
+            },
+          ],
+        },
+        select: { code: true },
+      })
+    }
+
+    const where: Prisma.WarehouseWhereInput =
+      !ability || canViewAll
+        ? { code }
+        : canViewOwned
+          ? {
+              code,
+              projectWarehouses: { some: { projectIndividualCode: { in: allowedProjects.map((p) => p.code) } } },
+            }
+          : { code: -1 }
+
+    return db.warehouse.findFirst({ where: { ...where, dbCode } })
   } catch (err) {
     return null
   }
@@ -41,15 +218,55 @@ export async function getWarehouseByCode(code: number) {
 
 export const upsertWarehouse = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(warehouseFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, ...data } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
+
+    const trimmedWarehouseCode = data?.WarehouseCode?.trim()
+    const trimmedWarehouseName = data?.WarehouseName?.trim()
 
     try {
+      const [existingWarehouseCode, existingWarehouseName] = await Promise.all([
+        db.warehouse.findFirst({
+          where: { dbCode, WarehouseCode: trimmedWarehouseCode, ...(code && code !== -1 && { code: { not: code } }) },
+        }),
+        db.warehouse.findFirst({
+          where: { dbCode, WarehouseName: trimmedWarehouseName, ...(code && code !== -1 && { code: { not: code } }) },
+        }),
+      ])
+
+      const duplicates: DuplicateFields = []
+
+      if(existingWarehouseCode) duplicates.push({ field: 'WarehouseCode', name: 'Code',  message: 'code already exists!' }) // prettier-ignore
+      if(existingWarehouseName) duplicates.push({ field: 'WarehouseName', name: 'Name', message: 'name already exists!' }) // prettier-ignore
+
+      if (duplicates.length > 0) {
+        const paths = duplicates.map((d) => ({ field: d.field, message: d.message }))
+        const message = duplicates.map((d) => d.name).join(', ')
+        return { error: true, status: 401, message: `${capitalize(message)} already exists!`, action: 'UPSERT_WAREHOUSE', paths }
+      }
+
       //* update warehouse
       if (code !== -1) {
-        const updatedWarehouse = await db.warehouse.update({ where: { code }, data: { ...data, updatedBy: userId } })
+        const targetWarehouse = await db.warehouse.findFirst({ where: { code, dbCode } })
+
+        if (!targetWarehouse) return { error: true, status: 404, message: 'Warehouse not found!', action: 'UPSERT_WAREHOUSE' }
+
+        const updatedWarehouse = await db.warehouse.update({ where: { id: targetWarehouse.id }, data: { ...data, updatedBy: userId } }) //prettier-ignore
+
+        //* create notification
+        // void createNotification(ctx, {
+        //   permissionCode: PERMISSIONS_CODES.WAREHOUSES,
+        //   title: 'Warehouse Updated',
+        //   message: `A warehouse (#${updatedWarehouse.code}) was updated by ${ctx.fullName}.`,
+        //   link: `/warehouses/${updatedWarehouse.code}/view`,
+        //   entityType: 'Warehouse' as Prisma.ModelName,
+        //   entityCode: updatedWarehouse.code,
+        //   entityId: updatedWarehouse.id,
+        //   userCodes: [],
+        // })
 
         return {
           status: 200,
@@ -60,7 +277,19 @@ export const upsertWarehouse = action
       }
 
       //* create warehouse
-      const newWarehouse = await db.warehouse.create({ data: { ...data, createdBy: userId, updatedBy: userId } })
+      const newWarehouse = await db.warehouse.create({ data: { ...data, dbCode, createdBy: userId, updatedBy: userId } })
+
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES.ROLES,
+      //   title: 'Warehouse Created',
+      //   message: `A new warehouse (#${newWarehouse.code}) was created by ${ctx.fullName}.`,
+      //   link: `/warehouses/${newWarehouse.code}/view`,
+      //   entityType: 'Warehouse' as Prisma.ModelName,
+      //   entityCode: newWarehouse.code,
+      //   entityId: newWarehouse.id,
+      //   userCodes: [],
+      // })
 
       return {
         status: 200,
@@ -82,14 +311,27 @@ export const upsertWarehouse = action
 
 export const deleleteWarehouse = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(paramsSchema)
   .action(async ({ ctx, parsedInput: data }) => {
     try {
-      const warehouse = await db.warehouse.findUnique({ where: { code: data.code } })
+      const warehouse = await db.warehouse.findFirst({ where: { code: data.code, dbCode: ctx.dbCode } })
 
       if (!warehouse) return { error: true, status: 404, message: 'Warehouse not found!', action: 'DELETE_WAREHOUSE' }
 
-      await db.warehouse.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
+      await db.warehouse.update({ where: { id: warehouse.id }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
+
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES.WAREHOUSES,
+      //   title: 'Warehouse Deleted',
+      //   message: `A warehouse (#${warehouse.code}) was deleted by ${ctx.fullName}.`,
+      //   link: `/warehouses/${warehouse.code}/view`,
+      //   entityType: 'User' as Prisma.ModelName,
+      //   entityCode: warehouse.code,
+      //   entityId: warehouse.id,
+      //   userCodes: [],
+      // })
 
       return { status: 200, message: 'Warehouse deleted successfully!', action: 'DELETE_WAREHOUSE' }
     } catch (error) {
@@ -100,6 +342,481 @@ export const deleleteWarehouse = action
         status: 500,
         message: error instanceof Error ? error.message : 'Something went wrong!',
         action: 'DELETE_WAREHOUSE',
+      }
+    }
+  })
+
+export const restoreWarehouse = action
+  .use(authenticationMiddleware)
+  .use(tenantMiddleware)
+  .schema(paramsSchema)
+  .action(async ({ ctx, parsedInput: data }) => {
+    try {
+      const warehouse = await db.warehouse.findFirst({ where: { code: data.code, dbCode: ctx.dbCode } })
+
+      if (!warehouse) return { error: true, status: 404, message: 'Warehouse not found!', action: 'RESTORE_WAREHOUSE' }
+
+      await db.warehouse.update({ where: { id: warehouse.id }, data: { deletedAt: null, deletedBy: null } })
+
+      //* create notification
+      // void createNotification(ctx, {
+      //   permissionCode: PERMISSIONS_CODES.WAREHOUSES,
+      //   title: 'Warehouse Restored',
+      //   message: `A warehouse (#${warehouse.code}) was restored by ${ctx.fullName}.`,
+      //   link: `/warehouses/${warehouse.code}/view`,
+      //   entityType: 'Warehouse' as Prisma.ModelName,
+      //   entityCode: warehouse.code,
+      //   entityId: warehouse.id,
+      //   userCodes: [],
+      // })
+
+      return { status: 200, message: 'Warehouse retored successfully!', action: 'RESTORE_USER' }
+    } catch (error) {
+      console.error(error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'RESTORE_USER',
+      }
+    }
+  })
+
+export async function getWarehouseMasterCount() {
+  try {
+    const totalCount = await callSapServiceLayerApi({ url: `${SAP_BASE_URL}/b1s/v1/Warehouses/$count?$filter=U_Portal_Sync eq 'Y'` })
+    return safeParseInt(totalCount)
+  } catch (error) {
+    console.log({ error })
+    logger.error(error, 'Failed to fetch warehouse master count from SAP')
+    return 0
+  }
+}
+
+export async function getWarehouseMasterByPage(page: number) {
+  try {
+    const skip = page * WAREHOUSE_MASTER_MAX_PAGE_SIZE //* offset
+
+    const req = (await callSapServiceLayerApi({
+      url: `${SAP_BASE_URL}/b1s/v1/Warehouses?$select=WarehouseCode,WarehouseName,Nettable,EnableBinLocations,DefaultBin,Street,AddressName2,AddressName3,StreetNo,BuildingFloorRoom,Block,City,ZipCode,County,Country,State,GlobalLocationNumber,U_Portal_Sync&$filter=U_Portal_Sync eq 'Y'&$skip=${skip}&$orderby=WarehouseCode asc`,
+      headers: { Prefer: `odata.maxpagesize=${WAREHOUSE_MASTER_MAX_PAGE_SIZE}` },
+    })) as { value?: any[] } | null
+
+    const warehouses = (req?.value || []).filter(Boolean)
+    if (warehouses.length < 1) return []
+
+    //* country and state names are looked up separately, so warehouses with no country/state are kept (like a left join)
+    const countryCodes = Array.from(new Set(warehouses.map((wh) => wh?.Country).filter(Boolean) as string[]))
+    const stateFilter = countryCodes.map((code) => `Country eq '${code}'`).join(' or ')
+
+    const [countries, states] = await Promise.all([
+      countryCodes.length > 0
+        ? (callSapServiceLayerApi({
+            url: `${SAP_BASE_URL}/b1s/v1/Countries?$select=Code,Name`,
+            headers: { Prefer: SAP_NO_PAGINATION },
+          }) as Promise<{ value?: any[] } | null>)
+        : null,
+      countryCodes.length > 0
+        ? (callSapServiceLayerApi({
+            url: `${SAP_BASE_URL}/b1s/v1/States?$select=Code,Country,Name&$filter=${stateFilter}`,
+            headers: { Prefer: SAP_NO_PAGINATION },
+          }) as Promise<{ value?: any[] } | null>)
+        : null,
+    ])
+
+    const countryNameMap = new Map<string, string>((countries?.value || []).map((c) => [c?.Code, c?.Name]))
+    const stateNameMap = new Map<string, string>((states?.value || []).map((s) => [`${s?.Country}|${s?.Code}`, s?.Name]))
+
+    return warehouses.map((wh) => ({
+      ...wh,
+      CountryName: wh?.Country ? (countryNameMap.get(wh.Country) ?? null) : null,
+      StateName: wh?.Country && wh?.State ? (stateNameMap.get(`${wh.Country}|${wh.State}`) ?? null) : null,
+    }))
+  } catch (error) {
+    console.log({ error })
+    logger.error(error, `Failed to fetch warehouse master from SAP: Page (${page})`)
+    return []
+  }
+}
+
+export const syncToSap = action
+  .use(authenticationMiddleware)
+  .use(tenantMiddleware)
+  .schema(importFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { data, total, stats, isLastRow } = parsedInput
+    const { userId, dbCode } = ctx
+
+    const toUpdateSyncStatus: number[] = []
+
+    try {
+      const sapBatch: { rowNumber: number; code: number; promise: Promise<any>; row: Record<string, any> }[] = []
+
+      for (let i = 0; i < data.length; i++) {
+        const errors: ImportSyncErrorEntry[] = []
+        const row = data[i]
+        const rowNumber = stats.completed + i + 1 //* global row number across chunks
+
+        //* check required fields
+        if (!row?.WarehouseCode) errors.push({ field: 'Code', message: 'Missing required field' })
+
+        if (!row?.WarehouseName) errors.push({ field: 'Name', message: 'Missing required field' })
+
+        //* if errors present, push to stats.errors and skip
+        if (errors.length > 0) {
+          stats.errors.push({ rowNumber, entries: errors, row, code: row?.code })
+          continue
+        }
+
+        //* fetch bin locations, soft deleted ones must not be pushed into sap
+        const binLocations = await getWarehouseBinLocations(dbCode, row?.WarehouseCode ?? '')
+
+        const toCreateBinLocations = binLocations
+          .filter((bin) => !bin?.deletedAt && !bin?.deletedBy)
+          .map((bin) => ({
+            Warehouse: row?.WarehouseCode,
+            BinCode: bin?.BinCode,
+            Description: bin?.Description || null,
+            Sublevel1: bin?.SL1Code || null,
+            Sublevel2: bin?.SL2Code || null,
+            Sublevel3: bin?.SL3Code || null,
+            Sublevel4: bin?.SL4Code || null,
+          }))
+
+        const toCreate = {
+          WarehouseCode: row?.WarehouseCode,
+          WarehouseName: row?.WarehouseName,
+          Nettable: row?.Nettable ? 'tYES' : 'tNO',
+          EnableBinLocations: row?.EnableBinLocations ? 'tYES' : 'tNO',
+          Street: row?.Street || null,
+          AddressName2: row?.Address2 || null,
+          AddressName3: row?.Address3 || null,
+          StreetNo: row?.StreetNo || null,
+          BuildingFloorRoom: row?.BuildingFloorRoom || null,
+          Block: row?.Block || null,
+          City: row?.City || null,
+          ZipCode: row?.ZipCode || null,
+          County: row?.County || null,
+          Country: row?.CountryCode || null,
+          State: row?.StateCode || null,
+          GlobalLocationNumber: row?.GlobalLocationNumber || null,
+          U_Portal_Sync: 'Y',
+        }
+
+        //* push the batch item to the sapBatch array
+        //* bin locations are a separate sap entity, so they are created right after the warehouse they belong to
+        sapBatch.push({
+          rowNumber,
+          code: row?.code,
+          promise: (async () => {
+            const warehouseResult = await callSapServiceLayerApi({
+              url: `${SAP_BASE_URL}/b1s/v1/Warehouses`,
+              method: 'post',
+              data: toCreate,
+            })
+
+            //* skip bin locations when the warehouse itself failed
+            if (isSapError(warehouseResult)) return { warehouseResult, binResults: [] }
+
+            const binResults = await Promise.all(
+              toCreateBinLocations.map((bin) =>
+                callSapServiceLayerApi({ url: `${SAP_BASE_URL}/b1s/v1/BinLocations`, method: 'post', data: bin })
+              )
+            )
+
+            return { warehouseResult, binResults }
+          })(),
+          row,
+        })
+      }
+
+      //* create warehouses into sap
+      const sapCreated = await Promise.all(sapBatch.map((b) => b.promise))
+
+      //* populate error if any related to sap, otherwise collect success codes
+      for (let i = 0; i < sapCreated.length; i++) {
+        const batchItem = sapBatch[i] //* sapCreated and sapBatch have the same order
+        const warehouseResult = sapCreated[i]?.warehouseResult
+        const binResults = sapCreated[i]?.binResults || []
+
+        const pushError = (entry: ImportSyncErrorEntry) => {
+          //* find existing stats error related to the batch item's code
+          const importSyncError = stats.errors.find((e) => e?.code === batchItem?.code)
+
+          //* update the error if there existing importSyncError otherwise create a new one
+          if (importSyncError) {
+            importSyncError.entries.push(entry)
+          } else {
+            stats.errors.push({
+              rowNumber: batchItem.rowNumber,
+              entries: [entry],
+              row: batchItem.row,
+              code: batchItem.code,
+            })
+          }
+        }
+
+        //* if error present means there's an error when creating in sap
+        if (isSapError(warehouseResult)) {
+          pushError({ field: 'SAP Error', message: getSapErrorMessage(warehouseResult) })
+          continue
+        }
+
+        //* a failed bin location is reported but does not block the warehouse from being marked as synced
+        binResults.forEach((binResult: any) => {
+          if (!isSapError(binResult)) return
+          pushError({ field: 'SAP Error (Bin Location)', message: getSapErrorMessage(binResult) })
+        })
+
+        //* only codes that did not encounter a sap error are added
+        toUpdateSyncStatus.push(batchItem.code)
+      }
+
+      //* update the sync status of the warehouses created in sap
+      await db.warehouse.updateMany({
+        where: { dbCode, code: { in: toUpdateSyncStatus } },
+        data: { syncStatus: 'synced', updatedBy: userId },
+      })
+
+      //* progress based on warehouses processed (attempted) this chunk
+      const progress = total > 0 ? ((stats.completed + data.length) / total) * 100 : 100
+
+      const updatedStats = {
+        ...stats,
+        completed: stats.completed + data.length,
+        synced: stats.synced + toUpdateSyncStatus.length, //* only warehouses successfully created in SAP
+        progress,
+        status: progress >= 100 || isLastRow ? 'completed' : 'processing',
+      }
+
+      //* create notification only when the whole sync is completed
+      // if (updatedStats.status === 'completed') {
+      //   void createNotification(ctx, {
+      //     permissionCode: PERMISSIONS_CODES.WAREHOUSES,
+      //     title: 'Warehouses Synced To SAP',
+      //     message: `${updatedStats.completed - updatedStats.errors.length} of ${total} warehouse${total > 1 ? 's were' : ' was'} synced into SAP by ${ctx.fullName}. ${updatedStats.errors.length} error${updatedStats.errors.length > 1 ? 's' : ''} found.`,
+      //     link: `/warehouses`,
+      //     entityType: 'Warehouse' as Prisma.ModelName,
+      //     userCodes: [],
+      //   })
+      // }
+
+      return {
+        status: 200,
+        message: `${updatedStats.synced}/${total} warehouses synced into SAP. ${updatedStats.errors.length} errors found.`,
+        action: 'SYNC_TO_SAP',
+        stats: updatedStats,
+      }
+    } catch (error) {
+      console.error('Data sync error:', error)
+
+      const errors = data.map((row, index) => ({
+        rowNumber: stats.completed + index + 1,
+        code: row?.code,
+        entries: [{ field: 'Unknown', message: 'Unexpected batch write error' }],
+        row,
+      })) as any
+
+      stats.errors.push(...errors)
+      stats.status = 'error'
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Data sync error!',
+        action: 'SYNC_TO_SAP',
+        stats,
+      }
+    }
+  })
+
+export const syncFromSap = action
+  .use(authenticationMiddleware)
+  .use(tenantMiddleware)
+  .schema(importFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { data, total, stats, isLastRow } = parsedInput
+    const { userId, dbCode } = ctx
+
+    const SYNC_META_CODE = 'warehouse'
+
+    try {
+      const binLocationMap = new Map<string, any[]>()
+      const batch: Prisma.WarehouseUncheckedCreateInput[] = []
+
+      //* sap's Warehouses entity has no create/update date, so every portal-synced warehouse is upserted
+      for (let i = 0; i < data.length; i++) {
+        const errors: ImportSyncErrorEntry[] = []
+        const row = data[i]
+        const rowNumber = stats.completed + i + 1 //* global row number across pages
+
+        //* check required fields
+        if (!row || !row?.WarehouseCode) errors.push({ field: 'WarehouseCode', message: 'Missing required field' })
+
+        //* if errors array is not empty, then update/push to stats.errors
+        if (errors.length > 0) {
+          stats.errors.push({ rowNumber, entries: errors, row, code: row?.WarehouseCode, name: row?.WarehouseName })
+          continue
+        }
+
+        //* reshape data
+        batch.push({
+          dbCode,
+          syncStatus: 'synced',
+
+          //* sap fields
+          WarehouseCode: row.WarehouseCode,
+          WarehouseName: row?.WarehouseName || '',
+          Nettable: row?.Nettable === 'tYES',
+          EnableBinLocations: row?.EnableBinLocations === 'tYES',
+          DefaultBin: row?.DefaultBin ? safeParseInt(row.DefaultBin) : null,
+          Street: row?.Street || null,
+          Address2: row?.AddressName2 || null,
+          Address3: row?.AddressName3 || null,
+          StreetNo: row?.StreetNo || null,
+          BuildingFloorRoom: row?.BuildingFloorRoom || null,
+          Block: row?.Block || null,
+          City: row?.City || null,
+          ZipCode: row?.ZipCode || null,
+          County: row?.County || null,
+          CountryCode: row?.Country || null,
+          CountryName: row?.CountryName || null,
+          StateCode: row?.State || null,
+          StateName: row?.StateName || null,
+          GlobalLocationNumber: row?.GlobalLocationNumber || null,
+        })
+      }
+
+      //* bins are refreshed for every warehouse in the chunk, so bin-only changes in sap reach the portal
+      const chunkWarehouseCodes = Array.from(new Set(data.map((row: any) => row?.WarehouseCode).filter(Boolean) as string[]))
+
+      //* a bin's parent warehouse must exist (fk), so only refresh codes that are being upserted
+      //* in this batch or were already synced in a previous run
+      const existingWarehouses = await db.warehouse.findMany({
+        where: { dbCode, WarehouseCode: { in: chunkWarehouseCodes } },
+        select: { WarehouseCode: true },
+      })
+
+      const batchCodes = new Set(batch.map((wh) => wh.WarehouseCode))
+      const existingCodes = new Set(existingWarehouses.map((wh) => wh.WarehouseCode))
+      const binRefreshCodes = chunkWarehouseCodes.filter((code) => batchCodes.has(code) || existingCodes.has(code))
+
+      const warehouseBinLocations = await Promise.all(binRefreshCodes.map((code) => getMasterBinLocations(code)))
+
+      binRefreshCodes.forEach((code, index) => {
+        binLocationMap.set(code, warehouseBinLocations[index] ?? [])
+      })
+
+      const upsertBinLocations = async (warehouseCodes: string[], tx: Prisma.TransactionClient) => {
+        for (const warehouseCode of warehouseCodes) {
+          const binLocations = binLocationMap.get(warehouseCode) ?? []
+
+          const binLocationsData = binLocations?.map((bin: any) => ({
+            WarehouseCode: warehouseCode,
+            BinCode: bin?.BinCode || '',
+            Description: bin?.Description || null,
+            SL1Code: bin?.Sublevel1 || '',
+            SL2Code: bin?.Sublevel2 || null,
+            SL3Code: bin?.Sublevel3 || null,
+            SL4Code: bin?.Sublevel4 || null,
+          }))
+
+          //* upsert only — bins removed in sap are intentionally kept in the portal
+          //TODO: examine performance issues
+          if (binLocationsData.length > 0) {
+            for (const bin of binLocationsData) {
+              if (!bin.BinCode) continue
+
+              await tx.warehouseBinLocation.upsert({
+                where: { dbCode_BinCode: { dbCode, BinCode: bin.BinCode } },
+                create: {
+                  ...bin,
+                  dbCode,
+                  createdBy: userId,
+                  updatedBy: userId,
+                },
+                update: {
+                  ...bin,
+                  updatedBy: userId,
+                },
+              })
+            }
+          }
+        }
+      }
+
+      //* commit the chunk, single transaction since data is already chunked (max 1 chunk per call)
+      //* timeout raised: bins are refreshed for every warehouse in the chunk
+      await db.$transaction(
+        async (tx) => {
+          await Promise.all(
+            batch.map((warehouseData) =>
+              tx.warehouse.upsert({
+                where: { dbCode_WarehouseCode: { dbCode, WarehouseCode: warehouseData.WarehouseCode } },
+                create: { ...warehouseData, dbCode, createdBy: userId, updatedBy: userId },
+                update: { ...warehouseData, updatedBy: userId },
+              })
+            )
+          )
+          await upsertBinLocations(binRefreshCodes, tx)
+        },
+        { timeout: 120000, maxWait: 10000 }
+      )
+
+      const progress = total > 0 ? ((stats.completed + data.length) / total) * 100 : 100
+
+      const updatedStats = {
+        ...stats,
+        completed: stats.completed + data.length,
+        synced: stats.synced + batch.length, //* only rows actually upserted (excludes skipped/errored)
+        progress,
+        status: progress >= 100 || isLastRow ? 'completed' : 'processing',
+      }
+
+      //* upsert sync meta only when the whole sync is completed
+      if (updatedStats.status === 'completed') {
+        await db.syncMeta.upsert({
+          where: { dbCode_code: { dbCode, code: SYNC_META_CODE } },
+          create: { code: SYNC_META_CODE, dbCode, description: 'Last warehouse master synced date', lastSyncAt: new Date() },
+          update: { code: SYNC_META_CODE, description: 'Last warehouse master synced date', lastSyncAt: new Date() },
+        })
+
+        //* create notification
+        // void createNotification(ctx, {
+        //   permissionCode: PERMISSIONS_CODES.WAREHOUSES,
+        //   title: 'Warehouses Synced From SAP',
+        //   message: `Warehouse${total > 1 ? 's were' : ' was'} synced from SAP by ${ctx.fullName}.`,
+        //   link: `/warehouses`,
+        //   entityType: 'Warehouse' as Prisma.ModelName,
+        //   userCodes: [],
+        // })
+      }
+
+      return {
+        status: 200,
+        message: `${updatedStats.synced}/${total} warehouse master synced. ${updatedStats.errors.length} errors found.`,
+        action: 'SYNC_FROM_SAP',
+        stats: updatedStats,
+      }
+    } catch (error) {
+      console.error('Data sync error:', error)
+
+      const errors = data.map((row: any) => ({
+        rowNumber: row?.rowNumber as number,
+        entries: [{ field: 'Unknown', message: 'Unexpected batch write error' }],
+        row: null,
+      })) as any
+
+      stats.errors.push(...errors)
+      stats.status = 'error'
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Data sync error!',
+        action: 'SYNC_FROM_SAP',
+        stats,
       }
     }
   })

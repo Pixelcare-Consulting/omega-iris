@@ -1,7 +1,11 @@
+--* dropped first: a replace cannot add a column in the middle
+DROP VIEW IF EXISTS vw_wo;
+
 CREATE OR REPLACE VIEW vw_wo AS
 SELECT
     T0."id",
     T0."code",
+    T0."dbCode",
     T0."projectIndividualCode",
     T0."userCode",
     T0."status",
@@ -44,7 +48,8 @@ INNER JOIN "User" T3
 LEFT JOIN "vw_wo_status" T4
     ON T4."value" = T0."status"
 LEFT JOIN "BusinessPartner" T5
-    ON T5."CardCode" = T3."customerCode"
+    ON T5."dbCode" = T3."customerDbCode"       --* card code repeats across databases
+    AND T5."CardCode" = T3."customerCode"
     AND T5."deletedAt" IS NULL
 LEFT JOIN "User" T6                                    --* createdBy user
     ON T6."id" = T0."createdBy"
@@ -56,3 +61,6 @@ LEFT JOIN "User" T8                                    --* deletedBy user
     ON T8."id" = T0."deletedBy"
     AND T8."deletedAt" IS NULL
 ORDER BY T0."code" ASC;
+
+--* sample query execution
+SELECT * FROM vw_wo

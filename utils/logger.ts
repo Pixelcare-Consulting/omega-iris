@@ -1,3 +1,4 @@
+import { isProd } from '@/constants/common'
 import pino from 'pino'
 
 //* DEFAULT PINO LOGGER LEVEL
@@ -10,15 +11,20 @@ import pino from 'pino'
 //* silent - infinity
 
 const logger = pino({
-  level: 'trace',
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      translateTime: 'SYS:mm-dd-yyyy HH:MM:ss',
-      //   colorize: true,
-      ignore: 'pid,hostname',
-    },
+  level: process.env.LOG_LEVEL || (isProd ? 'info' : 'debug'),
+  redact: {
+    paths: ['*.pass', '*.password', '*.auth.pass', 'req.headers.authorization'],
+    censor: '**REDACTED**',
   },
+  transport: isProd
+    ? undefined //* plain JSON in prod
+    : {
+        target: 'pino-pretty',
+        options: {
+          translateTime: 'SYS:mm-dd-yyyy HH:MM:ss',
+          ignore: 'pid,hostname',
+        },
+      },
 })
 
 export default logger

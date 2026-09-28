@@ -1,5 +1,9 @@
 --* Get project individuals by userCode (as customer) by previous period
+--* dropped first: p_db_code changes the signature, a replace would leave the old unscoped one behind
+DROP FUNCTION IF EXISTS fn_get_pi_by_prev_period_usercode(INT, TEXT);
+
 CREATE OR REPLACE FUNCTION fn_get_pi_by_prev_period_usercode(
+    p_db_code   TEXT,
     p_user_code INT DEFAULT 0,
     p_period    TEXT DEFAULT 'all-time'
 )
@@ -80,7 +84,8 @@ BEGIN
         ON T2."code" = T0."groupCode"
         AND T2."deletedAt" IS NULL
     WHERE
-        T0."deletedAt" IS NULL
+        T0."dbCode" = p_db_code                      --* company scope, not an optional filter
+        AND T0."deletedAt" IS NULL
         AND (
             v_start_date IS NULL
             OR T0."createdAt" BETWEEN v_start_date AND v_end_date
@@ -90,6 +95,6 @@ END;
 $$;
 
 --* sample query execution
-SELECT * FROM fn_get_pi_by_prev_period_usercode(5);
-SELECT * FROM fn_get_pi_by_prev_period_usercode(5, 'month');
-SELECT * FROM fn_get_pi_by_prev_period_usercode(5, 'quarter');
+SELECT * FROM fn_get_pi_by_prev_period_usercode('OMEGA_P02_TESTING', 5);
+SELECT * FROM fn_get_pi_by_prev_period_usercode('OMEGA_P02_TESTING', 5, 'month');
+SELECT * FROM fn_get_pi_by_prev_period_usercode('OMEGA_P02_TESTING', 5, 'quarter');

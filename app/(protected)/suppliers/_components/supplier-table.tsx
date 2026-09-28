@@ -11,8 +11,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Item } from 'devextreme-react/toolbar'
 import Tooltip from 'devextreme-react/tooltip'
 
-import { getBps, syncFromSap } from '@/actions/business-partner'
+import { getBpMasterByPage, getBpMasterCount, getBps, syncFromSap } from '@/actions/business-partner'
 import PageHeader from '@/app/(protected)/_components/page-header'
+import { Badge } from '@/components/badge'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
@@ -26,12 +27,27 @@ import { hideActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import CanView from '@/components/acl/can-view'
 import { NotificationContext } from '@/context/notification'
+import { Stats, SyncSectionState } from '@/types/common'
+import { BP_MASTER_MAX_PAGE_SIZE } from '@/constants/sap'
+import ProgressBar from 'devextreme-react/progress-bar'
+import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 
 type SupplierTableProps = { bps: Awaited<ReturnType<typeof getBps>> }
 type DataSource = Awaited<ReturnType<typeof getBps>>
 
+const INITIAL_STATS: Stats = { total: 0, completed: 0, synced: 0, progress: 0, errors: [], status: 'idle' }
+
+const INITIAL_SYNC_SECTION_STATE: SyncSectionState = {
+  stats: INITIAL_STATS,
+  errors: [],
+  showError: false,
+  showConfirmation: false,
+}
+
 export default function SupplierTable({ bps }: SupplierTableProps) {
   const router = useRouter()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-supplier'
   const DATAGRID_UNIQUE_KEY = 'suppliers'
@@ -40,7 +56,7 @@ export default function SupplierTable({ bps }: SupplierTableProps) {
 
   const form = useForm({
     mode: 'onChange',
-    values: { bps: [], cardType: 'C' },
+    values: { bps: [], cardType: 'S' },
     resolver: zodResolver(syncToSapFormSchema),
   })
 
@@ -51,14 +67,22 @@ export default function SupplierTable({ bps }: SupplierTableProps) {
     return bpsToSync.map((wo) => wo.code)
   }, [JSON.stringify(bpsToSync)])
 
-  const [showSyncFromSapConfirmation, setShowSyncFromSapConfirmation] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const [syncFromSapState, setSyncFromSapState] = useState<SyncSectionState>(INITIAL_SYNC_SECTION_STATE)
 
   const dataGridRef = useRef<DataGridRef | null>(null)
 
   const syncMeta = useSyncMeta('supplier')
+
+  const lastSyncedLabel = useMemo(() => {
+    if (!syncMeta.data?.lastSyncAt) return 'Never synced'
+    return `Last synced: ${format(syncMeta.data.lastSyncAt, 'PP, hh:mm a')}`
+  }, [syncMeta.data?.lastSyncAt])
   const syncFromSapData = useAction(syncFromSap)
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
+  const syncFromSapErrorDataGridRef = useRef<DataGridRef | null>(null)
 
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
     const data = e.row?.data
@@ -67,37 +91,94 @@ export default function SupplierTable({ bps }: SupplierTableProps) {
   }, [])
 
   const handleConfirmSyncFromSap = async (cardType: string) => {
+    setIsLoading(true)
+    setSyncFromSapState((prev) => ({ ...prev, showConfirmation: false, stats: { ...INITIAL_STATS, status: 'processing' } }))
+
     try {
-      setShowSyncFromSapConfirmation(false)
+      //* get total count of bp master from sap
+      const totalCount = await getBpMasterCount(cardType)
 
-      const response = await syncFromSapData.executeAsync({ cardType })
-      const result = response?.data
-
-      if (result?.error) {
-        toast.error(result.message)
+      if (totalCount < 1) {
+        toast.error('Failed to fetch supplier master from SAP!')
+        setSyncFromSapState((prev) => ({ ...prev, stats: INITIAL_STATS }))
+        setIsLoading(false)
         return
       }
 
-      toast.success(result?.message)
-      router.refresh()
-      // notificationContext?.handleRefresh()
-      syncMeta.execute({ code: 'supplier' })
+      const totalPage = Math.ceil(totalCount / BP_MASTER_MAX_PAGE_SIZE)
+
+      //* trigger sync by page
+      let stats: Stats = { total: totalCount, completed: 0, synced: 0, progress: 0, errors: [], status: 'processing' }
+
+      for (let page = 0; page <= totalPage; page++) {
+        const isLastPage = page === totalPage
+
+        //* fetch bp master from sap per page
+        const pageData = await getBpMasterByPage(cardType, page)
+
+        if (pageData.length < 1) {
+          if (isLastPage) stats.status = 'completed'
+          continue
+        }
+
+        const response = await syncFromSapData.executeAsync({
+          data: pageData,
+          total: totalCount,
+          stats,
+          isLastRow: isLastPage,
+          cardType,
+        })
+        const result = response?.data
+
+        if (result?.error) {
+          setSyncFromSapState((prev) => ({ ...prev, stats: { ...prev.stats, errors: [...prev.stats.errors, ...result.stats.errors] } }))
+          stats.errors = [...stats.errors, ...result.stats.errors]
+        } else if (result?.stats) {
+          setSyncFromSapState((prev) => ({ ...prev, stats: result.stats }))
+          stats = result.stats
+        }
+      }
+
+      if (stats.status === 'completed') {
+        toast.success(`Supplier master synced from SAP successfully!. ${stats.errors.length} errors found.`)
+        setSyncFromSapState((prev) => ({ ...prev, stats: INITIAL_STATS }))
+        router.refresh()
+        syncMeta.execute({ code: 'supplier' })
+        // notificationContext?.handleRefresh()
+      }
+
+      if (stats.errors.length > 0) {
+        setSyncFromSapState((prev) => ({ ...prev, showError: true, errors: stats.errors }))
+        // notificationContext?.handleRefresh()
+      }
+
+      setIsLoading(false)
     } catch (error: any) {
+      console.log({ error })
       console.error(error)
-      toast.error(error?.message || 'Failed to sync suppliers from SAP!', { duration: 10000 })
+      setIsLoading(false)
+      toast.error(error?.message || 'Failed to sync supplier from SAP!', { duration: 10000 })
     }
   }
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Suppliers' description='Manage and track your suppliers effectively' isLoading={syncFromSapData.isExecuting}>
-        {selectedRowKeys.length < 1 && (
+      <PageHeader
+        title={
+          <>
+            <span className='pr-1.5'>Suppliers</span>
+            {isCustomTfsEnabled && <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>}
+          </>
+        }
+        description='Manage and track your suppliers effectively'
+      >
+        {isCustomTfsEnabled && selectedRowKeys.length < 1 && (
           <CanView subject='p-suppliers' action='sync from sap'>
             <Item location='after' locateInMenu='auto' widget='dxButton'>
               {!syncMeta.isLoading && (
                 <Tooltip
                   target='#sync-from-sap-to-portal'
-                  contentRender={() => `Last Sync: ${format(syncMeta.data?.lastSyncAt || new Date('01/01/2020'), 'PP, hh:mm a')}`}
+                  contentRender={() => lastSyncedLabel}
                   showEvent='mouseenter'
                   hideEvent='mouseleave'
                   position='top'
@@ -106,12 +187,12 @@ export default function SupplierTable({ bps }: SupplierTableProps) {
               <LoadingButton
                 id='sync-from-sap-to-portal'
                 icon='refresh'
-                isLoading={syncFromSapData.isExecuting}
+                isLoading={syncFromSapData.isExecuting || syncFromSapState.stats.status === 'processing'}
                 type='default'
                 text='Sync From SAP'
                 loadingText={syncMeta.isLoading ? 'Depedecy loading' : 'Syncing'}
                 stylingMode='outlined'
-                onClick={() => setShowSyncFromSapConfirmation(true)}
+                onClick={() => setSyncFromSapState((prev) => ({ ...prev, showConfirmation: true }))}
               />
             </Item>
           </CanView>
@@ -120,9 +201,13 @@ export default function SupplierTable({ bps }: SupplierTableProps) {
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
-          isLoading={syncFromSapData.isExecuting}
-          exportOptions={{ subjects: 'p-suppliers', actions: 'export' }}
+          isLoading={isLoading || syncFromSapData.isExecuting}
+          exportOptions={{ subjects: 'p-suppliers', actions: 'export', isLoading: syncFromSapData.isExecuting }}
         />
+
+        {isLoading && syncFromSapState.stats.status === 'processing' ? (
+          <ProgressBar min={0} max={100} showStatus={false} value={syncFromSapState.stats.progress} />
+        ) : null}
       </PageHeader>
 
       <PageContentWrapper className='h-[calc(100%_-_92px)]'>
@@ -169,12 +254,23 @@ export default function SupplierTable({ bps }: SupplierTableProps) {
       </PageContentWrapper>
 
       <AlertDialog
-        isOpen={showSyncFromSapConfirmation}
+        isOpen={syncFromSapState.showConfirmation}
         title='Are you sure?'
         description='Are you sure you want to sync from SAP?'
         onConfirm={() => handleConfirmSyncFromSap('S')}
-        onCancel={() => setShowSyncFromSapConfirmation(false)}
+        onCancel={() => setSyncFromSapState((prev) => ({ ...prev, showConfirmation: false }))}
       />
+
+      <ImportSyncErrorDataGrid
+        title='Sync From SAP Error'
+        description='There was an error encountered while syncing.'
+        isOpen={syncFromSapState.showError}
+        setIsOpen={(value) => setSyncFromSapState((prev) => ({ ...prev, showError: value }))}
+        data={syncFromSapState.errors}
+        dataGridRef={syncFromSapErrorDataGridRef}
+      >
+        <Column dataField='code' dataType='string' caption='Id' alignment='center' />
+      </ImportSyncErrorDataGrid>
     </div>
   )
 }

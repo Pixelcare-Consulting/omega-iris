@@ -24,6 +24,7 @@ import WorkOrderAttachmentTab from './_tabs/work-order-attachment-tab'
 import { useReportByCode } from '@/hooks/safe-actions/report'
 import WorkOrderReportViewerTab from './_tabs/work-order-report-viewer-tab'
 import { getReportByCode } from '@/actions/report'
+import { MODULE_NAME } from '@/constants/module'
 
 type ViewWorkOrderProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
@@ -39,7 +40,7 @@ export default function ViewWorkOrder({ workOrder, report }: ViewWorkOrderProps)
   const salesOrder = useSalesOrderByWorkOrderCode(workOrder?.code)
   const billingAddress = useAddressById(workOrder?.billingAddrCode ?? '')
   const shippingAddress = useAddressById(workOrder?.shippingAddrCode ?? '')
-  const fileAttachments = useFileAttachmentsByRefCode('work-orders', workOrder?.code)
+  const fileAttachments = useFileAttachmentsByRefCode(MODULE_NAME.WORK_ORDERS, workOrder?.code)
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>

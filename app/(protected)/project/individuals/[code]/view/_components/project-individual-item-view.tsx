@@ -12,17 +12,19 @@ import ReadOnlyField from '@/components/read-only-field'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import { DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { formatNumber } from 'devextreme/localization'
-import { useItemWarehouseInventory } from '@/hooks/safe-actions/item-warehouse-inventory'
+import ProjectIndividualItemSapInventory from './project-individual-item-sap-inventory'
 import Separator from '@/components/separator'
 import { safeParseFloat } from '@/utils'
 import { useSession } from 'next-auth/react'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type ProjectIndividualItemViewProps = {
   data: Awaited<ReturnType<typeof getProjecItems>>[number]
   onClose: () => void
+  hiddenFields?: string[]
 }
 
-export default function ProjectIndividualItemView({ data, onClose }: ProjectIndividualItemViewProps) {
+export default function ProjectIndividualItemView({ data, onClose, hiddenFields = [] }: ProjectIndividualItemViewProps) {
   const { data: session } = useSession()
 
   const item = data.item
@@ -33,17 +35,8 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
-
-  //* Temporary disable
-  // const itemMasterWarehouseInventory = useItemWarehouseInventory(item?.code)
-
-  //* Temporary disable
-  // const selectedItemMasterWarehouseInventory = useMemo(() => {
-  //   if (itemMasterWarehouseInventory.isLoading || itemMasterWarehouseInventory.data.length < 1) return null
-  //   return itemMasterWarehouseInventory.data.find((wi) => wi.warehouseCode === warehouse?.code)
-  // }, [JSON.stringify(itemMasterWarehouseInventory), warehouse?.code])
 
   return (
     <ScrollView useNative>
@@ -94,6 +87,49 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
         /> */}
 
         <Separator className='col-span-12' />
+        <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Location' description='Item location details' />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-4'
+          title='Warehouse'
+          value={data?.warehouse ? `${data.warehouse.WarehouseName} (${data.warehouse.WarehouseCode})` : ''}
+          isHide={hiddenFields.includes('warehouseCode')}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-4'
+          title='Bin Location'
+          value={data?.binCode || ''}
+          isHide={hiddenFields.includes('binCode')}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-4'
+          title='Batch #'
+          value={data?.DistNumber || ''}
+          isHide={hiddenFields.includes('DistNumber')}
+        >
+          {data?.DistNumber ? <Copy value={data.DistNumber} /> : null}
+        </ReadOnlyField>
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Site Location' value={data?.siteLocation || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 2' value={data?.subLocation2 || ''} />
+
+        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 3' value={data?.subLocation3 || ''} />
+
+        <Separator className='col-span-12' />
+
+        {/* //* nothing to show without a warehouse, so the panel goes with it */}
+        {!hiddenFields.includes('warehouseCode') && (
+          <ProjectIndividualItemSapInventory
+            warehouseCode={data?.warehouseCode}
+            itemCode={item?.ItemCode}
+            emptyText='No warehouse is set for this item, so there is no SAP stock to show.'
+          />
+        )}
+
+        <Separator className='col-span-12' />
         <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Project Item' description='Project item details' />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='ID' value={data.code}>
@@ -101,6 +137,55 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
         </ReadOnlyField>
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Owner' value={data?.owner || ''} />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Group'
+          value={data?.group || ''}
+          isHide={hiddenFields.includes('group')}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Division'
+          value={data?.division || ''}
+          isHide={hiddenFields.includes('division')}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Site'
+          value={data?.site || ''}
+          isHide={hiddenFields.includes('site')}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='CM Site'
+          value={data?.cmSite || ''}
+          isHide={hiddenFields.includes('cmSite')}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Phase'
+          value={data?.phase || ''}
+          isHide={hiddenFields.includes('phase')}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='TFS Standard Price'
+          value={formatNumber(safeParseFloat(data?.tfsStdPrice), DEFAULT_CURRENCY_FORMAT)}
+          isHide={hiddenFields.includes('tfsStdPrice')}
+        />
+
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Omega Price'
+          value={formatNumber(safeParseFloat(data?.omegaPrice), DEFAULT_CURRENCY_FORMAT)}
+          isHide={hiddenFields.includes('omegaPrice')}
+        />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Part Number' value={data?.partNumber || ''} />
 
@@ -140,13 +225,12 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
           value={formatNumber(safeParseFloat(data?.stockOut), DEFAULT_NUMBER_FORMAT)}
         />
 
-        {!isBusinessPartner && (
-          <ReadOnlyField
-            className='col-span-12 md:col-span-6 lg:col-span-3'
-            title='Total Stock'
-            value={formatNumber(safeParseFloat(data?.totalStock), DEFAULT_NUMBER_FORMAT)}
-          />
-        )}
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Total Stock'
+          value={formatNumber(safeParseFloat(data?.totalStock), DEFAULT_NUMBER_FORMAT)}
+          isHide={isBusinessPartner}
+        />
 
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'
@@ -172,15 +256,6 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
 
         <ReadOnlyField className='col-span-12' title='Notes' value={data?.notes || ''} />
 
-        <Separator className='col-span-12' />
-        <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Location' description='Item location details' />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Site Location' value={data?.siteLocation || ''} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 2' value={data?.subLocation2 || ''} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 3' value={data?.subLocation3 || ''} />
-
         {!isBusinessPartner && (
           <>
             <Separator className='col-span-12' />
@@ -195,46 +270,6 @@ export default function ProjectIndividualItemView({ data, onClose }: ProjectIndi
             <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Received By' value={dateReceivedBy} />
           </>
         )}
-
-        {/*  //* Temporary disable */}
-        {/* <Separator className='col-span-12' />
-        <ReadOnlyFieldHeader
-          className='col-span-12 mb-1'
-          title='Site Location '
-          description='Item warehouse and warehouse inventory details'
-        />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6' title='Warehouse' value={warehouse?.name || ''} />
-
-        <ReadOnlyField className='col-span-12 md:col-span-6' title='Description' value={warehouse?.description || ''} />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='In Stock'
-          value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.inStock), DEFAULT_NUMBER_FORMAT)}
-          isLoading={itemMasterWarehouseInventory.isLoading}
-        />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Committed'
-          value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.committed), DEFAULT_NUMBER_FORMAT)}
-          isLoading={itemMasterWarehouseInventory.isLoading}
-        />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Ordered'
-          value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.ordered), DEFAULT_NUMBER_FORMAT)}
-          isLoading={itemMasterWarehouseInventory.isLoading}
-        />
-
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Available'
-          value={formatNumber(safeParseFloat(selectedItemMasterWarehouseInventory?.available), DEFAULT_NUMBER_FORMAT)}
-          isLoading={itemMasterWarehouseInventory.isLoading}
-        /> */}
 
         {!isBusinessPartner && (
           <>

@@ -29,13 +29,17 @@ import { commonItemRender, userItemRender } from '@/utils/devextreme'
 import SwitchField from '@/components/forms/switch-field'
 import CanView from '@/components/acl/can-view'
 import { useBps } from '@/hooks/safe-actions/business-partner'
+import { useWarehouses } from '@/hooks/safe-actions/warehouse'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 import { NotificationContext } from '@/context/notification'
+import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 type ProjectIndividualFormProps = { pageMetaData: PageMetadata; projectIndividual: Awaited<ReturnType<typeof getPiByCode>> }
 
 export default function ProjectIndividualForm({ pageMetaData, projectIndividual }: ProjectIndividualFormProps) {
   const router = useRouter()
   const { data: session } = useSession()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   const { code } = useParams() as { code: string }
 
@@ -56,6 +60,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
         customers: [],
         suppliers: [],
         pics: [],
+        warehouses: [],
         salesCloser: null,
       }
     }
@@ -65,7 +70,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
 
   const isAdmin = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'admin'
+    return session.user.roleKey === SUPER_USER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const form = useForm({
@@ -77,9 +82,12 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
   const { executeAsync, isExecuting } = useAction(upsertPi)
 
   const projectGroups = usePgs()
-  const customerUsers = useUsersByRoleKey('business-partner')
+  const customerUsers = useUsersByRoleKey(BUSINESS_PARTNER_ROLE_KEY)
   const nonCustomerUsers = useNonBpUsers()
   const suppliers = useBps('S', true)
+
+  //* warehouses are only fetched while the custom tfs process is on
+  const warehouses = useWarehouses(true, undefined, isCustomTfsEnabled)
 
   const handleOnSubmit = async (formData: ProjectIndividualForm) => {
     try {
@@ -283,6 +291,31 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                   extendedProps={{ tagBoxOptions: { itemRender: userItemRender } }}
                 />
               </div>
+
+              {isCustomTfsEnabled && (
+                <div className='col-span-12 md:col-span-6'>
+                  <TagBoxField
+                    data={warehouses.data}
+                    isLoading={warehouses.isLoading}
+                    control={form.control}
+                    name='warehouses'
+                    label='Warehouses'
+                    valueExpr='WarehouseCode'
+                    displayExpr={(item) => (item ? `${item?.WarehouseName} (${item?.WarehouseCode})` : '')}
+                    searchExpr={['WarehouseName', 'WarehouseCode']}
+                    extendedProps={{
+                      tagBoxOptions: {
+                        itemRender: (params) => {
+                          return commonItemRender({
+                            title: params?.WarehouseName,
+                            value: params?.WarehouseCode,
+                          })
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              )}
 
               {isAdmin && (
                 <div className='col-span-12 md:col-span-6 lg:col-span-3'>

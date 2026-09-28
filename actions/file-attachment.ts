@@ -3,7 +3,7 @@
 import z from 'zod'
 import { Prisma } from '@prisma/client'
 
-import { action, authenticationMiddleware } from '@/utils/safe-action'
+import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe-action'
 import fs from 'fs/promises'
 import path from 'path'
 import { uploadFileAttachmentFormSchema } from '@/schema/file-attachment'
@@ -15,11 +15,14 @@ import { MAX_FILE_SIZE, STORAGE_PATH } from '@/constants/file-attachment'
 
 const COMMON_FILE_ATTACHMENT_ORDER_BY = { code: 'asc' } satisfies Prisma.FileAttachmentOrderByWithRelationInput
 
-export async function getFileAttachmentsByRefCode(modulelName: string, refCode?: number | null) {
+export async function getFileAttachmentsByRefCode(dbCode: string, modulelName: string, refCode?: number | null) {
   if (!modulelName) return []
 
   try {
-    return db.fileAttachment.findMany({ where: { modulelName, ...(refCode && { refCode }) }, orderBy: COMMON_FILE_ATTACHMENT_ORDER_BY })
+    return db.fileAttachment.findMany({
+      where: { dbCode, modulelName, ...(refCode && { refCode }) },
+      orderBy: COMMON_FILE_ATTACHMENT_ORDER_BY,
+    })
   } catch (error) {
     console.error(error)
     return []
@@ -28,17 +31,19 @@ export async function getFileAttachmentsByRefCode(modulelName: string, refCode?:
 
 export const getFileAttachmentsByRefCodeClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(z.object({ modulelName: z.string(), refCode: z.coerce.number().nullish() }))
-  .action(async ({ parsedInput }) => {
-    return getFileAttachmentsByRefCode(parsedInput.modulelName, parsedInput.refCode)
+  .action(async ({ ctx, parsedInput }) => {
+    return getFileAttachmentsByRefCode(ctx.dbCode, parsedInput.modulelName, parsedInput.refCode)
   })
 
 export const uploadFileAttachment = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(uploadFileAttachmentFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { refCode, files, modulelName, total, stats, isLast } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const uploaded: string[] = [] //* track written files for rollback
 
@@ -98,6 +103,7 @@ export const uploadFileAttachment = action
 
         //* reshape data
         const toCreateOrUpdate: Prisma.FileAttachmentCreateManyInput = {
+          dbCode,
           refCode: refCode ?? null,
           modulelName,
           name: safeFileName,
@@ -116,13 +122,15 @@ export const uploadFileAttachment = action
           batch.map((b) =>
             tx.fileAttachment.upsert({
               where: {
-                modulelName_name: {
+                dbCode_modulelName_name: {
+                  dbCode,
                   name: b.name,
                   modulelName: b.modulelName,
                 },
               },
               create: {
                 ...b,
+                dbCode,
                 uploadedBy: userId,
                 updatedBy: userId,
               },
@@ -188,17 +196,18 @@ export const uploadFileAttachment = action
 
 export const deleteFileAttachment = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(paramsSchema)
-  .action(async ({ parsedInput: data }) => {
+  .action(async ({ ctx, parsedInput: data }) => {
     try {
-      const fileAttachment = await db.fileAttachment.findUnique({ where: { code: data.code } })
+      const fileAttachment = await db.fileAttachment.findFirst({ where: { code: data.code, dbCode: ctx.dbCode } })
 
       if (!fileAttachment) return { error: true, status: 404, message: 'File attachment not found!', action: 'DELETE_FILE_ATTACHMENT' }
 
       //* dlete file attachment and the actual file
       await db.$transaction(async (tx) => {
         //* delete file attachment
-        await tx.fileAttachment.delete({ where: { code: data.code } })
+        await tx.fileAttachment.delete({ where: { id: fileAttachment.id } })
 
         //* delete file
         if (await fileExists(fileAttachment.path)) {

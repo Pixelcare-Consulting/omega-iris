@@ -17,6 +17,7 @@ import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import { NotificationContext } from '@/context/notification'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 type RoleTableProps = { roles: Awaited<ReturnType<typeof getRoles>> }
 type DataSource = Awaited<ReturnType<typeof getRoles>>
@@ -157,7 +158,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
                 hint='View'
                 visible={(opt) => {
                   const data = opt?.row?.data
-                  return hideActionButton(data?.deletedAt || data?.deletedBy || data.key === 'admin')
+                  return hideActionButton(data?.deletedAt || data?.deletedBy || data.key === SUPER_USER_ROLE_KEY)
                 }}
               />
             </CanView>
@@ -170,7 +171,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
                 hint='Edit'
                 visible={(opt) => {
                   const data = opt?.row?.data
-                  return hideActionButton(data?.deletedAt || data?.deletedBy || data.key === 'admin')
+                  return hideActionButton(data?.deletedAt || data?.deletedBy || data.key === SUPER_USER_ROLE_KEY)
                 }}
               />
             </CanView>
@@ -183,7 +184,7 @@ export default function RoleTable({ roles }: RoleTableProps) {
                 hint='Delete'
                 visible={(opt) => {
                   const data = opt?.row?.data
-                  return hideActionButton(data?.deletedAt || data?.deletedBy || data.key === 'admin')
+                  return hideActionButton(data?.deletedAt || data?.deletedBy || data.key === SUPER_USER_ROLE_KEY)
                 }}
               />
             </CanView>

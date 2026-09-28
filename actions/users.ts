@@ -7,18 +7,49 @@ import z from 'zod'
 
 import { paramsSchema } from '@/schema/common'
 import { basicInfoFormSchema, changePasswordFormSchema, userFormSchema } from '@/schema/user'
-import { action, authenticationMiddleware } from '@/utils/safe-action'
+import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe-action'
 import { db } from '@/utils/db'
 import { DuplicateFields } from '@/types/common'
 import { createNotification } from './notification'
 import { PERMISSIONS_CODES } from '@/constants/permission'
+import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
+import { HIDDEN_FIELD_MODULES } from '@/constants/hidden-field'
 
 const COMMON_USER_INCLUDE = {
   role: true,
   profile: true,
+  //* carries the sap database a business partner user belongs to, the users list badges its name
+  customer: {
+    select: { CardCode: true, CardName: true, GroupName: true, sapDatabase: { select: { dbCode: true, name: true } } },
+  },
 } satisfies Prisma.UserInclude
 
 const COMMON_USER_ORDER_BY = { code: 'asc' } satisfies Prisma.UserOrderByWithRelationInput
+
+//* one row per user and module, upsert so saving twice never duplicates it
+//* admins see every field, so every module is saved empty for them
+async function upsertUserHiddenFields(
+  tx: Prisma.TransactionClient,
+  userCode: number,
+  roleKey: string,
+  hiddenFields: Record<string, string[] | null | undefined>,
+  userId: string
+) {
+  const isAdmin = roleKey === SUPER_USER_ROLE_KEY
+
+  return Promise.all(
+    HIDDEN_FIELD_MODULES.map(({ moduleName, columns }) => {
+      //* drop keys that are not columns of the module
+      const fields = isAdmin ? [] : (hiddenFields[moduleName] ?? []).filter((field) => field in columns)
+
+      return tx.userHiddenField.upsert({
+        where: { userCode_moduleName: { userCode, moduleName } },
+        create: { userCode, moduleName, fields, createdBy: userId, updatedBy: userId },
+        update: { fields, updatedBy: userId },
+      })
+    })
+  )
+}
 
 export async function getUsers() {
   try {
@@ -39,7 +70,7 @@ export const getUsersClient = action.use(authenticationMiddleware).action(async 
 export async function getNonCustomerUsers() {
   try {
     return db.user.findMany({
-      where: { role: { key: { not: 'business-partner' } }, deletedAt: null, deletedBy: null },
+      where: { role: { key: { not: BUSINESS_PARTNER_ROLE_KEY } }, deletedAt: null, deletedBy: null },
       include: COMMON_USER_INCLUDE,
       orderBy: COMMON_USER_ORDER_BY,
     })
@@ -95,7 +126,10 @@ export async function getUserByCode(code: number) {
   if (!code) return null
 
   try {
-    return db.user.findUnique({ where: { code }, include: COMMON_USER_INCLUDE })
+    return db.user.findUnique({
+      where: { code },
+      include: { ...COMMON_USER_INCLUDE, hiddenFields: { select: { moduleName: true, fields: true } } },
+    })
   } catch (err) {
     return null
   }
@@ -109,12 +143,16 @@ export const getUserByCodeClient = action
     return getUserByCode(data.code)
   })
 
-export async function getUsersByRoleKey(key: string) {
+export async function getUsersByRoleKey(dbCode: string, key: string) {
   if (!key) return []
 
   try {
     return db.user.findMany({
-      where: { role: { key }, ...(key === 'business-partner' ? { NOT: [{ customerCode: null }, { customerCode: '' }] } : {}) },
+      where: {
+        role: { key },
+        //! a bp user belongs to one company, offering one from another database links a project across tenants
+        ...(key === BUSINESS_PARTNER_ROLE_KEY ? { customerDbCode: dbCode, NOT: [{ customerCode: null }, { customerCode: '' }] } : {}),
+      },
       include: COMMON_USER_INCLUDE,
       orderBy: COMMON_USER_ORDER_BY,
     })
@@ -125,9 +163,10 @@ export async function getUsersByRoleKey(key: string) {
 
 export const getUsersByRoleKeyClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(z.object({ key: z.string() }))
-  .action(async ({ parsedInput: data }) => {
-    return getUsersByRoleKey(data.key)
+  .action(async ({ ctx, parsedInput: data }) => {
+    return getUsersByRoleKey(ctx.dbCode, data.key)
   })
 
 export async function getAccountByUserId(id: string) {
@@ -142,11 +181,29 @@ export async function getAccountByUserId(id: string) {
 
 export const upsertUser = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(userFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { code, password, confirmPassword, newPassword, newConfirmPassword, roleKey, isForceToChangePassword, isLocked, ...data } =
-      parsedInput
-    const { userId } = ctx
+    const {
+      code,
+      password,
+      confirmPassword,
+      newPassword,
+      newConfirmPassword,
+      roleKey,
+      isForceToChangePassword,
+      isLocked,
+      hiddenFields,
+      ...rest
+    } = parsedInput
+    const { userId, dbCode } = ctx
+
+    //* a card code only means something next to its database, so stamp the active one and clear it together with the code
+    const data = {
+      ...rest,
+      customerDbCode: rest.customerCode ? dbCode : null,
+      supplierDbCode: rest.supplierCode ? dbCode : null,
+    }
 
     try {
       const [existingUsername, existingEmail] = await Promise.all([
@@ -187,16 +244,22 @@ export const upsertUser = action
 
         const isBeingUnlocked = user.isLocked && !isLocked
 
-        const updatedUser = await db.user.update({
-          where: { code },
-          data: {
-            ...data,
-            password: hashedPassword,
-            updatedBy: userId,
-            isDefaultPasswordChanged: isForceToChangePassword ? false : true,
-            isLocked: isLocked ? true : false,
-            failedLoginAttempts: isBeingUnlocked ? 0 : user.failedLoginAttempts,
-          },
+        const updatedUser = await db.$transaction(async (tx) => {
+          const updated = await tx.user.update({
+            where: { code },
+            data: {
+              ...data,
+              password: hashedPassword,
+              updatedBy: userId,
+              isDefaultPasswordChanged: isForceToChangePassword ? false : true,
+              isLocked: isLocked ? true : false,
+              failedLoginAttempts: isBeingUnlocked ? 0 : user.failedLoginAttempts,
+            },
+          })
+
+          await upsertUserHiddenFields(tx, updated.code, roleKey, hiddenFields, userId)
+
+          return updated
         })
 
         //* create notification
@@ -217,17 +280,23 @@ export const upsertUser = action
       const hashedPassword = await bcrypt.hash(password!, 10)
 
       //* create user
-      const newUser = await db.user.create({
-        data: {
-          ...data,
-          password: hashedPassword,
-          createdBy: userId,
-          updatedBy: userId,
-          profile: { create: { details: {} } },
-          isDefaultPasswordChanged: isForceToChangePassword ? false : true,
-          isLocked: isLocked ? true : false,
-        },
-        include: { role: true },
+      const newUser = await db.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            ...data,
+            password: hashedPassword,
+            createdBy: userId,
+            updatedBy: userId,
+            profile: { create: { details: {} } },
+            isDefaultPasswordChanged: isForceToChangePassword ? false : true,
+            isLocked: isLocked ? true : false,
+          },
+          include: { role: true },
+        })
+
+        await upsertUserHiddenFields(tx, created.code, roleKey, hiddenFields, userId)
+
+        return created
       })
 
       //* create notification
@@ -331,25 +400,27 @@ export const changePassword = action
     const { code, oldPassword, newPassword, isForceToChangePassword } = parsedInput
     const { userId } = ctx
 
+    const action = isForceToChangePassword ? 'CHANGED_DEFAULT_PASSWORD' : 'UPDATE_PROFILE_CHANGE_PASSWORD'
+
     try {
-      //* update user
       const user = await db.user.findUnique({ where: { code } })
 
-      if (!user) return { error: true, status: 404, message: 'User not found!', action: 'UPDATE_PROFILE_CHANGE_PASSWORD' }
+      if (!user) return { error: true, status: 404, message: 'User not found!', action }
 
       let hashedPassword = user.password
 
+      //* not forced to chnage password, but will change password
       if (oldPassword && newPassword && !isForceToChangePassword) {
         //* if old password is provided, check if it matches the current password
         if (user.password) {
           const isPasswordMatch = await bcrypt.compare(oldPassword, user.password)
-          if (!isPasswordMatch)
-            return { error: true, status: 409, message: 'Old password does not match', action: 'UPDATE_PROFILE_CHANGE_PASSWORD' }
+          if (!isPasswordMatch) return { error: true, status: 409, message: 'Old password does not match', action }
         }
 
         hashedPassword = await bcrypt.hash(newPassword, 10)
       }
 
+      //* force to change password
       if (isForceToChangePassword && newPassword) {
         //* if new password is provided, and isForceToChangePassword = true means user is force to change their password, then hash the new password
         hashedPassword = await bcrypt.hash(newPassword, 10)
@@ -382,7 +453,7 @@ export const changePassword = action
         status: 200,
         message: 'Password changed successfully!',
         data: { user: updatedUser },
-        action: isForceToChangePassword ? 'CHANGED_DEFAULT_PASSWORD' : 'UPDATE_PROFILE_CHANGE_PASSWORD',
+        action,
       }
     } catch (error) {
       console.error(error)

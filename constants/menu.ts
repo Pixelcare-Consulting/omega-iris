@@ -120,16 +120,16 @@ export const navigation: NavItem[] = [
       },
     ],
   },
-  // {
-  //   id: uuidv4(),
-  //   text: 'Warehouses',
-  //   icon: 'home',
-  //   path: '/warehouses',
-  //   selected: false,
-  //   expanded: false,
-  //   subjects: 'p-warehouses',
-  //   actions: 'view',
-  // },
+  {
+    id: uuidv4(),
+    text: 'Warehouses',
+    icon: 'home',
+    path: '/warehouses',
+    selected: false,
+    expanded: false,
+    subjects: 'p-warehouses',
+    actions: ['view', 'view (owner)'],
+  },
   {
     id: uuidv4(),
     text: 'Item Master Data',
@@ -208,6 +208,27 @@ export function filterNavigationByAbility(items: NavItem[], ability: AnyAbility)
         ...item,
         items: filteredChildren.length ? filteredChildren : undefined,
       }
+    })
+    .filter(Boolean) as NavItem[]
+}
+
+//* nav items that only exist while the custom tfs process is on
+const TFS_ONLY_NAV_PATHS = ['/warehouses']
+
+//* a second pass after the ability filter, so permissions and feature flags stay separate concerns
+export function filterNavigationByFlags(items: NavItem[], options: { isCustomTfsEnabled: boolean }): NavItem[] {
+  if (options.isCustomTfsEnabled) return items
+
+  return items
+    .map((item) => {
+      if (item.path && TFS_ONLY_NAV_PATHS.includes(item.path)) return null
+
+      const children = item.items ? filterNavigationByFlags(item.items, options) : []
+
+      //* a parent whose children all went is not worth showing
+      if (item.items && children.length === 0) return null
+
+      return { ...item, items: children.length ? children : undefined }
     })
     .filter(Boolean) as NavItem[]
 }

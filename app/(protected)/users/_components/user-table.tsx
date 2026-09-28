@@ -14,12 +14,15 @@ import { createRandomUser } from '@/utils/faker'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '../../_components/common-page-header-toolbar-item'
 import AlertDialog from '@/components/alert-dialog'
+import { Badge } from '@/components/badge'
 import CommonDataGrid from '@/components/common-datagrid'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import { NotificationContext } from '@/context/notification'
 import { useSession } from 'next-auth/react'
+import { sendEmail } from '@/actions/email'
+import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 type UserTableProps = { users: Awaited<ReturnType<typeof getUsers>> }
 type DataSource = Awaited<ReturnType<typeof getUsers>>
@@ -48,7 +51,7 @@ export default function UserTable({ users }: UserTableProps) {
 
   const isAdmin = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'admin'
+    return session.user.roleKey === SUPER_USER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const lastSigninCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
@@ -56,6 +59,31 @@ export default function UserTable({ users }: UserTableProps) {
     const lastSignin = data?.lastSignin
     if (!lastSignin || !isValid(lastSignin)) return ''
     return format(lastSignin, 'MM-dd-yyyy hh:mm a')
+  }, [])
+
+  //* the badge is rendered, not stored, so search and filter only see it through the calculated value
+  const roleCalculateCellValue = useCallback((rowData: DataSource[number]) => {
+    const roleName = rowData?.role?.name || ''
+    const dbName = rowData?.customer?.sapDatabase?.name
+
+    if (rowData?.role?.key !== BUSINESS_PARTNER_ROLE_KEY || !dbName) return roleName
+
+    return `${roleName} ${dbName}`
+  }, [])
+
+  //* a business partner points at one sap database, show which one under the role
+  const roleCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
+    const data = e.data as DataSource[number]
+    const dbName = data?.customer?.sapDatabase?.name
+
+    if (data?.role?.key !== BUSINESS_PARTNER_ROLE_KEY || !dbName) return data?.role?.name || ''
+
+    return (
+      <div className='flex flex-col items-start gap-1'>
+        <span>{data.role.name}</span>
+        <Badge variant='soft-blue'>{dbName}</Badge>
+      </div>
+    )
   }, [])
 
   const handleView = useCallback((e: DataGridTypes.ColumnButtonClickEvent) => {
@@ -148,8 +176,29 @@ export default function UserTable({ users }: UserTableProps) {
     })
   }
 
+  // const handleTestEmail = async () => {
+  //   try {
+  //     const info = await sendEmail({
+  //       subject: 'Test Email From Omega Iris',
+  //       // to: 'Reymond@pixelcareconsulting.com',
+  //       to: 'afif@pixelcareconsulting.com',
+  //       template: 'test',
+  //       data: { name: 'Afif', role: 'System Administrator' },
+  //     })
+
+  //     toast.success(`Email sent successfully! Message ID: ${info.messageId}`)
+  //   } catch (err) {
+  //     console.error(err)
+  //     toast.error('Failed to send test email!')
+  //   }
+  // }
+
   return (
     <div className='h-full w-full space-y-5'>
+      {/* <button className='rounded-md border p-2' type='button' onClick={handleTestEmail}>
+        Send Test Email
+      </button> */}
+
       <PageHeader title='Users' description='Manage and track your users effectively'>
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
@@ -170,7 +219,13 @@ export default function UserTable({ users }: UserTableProps) {
             calculateCellValue={(rowData) => `${rowData.fname} ${rowData.lname}`}
           />
           <Column dataField='email' dataType='string' caption='Email Address' />
-          <Column dataField='role.name' dataType='string' caption='Role' />
+          <Column
+            dataField='role.name'
+            dataType='string'
+            caption='Role'
+            calculateCellValue={roleCalculateCellValue}
+            cellRender={roleCellRender}
+          />
           <Column
             dataField='isActive'
             dataType='string'
@@ -206,7 +261,7 @@ export default function UserTable({ users }: UserTableProps) {
                 visible={(opt) => {
                   const data = opt?.row?.data
                   const roleKey = data?.role?.key
-                  return hideActionButton(data?.deletedAt || data?.deletedBy || (!isAdmin && roleKey === 'admin'))
+                  return hideActionButton(data?.deletedAt || data?.deletedBy || (!isAdmin && roleKey === SUPER_USER_ROLE_KEY))
                 }}
               />
             </CanView>
@@ -220,7 +275,7 @@ export default function UserTable({ users }: UserTableProps) {
                 visible={(opt) => {
                   const data = opt?.row?.data
                   const roleKey = data?.role?.key
-                  return hideActionButton(data?.deletedAt || data?.deletedBy || (!isAdmin && roleKey === 'admin'))
+                  return hideActionButton(data?.deletedAt || data?.deletedBy || (!isAdmin && roleKey === SUPER_USER_ROLE_KEY))
                 }}
               />
             </CanView>

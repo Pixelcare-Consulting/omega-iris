@@ -44,9 +44,9 @@ import { useAddresses } from '@/hooks/safe-actions/address'
 import CanView from '@/components/acl/can-view'
 import TooltipWrapper from '@/components/tooltip-wrapper'
 import { useLatestBp } from '@/hooks/safe-actions/business-partner'
-import { MAX_CARD_CODE_DIGITS } from '@/constants/business-partner'
 import { safeParseInt } from '@/utils'
 import { NotificationContext } from '@/context/notification'
+import { BP_MASTER_MAX_CARD_CODE_DIGITS } from '@/constants/sap'
 
 type CustomerFormProps = { pageMetaData: PageMetadata; bp: Awaited<ReturnType<typeof getBpByCardCode>> }
 
@@ -177,13 +177,13 @@ export default function CustomerForm({ pageMetaData, bp }: CustomerFormProps) {
 
     //* if no card code will default to initial card code
     if (!cardCode) {
-      newCardCode = `${CARD_TYPE}${String(1).padStart(MAX_CARD_CODE_DIGITS, '0')}`
+      newCardCode = `${CARD_TYPE}${String(1).padStart(BP_MASTER_MAX_CARD_CODE_DIGITS, '0')}`
       return newCardCode
     }
 
     const codeWithoutPrefix = String(cardCode)?.replaceAll(CARD_TYPE, '')
     const newCodeWithoutPrefix = safeParseInt(codeWithoutPrefix, 10) + 1
-    newCardCode = `${CARD_TYPE}${String(newCodeWithoutPrefix).padStart(MAX_CARD_CODE_DIGITS, '0')}`
+    newCardCode = `${CARD_TYPE}${String(newCodeWithoutPrefix).padStart(BP_MASTER_MAX_CARD_CODE_DIGITS, '0')}`
 
     return newCardCode
   }

@@ -1,7 +1,11 @@
 --* Create view for work order with line items
-CREATE OR REPLACE VIEW "vw_wo_with_items" AS 
+--* dropped first: a replace cannot add a column in the middle
+DROP VIEW IF EXISTS "vw_wo_with_items";
+
+CREATE OR REPLACE VIEW "vw_wo_with_items" AS
 SELECT 
 	T0."code",
+    T0."dbCode",
 	T0."userCode",
 	T0."status",
 	T0."isInternal",
@@ -51,4 +55,7 @@ LEFT JOIN "ProjectItem" T2 ON T2."code" = T1."projectItemCode"
 LEFT JOIN "Item" T3 ON T3."code" = T2."itemCode"
 LEFT JOIN "User" T4 ON T4."code" = T2."dateReceivedBy"
 LEFT JOIN "ProjectIndividual" T5 ON T5."code" = T0."projectIndividualCode"
-LEFT JOIN "ProjectGroup" T6 ON T6."code" = T5."groupCode"s
+LEFT JOIN "ProjectGroup" T6 ON T6."code" = T5."groupCode";
+
+--* sample query execution
+SELECT * FROM vw_wo_with_items

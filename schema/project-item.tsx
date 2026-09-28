@@ -5,7 +5,8 @@ export const projectItemFormSchema = z
     code: z.coerce.number(),
     itemCode: z.coerce.number().min(1, { message: 'Item is required' }),
     projectIndividualCode: z.coerce.number().min(1, { message: 'Project is required' }),
-    warehouseCode: z.coerce.number().nullish(),
+    warehouseCode: z.string().nullish(),
+    binCode: z.string().nullish(),
     partNumber: z.string().nullish(),
     dateCode: z.string().nullish(),
     countryOfOrigin: z.string().nullish(),
@@ -30,6 +31,14 @@ export const projectItemFormSchema = z
     mfr: z.string().nullish(),
     desc: z.string().nullish(),
     commodities: z.string().nullish(),
+    group: z.string().nullish(),
+    division: z.string().nullish(),
+    site: z.string().nullish(),
+    cmSite: z.string().nullish(),
+    phase: z.string().nullish(),
+    tfsStdPrice: z.coerce.number().nullish(),
+    omegaPrice: z.coerce.number().nullish(),
+    DistNumber: z.string().nullish(),
   })
   .refine(
     (formData) => {

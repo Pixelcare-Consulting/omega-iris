@@ -33,6 +33,8 @@ import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Separator from '@/components/separator'
 import { usePis } from '@/hooks/safe-actions/project-individual'
 import { usePiCustomersByProjectCode } from '@/hooks/safe-actions/project-individual-customer'
+import { usePiSuppliersByProjectCode } from '@/hooks/safe-actions/project-individual-supplier'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 import { useUserByCode } from '@/hooks/safe-actions/user'
 import { commonItemRender } from '@/utils/devextreme'
 import ReadOnlyField from '@/components/read-only-field'
@@ -52,6 +54,9 @@ import DateBoxField from '@/components/forms/date-box-field'
 import { useDuplicatedFromWoByCode } from '@/hooks/safe-actions/work-order'
 import { subtract } from 'mathjs'
 import { Badge } from '@/components/badge'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
+import { MODULE_NAME } from '@/constants/module'
+import { useCurrentUserHiddenFields } from '@/hooks/safe-actions/user-hidden-field'
 
 type WorkOrderFormProps = {
   pageMetaData: PageMetadata
@@ -78,7 +83,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
   const formValues = useMemo(() => {
     const roleKey = session?.user.roleKey
-    const isBusinessPartner = roleKey === 'business-partner'
+    const isBusinessPartner = roleKey === BUSINESS_PARTNER_ROLE_KEY
 
     if (workOrder) return { ...workOrder, lineItems: [] }
 
@@ -98,6 +103,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
         alternativeBillingAddr: null,
         alternativeShippingAddr: null,
         duplicatedFromCode: null,
+        supplierCode: null,
 
         //* sap fields
         salesOrderCode: null,
@@ -127,10 +133,21 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
     }
   }, [isCreate, JSON.stringify(workOrder)])
 
+  const customTfsProcess = useCustomTfsProcess()
+
+  //* supplier is only required for the custom tfs process, the base schema can't see the flag
+  const workOrderSchema = useMemo(() => {
+    if (!customTfsProcess.isEnabled) return workOrderFormSchema
+
+    return workOrderFormSchema.superRefine((data, ctx) => {
+      if (!data.supplierCode) ctx.addIssue({ code: 'custom', path: ['supplierCode'], message: 'Supplier is required' })
+    })
+  }, [customTfsProcess.isEnabled])
+
   const form = useForm({
     mode: 'onChange',
     values: formValues,
-    resolver: zodResolver(workOrderFormSchema),
+    resolver: zodResolver(workOrderSchema),
   })
 
   const { replace } = useFieldArray({ control: form.control, name: 'lineItems' })
@@ -158,17 +175,21 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
   const workOrderItems = useWoItemsByWoCode(workOrder?.code)
 
   const piCustomers = usePiCustomersByProjectCode(projectCode)
+  const piSuppliers = usePiSuppliersByProjectCode(projectCode)
   const customer = useUserByCode(userCode)
   const salesOrder = useSalesOrderByWorkOrderCode(workOrder?.code)
   const duplicatedFromWorkOrder = useDuplicatedFromWoByCode(duplicatedFromCode ? safeParseInt(duplicatedFromCode) : null)
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const selectedStatus = useMemo(() => WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === status)?.label, [status])
   const selectedProject = useMemo(() => projects.data.find((p) => p.code === projectCode), [JSON.stringify(projects), projectCode])
+
+  //* the line item table adds the tfs only fields itself
+  const hiddenFields = useCurrentUserHiddenFields(MODULE_NAME.PROJECT_ITEMS).data
 
   const addresses = useAddresses(customer?.data?.customerCode ?? '')
 
@@ -295,7 +316,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
   //* set userCode (owner) automatically if user is business partner (customer)
   useEffect(() => {
-    if (session?.user.roleKey === 'business-partner' && session.user) form.setValue('userCode', session?.user.code)
+    if (session?.user.roleKey === BUSINESS_PARTNER_ROLE_KEY && session.user) form.setValue('userCode', session?.user.code)
   }, [JSON.stringify(session), userCode])
 
   //* if duplicatedFromCode is exist, then prepopulate the form with the duplicatedFromWorkOrder data
@@ -319,6 +340,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
       form.setValue('alternativeBillingAddr', duplicatedFromWorkOrderData?.alternativeBillingAddr)
       form.setValue('alternativeShippingAddr', duplicatedFromWorkOrderData?.alternativeShippingAddr)
       form.setValue('expectedDeliveryDate', duplicatedFromWorkOrderData?.expectedDeliveryDate)
+      form.setValue('supplierCode', duplicatedFromWorkOrderData?.supplierCode)
       form.setValue('duplicatedFromCode', value)
     }
   }, [duplicatedFromCode, JSON.stringify(duplicatedFromWorkOrder)])
@@ -447,6 +469,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                   isRequired
                   callback={() => {
                     form.setValue('userCode', 0)
+                    form.setValue('supplierCode', null)
                     form.setValue('lineItems', [])
                   }}
                   extendedProps={{
@@ -492,6 +515,35 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                 />
               </div>
 
+              {customTfsProcess.isEnabled && (
+                <div className='col-span-12 md:col-span-6'>
+                  <SelectBoxField
+                    data={piSuppliers.data}
+                    isLoading={piSuppliers.isLoading}
+                    control={form.control}
+                    name='supplierCode'
+                    label='Supplier'
+                    description='This supplier will be used for the GRPO that is automatically created in SAP when this work order is "Verified".'
+                    valueExpr='supplierCode'
+                    displayExpr={(item) => (item ? `${item?.businessPartner?.CardName} (${item?.supplierCode})` : '')}
+                    searchExpr={['supplierCode', 'businessPartner.CardName']}
+                    isRequired
+                    extendedProps={{
+                      selectBoxOptions: {
+                        //* locked once the grpo is posted, the goods return goes back to the grpo's supplier
+                        disabled: !!workOrder?.grpoDocEntry,
+                        itemRender: (params) => {
+                          return commonItemRender({
+                            title: params?.businessPartner?.CardName,
+                            value: params?.supplierCode,
+                          })
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              )}
+
               <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Status' value={selectedStatus || ''} />
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
@@ -506,7 +558,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                 />
               )}
 
-              {session?.user.roleKey !== 'business-partner' && (
+              {session?.user.roleKey !== BUSINESS_PARTNER_ROLE_KEY && (
                 <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                   <SwitchField control={form.control} name='isInternal' label='Internal' description='Is this an internal work order?' />
                 </div>
@@ -527,7 +579,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
 
                   <ReadOnlyField
                     className='col-span-12 md:col-span-6 lg:col-span-3'
-                    title='Sales Order Code'
+                    title='SO Document #'
                     value={salesOrder.data?.DocNum || ''}
                     isLoading={salesOrder.isLoading}
                   />
@@ -630,6 +682,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                 projectCode={selectedProject?.code}
                 projectName={selectedProject?.name}
                 projectGroupName={selectedProject?.projectGroup?.name}
+                hiddenFields={hiddenFields}
                 isLoading={false}
               />
             </div>

@@ -1,8 +1,12 @@
 
+--* dropped first: a replace cannot add a column in the middle
+DROP VIEW IF EXISTS "vw_wo_status_updates";
+
 CREATE OR REPLACE VIEW "vw_wo_status_updates" AS
      SELECT
         T0."id",
         T0."code",
+        T0."dbCode",
         T0."workOrderCode",
         T0."prevStatus",
         T1."name"                           AS "prevStatusName",
@@ -25,4 +29,7 @@ CREATE OR REPLACE VIEW "vw_wo_status_updates" AS
     LEFT JOIN "User" T4
         ON T4."id" = T0."updatedBy"   --* match via id
         AND T4."deletedAt" IS NULL
-	ORDER BY T0."createdAt" ASC;	
+	ORDER BY T0."createdAt" ASC;
+
+--* sample query execution
+SELECT * FROM vw_wo_status_updates

@@ -1,6 +1,10 @@
 --* Get time spent per work order from open to delivered by previous period
+--* dropped first: p_db_code changes the signature, a replace would leave the old unscoped one behind
+DROP FUNCTION IF EXISTS fn_get_wo_completion_time_by_prev_period(TEXT);
+
 CREATE OR REPLACE FUNCTION fn_get_wo_completion_time_by_prev_period(
-    p_period TEXT DEFAULT 'all-time'
+    p_db_code TEXT,
+    p_period  TEXT DEFAULT 'all-time'
 )
 RETURNS TABLE (
     "workOrderCode"     INT,
@@ -68,8 +72,9 @@ BEGIN
         ON T2."code" = T0."projectIndividualCode"
         AND T2."deletedAt" IS NULL
     WHERE
-        T0."deletedAt" IS NULL
-        AND T0."status" = '6'                                               --* only delivered work orders
+        T0."dbCode" = p_db_code                                             --* company scope, not an optional filter
+        AND T0."deletedAt" IS NULL
+        AND T0."status" = '6'                                             --* only delivered work orders
         AND (
             v_start_date IS NULL
             OR T0."createdAt" BETWEEN v_start_date AND v_end_date
@@ -81,6 +86,6 @@ END;
 $$;
 
 --* sample query execution
-SELECT * FROM fn_get_wo_completion_time_by_prev_period();
-SELECT * FROM fn_get_wo_completion_time_by_prev_period('month');
-SELECT * FROM fn_get_wo_completion_time_by_prev_period('quarter');
+SELECT * FROM fn_get_wo_completion_time_by_prev_period('OMEGA_P02_TESTING');
+SELECT * FROM fn_get_wo_completion_time_by_prev_period('OMEGA_P02_TESTING', 'month');
+SELECT * FROM fn_get_wo_completion_time_by_prev_period('OMEGA_P02_TESTING', 'quarter');

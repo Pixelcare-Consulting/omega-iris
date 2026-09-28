@@ -6,9 +6,9 @@ import { cn } from '@/utils'
 type PageHeaderProps = {
   isLoading?: boolean
   className?: string
-  title?: string
+  title?: React.ReactNode
   titleClassName?: string
-  description?: string
+  description?: React.ReactNode
   descriptionClassName?: string
   children?: React.ReactNode
   badge?: React.ReactNode

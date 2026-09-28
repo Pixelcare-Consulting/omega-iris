@@ -1,6 +1,6 @@
 'use client'
 
-import { Column, DataGridTypes, DataGridRef, Button as DataGridButton, Summary, TotalItem, GroupItem } from 'devextreme-react/data-grid'
+import { DataGridTypes, DataGridRef, Button as DataGridButton, Summary, TotalItem, GroupItem } from 'devextreme-react/data-grid'
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { differenceInDays, format } from 'date-fns'
 import Toolbar, { Item } from 'devextreme-react/toolbar'
@@ -26,16 +26,16 @@ import {
   importProjectItems,
   restoreProjectItem,
   restoreProjectItems,
+  syncProjectItemsFromSapClient,
 } from '@/actions/project-item'
 import ProjectItemForm from '../project-individual-item-form'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import AlertDialog from '@/components/alert-dialog'
 import ProjectIndividualItemView from '../project-individual-item-view'
 import useUsers from '@/hooks/safe-actions/user'
-import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import useItems from '@/hooks/safe-actions/item'
 import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
-import { ImportSyncError, Stats } from '@/types/common'
+import { ImportSyncError, Stats, SyncSectionState } from '@/types/common'
 import { parseExcelFile } from '@/utils/xlsx'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import { useSession } from 'next-auth/react'
@@ -45,6 +45,16 @@ import { useForm } from 'react-hook-form'
 import { deleteProjectItemsFormSchema } from '@/schema/project-item'
 import LoadingButton from '@/components/loading-button'
 import CanView from '@/components/acl/can-view'
+import Column from '@/components/column'
+import { HiddenFieldsContext } from '@/context/hidden-fields-context'
+import { Badge } from '@/components/badge'
+import { useJobSchedule, useSyncMeta } from '@/hooks/safe-actions/sync-meta'
+import { PROJECT_ITEM_SYNC_JOB_CODE, PROJECT_ITEM_SYNC_META_CODE } from '@/constants/sap'
+import { TFS_ONLY_FIELDS } from '@/constants/project-item'
+import { MODULE_NAME } from '@/constants/module'
+import { useCurrentUserHiddenFields } from '@/hooks/safe-actions/user-hidden-field'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type ProjectIndividualItemTabProps = {
   projectCode: number
@@ -53,9 +63,23 @@ type ProjectIndividualItemTabProps = {
 }
 type DataSource = Awaited<ReturnType<typeof getProjecItems>>
 
-export default function ProjectIndividualItemTab({ projectCode, projectName, items }: ProjectIndividualItemTabProps) {
+const INITIAL_STATS: Stats = { total: 0, completed: 0, synced: 0, progress: 0, errors: [], status: 'idle' }
+
+const INITIAL_SYNC_SECTION_STATE: SyncSectionState = {
+  stats: INITIAL_STATS,
+  errors: [],
+  showError: false,
+  showConfirmation: false,
+}
+
+export default function ProjectIndividualItemTab({
+  projectCode,
+  projectName,
+  items,
+}: ProjectIndividualItemTabProps) {
   const { data: session } = useSession()
   const router = useRouter()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual-item'
   const DATAGRID_UNIQUE_KEY = 'project-individual-items'
@@ -63,21 +87,21 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
   // const notificationContext = useContext(NotificationContext)
 
   const [isLoading, setIsLoading] = useState(false)
-  const [stats, setStats] = useState<Stats>({ total: 0, completed: 0, progress: 0, errors: [], status: 'processing' })
+  const [importState, setImportState] = useState<SyncSectionState>(INITIAL_SYNC_SECTION_STATE)
 
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [showDeleleteSelectedConfirmation, setShowDeleleteSelectedConfirmation] = useState(false)
   const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false)
-  const [showImportError, setShowImportError] = useState(false)
+  const [showSyncFromSapConfirmation, setShowSyncFromSapConfirmation] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
   const [isViewMode, setIsViewMode] = useState(false)
-  const [importErrors, setImportErrors] = useState<ImportSyncError[]>([])
 
   const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([])
 
   const users = useUsers()
-  const itemMasters = useItems(process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' ? true : false)
+  //* synced-only applies to isEnabledCustomTfsProcess true companies, others can still pick pending items 
+  const itemMasters = useItems(process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' && isCustomTfsEnabled)
 
   const dataGridRef = useRef<DataGridRef | null>(null)
   const importErrorDataGridRef = useRef<DataGridRef | null>(null)
@@ -86,13 +110,45 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
   const deleteProjectItemsData = useAction(deleteProjectItems)
   const restoreProjectItemData = useAction(restoreProjectItem)
   const importData = useAction(importProjectItems)
+  const syncFromSapData = useAction(syncProjectItemsFromSapClient)
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
+  const syncMeta = useSyncMeta(PROJECT_ITEM_SYNC_META_CODE)
+  const jobSchedule = useJobSchedule(PROJECT_ITEM_SYNC_JOB_CODE)
+
+  const lastSyncedLabel = useMemo(() => {
+    if (!syncMeta.data?.lastSyncAt) return 'Never synced'
+    return `Last synced: ${format(syncMeta.data.lastSyncAt, 'PP, hh:mm a')}`
+  }, [syncMeta.data?.lastSyncAt])
+
+  //* tells the user the sync also runs on its own, so they know a manual run is optional
+  const autoSyncLabel = useMemo(() => {
+    if (!jobSchedule.isEnabled) return 'Auto sync: off'
+    return `Auto sync: ${jobSchedule.label}`
+  }, [jobSchedule.isEnabled, jobSchedule.label])
+
+  const syncFromSapDescription = useMemo(() => {
+    const base =
+      'This syncs delivery batches from SAP for every project in the system, not only this one. Existing batches are updated and new ones are added.'
+
+    if (!jobSchedule.isEnabled) return `${base} Automatic syncing is off, so batches only come in when someone syncs by hand.`
+
+    return `${base} This also runs on its own ${jobSchedule.label}, so a manual sync is only needed when you cannot wait for the next run.`
+  }, [jobSchedule.isEnabled, jobSchedule.label])
+
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
+
+  const userHiddenFields = useCurrentUserHiddenFields(MODULE_NAME.PROJECT_ITEMS)
+
+  const hiddenFields = useMemo(() => {
+    //* warehouse, bin and batch have no meaning outside the custom tfs process
+    const tfsFields = isCustomTfsEnabled ? [] : TFS_ONLY_FIELDS
+    return [...userHiddenFields.data, ...tfsFields]
+  }, [isCustomTfsEnabled, JSON.stringify(userHiddenFields.data)])
 
   const thumbnailCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
     const data = e.data as DataSource[number]
@@ -312,11 +368,20 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
     const { file } = args
 
     setIsLoading(true)
+    setImportState((prev) => ({ ...prev, stats: { ...INITIAL_STATS, status: 'processing' } }))
 
     try {
       const headers: string[] = [
         'ID',
+        'Batch_Number',
         'Owner',
+        'Group',
+        'Division',
+        'Site',
+        'CM_Site',
+        'Phase',
+        'TFS_Standard_Price',
+        'Omega_Price',
         'MFG_P/N',
         'Part_Number',
         'MFR',
@@ -326,6 +391,8 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
         'Country_Origin',
         'Lot_Code',
         'Pallet_No',
+        'Warehouse_Code',
+        'Bin_Code',
         'Site_Location',
         'Sub_Location2',
         'Sub_Location3',
@@ -345,7 +412,7 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
 
       //* trigger write by batch
       let batch: typeof toImportData = []
-      let stats: Stats = { total: 0, completed: 0, progress: 0, errors: [], status: 'processing' }
+      let stats: Stats = { total: toImportData.length, completed: 0, synced: 0, progress: 0, errors: [], status: 'processing' }
 
       for (let i = 0; i < toImportData.length; i++) {
         const isLastRow = i === toImportData.length - 1
@@ -366,10 +433,10 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
           const result = response?.data
 
           if (result?.error) {
-            setStats((prev: any) => ({ ...prev, errors: [...prev.errors, ...result.stats.errors] }))
+            setImportState((prev) => ({ ...prev, stats: { ...prev.stats, errors: [...prev.stats.errors, ...result.stats.errors] } }))
             stats.errors = [...stats.errors, ...result.stats.errors]
           } else if (result?.stats) {
-            setStats(result.stats)
+            setImportState((prev) => ({ ...prev, stats: result.stats }))
             stats = result.stats
           }
 
@@ -379,14 +446,13 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
 
       if (stats.status === 'completed') {
         toast.success(`Project item imported successfully! ${stats.errors.length} errors found.`)
-        setStats((prev: any) => ({ ...prev, total: 0, completed: 0, progress: 0, status: 'processing' }))
+        setImportState((prev) => ({ ...prev, stats: INITIAL_STATS }))
         router.refresh()
         items.execute({ projectCode })
       }
 
       if (stats.errors.length > 0) {
-        setShowImportError(true)
-        setImportErrors(stats.errors)
+        setImportState((prev) => ({ ...prev, showError: true, errors: stats.errors }))
       }
 
       setIsLoading(false)
@@ -394,6 +460,29 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
       console.error(error)
       setIsLoading(false)
       toast.error(error?.message || 'Failed to import file')
+    }
+  }
+
+  //* pulls batches of every synced warehouse, not just this project — the same run the 30 minute cron does
+  const handleConfirmSyncFromSap = async () => {
+    setShowSyncFromSapConfirmation(false)
+
+    try {
+      const response = await syncFromSapData.executeAsync()
+      const result = response?.data
+
+      if (!result || result.error) {
+        toast.error(result?.message || 'Failed to sync from SAP')
+        return
+      }
+
+      toast.success(`Project items synced from SAP! ${result.message}`)
+      router.refresh()
+      items.execute({ projectCode })
+      syncMeta.execute({ code: PROJECT_ITEM_SYNC_META_CODE })
+    } catch (error: any) {
+      console.error(error)
+      toast.error(error?.message || 'Failed to sync from SAP')
     }
   }
 
@@ -453,7 +542,19 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
     <div className='flex h-full w-full flex-col'>
       {!isViewMode ? (
         <div className='flex h-full w-full flex-col'>
-          <Toolbar className='mt-5'>
+          <Toolbar className='mt-5 px-4'>
+            {isCustomTfsEnabled && !syncMeta.isLoading && (
+              <Item location='before' locateInMenu='auto'>
+                <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>
+              </Item>
+            )}
+
+            {isCustomTfsEnabled && !jobSchedule.isLoading && (
+              <Item location='before' locateInMenu='auto'>
+                <Badge variant={jobSchedule.isEnabled ? 'soft-slate' : 'soft-amber'}>{autoSyncLabel}</Badge>
+              </Item>
+            )}
+
             {selectedRowKeys.length > 0 && (
               <CanView subject='p-projects-individual-inventory' action='delete'>
                 <Item location='after' locateInMenu='auto' widget='dxMenu'>
@@ -471,25 +572,54 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               </CanView>
             )}
 
+            {isCustomTfsEnabled && (
+              <CanView subject='p-projects-individual-inventory' action='sync from sap'>
+                <Item location='after' locateInMenu='auto' widget='dxMenu'>
+                  <Tooltip
+                    target='#sync-from-sap'
+                    contentRender={() => 'Sync batches from SAP'}
+                    showEvent='mouseenter'
+                    hideEvent='mouseleave'
+                    position='top'
+                  />
+                  <LoadingButton
+                    id='sync-from-sap'
+                    icon='refresh'
+                    isLoading={isLoading || importData.isExecuting || syncFromSapData.isExecuting}
+                    text='Sync from SAP'
+                    type='default'
+                    stylingMode='outlined'
+                    onClick={() => setShowSyncFromSapConfirmation(true)}
+                  />
+                </Item>
+              </CanView>
+            )}
+
             <CommonPageHeaderToolbarItems
               dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
               dataGridRef={dataGridRef}
-              isLoading={isLoading || importData.isExecuting}
+              isLoading={items.isLoading || isLoading || importData.isExecuting}
               isEnableImport
               onImport={handleImport}
               addButton={{
                 text: 'Add Item',
                 onClick: handleAdd,
-                isHide: isBusinessPartner,
+                isHide: isBusinessPartner || isCustomTfsEnabled,
                 subjects: 'p-projects-individual-inventory',
                 actions: 'create',
               }}
               customs={{ exportToExcel }}
-              importOptions={{ isHide: isBusinessPartner, subjects: 'p-projects-individual-inventory', actions: 'import' }}
+              importOptions={{
+                isHide: isBusinessPartner || isCustomTfsEnabled,
+                subjects: 'p-projects-individual-inventory',
+                actions: 'import',
+              }}
               exportOptions={{ subjects: 'p-projects-individual-inventory', actions: 'export' }}
             />
 
-            {stats && stats.progress && isLoading ? <ProgressBar min={0} max={100} showStatus={false} value={stats.progress} /> : null}
+            {isLoading && importState.stats.status === 'processing' ? (
+              <ProgressBar min={0} max={100} showStatus={false} value={importState.stats.progress} />
+            ) : null}
           </Toolbar>
 
           <div className='min-h-0 flex-1 p-4'>
@@ -500,147 +630,168 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               storageKey={DATAGRID_STORAGE_KEY}
               keyExpr='code'
               isSelectionEnable={
-                CanView({ isReturnBoolean: true, subject: 'p-projects-individual-inventory', action: ['delete'] }) ? true : false
+                !isCustomTfsEnabled && CanView({ isReturnBoolean: true, subject: 'p-projects-individual-inventory', action: ['delete'] })
+                  ? true
+                  : false
               }
+              selectedRowKeys={selectedRowKeys}
               dataGridStore={dataGridStore}
               callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChanged, onContentReady: handleOnContentReady }}
             >
-              <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
-              <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} visible={false} />
-              <Column dataField='owner' dataType='string' caption='Owner' />
+              <HiddenFieldsContext.Provider value={{ hiddenFields }}>
+                <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
+                <Column dataField='DistNumber' dataType='string' minWidth={100} caption='Batch #' />
+                <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} visible={false} />
+                <Column dataField='owner' dataType='string' caption='Owner' />
 
-              <Column dataField='item.ItemCode' dataType='string' caption='MFG P/N' />
-              <Column dataField='partNumber' dataType='string' caption='Part Number' />
-              <Column dataField='item.FirmName' dataType='string' caption='Manufacturer' visible={false} />
-              <Column dataField='mfr' dataType='string' caption='MFR' />
-              <Column dataField='item.ItemName' dataType='string' caption='Description' visible={false} />
-              <Column dataField='desc' dataType='string' caption='Desc' />
-              <Column dataField='commodities' dataType='string' caption='Commodities' />
+                <Column dataField='group' dataType='string' caption='Group' />
+                <Column dataField='division' dataType='string' caption='Division' />
+                <Column dataField='site' dataType='string' caption='Site' />
+                <Column dataField='cmSite' dataType='string' caption='CM Site' />
+                <Column dataField='phase' dataType='string' caption='Phase' />
+                <Column
+                  dataField='tfsStdPrice'
+                  dataType='number'
+                  caption='TFS Std Price'
+                  alignment='left'
+                  format={DEFAULT_CURRENCY_FORMAT}
+                />
+                <Column dataField='omegaPrice' dataType='number' caption='Omega Price' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
 
-              <Column dataField='dateCode' minWidth={75} dataType='string' caption='DC' />
-              <Column dataField='countryOfOrigin' minWidth={80} dataType='string' caption='COO' />
-              <Column dataField='lotCode' dataType='string' caption='Lot Code' />
-              <Column dataField='palletNo' dataType='string' caption='Pallet No' />
-              <Column dataField='siteLocation' dataType='string' caption='Site Location' />
-              <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' />
-              <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' />
-              {/* <Column dataField='warehouse.name' dataType='string' caption='Warehouse' /> */}
+                <Column dataField='item.ItemCode' dataType='string' caption='MFG P/N' />
+                <Column dataField='partNumber' dataType='string' caption='Part Number' />
+                <Column dataField='item.FirmName' dataType='string' caption='Manufacturer' visible={false} />
+                <Column dataField='mfr' dataType='string' caption='MFR' />
+                <Column dataField='item.ItemName' dataType='string' caption='Description' visible={false} />
+                <Column dataField='desc' dataType='string' caption='Desc' />
+                <Column dataField='commodities' dataType='string' caption='Commodities' />
 
-              {!isBusinessPartner && (
-                <>
-                  <Column dataField='dateReceived' dataType='datetime' caption='Date Received' visible={false} />
-                  <Column
-                    dataField='dateReceivedBy'
-                    dataType='string'
-                    caption='Date Received By'
-                    calculateCellValue={dateReceivedByCalculatedCellValue}
-                    visible={false}
-                  />
-                </>
-              )}
+                <Column dataField='dateCode' minWidth={75} dataType='string' caption='DC' />
+                <Column dataField='countryOfOrigin' minWidth={80} dataType='string' caption='COO' />
+                <Column dataField='lotCode' dataType='string' caption='Lot Code' />
+                <Column dataField='palletNo' dataType='string' caption='Pallet No' />
+                <Column dataField='warehouseCode' dataType='string' caption='Warehouse' />
+                <Column dataField='binCode' dataType='string' caption='Bin Location' />
+                <Column dataField='siteLocation' dataType='string' caption='Site Location' />
+                <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' />
+                <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' />
+                {/* <Column dataField='warehouse.name' dataType='string' caption='Warehouse' /> */}
 
-              <Column dataField='packagingType' dataType='string' caption='Packaging Type' />
-              <Column dataField='spq' dataType='string' caption='SPQ' />
-              <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
+                {!isBusinessPartner && (
+                  <>
+                    <Column dataField='dateReceived' dataType='datetime' caption='Date Received' visible={false} />
+                    <Column
+                      dataField='dateReceivedBy'
+                      dataType='string'
+                      caption='Date Received By'
+                      calculateCellValue={dateReceivedByCalculatedCellValue}
+                      visible={false}
+                    />
+                  </>
+                )}
 
-              {!isBusinessPartner ? (
-                <Column dataField='totalStock' dataType='number' caption='Total Stock' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
-              ) : null}
+                <Column dataField='packagingType' dataType='string' caption='Packaging Type' />
+                <Column dataField='spq' dataType='string' caption='SPQ' />
+                <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
 
-              <Column dataField='notes' dataType='string' caption='Notes' visible={false} />
+                {!isBusinessPartner ? (
+                  <Column dataField='totalStock' dataType='number' caption='Total Stock' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
+                ) : null}
 
-              <Column
-                dataField='availableToOrder'
-                dataType='number'
-                caption='Available To Order'
-                alignment='left'
-                format={DEFAULT_NUMBER_FORMAT}
-                fixed
-                fixedPosition='right'
-                filterType='exclude'
-              />
-              <Column
-                dataField='stockIn'
-                dataType='number'
-                caption='Stock-In (In Process)'
-                alignment='left'
-                format={DEFAULT_NUMBER_FORMAT}
-              />
-              <Column
-                dataField='stockOut'
-                dataType='number'
-                caption='Stock-Out (Delivered)'
-                alignment='left'
-                format={DEFAULT_NUMBER_FORMAT}
-              />
+                <Column dataField='notes' dataType='string' caption='Notes' visible={false} />
 
-              <Column
-                dataField='agingDays'
-                dataType='number'
-                caption='Aging Days'
-                alignment='left'
-                calculateCellValue={(rowData) => (rowData?.createdAt ? differenceInDays(new Date(), rowData?.createdAt) : 0)}
-                format={DEFAULT_NUMBER_FORMAT}
-              />
-              <Column dataField='createdAt' dataType='datetime' caption='Created At' visible={false} />
-              <Column dataField='updatedAt' dataType='datetime' caption='Updated At' visible={false} />
+                <Column
+                  dataField='availableToOrder'
+                  dataType='number'
+                  caption='Available To Order'
+                  alignment='left'
+                  format={DEFAULT_NUMBER_FORMAT}
+                  fixed
+                  fixedPosition='right'
+                  filterType='exclude'
+                />
+                <Column
+                  dataField='stockIn'
+                  dataType='number'
+                  caption='Stock-In (In Process)'
+                  alignment='left'
+                  format={DEFAULT_NUMBER_FORMAT}
+                />
+                <Column
+                  dataField='stockOut'
+                  dataType='number'
+                  caption='Stock-Out (Delivered)'
+                  alignment='left'
+                  format={DEFAULT_NUMBER_FORMAT}
+                />
 
-              <Summary>
-                <GroupItem column='item.ItemCode' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
-                {renderCommonSummaryIItems()}
-              </Summary>
+                <Column
+                  dataField='agingDays'
+                  dataType='number'
+                  caption='Aging Days'
+                  alignment='left'
+                  calculateCellValue={(rowData) => (rowData?.createdAt ? differenceInDays(new Date(), rowData?.createdAt) : 0)}
+                  format={DEFAULT_NUMBER_FORMAT}
+                />
+                <Column dataField='createdAt' dataType='datetime' caption='Created At' visible={false} />
+                <Column dataField='updatedAt' dataType='datetime' caption='Updated At' visible={false} />
 
-              <Summary>
-                <GroupItem column='item.FirmName' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
-                {renderCommonSummaryIItems()}
-              </Summary>
+                <Summary>
+                  <GroupItem column='item.ItemCode' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+                  {renderCommonSummaryIItems()}
+                </Summary>
 
-              <Summary>
-                <GroupItem column='partNumber' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
-                {renderCommonSummaryIItems()}
-              </Summary>
+                <Summary>
+                  <GroupItem column='item.FirmName' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+                  {renderCommonSummaryIItems()}
+                </Summary>
 
-              <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
-                <CanView subject='p-projects-individual-inventory' action='view'>
-                  <DataGridButton
-                    icon='eyeopen'
-                    onClick={handleView}
-                    cssClass='!text-lg'
-                    hint='View'
-                    visible={(opt) => {
-                      const data = opt?.row?.data
-                      return hideActionButton(data?.deletedAt || data?.deletedBy)
-                    }}
-                  />
-                </CanView>
+                <Summary>
+                  <GroupItem column='partNumber' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+                  {renderCommonSummaryIItems()}
+                </Summary>
 
-                <CanView subject='p-projects-individual-inventory' action='edit'>
-                  <DataGridButton
-                    icon='edit'
-                    onClick={handleEdit}
-                    cssClass='!text-lg'
-                    hint='Edit'
-                    visible={(opt) => {
-                      const data = opt?.row?.data
-                      return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner)
-                    }}
-                  />
-                </CanView>
+                <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
+                  <CanView subject='p-projects-individual-inventory' action={['view', 'view (owner)']}>
+                    <DataGridButton
+                      icon='eyeopen'
+                      onClick={handleView}
+                      cssClass='!text-lg'
+                      hint='View'
+                      visible={(opt) => {
+                        const data = opt?.row?.data
+                        return hideActionButton(data?.deletedAt || data?.deletedBy)
+                      }}
+                    />
+                  </CanView>
 
-                <CanView subject='p-projects-individual-inventory' action='delete'>
-                  <DataGridButton
-                    icon='trash'
-                    onClick={handleDelete}
-                    cssClass='!text-lg !text-red-500'
-                    hint='Delete'
-                    visible={(opt) => {
-                      const data = opt?.row?.data
-                      return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner)
-                    }}
-                  />
-                </CanView>
+                  <CanView subject='p-projects-individual-inventory' action='edit'>
+                    <DataGridButton
+                      icon='edit'
+                      onClick={handleEdit}
+                      cssClass='!text-lg'
+                      hint='Edit'
+                      visible={(opt) => {
+                        const data = opt?.row?.data
+                        return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner || isCustomTfsEnabled)
+                      }}
+                    />
+                  </CanView>
 
-                {/* <DataGridButton
+                  <CanView subject='p-projects-individual-inventory' action='delete'>
+                    <DataGridButton
+                      icon='trash'
+                      onClick={handleDelete}
+                      cssClass='!text-lg !text-red-500'
+                      hint='Delete'
+                      visible={(opt) => {
+                        const data = opt?.row?.data
+                        return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner || isCustomTfsEnabled)
+                      }}
+                    />
+                  </CanView>
+
+                  {/* <DataGridButton
                   icon='undo'
                   onClick={handleRestore}
                   cssClass='!text-lg !text-blue-500'
@@ -661,7 +812,8 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
                     return showActionButton((data?.deletedAt || data?.deletedBy) && !isBusinessPartner)
                   }}
                 /> */}
-              </Column>
+                </Column>
+              </HiddenFieldsContext.Provider>
             </CommonDataGrid>
 
             <Popup visible={isOpen} dragEnabled={false} showTitle={false} onHiding={() => setIsOpen(false)}>
@@ -701,16 +853,26 @@ export default function ProjectIndividualItemTab({ projectCode, projectName, ite
               onCancel={() => setShowRestoreConfirmation(false)}
             />
 
+            <AlertDialog
+              isOpen={showSyncFromSapConfirmation}
+              title='Are you sure?'
+              height={230}
+              maxWidth={620}
+              description={syncFromSapDescription}
+              onConfirm={handleConfirmSyncFromSap}
+              onCancel={() => setShowSyncFromSapConfirmation(false)}
+            />
+
             <ImportSyncErrorDataGrid
-              isOpen={showImportError}
-              setIsOpen={setShowImportError}
-              data={importErrors}
+              isOpen={importState.showError}
+              setIsOpen={(value) => setImportState((prev) => ({ ...prev, showError: value }))}
+              data={importState.errors}
               dataGridRef={importErrorDataGridRef}
             />
           </div>
         </div>
       ) : rowData ? (
-        <ProjectIndividualItemView data={rowData} onClose={handleClose} />
+        <ProjectIndividualItemView data={rowData} onClose={handleClose} hiddenFields={hiddenFields} />
       ) : null}
     </div>
   )
