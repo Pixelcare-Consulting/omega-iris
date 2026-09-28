@@ -30,23 +30,22 @@ import SwitchField from '@/components/forms/switch-field'
 import CanView from '@/components/acl/can-view'
 import { useBps } from '@/hooks/safe-actions/business-partner'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 import { NotificationContext } from '@/context/notification'
-import { DEFAULT_PROJECT_ITEM_HIDDEN_FIELDS, PROJECT_ITEM_COLUMNS_MAP } from '@/constants/project-item'
-import Separator from '@/components/separator'
-import ReadOnlyFieldHeader from '@/components/read-only-field-header'
+import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 type ProjectIndividualFormProps = { pageMetaData: PageMetadata; projectIndividual: Awaited<ReturnType<typeof getPiByCode>> }
 
 export default function ProjectIndividualForm({ pageMetaData, projectIndividual }: ProjectIndividualFormProps) {
   const router = useRouter()
   const { data: session } = useSession()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   const { code } = useParams() as { code: string }
 
   // const notificationContext = useContext(NotificationContext)
 
   const isCreate = code === 'add' || !projectIndividual
-  const projectItemFieldsOptions = Object.entries(PROJECT_ITEM_COLUMNS_MAP).map(([key, value]) => ({ label: value, value: key }))
 
   const values = useMemo(() => {
     if (projectIndividual) return projectIndividual
@@ -63,7 +62,6 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
         pics: [],
         warehouses: [],
         salesCloser: null,
-        projectItemHiddenFields: DEFAULT_PROJECT_ITEM_HIDDEN_FIELDS,
       }
     }
 
@@ -72,7 +70,7 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
 
   const isAdmin = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'admin'
+    return session.user.roleKey === SUPER_USER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const form = useForm({
@@ -84,10 +82,12 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
   const { executeAsync, isExecuting } = useAction(upsertPi)
 
   const projectGroups = usePgs()
-  const customerUsers = useUsersByRoleKey('business-partner')
+  const customerUsers = useUsersByRoleKey(BUSINESS_PARTNER_ROLE_KEY)
   const nonCustomerUsers = useNonBpUsers()
   const suppliers = useBps('S', true)
-  const warehouses = useWarehouses(true)
+
+  //* warehouses are only fetched while the custom tfs process is on
+  const warehouses = useWarehouses(true, undefined, isCustomTfsEnabled)
 
   const handleOnSubmit = async (formData: ProjectIndividualForm) => {
     try {
@@ -292,28 +292,30 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                 />
               </div>
 
-              <div className='col-span-12 md:col-span-6'>
-                <TagBoxField
-                  data={warehouses.data}
-                  isLoading={warehouses.isLoading}
-                  control={form.control}
-                  name='warehouses'
-                  label='Warehouses'
-                  valueExpr='WarehouseCode'
-                  displayExpr={(item) => (item ? `${item?.WarehouseName} (${item?.WarehouseCode})` : '')}
-                  searchExpr={['WarehouseName', 'WarehouseCode']}
-                  extendedProps={{
-                    tagBoxOptions: {
-                      itemRender: (params) => {
-                        return commonItemRender({
-                          title: params?.WarehouseName,
-                          value: params?.WarehouseCode,
-                        })
+              {isCustomTfsEnabled && (
+                <div className='col-span-12 md:col-span-6'>
+                  <TagBoxField
+                    data={warehouses.data}
+                    isLoading={warehouses.isLoading}
+                    control={form.control}
+                    name='warehouses'
+                    label='Warehouses'
+                    valueExpr='WarehouseCode'
+                    displayExpr={(item) => (item ? `${item?.WarehouseName} (${item?.WarehouseCode})` : '')}
+                    searchExpr={['WarehouseName', 'WarehouseCode']}
+                    extendedProps={{
+                      tagBoxOptions: {
+                        itemRender: (params) => {
+                          return commonItemRender({
+                            title: params?.WarehouseName,
+                            value: params?.WarehouseCode,
+                          })
+                        },
                       },
-                    },
-                  }}
-                />
-              </div>
+                    }}
+                  />
+                </div>
+              )}
 
               {isAdmin && (
                 <div className='col-span-12 md:col-span-6 lg:col-span-3'>
@@ -330,23 +332,6 @@ export default function ProjectIndividualForm({ pageMetaData, projectIndividual 
                   />
                 </div>
               )}
-
-              {/* //* temporarily hide */}
-              <Separator className='col-span-12' />
-              <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Inventory' description='Project individual inventory details' />
-
-              <div className='col-span-12 md:col-span-6'>
-                <TagBoxField
-                  data={projectItemFieldsOptions}
-                  control={form.control}
-                  name='projectItemHiddenFields'
-                  label='Hidden Fields'
-                  valueExpr='value'
-                  displayExpr='label'
-                  searchExpr={['label', 'value']}
-                  description='List of fields that will be hidden in the project inventory'
-                />
-              </div>
             </div>
           </ScrollView>
         </PageContentWrapper>

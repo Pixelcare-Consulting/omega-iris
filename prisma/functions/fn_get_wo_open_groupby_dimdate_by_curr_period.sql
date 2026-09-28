@@ -1,6 +1,10 @@
 --* Get open work orders (1-open, 2-pending, 3-in process, 4-verified, 5-partial delivery) count grouped by date by period
+--* dropped first: p_db_code changes the signature, a replace would leave the old unscoped one behind
+DROP FUNCTION IF EXISTS fn_get_wo_open_groupby_dimdate_by_curr_period(TEXT);
+
 CREATE OR REPLACE FUNCTION fn_get_wo_open_groupby_dimdate_by_curr_period(
-    p_period TEXT DEFAULT 'all-time'
+    p_db_code TEXT,
+    p_period  TEXT DEFAULT 'all-time'
 )
 RETURNS TABLE (
     "date"       DATE,
@@ -36,7 +40,8 @@ BEGIN
     IF v_start_date IS NULL THEN
         SELECT MIN(T1."createdAt") INTO v_start_date
         FROM "WorkOrder" T1
-        WHERE T1."deletedAt" IS NULL
+        WHERE T1."dbCode" = p_db_code            --* this company's earliest open work order
+          AND T1."deletedAt" IS NULL
           AND T1."status" IN ('1', '2', '3', '4', '5');
     END IF;
 
@@ -53,6 +58,7 @@ BEGIN
     FROM "DimDate" T0
     LEFT JOIN "WorkOrder" T1
         ON T1."createdAt"::DATE = T0."date"
+        AND T1."dbCode" = p_db_code        --* kept in the join, in the where it would drop days with no work orders
         AND T1."deletedAt" IS NULL
         AND T1."status" IN ('1', '2', '3', '4', '5')
     WHERE
@@ -71,5 +77,5 @@ END;
 $$;
 
 --* sample query execution
-SELECT * FROM fn_get_wo_open_groupby_dimdate_by_curr_period();
-SELECT * FROM fn_get_wo_open_groupby_dimdate_by_curr_period('all-time');
+SELECT * FROM fn_get_wo_open_groupby_dimdate_by_curr_period('OMEGA_P02_TESTING');
+SELECT * FROM fn_get_wo_open_groupby_dimdate_by_curr_period('OMEGA_P02_TESTING', 'all-time');

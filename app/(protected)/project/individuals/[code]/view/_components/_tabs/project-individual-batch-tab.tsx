@@ -16,6 +16,7 @@ import { parseSapCompactDate } from '@/utils/sap'
 import { formatNumber } from 'devextreme/localization'
 import { safeParseInt } from '@/utils'
 import ProjectIndividualBatchView from '../project-individual-batches-view'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type ProjectIndividualBatchTabProps = {
   projectCode: number
@@ -39,7 +40,7 @@ export default function ProjectIndividualBatchTab({ projectCode, batches }: Proj
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const siteLocationCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {

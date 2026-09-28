@@ -1,7 +1,11 @@
-CREATE VIEW vw_wo_items AS
+--* dropped first: a replace cannot add a column in the middle
+DROP VIEW IF EXISTS vw_wo_items;
+
+CREATE OR REPLACE VIEW vw_wo_items AS
 SELECT
         --* work order item
         T0."workOrderCode",
+        T0."dbCode",
         T0."projectItemCode",
         T0."qty",
         T0."isDelivered",
@@ -61,3 +65,6 @@ SELECT
         ON T5."code" = T1."dateReceivedBy"
         AND T5."deletedAt" IS NULL    
      ORDER BY T0."workOrderCode" ASC;
+
+--* sample query execution
+SELECT * FROM vw_wo_items

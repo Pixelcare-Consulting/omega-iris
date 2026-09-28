@@ -2,7 +2,9 @@
 
 import { getStimulsoftLicenseKeyClient } from '@/actions/stimulsoft'
 import { DashboardRptViewerProps, PaginatedReportViewerProps } from '@/components/report-viewer'
+import { useSapDatabase } from '@/hooks/use-sap-database'
 import { REPORT_BLANK_SRC, ReportType } from '@/schema/report'
+import { applyReportParams, REPORT_DB_CODE_PARAM } from '@/utils/stimulsoft'
 import { useAction } from 'next-safe-action/hooks'
 import { useEffect, useRef, useState } from 'react'
 
@@ -26,6 +28,10 @@ export function useReportViewer<T extends keyof ReportViewerTypeMap>(type: T, da
   const [isReady, setIsReady] = useState(false)
 
   const stimulsoftlicenseKeyData = useAction(getStimulsoftLicenseKeyClient)
+  const { sapDbCode } = useSapDatabase()
+
+  //* company scope goes last so a caller cannot override it
+  const reportParams = { ...params, [REPORT_DB_CODE_PARAM]: sapDbCode ?? '' }
 
   const load = async (type: ReportType) => {
     switch (type) {
@@ -47,14 +53,7 @@ export function useReportViewer<T extends keyof ReportViewerTypeMap>(type: T, da
           else report.loadFile(REPORT_BLANK_SRC['1'])
 
           //* inject parameters
-          if (params) {
-            Object.entries(params).forEach(([key, value]) => {
-              const variables = report.dictionary.variables
-              const variable = variables.getByName(key)
-              console.log({ key, value, variables, variable })
-              if (variable) variable.value = value
-            })
-          }
+          applyReportParams(report, reportParams)
 
           //* set web server url
           stiDashboardRptViewer.StiOptions.WebServer.url = process.env.NEXT_PUBLIC_REPORT_SERVER_URL!
@@ -93,15 +92,8 @@ export function useReportViewer<T extends keyof ReportViewerTypeMap>(type: T, da
           if (data) report.load(data)
           else report.loadFile(REPORT_BLANK_SRC['2'])
 
-          //* inject parameters using valueObject - correct JS API
-          if (params) {
-            Object.entries(params).forEach(([key, value]) => {
-              const variables = report.dictionary?.variables
-              const variable = variables?.getByName(key)
-              console.log({ key, value, variables, variable })
-              if (variable) variable.value = value
-            })
-          }
+          //* inject parameters
+          applyReportParams(report, reportParams)
 
           //* set web server url!
           stiPaginatedRptViewer.StiOptions.WebServer.url = process.env.NEXT_PUBLIC_REPORT_SERVER_URL!
@@ -158,7 +150,7 @@ export function useReportViewer<T extends keyof ReportViewerTypeMap>(type: T, da
       setReport(undefined)
       setOptions(undefined)
     }
-  }, [type, data, isReady])
+  }, [type, data, isReady, sapDbCode])
 
   return { report, options, isMounted: isMounted.current, isReady }
 }

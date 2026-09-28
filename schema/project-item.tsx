@@ -35,7 +35,7 @@ export const projectItemFormSchema = z
     division: z.string().nullish(),
     site: z.string().nullish(),
     cmSite: z.string().nullish(),
-    phase: z.coerce.number().nullish(),
+    phase: z.string().nullish(),
     tfsStdPrice: z.coerce.number().nullish(),
     omegaPrice: z.coerce.number().nullish(),
     DistNumber: z.string().nullish(),

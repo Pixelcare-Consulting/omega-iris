@@ -15,6 +15,7 @@ import { safeParseFloat, safeParseInt } from '@/utils'
 import { useSession } from 'next-auth/react'
 import { getBatchesMasterByProjectCode } from '@/actions/batches'
 import { parseSapCompactDate } from '@/utils/sap'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type ProjectIndividualBatchViewProps = {
   data: Awaited<ReturnType<typeof getBatchesMasterByProjectCode>>[number]
@@ -36,7 +37,7 @@ export default function ProjectIndividualBatchView({ data, onClose }: ProjectInd
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   return (

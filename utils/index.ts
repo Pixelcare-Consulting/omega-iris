@@ -2,6 +2,7 @@ import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import * as clipboard from 'clipboard-polyfill'
 import notify from 'devextreme/ui/notify'
+import cronstrue from 'cronstrue'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -110,6 +111,17 @@ export function toBase64(file: File) {
     reader.onload = () => resolve(reader.result as string)
     reader.onerror = (error) => reject('Failed to process file')
   })
+}
+
+//* turns a cron expression into words for the ui, falls back to the raw expression when it cannot be read
+export function describeCronSchedule(schedule?: string | null) {
+  if (!schedule) return ''
+
+  try {
+    return cronstrue.toString(schedule, { verbose: false, use24HourTimeFormat: false }).toLowerCase()
+  } catch {
+    return schedule
+  }
 }
 
 //* splits an array into smaller chunks

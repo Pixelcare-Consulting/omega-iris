@@ -1,20 +1,13 @@
 'use server'
 
-import fs from 'fs'
-import ini from 'ini'
-
 import { authenticateSapServiceLayer, logoutSapServiceLayer } from './sap-service-layer'
 import logger from '@/utils/logger'
-import { SapAuthCookies, SapCredentials, SapTokenConfig } from '@/types/sap'
-import { EXPIRY_BUFFER, SESSION_TIMEOUT, TOKEN_FILE_PATH } from '@/constants/sap'
+import { db } from '@/utils/db'
+import { SapAuthCookies, SapCredentials } from '@/types/sap'
+import { EXPIRY_BUFFER, SESSION_TIMEOUT } from '@/constants/sap'
 
-//* Generates or retrieves valid SAP Service Layer Authorization Cookies.
-//* Checks if an existing token file exists and if the cookies are still valid.
-//* If not valid or not present, generates new cookies and saves them to the file.
-
-//? NOTE: In a production environment, ensure this file is stored in a secure location
-//? with appropriate file permissions to prevent unauthorized access.
-//? Consider encrypting the token within the file for added security.
+//* one shared service account session per database, reused by every user
+//! app signout must never log out of SAP, the session belongs to the database not the user
 
 type GetSapServiceLayerTokenResponse = {
   error?: boolean
@@ -24,178 +17,137 @@ type GetSapServiceLayerTokenResponse = {
   data: { sapSession: SapAuthCookies | null }
 }
 
-//* In-process guard: concurrent callers share one login instead of each opening its own SAP session.
-let refreshInflight: Promise<GetSapServiceLayerTokenResponse> | null = null
+const ACTION = 'GET_SAP_SERVICE_LAYER_TOKEN'
 
-//* Reads the token file and returns the session only if it is still within the validity window.
-function readValidSessionFromFile(): { config: SapTokenConfig; session: SapAuthCookies | null } {
-  let config: SapTokenConfig = {}
+//* one login at a time per database, so a slow login on one cannot stall another
+const refreshInflight = new Map<string, Promise<GetSapServiceLayerTokenResponse>>()
 
-  //* Check if the token file exists
-  if (!fs.existsSync(TOKEN_FILE_PATH)) {
-    logger.error('SAP Service Layer token file not found. Generating new cookies')
-    return { config, session: null }
-  }
-
-  try {
-    const fileContent = fs.readFileSync(TOKEN_FILE_PATH, 'utf-8')
-    config = ini.parse(fileContent)
-  } catch (error) {
-    logger.error(`Error reading or parsing SAP Service Layer token file: ${error}`)
-    logger.error('Generating new SAP Service Layer token')
-    return { config: {}, session: null }
-  }
-
-  //* Check if the existing cookies are still valid.
-  //* Use the lifetime SAP reported at login, it is configurable per server (b1s.conf) and is often
-  //* shorter than the 30 minute default. SESSION_TIMEOUT is only the fallback for older token files.
-
-  //? ini.parse returns every value as a string, so coerce the numeric fields explicitly
-  const storedTimeout = Number(config.sessionTimeout)
-  const sessionTimeout = Number.isFinite(storedTimeout) && storedTimeout > 0 ? storedTimeout : SESSION_TIMEOUT
-  const parsedGeneratedAt = Number(config.generatedAt)
-  const generatedAt = Number.isFinite(parsedGeneratedAt) ? parsedGeneratedAt : 0
-  const currentTime = Date.now()
-
-  //* Add a buffer (e.g., 60 seconds) to the expiry check, never let the buffer swallow the whole window
-  const validityWindow = Math.max(sessionTimeout - EXPIRY_BUFFER, 0)
-  const isTokenValid = config.b1session && config.routeid && currentTime - generatedAt < validityWindow
-
-  if (!isTokenValid) {
-    logger.info('SAP Service Layer cookies expired or invalid. Generating new ones.')
-    return { config, session: null }
-  }
-
-  return { config, session: { b1session: config.b1session!, routeid: config.routeid! } }
+function okResponse(sapSession: SapAuthCookies, message: string): GetSapServiceLayerTokenResponse {
+  return { status: 200, message, action: ACTION, data: { sapSession } }
 }
 
-//* Marks the cached session as expired so the next call authenticates again.
-//* SAP can end a session before its timeout elapses (service layer restart, admin logout in B1, node
-//* change behind a load balancer). The time based check cannot see that, so a caller whose request was
-//* rejected reports it here.
+function errorResponse(message: string): GetSapServiceLayerTokenResponse {
+  return { error: true, status: 500, message, action: ACTION, data: { sapSession: null } }
+}
 
-//? IMPORTANT: this does NOT call SAP's Logout, the session is already dead on SAP's side.
-//? The cookies are deliberately kept and only generatedAt is zeroed, so the refresh path can still hand
-//? them to logoutSapServiceLayer. If the rejection turns out to have been false and the session was
-//? actually alive, that logout releases its license slot instead of leaking it until the timeout.
-//? rejectedB1Session scopes the invalidation to the session that actually failed. Without it, concurrent
-//? callers that all got rejected would each zero the file in turn and could wipe a good session that a
-//? peer had just written, causing repeated logins.
-export async function invalidateSapServiceLayerToken(rejectedB1Session?: string): Promise<void> {
+//* returns the stored session only while it is still inside its validity window
+async function readValidSession(dbCode: string) {
+  const stored = await db.sapSession.findUnique({ where: { dbCode } })
+
+  if (!stored) return { stored: null, session: null }
+
+  const isValid = !!stored.b1Session && !!stored.routeId && stored.expiresAt.getTime() - EXPIRY_BUFFER > Date.now()
+
+  if (!isValid) {
+    logger.info({ dbCode }, 'SAP session expired or invalid, generating a new one')
+    return { stored, session: null }
+  }
+
+  return { stored, session: { b1session: stored.b1Session, routeid: stored.routeId! } }
+}
+
+//* marks the session expired so the next call logs in again
+//? SAP can end a session before its timeout (service layer restart, admin logout), the time check cannot see that
+//! keeps the cookies on purpose — the refresh path still needs them to log the old session out and free its license
+export async function invalidateSapServiceLayerToken(dbCode: string, rejectedB1Session?: string): Promise<void> {
   try {
-    if (!fs.existsSync(TOKEN_FILE_PATH)) return
+    const stored = await db.sapSession.findUnique({ where: { dbCode } })
 
-    const config: SapTokenConfig = ini.parse(fs.readFileSync(TOKEN_FILE_PATH, 'utf-8'))
+    if (!stored) return
 
     //* someone already replaced the rejected session, leave the new one alone
-    if (rejectedB1Session && config.b1session !== rejectedB1Session) {
-      logger.info('Rejected SAP session was already replaced, keeping the current one')
+    if (rejectedB1Session && stored.b1Session !== rejectedB1Session) {
+      logger.info({ dbCode }, 'Rejected SAP session was already replaced, keeping the current one')
       return
     }
 
-    config.generatedAt = 0
-
-    fs.writeFileSync(TOKEN_FILE_PATH, ini.stringify(config))
-    logger.warn('SAP Service Layer session marked as expired, the next call will authenticate again')
+    await db.sapSession.update({ where: { dbCode }, data: { expiresAt: new Date(0) } })
+    logger.warn({ dbCode }, 'SAP session marked as expired, the next call will authenticate again')
   } catch (error) {
-    logger.error(`Failed to invalidate SAP Service Layer token file: ${error}`)
+    logger.error(`Failed to invalidate SAP session for ${dbCode}: ${error}`)
   }
 }
 
-export async function getSapServiceLayerToken(): Promise<GetSapServiceLayerTokenResponse> {
-  //* Fast path: a valid session on disk needs no lock
-  const cached = readValidSessionFromFile()
+export async function getSapServiceLayerToken(dbCode: string): Promise<GetSapServiceLayerTokenResponse> {
+  if (!dbCode) return errorResponse('No SAP database selected.')
 
-  if (cached.session) {
-    logger.info('Using existing valid SAP Service Layer cookies.')
+  //* fast path, a valid session needs no lock
+  const cached = await readValidSession(dbCode)
 
-    return {
-      status: 200,
-      message: 'Using existing valid SAP Service Layer cookies.',
-      data: { sapSession: cached.session },
-      action: 'GET_SAP_SERVICE_LAYER_TOKEN',
-    }
-  }
+  if (cached.session) return okResponse(cached.session, 'Using existing valid SAP Service Layer cookies.')
 
-  //* A refresh is already running, wait for it instead of opening a second SAP session
-  if (refreshInflight) return refreshInflight
+  //* a refresh for this database is already running, wait for it instead of opening a second session
+  const inflight = refreshInflight.get(dbCode)
 
-  refreshInflight = refreshSapServiceLayerToken().finally(() => {
-    refreshInflight = null
-  })
+  if (inflight) return inflight
 
-  return refreshInflight
+  const refresh = refreshSapServiceLayerToken(dbCode).finally(() => refreshInflight.delete(dbCode))
+
+  refreshInflight.set(dbCode, refresh)
+
+  return refresh
 }
 
-//* Logs out the stale session and generates a new one. Only ever runs one at a time per process.
-async function refreshSapServiceLayerToken(): Promise<GetSapServiceLayerTokenResponse> {
-  //* Double-check: another process may have refreshed the file while we were queued
-  const recheck = readValidSessionFromFile()
+//* logs the stale session out and generates a new one, only ever one at a time per database
+async function refreshSapServiceLayerToken(dbCode: string): Promise<GetSapServiceLayerTokenResponse> {
+  //* another caller may have refreshed while we were queued
+  const recheck = await readValidSession(dbCode)
 
-  if (recheck.session) {
-    logger.info('Using SAP Service Layer cookies refreshed by a concurrent request.')
+  if (recheck.session) return okResponse(recheck.session, 'Using existing valid SAP Service Layer cookies.')
 
-    return {
-      status: 200,
-      message: 'Using existing valid SAP Service Layer cookies.',
-      data: { sapSession: recheck.session },
-      action: 'GET_SAP_SERVICE_LAYER_TOKEN',
+  //* an override can pass any string, check it is a real active database before logging in
+  const sapDatabase = await db.sapDatabase.findFirst({ where: { dbCode, isActive: true } })
+
+  if (!sapDatabase) {
+    //* the database was turned off while it still had a session, log it out instead of leaking its license
+    if (recheck.stored?.b1Session) {
+      await logoutSapServiceLayer({ b1session: recheck.stored.b1Session, routeid: recheck.stored.routeId ?? undefined })
+      await db.sapSession.delete({ where: { dbCode } }).catch(() => null)
     }
+
+    return errorResponse(`SAP database "${dbCode}" was not found or is inactive.`)
   }
 
-  const config = recheck.config
-
-  //* logout old SAP session before generating so its license slot is released
-  if (config.b1session && config.routeid) {
-    await logoutSapServiceLayer({ b1session: config.b1session, routeid: config.routeid })
+  //* log the old session out first so its license slot is released
+  if (recheck.stored?.b1Session) {
+    await logoutSapServiceLayer({ b1session: recheck.stored.b1Session, routeid: recheck.stored.routeId ?? undefined })
   }
 
-  //* If no valid cookies exist, generate new ones
-  const newSapSession = await generateNewSapServiceLayerToken()
+  const newSapSession = await generateNewSapServiceLayerToken(dbCode)
 
-  if (!newSapSession) {
-    return {
-      error: true,
-      status: 500,
-      message: 'SAP Session not found!',
-      action: 'GET_SAP_SERVICE_LAYER_TOKEN',
-      data: { sapSession: null },
-    }
-  }
+  if (!newSapSession) return errorResponse('SAP Session not found!')
 
-  //* update config with new session details, persist the lifetime SAP reported so the next
-  //* validity check uses the server's real timeout instead of an assumed one
-  config.b1session = newSapSession.sapSession.b1session
-  config.routeid = newSapSession.sapSession.routeid
-  config.generatedAt = Date.now()
-  config.sessionTimeout = newSapSession.sessionTimeout ?? SESSION_TIMEOUT
+  //* store the lifetime SAP reported so the next check uses the server's real timeout
+  const expiresAt = new Date(Date.now() + (newSapSession.sessionTimeout ?? SESSION_TIMEOUT))
+  const { b1session, routeid } = newSapSession.sapSession
 
-  //* Save the new session to the file
   try {
-    const newFileContent = ini.stringify(config)
-    fs.writeFileSync(TOKEN_FILE_PATH, newFileContent)
-    logger.info(
-      { tokenFile: TOKEN_FILE_PATH, generatedAt: config.generatedAt, sessionTimeout: config.sessionTimeout },
-      'New SAP Service Layer session saved to file'
-    )
+    await db.sapSession.upsert({
+      where: { dbCode },
+      create: { dbCode, b1Session: b1session, routeId: routeid, expiresAt },
+      update: { b1Session: b1session, routeId: routeid, expiresAt },
+    })
+
+    logger.info({ dbCode, expiresAt }, 'New SAP Service Layer session saved')
   } catch (error) {
-    logger.error(`Error writing SAP Service Layer token file: ${error}`)
+    //! the login held a license slot that nothing can reach now, log it out instead of leaking it
+    logger.error(`Failed to save the SAP session for ${dbCode}, logging it back out: ${error}`)
+    await logoutSapServiceLayer({ b1session, routeid })
+
+    return errorResponse('Could not store the new SAP session.')
   }
 
-  return {
-    status: 200,
-    message: 'SAP Service Layer token generated successfully',
-    action: 'GET_SAP_SERVICE_LAYER_TOKEN',
-    data: { sapSession: newSapSession.sapSession },
-  }
+  return okResponse(newSapSession.sapSession, 'SAP Service Layer token generated successfully')
 }
 
-//* Generates new SAP Service Layer cookies by authenticating with the service layer.
-async function generateNewSapServiceLayerToken(): Promise<{ sapSession: SapAuthCookies; sessionTimeout: number | null } | null> {
+//* logs in with the shared service account, only CompanyDB varies per database
+async function generateNewSapServiceLayerToken(
+  dbCode: string
+): Promise<{ sapSession: SapAuthCookies; sessionTimeout: number | null } | null> {
   try {
     const credentials: SapCredentials = {
       baseUrl: process.env.SAP_BASE_URL || '',
-      companyDb: process.env.SAP_COMPANY_DB || '',
+      companyDb: dbCode,
       userName: process.env.SAP_USERNAME || '',
       password: process.env.SAP_PASSWORD || '',
     }
@@ -206,7 +158,7 @@ async function generateNewSapServiceLayerToken(): Promise<{ sapSession: SapAuthC
 
     return { sapSession: response.data.sapSession, sessionTimeout: response.data.sessionTimeout }
   } catch (error) {
-    logger.error('Failed to generate new SAP Service Layer token')
+    logger.error(`Failed to generate a new SAP Service Layer token for ${dbCode}`)
     return null
   }
 }

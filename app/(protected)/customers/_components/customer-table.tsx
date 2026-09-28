@@ -17,6 +17,7 @@ import {
   deleteBp,
   getBpMasterByPage,
   getBpMasterCount,
+  getBpMasterCount2,
   getBps,
   importBp,
   restoreBp,
@@ -24,6 +25,7 @@ import {
   syncToSap,
 } from '@/actions/business-partner'
 import PageHeader from '@/app/(protected)/_components/page-header'
+import { Badge } from '@/components/badge'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
@@ -46,6 +48,7 @@ import { useAccountTypes } from '@/hooks/safe-actions/account-type'
 import { useBusinessTypes } from '@/hooks/safe-actions/business-type'
 import { parseExcelFile } from '@/utils/xlsx'
 import { NotificationContext } from '@/context/notification'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 
 type CustomerTableProps = { bps: Awaited<ReturnType<typeof getBps>> }
 type DataSource = Awaited<ReturnType<typeof getBps>>
@@ -61,6 +64,7 @@ const INITIAL_SYNC_SECTION_STATE: SyncSectionState = {
 
 export default function CustomerTable({ bps }: CustomerTableProps) {
   const router = useRouter()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-customer'
   const DATAGRID_UNIQUE_KEY = 'customers'
@@ -101,6 +105,11 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
   const syncToSapData = useAction(syncToSap)
   const syncFromSapData = useAction(syncFromSap)
   const syncMeta = useSyncMeta('customer')
+
+  const lastSyncedLabel = useMemo(() => {
+    if (!syncMeta.data?.lastSyncAt) return 'Never synced'
+    return `Last synced: ${format(syncMeta.data.lastSyncAt, 'PP, hh:mm a')}`
+  }, [syncMeta.data?.lastSyncAt])
 
   const bpGroups = useBpGroups()
   const currencies = useCurrencies()
@@ -397,7 +406,8 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
 
     try {
       //* get total count of bp master from sap
-      const totalCount = await getBpMasterCount(cardType)
+
+      const totalCount = await getBpMasterCount2(cardType)
 
       if (totalCount < 1) {
         toast.error('Failed to fetch customer master from SAP!')
@@ -463,8 +473,16 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Customers' description='Manage and track your customers effectively'>
-        {selectedRowKeys.length > 0 && (
+      <PageHeader
+        title={
+          <>
+            <span className='pr-1.5'>Customers</span>
+            {isCustomTfsEnabled && <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>}
+          </>
+        }
+        description='Manage and track your customers effectively'
+      >
+        {isCustomTfsEnabled && selectedRowKeys.length > 0 && (
           <CanView subject='p-customers' action='sync to sap'>
             <Item location='after' locateInMenu='auto' widget='dxButton'>
               <Tooltip
@@ -488,13 +506,13 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
           </CanView>
         )}
 
-        {selectedRowKeys.length < 1 && (
+        {isCustomTfsEnabled && selectedRowKeys.length < 1 && (
           <CanView subject='p-customers' action='sync from sap'>
             <Item location='after' locateInMenu='auto' widget='dxButton'>
               {!syncMeta.isLoading && (
                 <Tooltip
                   target='#sync-from-sap-to-portal'
-                  contentRender={() => `Last Sync: ${format(syncMeta.data?.lastSyncAt || new Date('01/01/2020'), 'PP, hh:mm a')}`}
+                  contentRender={() => lastSyncedLabel}
                   showEvent='mouseenter'
                   hideEvent='mouseleave'
                   position='top'
@@ -552,7 +570,8 @@ export default function CustomerTable({ bps }: CustomerTableProps) {
           data={bps}
           storageKey={DATAGRID_STORAGE_KEY}
           keyExpr='code'
-          isSelectionEnable
+          //* selection only feeds sync to sap, which non-tfs companies can't use
+          isSelectionEnable={isCustomTfsEnabled}
           dataGridStore={dataGridStore}
           selectedRowKeys={selectedRowKeys}
           callbacks={{ onCellPrepared: handleOnCellPrepared, onSelectionChanged: handleOnSelectionChanged }}

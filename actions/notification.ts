@@ -4,15 +4,16 @@ import z from 'zod'
 
 import { db } from '@/utils/db'
 import { getCurrentUserAbility } from './auth'
-import { action, authenticationMiddleware } from '@/utils/safe-action'
+import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe-action'
 import { NotificationForm, notificationFormSchema } from '@/schema/notification'
 import logger from '@/utils/logger'
 import { paramsSchema } from '@/schema/common'
 import { PERMISSIONS_ALLOWED_ACTIONS } from '@/constants/permission'
 import { add } from 'date-fns'
 import { EXPIRESAT_MONTH_COUNT } from '@/constants/notification'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
-export async function getNotifications(userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>, limit?: number) {
+export async function getNotifications(dbCode: string | null, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>, limit?: number) {
   if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
 
   const { userCode, roleCode, roleKey } = userInfo
@@ -26,6 +27,8 @@ export async function getNotifications(userInfo: Awaited<ReturnType<typeof getCu
     return db.notification.findMany({
       where: {
         AND: [
+          //* global events have no database, tenant events must match the session's
+          { OR: [{ dbCode: null }, { dbCode }] },
           //* inclusion
           {
             OR: [{ isGlobal: true }, { userCodes: { has: userCode } }, { roleCodes: { has: roleCode } }, { roleKeys: { has: roleKey } }],
@@ -64,10 +67,10 @@ export const getNotificationsClient = action
   .use(authenticationMiddleware)
   .schema(z.object({ limit: z.coerce.number().optional() }))
   .action(async ({ ctx, parsedInput }) => {
-    return getNotifications(ctx, parsedInput.limit)
+    return getNotifications(ctx.dbCode, ctx, parsedInput.limit)
   })
 
-export async function getUnReadNotificationsCount(userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
+export async function getUnReadNotificationsCount(dbCode: string | null, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
   if (!userInfo || !userInfo.userId || !userInfo.userCode) return 0
 
   const { userCode, roleCode, roleKey } = userInfo
@@ -81,6 +84,8 @@ export async function getUnReadNotificationsCount(userInfo: Awaited<ReturnType<t
     return db.notification.count({
       where: {
         AND: [
+          //* global events have no database, tenant events must match the session's
+          { OR: [{ dbCode: null }, { dbCode }] },
           //* inclusion
           {
             OR: [{ isGlobal: true }, { userCodes: { has: userCode } }, { roleCodes: { has: roleCode } }, { roleKeys: { has: roleKey } }],
@@ -117,7 +122,7 @@ export async function getUnReadNotificationsCount(userInfo: Awaited<ReturnType<t
 }
 
 export const getUnReadNotificationsCountClient = action.use(authenticationMiddleware).action(async ({ ctx }) => {
-  return getUnReadNotificationsCount(ctx)
+  return getUnReadNotificationsCount(ctx.dbCode, ctx)
 })
 
 export async function createNotification(
@@ -128,7 +133,7 @@ export async function createNotification(
   }
 ) {
   const { permissionCode, userCodes, excludeUserCodes, excludeRoleCodes, excludeRoleKeys, ...data } = notificationData
-  const { userId, userCode, roleCode, roleKey, ability } = userInfo
+  const { userId, userCode, roleCode, roleKey, ability, dbCode } = userInfo
 
   try {
     //* get allowed roles based on the permission code and it should allowed to 'receive notifications'
@@ -137,7 +142,7 @@ export async function createNotification(
     const allowedRoles = await db.role.findMany({
       where: {
         OR: [
-          { key: 'admin' },
+          { key: SUPER_USER_ROLE_KEY },
           {
             rolePermissions: {
               some: {
@@ -178,6 +183,7 @@ export async function createNotification(
     await db.notification.create({
       data: {
         ...data,
+        dbCode,
         //* auidience/recepients
         userCodes: uniqueUserCodes,
         roleCodes: uniqueRoleCodes,
@@ -263,7 +269,7 @@ export const toggleAllNotificationsRead = action
   .action(async ({ ctx, parsedInput }) => {
     const { isRead } = parsedInput
 
-    const { userCode, roleCode, roleKey } = ctx
+    const { userCode, roleCode, roleKey, dbCode } = ctx
 
     try {
       //* get all notifications that the user has access to
@@ -273,6 +279,8 @@ export const toggleAllNotificationsRead = action
       const notifications = await db.notification.findMany({
         where: {
           AND: [
+            //* global events have no database, tenant events must match the session's
+            { OR: [{ dbCode: null }, { dbCode }] },
             {
               OR: [{ isGlobal: true }, { userCodes: { has: userCode } }, { roleCodes: { has: roleCode } }, { roleKeys: { has: roleKey } }],
             },
@@ -341,7 +349,7 @@ export const deleteNotification = action
   .schema(paramsSchema)
   .action(async ({ ctx, parsedInput: data }) => {
     try {
-      const notification = await db.notification.findUnique({ where: { code: data.code } })
+      const notification = await db.notification.findFirst({ where: { code: data.code, OR: [{ dbCode: null }, { dbCode: ctx.dbCode }] } })
 
       if (!notification) return { error: true, status: 404, message: 'Notification not found!', action: 'DELETE_NOTIFICATION' }
 

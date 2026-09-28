@@ -5,6 +5,7 @@ import { PrismaAdapter } from '@auth/prisma-adapter'
 
 import { db } from './utils/db'
 import authConfig from './auth.config'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 //* module augmentation for next-auth
 export type ExtendedUser = {
@@ -23,6 +24,8 @@ export type ExtendedUser = {
   isActive: boolean
   isOAuth: boolean
   isDefaultPasswordChanged: boolean
+  sapDbCode: string | null
+  isEnabledCustomTfsProcess: boolean
 }
 
 declare module 'next-auth' {
@@ -34,6 +37,8 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     user: ExtendedUser
+    //! keep at the top level — token.user is rebuilt from the db on every refresh and would drop it
+    sapDbCode?: string
   }
 }
 
@@ -101,10 +106,43 @@ export const callbacks: NextAuthConfig['callbacks'] = {
         isOnline,
         isDefaultPasswordChanged,
         isOAuth: !!existingAccount,
+        sapDbCode: token.sapDbCode ?? null,
+        isEnabledCustomTfsProcess: false,
       }
 
       //* update token.user when triggered update of session
-      if (trigger === 'update') token.user = session.user
+      if (trigger === 'update') {
+        //* dbCode comes from the client — check it is a real, active database first
+        if ('sapDbCode' in (session ?? {})) {
+          //* the database must be active and assigned to the user's role, admin may use any
+          const sapDatabase = session.sapDbCode
+            ? await db.sapDatabase.findFirst({
+                where: {
+                  dbCode: session.sapDbCode,
+                  isActive: true,
+                  ...(role.key !== SUPER_USER_ROLE_KEY && { roleSapDatabases: { some: { roleCode: role.code } } }),
+                },
+              })
+            : null
+
+          token.sapDbCode = sapDatabase?.dbCode
+        }
+
+        if (session?.user) token.user = session.user
+      }
+
+      //* mirror onto token.user so call sites stay on session.user
+      token.user.sapDbCode = token.sapDbCode ?? null
+
+      //* read every call, not only on update — the flag is flipped straight in the database and must not wait for a company switch
+      const activeSapDatabase = token.sapDbCode
+        ? await db.sapDatabase.findUnique({
+            where: { dbCode: token.sapDbCode },
+            select: { isEnabledCustomTfsProcess: true },
+          })
+        : null
+
+      token.user.isEnabledCustomTfsProcess = !!activeSapDatabase?.isEnabledCustomTfsProcess
 
       return token
     } catch (error) {

@@ -19,12 +19,19 @@ export function useBatchesMasterByWarehouseCode(warehouseCode: string, isSynced:
   }
 }
 
-export function useBatchesMasterByWarehouseProjectCode(projectCode: number, warehouseCodes: string[] = [], dependencies?: any[]) {
+export function useBatchesMasterByWarehouseProjectCode(
+  projectCode: number,
+  warehouseCodes: string[] = [],
+  dependencies?: any[],
+  isEnabled = true
+) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getBatchesMasterByProjectCodeClient)
 
   useEffect(() => {
+    //* callers switch this off when the feature that needs batches is hidden
+    if (!isEnabled) return
     execute({ projectCode, warehouseCodes })
-  }, [projectCode, ...(dependencies || [])])
+  }, [projectCode, isEnabled, ...(dependencies || [])])
 
   return {
     execute,

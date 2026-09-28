@@ -57,6 +57,9 @@ import { useParams } from 'next/navigation'
 import Alert from '@/components/alert'
 import { HiddenFieldsContext } from '@/context/hidden-fields-context'
 import Column from '@/components/column'
+import { TFS_ONLY_FIELDS } from '@/constants/project-item'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type WorkOrderLineItemsFormProps = {
   workOrder: Awaited<ReturnType<typeof getWorkOrderByCode>>
@@ -80,6 +83,7 @@ export default function WorkOrderLineItemTable({
   hiddenFields = [],
 }: WorkOrderLineItemsFormProps) {
   const { data: session } = useSession()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   const { code } = useParams() as { code: string }
 
@@ -109,12 +113,18 @@ export default function WorkOrderLineItemTable({
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const isLocked = useMemo(() => {
-    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process']
+    return workOrderStatus >= WORK_ORDER_STATUS_VALUE_MAP['Open']
   }, [workOrderStatus])
+
+  //* warehouse, bin and batch have no meaning outside the custom tfs process
+  const gridHiddenFields = useMemo(
+    () => (isCustomTfsEnabled ? hiddenFields : [...hiddenFields, ...TFS_ONLY_FIELDS]),
+    [isCustomTfsEnabled, JSON.stringify(hiddenFields)]
+  )
 
   const handleAdd = useCallback(() => {
     setRowData(null)
@@ -513,7 +523,7 @@ export default function WorkOrderLineItemTable({
           onRowUpdated={handleOnRowUpdated}
           onSelectionChanged={handleOnSelectionChanged}
         >
-          <HiddenFieldsContext.Provider value={{ hiddenFields }}>
+          <HiddenFieldsContext.Provider value={{ hiddenFields: gridHiddenFields }}>
             <Column dataField='projectItemCode' dataType='string' minWidth={100} caption='ID' sortOrder='asc' allowEditing={false} />
             <Column dataField='DistNumber' dataType='string' minWidth={100} caption='Batch #' allowEditing={false} />
             <Column
@@ -771,7 +781,7 @@ export default function WorkOrderLineItemTable({
             setIsOpen={setIsOpen}
             projectItems={projectItems}
             workOrderStatus={workOrderStatus}
-            hiddenFields={hiddenFields}
+            hiddenFields={gridHiddenFields}
           />
         </Popup>
 

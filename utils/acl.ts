@@ -1,4 +1,5 @@
 import { AbilityBuilder, Ability } from '@casl/ability'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 export type Subject = string
 export type Action = string
@@ -24,7 +25,7 @@ export const defineRulesForUser = ({ roleKey, rolePermissions }: DefineRulesUser
   const { can, rules } = new AbilityBuilder(AppAbility)
 
   //* Grant full access to system
-  if (roleKey === 'admin') can('manage', 'all')
+  if (roleKey === SUPER_USER_ROLE_KEY) can('manage', 'all')
 
   rolePermissions?.forEach((permission) => {
     can(permission.actions, permission.code)

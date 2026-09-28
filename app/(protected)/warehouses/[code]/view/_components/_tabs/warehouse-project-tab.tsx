@@ -11,6 +11,7 @@ import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-p
 import CommonDataGrid from '@/components/common-datagrid'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
 import { usePisByWarehouseCode } from '@/hooks/safe-actions/project-individual'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type WarehouseProjectTabProps = {
   projects: ReturnType<typeof usePisByWarehouseCode>
@@ -29,7 +30,7 @@ export default function WarehouseProjectTab({ projects }: WarehouseProjectTabPro
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   //* show loading

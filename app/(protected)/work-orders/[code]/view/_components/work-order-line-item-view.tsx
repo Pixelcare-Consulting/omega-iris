@@ -14,6 +14,7 @@ import { safeParseFloat } from '@/utils'
 import { differenceInDays, format, isValid } from 'date-fns'
 import Separator from '@/components/separator'
 import { useSession } from 'next-auth/react'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type WorkOrderLineItemViewProps = {
   data: Record<string, any> & WorkOrderItemForm
@@ -33,7 +34,7 @@ export default function WorkOrderLineItemView({ data, onClose, hiddenFields = []
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   return (
@@ -50,7 +51,12 @@ export default function WorkOrderLineItemView({ data, onClose, hiddenFields = []
           <Copy value={data?.projectItemCode || ''} />
         </ReadOnlyField>
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Batch #' value={data?.DistNumber || ''}>
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Batch #'
+          value={data?.DistNumber || ''}
+          isHide={hiddenFields.includes('DistNumber')}
+        >
           {data?.DistNumber ? <Copy value={data.DistNumber} /> : null}
         </ReadOnlyField>
 
@@ -125,9 +131,19 @@ export default function WorkOrderLineItemView({ data, onClose, hiddenFields = []
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Pallet No' value={data?.palletNo || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Warehouse' value={data?.warehouseCode || ''} />
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Warehouse'
+          value={data?.warehouseCode || ''}
+          isHide={hiddenFields.includes('warehouseCode')}
+        />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Bin Location' value={data?.binCode || ''} />
+        <ReadOnlyField
+          className='col-span-12 md:col-span-6 lg:col-span-3'
+          title='Bin Location'
+          value={data?.binCode || ''}
+          isHide={hiddenFields.includes('binCode')}
+        />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Packaging Type' value={data?.packagingType || ''} />
 
@@ -217,7 +233,6 @@ export default function WorkOrderLineItemView({ data, onClose, hiddenFields = []
             <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Date Received By' value={data?.dateReceivedBy} />
           </>
         )}
-
       </div>
     </ScrollView>
   )

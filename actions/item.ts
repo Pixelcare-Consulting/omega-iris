@@ -7,7 +7,7 @@ import { isAfter, isSameDay, parse } from 'date-fns'
 import { paramsSchema } from '@/schema/common'
 import { itemFormSchema, syncToSapFormSchema } from '@/schema/item'
 import { db } from '@/utils/db'
-import { action, authenticationMiddleware } from '@/utils/safe-action'
+import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe-action'
 import { ImportSyncError, ImportSyncErrorEntry } from '@/types/common'
 import { chunkArray, safeParseFloat } from '@/utils'
 import { callSapServiceLayerApi } from './sap-service-layer'
@@ -21,10 +21,14 @@ import { combineSapDateTime } from '@/utils/sap'
 
 const COMMON_ITEM_ORDER_BY = { code: 'asc' } satisfies Prisma.ItemOrderByWithRelationInput
 
-export async function getItems(isSynced?: boolean, excludeCodes?: number[] | null) {
+export async function getItems(dbCode: string, isSynced?: boolean, excludeCodes?: number[] | null) {
   try {
     const result = await db.item.findMany({
-      where: { ...(excludeCodes?.length ? { code: { notIn: excludeCodes } } : {}), ...(isSynced ? { syncStatus: 'synced' } : {}) },
+      where: {
+        dbCode,
+        ...(excludeCodes?.length ? { code: { notIn: excludeCodes } } : {}),
+        ...(isSynced ? { syncStatus: 'synced' } : {}),
+      },
       orderBy: COMMON_ITEM_ORDER_BY,
     })
 
@@ -42,16 +46,17 @@ export async function getItems(isSynced?: boolean, excludeCodes?: number[] | nul
 
 export const getItemsClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(z.object({ isSynced: z.boolean().optional(), excludeCodes: z.array(z.coerce.number()).nullish() }))
-  .action(async ({ parsedInput: data }) => {
-    return getItems(data.isSynced, data.excludeCodes)
+  .action(async ({ ctx, parsedInput: data }) => {
+    return getItems(ctx.dbCode, data.isSynced, data.excludeCodes)
   })
 
-export async function getItemByCode(code: number) {
+export async function getItemByCode(dbCode: string, code: number) {
   if (!code) return null
 
   try {
-    const result = await db.item.findUnique({ where: { code } })
+    const result = await db.item.findFirst({ where: { code, dbCode } })
 
     if (!result) return null
 
@@ -69,14 +74,16 @@ export async function getItemByCode(code: number) {
 
 export const upsertItem = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(itemFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, ...data } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     try {
       const existingItem = await db.item.findFirst({
         where: {
+          dbCode,
           ItemCode: data.ItemCode,
           ...(code && code !== -1 && { code: { not: code } }),
         },
@@ -85,10 +92,14 @@ export const upsertItem = action
       if (existingItem) return { error: true, status: 401, message: 'MFG P/N already exists!', action: 'UPSERT_ITEM' }
 
       if (code !== -1) {
+        const targetItem = await db.item.findFirst({ where: { code, dbCode } })
+
+        if (!targetItem) return { error: true, status: 404, message: 'Item not found!', action: 'UPSERT_ITEM' }
+
         const updatedItem = await db.$transaction(async (tx) => {
           //* update item
           const item = await tx.item.update({
-            where: { code },
+            where: { id: targetItem.id },
             data: { ...data, syncStatus: data?.syncStatus ?? 'pending', updatedBy: userId },
           })
 
@@ -119,6 +130,7 @@ export const upsertItem = action
       const newItem = await db.item.create({
         data: {
           ...data,
+          dbCode,
           ItemCode: data?.ItemCode.trim(),
           syncStatus: data?.syncStatus ?? 'pending',
           createdBy: userId,
@@ -158,10 +170,11 @@ export const upsertItem = action
 
 export const importItems = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(importFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { data, total, stats, isLastRow, metaData } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const itemGroups = metaData?.itemGroups || []
     const manufacturers = metaData?.manufacturers || []
@@ -174,7 +187,7 @@ export const importItems = action
 
       //* get existing item manufacturer part numbers
       const existingMfgpns = await db.item
-        .findMany({ where: { ItemCode: { in: mfgpns } }, select: { ItemCode: true } })
+        .findMany({ where: { dbCode, ItemCode: { in: mfgpns } }, select: { ItemCode: true } })
         .then((items) => items.map((inv) => inv.ItemCode))
 
       for (let i = 0; i < data.length; i++) {
@@ -211,6 +224,7 @@ export const importItems = action
           ItemName: row?.['Description'] || null,
           isActive: row?.['Active'] === '1' ? true : !row?.['Active'] ? undefined : false,
           notes: row?.['Notes'] || null,
+          dbCode,
           createdBy: userId,
           updatedBy: userId,
         }
@@ -277,14 +291,15 @@ export const importItems = action
 
 export const deleteItem = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(paramsSchema)
   .action(async ({ ctx, parsedInput: data }) => {
     try {
-      const item = await db.item.findUnique({ where: { code: data.code } })
+      const item = await db.item.findFirst({ where: { code: data.code, dbCode: ctx.dbCode } })
 
       if (!item) return { error: true, status: 404, message: 'Item not found!', action: 'DELETE_ITEM' }
 
-      await db.item.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
+      await db.item.update({ where: { id: item.id }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 
       //* create notification
       // void createNotification(ctx, {
@@ -313,14 +328,15 @@ export const deleteItem = action
 
 export const restoreItem = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(paramsSchema)
   .action(async ({ ctx, parsedInput: data }) => {
     try {
-      const item = await db.item.findUnique({ where: { code: data.code } })
+      const item = await db.item.findFirst({ where: { code: data.code, dbCode: ctx.dbCode } })
 
       if (!item) return { error: true, status: 404, message: 'Item not found!', action: 'RESTORE_ITEM' }
 
-      await db.item.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+      await db.item.update({ where: { id: item.id }, data: { deletedAt: null, deletedBy: null } })
 
       //* create notification
       // void createNotification(ctx, {
@@ -393,10 +409,11 @@ export async function getItemMasterByPage(page: number) {
 
 export const syncToSap = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(importFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { data, total, stats, isLastRow } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const toUpdateSyncStatus: number[] = []
 
@@ -476,7 +493,7 @@ export const syncToSap = action
 
       //* update the sync status of the items created in sap
       await db.item.updateMany({
-        where: { code: { in: toUpdateSyncStatus } },
+        where: { dbCode, code: { in: toUpdateSyncStatus } },
         data: { syncStatus: 'synced', updatedBy: userId },
       })
 
@@ -534,16 +551,17 @@ export const syncToSap = action
 
 export const syncFromSap = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(importFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { data, total, stats, isLastRow } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const SYNC_META_CODE = 'item'
 
     try {
       //* get last sync date
-      const syncMeta = await db.syncMeta.findUnique({ where: { code: SYNC_META_CODE } })
+      const syncMeta = await db.syncMeta.findFirst({ where: { dbCode, code: SYNC_META_CODE } })
       const lastSyncDate = syncMeta?.lastSyncAt || new Date('01/01/2020')
 
       const batch: Prisma.ItemUncheckedCreateInput[] = []
@@ -579,6 +597,7 @@ export const syncFromSap = action
 
         //* reshape data
         batch.push({
+          dbCode,
           syncStatus: 'synced',
 
           //* sap fields
@@ -596,8 +615,8 @@ export const syncFromSap = action
         await Promise.all(
           batch.map((itemData) =>
             tx.item.upsert({
-              where: { ItemCode: itemData.ItemCode },
-              create: { ...itemData, createdBy: userId, updatedBy: userId },
+              where: { dbCode_ItemCode: { dbCode, ItemCode: itemData.ItemCode } },
+              create: { ...itemData, dbCode, createdBy: userId, updatedBy: userId },
               update: { ...itemData, updatedBy: userId },
             })
           )
@@ -617,8 +636,8 @@ export const syncFromSap = action
       //* upsert sync meta only when the whole sync is completed
       if (updatedStats.status === 'completed') {
         await db.syncMeta.upsert({
-          where: { code: SYNC_META_CODE },
-          create: { code: SYNC_META_CODE, description: 'Last item master synced date', lastSyncAt: new Date() },
+          where: { dbCode_code: { dbCode, code: SYNC_META_CODE } },
+          create: { code: SYNC_META_CODE, dbCode, description: 'Last item master synced date', lastSyncAt: new Date() },
           update: { code: SYNC_META_CODE, description: 'Last item master synced date', lastSyncAt: new Date() },
         })
 

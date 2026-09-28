@@ -11,6 +11,7 @@ import ReadOnlyField from '@/components/read-only-field'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import Separator from '@/components/separator'
 import { useSession } from 'next-auth/react'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type WarehouseBinLocationViewProps = {
   warehouseName: string
@@ -23,7 +24,7 @@ export default function WarehouseBinLocationView({ warehouseName, data, onClose 
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   return (

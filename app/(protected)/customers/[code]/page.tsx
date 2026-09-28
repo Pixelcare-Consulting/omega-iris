@@ -1,13 +1,15 @@
 import { notFound } from 'next/navigation'
 
 import { getBpByCode } from '@/actions/business-partner'
+import { getTenantDbCode } from '@/utils/tenant'
 import ContentContainer from '@/app/(protected)/_components/content-container'
 import CustomerForm from '../_components/customer-form'
 
 export default async function CustomerPage({ params }: { params: { code: string } }) {
   const { code } = params
 
-  const bp = await getBpByCode(parseInt(code))
+  const dbCode = await getTenantDbCode()
+  const bp = dbCode ? await getBpByCode(dbCode, parseInt(code)) : null
 
   const getPageMetadata = () => {
     if (!bp || !bp?.code || code == 'add') return { title: 'Add Customer', description: 'Fill in the form to create a new customer.' }

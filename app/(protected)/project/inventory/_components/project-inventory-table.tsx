@@ -1,20 +1,36 @@
 'use client'
 
-import { Column, DataGridTypes, DataGridRef, Button as DataGridButton, Summary, TotalItem, GroupItem } from 'devextreme-react/data-grid'
-import { useCallback, useMemo, useRef } from 'react'
+import { DataGridTypes, DataGridRef, Button as DataGridButton, Summary, TotalItem, GroupItem } from 'devextreme-react/data-grid'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { differenceInDays } from 'date-fns'
+import { differenceInDays, format } from 'date-fns'
+import { Item } from 'devextreme-react/toolbar'
+import Tooltip from 'devextreme-react/tooltip'
+import { useAction } from 'next-safe-action/hooks'
+import { toast } from 'sonner'
 
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
 import CommonDataGrid from '@/components/common-datagrid'
-import { getAllProjectItems, getProjecItems } from '@/actions/project-item'
+import { getAllProjectItems, getProjecItems, syncProjectItemsFromSapClient } from '@/actions/project-item'
+import AlertDialog from '@/components/alert-dialog'
+import LoadingButton from '@/components/loading-button'
 import { COMMON_DATAGRID_STORE_KEYS, DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
 import { useSession } from 'next-auth/react'
 import { hideActionButton } from '@/utils/devextreme'
 import CanView from '@/components/acl/can-view'
 import PageHeader from '@/app/(protected)/_components/page-header'
+import { Badge } from '@/components/badge'
+import { useJobSchedule, useSyncMeta } from '@/hooks/safe-actions/sync-meta'
+import { PROJECT_ITEM_SYNC_JOB_CODE, PROJECT_ITEM_SYNC_META_CODE } from '@/constants/sap'
+import Column from '@/components/column'
+import { HiddenFieldsContext } from '@/context/hidden-fields-context'
+import { TFS_ONLY_FIELDS } from '@/constants/project-item'
+import { MODULE_NAME } from '@/constants/module'
+import { useCurrentUserHiddenFields } from '@/hooks/safe-actions/user-hidden-field'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type ProjectInventoryTableProps = {
   allProjectItems: Awaited<ReturnType<typeof getAllProjectItems>>
@@ -24,6 +40,15 @@ type DataSource = Awaited<ReturnType<typeof getProjecItems>>
 export default function ProjectInventoryTable({ allProjectItems }: ProjectInventoryTableProps) {
   const { data: session } = useSession()
   const router = useRouter()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
+
+  const userHiddenFields = useCurrentUserHiddenFields(MODULE_NAME.PROJECT_ITEMS)
+
+  const hiddenFields = useMemo(() => {
+    //* warehouse, bin and batch have no meaning outside the custom tfs process
+    const tfsFields = isCustomTfsEnabled ? [] : TFS_ONLY_FIELDS
+    return [...userHiddenFields.data, ...tfsFields]
+  }, [isCustomTfsEnabled, JSON.stringify(userHiddenFields.data)])
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual-inventory'
   const DATAGRID_UNIQUE_KEY = 'project-individual-inventory'
@@ -32,9 +57,57 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
+  const syncMeta = useSyncMeta(PROJECT_ITEM_SYNC_META_CODE)
+  const jobSchedule = useJobSchedule(PROJECT_ITEM_SYNC_JOB_CODE)
+
+  const [showSyncFromSapConfirmation, setShowSyncFromSapConfirmation] = useState(false)
+  const syncFromSapData = useAction(syncProjectItemsFromSapClient)
+
+  const lastSyncedLabel = useMemo(() => {
+    if (!syncMeta.data?.lastSyncAt) return 'Never synced'
+    return `Last synced: ${format(syncMeta.data.lastSyncAt, 'PP, hh:mm a')}`
+  }, [syncMeta.data?.lastSyncAt])
+
+  //* tells the user the batches keep coming in on their own, so a manual sync is only for when they cannot wait
+  const autoSyncLabel = useMemo(() => {
+    if (!jobSchedule.isEnabled) return 'Auto sync: off'
+    return `Auto sync: ${jobSchedule.label}`
+  }, [jobSchedule.isEnabled, jobSchedule.label])
+
+  const syncFromSapDescription = useMemo(() => {
+    const base =
+      'This syncs delivery batches from SAP for every project in the system. Existing batches are updated and new ones are added.'
+
+    if (!jobSchedule.isEnabled) return `${base} Automatic syncing is off, so batches only come in when someone syncs by hand.`
+
+    return `${base} This also runs on its own ${jobSchedule.label}, so a manual sync is only needed when you cannot wait for the next run.`
+  }, [jobSchedule.isEnabled, jobSchedule.label])
+
+  //* same run the cron does, the action takes no project so it covers the whole database
+  const handleConfirmSyncFromSap = async () => {
+    setShowSyncFromSapConfirmation(false)
+
+    try {
+      const response = await syncFromSapData.executeAsync()
+      const result = response?.data
+
+      if (!result || result.error) {
+        toast.error(result?.message || 'Failed to sync from SAP')
+        return
+      }
+
+      toast.success(`Project items synced from SAP! ${result.message}`)
+      router.refresh()
+      syncMeta.execute({ code: PROJECT_ITEM_SYNC_META_CODE })
+    } catch (error: any) {
+      console.error(error)
+      toast.error(error?.message || 'Failed to sync from SAP')
+    }
+  }
+
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   const thumbnailCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
@@ -119,13 +192,61 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Project Inventory' description='Manage and track your project individual inventory effectively'>
+      <PageHeader
+        title={
+          <>
+            <span className='pr-1.5'>Project Inventory</span>
+            {isCustomTfsEnabled && <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>}
+            {isCustomTfsEnabled && !jobSchedule.isLoading && (
+              <Badge variant={jobSchedule.isEnabled ? 'soft-slate' : 'soft-amber'} className='ml-1.5'>
+                {autoSyncLabel}
+              </Badge>
+            )}
+          </>
+        }
+        description='Manage and track your project individual inventory effectively'
+      >
+        {isCustomTfsEnabled && (
+          <CanView subject='p-projects-individual-inventory' action='sync from sap'>
+            <Item location='after' locateInMenu='auto' widget='dxButton'>
+              <Tooltip
+                target='#sync-project-items-from-sap'
+                contentRender={() => 'Sync batches from SAP'}
+                showEvent='mouseenter'
+                hideEvent='mouseleave'
+                position='top'
+              />
+              <LoadingButton
+                id='sync-project-items-from-sap'
+                icon='refresh'
+                isLoading={syncFromSapData.isExecuting}
+                text='Sync from SAP'
+                loadingText='Syncing'
+                type='default'
+                stylingMode='outlined'
+                onClick={() => setShowSyncFromSapConfirmation(true)}
+              />
+            </Item>
+          </CanView>
+        )}
+
         <CommonPageHeaderToolbarItems
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
+          isLoading={syncFromSapData.isExecuting}
           exportOptions={{ subjects: 'p-projects-individual-inventory', actions: 'export' }}
         />
       </PageHeader>
+
+      <AlertDialog
+        isOpen={showSyncFromSapConfirmation}
+        title='Are you sure?'
+        height={230}
+        maxWidth={620}
+        description={syncFromSapDescription}
+        onConfirm={handleConfirmSyncFromSap}
+        onCancel={() => setShowSyncFromSapConfirmation(false)}
+      />
 
       <PageContentWrapper className='h-[calc(100%_-_92px)]'>
         <CommonDataGrid
@@ -136,151 +257,140 @@ export default function ProjectInventoryTable({ allProjectItems }: ProjectInvent
           dataGridStore={dataGridStore}
           callbacks={{ onContentReady: handleOnContentReady }}
         >
-          <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
-          <Column dataField='DistNumber' dataType='string' minWidth={100} caption='Batch #' />
-          <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} visible={false} />
-          <Column dataField='projectIndividual.name' dataType='string' caption='Project' />
-          <Column dataField='projectIndividual.projectGroup.name' dataType='string' caption='Group' visible={false} />
-          <Column dataField='owner' dataType='string' caption='Owner' />
+          <HiddenFieldsContext.Provider value={{ hiddenFields }}>
+            <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
+            <Column dataField='DistNumber' dataType='string' minWidth={100} caption='Batch #' />
+            <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} visible={false} />
+            {/* //* project and project group only exist here, the rest follows the project inventory tab */}
+            <Column dataField='projectIndividual.name' dataType='string' caption='Project' />
+            <Column dataField='projectIndividual.projectGroup.name' dataType='string' caption='Project Group' visible={false} />
+            <Column dataField='owner' dataType='string' caption='Owner' />
 
-         
-          <Column dataField='group' dataType='string' caption='Item Group' visible={false} />
-          <Column dataField='division' dataType='string' caption='Division' visible={false} />
-          <Column dataField='site' dataType='string' caption='Site' visible={false} />
-          <Column dataField='cmSite' dataType='string' caption='CM Site' visible={false} />
-          <Column dataField='phase' dataType='string' caption='Phase' visible={false} />
+            <Column dataField='group' dataType='string' caption='Group' />
+            <Column dataField='division' dataType='string' caption='Division' />
+            <Column dataField='site' dataType='string' caption='Site' />
+            <Column dataField='cmSite' dataType='string' caption='CM Site' />
+            <Column dataField='phase' dataType='string' caption='Phase' />
+            <Column dataField='tfsStdPrice' dataType='number' caption='TFS Std Price' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
+            <Column dataField='omegaPrice' dataType='number' caption='Omega Price' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
 
-          {!isBusinessPartner && (
-            <>
-              <Column
-                dataField='tfsStdPrice'
-                dataType='number'
-                caption='TFS Std Price'
-                alignment='left'
-                format={DEFAULT_CURRENCY_FORMAT}
-                visible={false}
-              />
-              <Column
-                dataField='omegaPrice'
-                dataType='number'
-                caption='Omega Price'
-                alignment='left'
-                format={DEFAULT_CURRENCY_FORMAT}
-                visible={false}
-              />
-            </>
-          )}
+            <Column dataField='item.ItemCode' dataType='string' caption='MFG P/N' />
+            <Column dataField='partNumber' dataType='string' caption='Part Number' />
+            <Column dataField='item.FirmName' dataType='string' caption='Manufacturer' visible={false} />
+            <Column dataField='mfr' dataType='string' caption='MFR' />
+            <Column dataField='item.ItemName' dataType='string' caption='Description' visible={false} />
+            <Column dataField='desc' dataType='string' caption='Desc' />
+            <Column dataField='commodities' dataType='string' caption='Commodities' />
 
-          <Column dataField='item.ItemCode' dataType='string' caption='MFG P/N' />
-          <Column dataField='partNumber' dataType='string' caption='Part Number' />
-          <Column dataField='item.FirmName' dataType='string' caption='Manufacturer' visible={false} />
-          <Column dataField='mfr' dataType='string' caption='MFR' />
-          <Column dataField='item.ItemName' dataType='string' caption='Description' visible={false} />
-          <Column dataField='desc' dataType='string' caption='Desc' />
-          <Column dataField='commodities' dataType='string' caption='Commodities' />
+            <Column dataField='dateCode' minWidth={75} dataType='string' caption='DC' />
+            <Column dataField='countryOfOrigin' minWidth={80} dataType='string' caption='COO' />
+            <Column dataField='lotCode' dataType='string' caption='Lot Code' />
+            <Column dataField='palletNo' dataType='string' caption='Pallet No' />
+            <Column dataField='warehouseCode' dataType='string' caption='Warehouse' />
+            <Column dataField='binCode' dataType='string' caption='Bin Location' />
+            <Column dataField='siteLocation' dataType='string' caption='Site Location' />
+            <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' />
+            <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' />
+            {/* <Column dataField='warehouse.name' dataType='string' caption='Warehouse' /> */}
 
-          <Column dataField='dateCode' minWidth={75} dataType='string' caption='DC' />
-          <Column dataField='countryOfOrigin' minWidth={80} dataType='string' caption='COO' />
-          <Column dataField='lotCode' dataType='string' caption='Lot Code' />
-          <Column dataField='palletNo' dataType='string' caption='Pallet No' />
-          <Column dataField='warehouseCode' dataType='string' caption='Warehouse' />
-          <Column dataField='binCode' dataType='string' caption='Bin Location' />
-          <Column dataField='siteLocation' dataType='string' caption='Site Location' />
-          <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' />
-          <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' />
-          {/* <Column dataField='warehouse.name' dataType='string' caption='Warehouse' /> */}
+            {!isBusinessPartner && (
+              <>
+                <Column dataField='dateReceived' dataType='datetime' caption='Date Received' visible={false} />
+                <Column
+                  dataField='dateReceivedBy'
+                  dataType='string'
+                  caption='Date Received By'
+                  calculateCellValue={dateReceivedByCalculatedCellValue}
+                  visible={false}
+                />
+              </>
+            )}
 
-          {!isBusinessPartner && (
-            <>
-              <Column dataField='dateReceived' dataType='datetime' caption='Date Received' visible={false} />
-              <Column
-                dataField='dateReceivedBy'
-                dataType='string'
-                caption='Date Received By'
-                calculateCellValue={dateReceivedByCalculatedCellValue}
-                visible={false}
-              />
-            </>
-          )}
+            <Column dataField='packagingType' dataType='string' caption='Packaging Type' />
+            <Column dataField='spq' dataType='string' caption='SPQ' />
+            <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
 
-          <Column dataField='packagingType' dataType='string' caption='Packaging Type' />
-          <Column dataField='spq' dataType='string' caption='SPQ' />
-          <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
+            {!isBusinessPartner ? (
+              <Column dataField='totalStock' dataType='number' caption='Total Stock' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
+            ) : null}
 
-          {!isBusinessPartner ? (
-            <Column dataField='totalStock' dataType='number' caption='Total Stock' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
-          ) : null}
+            <Column dataField='notes' dataType='string' caption='Notes' visible={false} />
 
-          <Column dataField='notes' dataType='string' caption='Notes' visible={false} />
-
-          <Column
-            dataField='availableToOrder'
-            dataType='number'
-            caption='Available To Order'
-            alignment='left'
-            format={DEFAULT_NUMBER_FORMAT}
-            fixed
-            fixedPosition='right'
-            filterType='exclude'
-          />
-          <Column dataField='stockIn' dataType='number' caption='Stock-In (In Process)' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
-          <Column dataField='stockOut' dataType='number' caption='Stock-Out (Delivered)' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
-
-          <Column
-            dataField='agingDays'
-            dataType='number'
-            caption='Aging Days'
-            alignment='left'
-            calculateCellValue={(rowData) => (rowData?.createdAt ? differenceInDays(new Date(), rowData?.createdAt) : 0)}
-            format={DEFAULT_NUMBER_FORMAT}
-          />
-          <Column dataField='createdAt' dataType='datetime' caption='Created At' visible={false} />
-          <Column dataField='updatedAt' dataType='datetime' caption='Updated At' visible={false} />
-
-          <Summary>
-            <GroupItem column='projectIndividual.name' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
-            {renderCommonSummaryIItems()}
-          </Summary>
-
-          <Summary>
-            <GroupItem
-              column='projectIndividual.projectGroup.name'
-              summaryType='count'
-              displayFormat='{0} item'
-              valueFormat={DEFAULT_NUMBER_FORMAT}
+            <Column
+              dataField='availableToOrder'
+              dataType='number'
+              caption='Available To Order'
+              alignment='left'
+              format={DEFAULT_NUMBER_FORMAT}
+              fixed
+              fixedPosition='right'
+              filterType='exclude'
             />
-            {renderCommonSummaryIItems()}
-          </Summary>
+            <Column dataField='stockIn' dataType='number' caption='Stock-In (In Process)' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
+            <Column
+              dataField='stockOut'
+              dataType='number'
+              caption='Stock-Out (Delivered)'
+              alignment='left'
+              format={DEFAULT_NUMBER_FORMAT}
+            />
 
-          <Summary>
-            <GroupItem column='item.ItemCode' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
-            {renderCommonSummaryIItems()}
-          </Summary>
+            <Column
+              dataField='agingDays'
+              dataType='number'
+              caption='Aging Days'
+              alignment='left'
+              calculateCellValue={(rowData) => (rowData?.createdAt ? differenceInDays(new Date(), rowData?.createdAt) : 0)}
+              format={DEFAULT_NUMBER_FORMAT}
+            />
+            <Column dataField='createdAt' dataType='datetime' caption='Created At' visible={false} />
+            <Column dataField='updatedAt' dataType='datetime' caption='Updated At' visible={false} />
 
-          <Summary>
-            <GroupItem column='item.FirmName' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
-            {renderCommonSummaryIItems()}
-          </Summary>
+            <Summary>
+              <GroupItem column='projectIndividual.name' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+              {renderCommonSummaryIItems()}
+            </Summary>
 
-          <Summary>
-            <GroupItem column='partNumber' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
-            {renderCommonSummaryIItems()}
-          </Summary>
-
-          <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
-            <CanView subject='p-projects-individual-inventory' action={['view', 'view (owner)']}>
-              <DataGridButton
-                icon='eyeopen'
-                onClick={handleView}
-                cssClass='!text-lg'
-                hint='View'
-                visible={(opt) => {
-                  const data = opt?.row?.data
-                  return hideActionButton(data?.deletedAt || data?.deletedBy)
-                }}
+            <Summary>
+              <GroupItem
+                column='projectIndividual.projectGroup.name'
+                summaryType='count'
+                displayFormat='{0} item'
+                valueFormat={DEFAULT_NUMBER_FORMAT}
               />
-            </CanView>
-          </Column>
+              {renderCommonSummaryIItems()}
+            </Summary>
+
+            <Summary>
+              <GroupItem column='item.ItemCode' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+              {renderCommonSummaryIItems()}
+            </Summary>
+
+            <Summary>
+              <GroupItem column='item.FirmName' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+              {renderCommonSummaryIItems()}
+            </Summary>
+
+            <Summary>
+              <GroupItem column='partNumber' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+              {renderCommonSummaryIItems()}
+            </Summary>
+
+            <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
+              <CanView subject='p-projects-individual-inventory' action={['view', 'view (owner)']}>
+                <DataGridButton
+                  icon='eyeopen'
+                  onClick={handleView}
+                  cssClass='!text-lg'
+                  hint='View'
+                  visible={(opt) => {
+                    const data = opt?.row?.data
+                    return hideActionButton(data?.deletedAt || data?.deletedBy)
+                  }}
+                />
+              </CanView>
+            </Column>
+          </HiddenFieldsContext.Provider>
         </CommonDataGrid>
       </PageContentWrapper>
     </div>

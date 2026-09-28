@@ -6,6 +6,8 @@ import { getWorkOrderByCode } from '@/actions/work-order'
 import dynamic from 'next/dynamic'
 import { getReportByCode } from '@/actions/report'
 import ReportInitializing from '@/components/report-initializing'
+import ContentContainer from '@/app/(protected)/_components/content-container'
+import UnderDevelopment from '@/components/under-development'
 
 type ReportViewerTabProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
@@ -19,6 +21,14 @@ const ReportViewer = dynamic(() => import('@/components/report-viewer'), {
 
 export default function WorkOrderReportViewerTab({ workOrder, report }: ReportViewerTabProps) {
   if (!report || !report?.data || !workOrder?.code) return null
+
+  if (process.env.NEXT_PUBLIC_DISABLE_REPORTING === 'true') {
+    return (
+      <ContentContainer>
+        <UnderDevelopment className='h-full' />
+      </ContentContainer>
+    )
+  }
 
   return (
     <ScrollView className='h-full' useNative>

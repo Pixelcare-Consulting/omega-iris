@@ -23,6 +23,8 @@ import { useBatchesMasterByWarehouseProjectCode } from '@/hooks/safe-actions/bat
 import ProjectIndividualBatchTab from './_tabs/project-individual-batch-tab'
 import ProjectIndividualWarehouseTab from './_tabs/project-individual-warehouse-tab'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
+import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 type ViewProjectIndividualProps = {
   projectIndividual: NonNullable<Awaited<ReturnType<typeof getPiByCode>>>
@@ -30,14 +32,21 @@ type ViewProjectIndividualProps = {
 
 export default function ViewProjectIndividual({ projectIndividual }: ViewProjectIndividualProps) {
   const { data: session } = useSession()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
   const router = useRouter()
 
-  const customerUsers = useUsersByRoleKey('business-partner')
+  const customerUsers = useUsersByRoleKey(BUSINESS_PARTNER_ROLE_KEY)
   const nonCustomerUsers = useNonBpUsers()
   const items = useProjecItems(projectIndividual.code)
   const suppliers = useBps('S', true)
-  // const batches = useBatchesMasterByWarehouseProjectCode(projectIndividual.code, projectIndividual.warehouses)
-  const warehouses = useWarehouses(true)
+  //* warehouse and batch data is only fetched while the custom tfs process is on
+  // const batches = useBatchesMasterByWarehouseProjectCode(
+  //   projectIndividual.code,
+  //   projectIndividual.warehouses,
+  //   undefined,
+  //   isCustomTfsEnabled
+  // )
+  const warehouses = useWarehouses(true, undefined, isCustomTfsEnabled)
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
@@ -79,7 +88,7 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
             <ProjectIndividualOverviewTab projectIndividual={projectIndividual} />
           </TabPanelITem>
 
-          {session?.user.roleKey === 'admin' && (
+          {session?.user.roleKey === SUPER_USER_ROLE_KEY && (
             <>
               <TabPanelITem title='Customers'>
                 <ProjectIndividualCustomerTab
@@ -101,27 +110,24 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
                 <ProjectIndividualPicTab projectCode={projectIndividual.code} pics={projectIndividual.pics} users={nonCustomerUsers} />
               </TabPanelITem>
 
-              <TabPanelITem title='Warehouses'>
-                <ProjectIndividualWarehouseTab
-                  projectCode={projectIndividual.code}
-                  warehouses={projectIndividual.warehouses}
-                  warehousesData={warehouses}
-                />
-              </TabPanelITem>
+              {isCustomTfsEnabled && (
+                <TabPanelITem title='Warehouses'>
+                  <ProjectIndividualWarehouseTab
+                    projectCode={projectIndividual.code}
+                    warehouses={projectIndividual.warehouses}
+                    warehousesData={warehouses}
+                  />
+                </TabPanelITem>
+              )}
             </>
           )}
 
           <CanView subject='p-projects-individual-inventory' action={['view', 'view (owner)']}>
             <TabPanelITem title='Inventory'>
-              <ProjectIndividualItemTab
-                projectCode={projectIndividual.code}
-                projectName={projectIndividual.name}
-                projectItemHiddenFields={projectIndividual.projectItemHiddenFields}
-                items={items}
-              />
+              <ProjectIndividualItemTab projectCode={projectIndividual.code} projectName={projectIndividual.name} items={items} />
             </TabPanelITem>
 
-            {/* {session?.user.roleKey === 'admin' && (
+            {/* {session?.user.roleKey === SUPER_USER_ROLE_KEY && (
               <TabPanelITem title='Batches'>
                 <ProjectIndividualBatchTab projectCode={projectIndividual.code} batches={batches} />
               </TabPanelITem>

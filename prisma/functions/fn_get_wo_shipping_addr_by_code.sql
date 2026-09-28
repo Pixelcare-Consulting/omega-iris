@@ -1,5 +1,9 @@
 --* Get shipping address by workOrderCode
+--* dropped first: p_db_code changes the signature, a replace would leave the old unscoped one behind
+DROP FUNCTION IF EXISTS fn_get_wo_shipping_addr_by_code(INT);
+
 CREATE OR REPLACE FUNCTION fn_get_wo_shipping_addr_by_code(
+    p_db_code         TEXT,
     p_work_order_code INT
 )
 RETURNS TABLE (
@@ -62,15 +66,17 @@ BEGIN
         ON T1."code" = T0."userCode"
         AND T1."deletedAt" IS NULL
     INNER JOIN "Address" T2
-        ON T2."CardCode" = T1."customerCode"   --* match via user customerCode
+        ON T2."dbCode" = T1."customerDbCode"   --* card code repeats across databases, note: it will change if (T1.customerCode, T1.customerDbCode) of users will be move to their own separate table
+        AND T2."CardCode" = T1."customerCode"  --* match via user customerCode, note: it will change if (T1.customerCode, T1.customerDbCode) of users will be move to their own separate table
         AND T2."id" = T0."shippingAddrCode"
         AND T2."AddrType" = 'S'                --* shipping address only
         AND T2."deletedAt" IS NULL
     WHERE
-        T0."code" = p_work_order_code
+        T0."dbCode" = p_db_code                --* a code from another company must not resolve
+        AND T0."code" = p_work_order_code
         AND T0."deletedAt" IS NULL;
 END;
 $$;
 
 --* sample query execution
-SELECT * FROM fn_get_wo_shipping_addr_by_code(16);
+SELECT * FROM fn_get_wo_shipping_addr_by_code('OMEGA_P02_TESTING', 16);

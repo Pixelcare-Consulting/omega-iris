@@ -42,3 +42,6 @@ export const PROJECT_ITEM_COLUMNS_MAP: Record<string, string> = {
 }
 
 export const DEFAULT_PROJECT_ITEM_HIDDEN_FIELDS = ['group', 'division', 'site', 'cmSite', 'phase', 'tfsStdPrice', 'omegaPrice']
+
+//* fields that only exist in the custom tfs process, hidden everywhere when it is off
+export const TFS_ONLY_FIELDS = ['warehouseCode', 'binCode', 'DistNumber', ...DEFAULT_PROJECT_ITEM_HIDDEN_FIELDS]

@@ -16,6 +16,8 @@ import Separator from '@/components/separator'
 import { useSalesOrderByWorkOrderCode } from '@/hooks/safe-actions/sales-order'
 import { useAddressById } from '@/hooks/safe-actions/address'
 import { format, isValid } from 'date-fns'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type WorkOrderOverviewTabProps = {
   workOrder: NonNullable<Awaited<ReturnType<typeof getWorkOrderByCode>>>
@@ -26,6 +28,7 @@ type WorkOrderOverviewTabProps = {
 
 export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAddress, shippingAddress }: WorkOrderOverviewTabProps) {
   const { data: session } = useSession()
+  const customTfsProcess = useCustomTfsProcess()
 
   const fullName = workOrder.user ? `${workOrder?.user?.fname}${workOrder?.user?.lname ? ` ${workOrder?.user?.lname}` : ''}` : ''
   const status = WORK_ORDER_STATUS_OPTIONS.find((s) => s.value === workOrder.status)?.label
@@ -64,7 +67,7 @@ export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAdd
 
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
   return (
@@ -117,6 +120,20 @@ export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAdd
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Status' value={status || ''} />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Internal' value={workOrder.isInternal ? 'Yes' : 'No'} />
+
+        {customTfsProcess.isEnabled && (
+          <>
+            <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Supplier Code' value={workOrder?.supplierCode || ''}>
+              {workOrder?.supplierCode && <Copy value={workOrder.supplierCode} />}
+            </ReadOnlyField>
+
+            <ReadOnlyField
+              className='col-span-12 md:col-span-6 lg:col-span-3'
+              title='Supplier Name'
+              value={workOrder?.supplier?.CardName || ''}
+            />
+          </>
+        )}
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-9' title='Customer PO'>
           <p className='whitespace-pre-line'>{workOrder.customerPo || ''}</p>

@@ -17,12 +17,15 @@ import {
   workOrderStatusUpdateFormSchema,
 } from '@/schema/work-order'
 import { db } from '@/utils/db'
-import { action, authenticationMiddleware } from '@/utils/safe-action'
+import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe-action'
 import { safeParseInt } from '@/utils'
 import { getCurrentUserAbility } from './auth'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { createNotification } from './notification'
 import { CommonErrorEntry, CommonOperationError } from '@/types/common'
+import { createGoodsReturn, createGrpo } from './goods-movement'
+import { isCustomTfsEnabled } from '@/utils/sap-database-access'
+import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 const COMMON_WORK_ORDER_INCLUDE = {
   projectIndividual: {
@@ -34,11 +37,12 @@ const COMMON_WORK_ORDER_INCLUDE = {
     },
   },
   user: { select: { code: true, fname: true, lname: true, email: true, customerCode: true } },
+  supplier: { select: { CardCode: true, CardName: true } },
 } satisfies Prisma.WorkOrderInclude
 
 const COMMON_WORK_ORDER_ORDER_BY = { createdAt: 'desc' } satisfies Prisma.WorkOrderOrderByWithRelationInput
 
-export async function getWorkOrders(userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
+export async function getWorkOrders(dbCode: string, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
   if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
 
   const { userId, userCode, ability, roleKey } = userInfo
@@ -53,6 +57,7 @@ export async function getWorkOrders(userInfo: Awaited<ReturnType<typeof getCurre
     if (ability && !canViewAll && canViewOwned) {
       allowedProjects = await db.projectIndividual.findMany({
         where: {
+          dbCode,
           OR: [
             {
               projectGroup: {
@@ -85,18 +90,18 @@ export async function getWorkOrders(userInfo: Awaited<ReturnType<typeof getCurre
         : canViewOwned
           ? {
               OR: [{ userCode }, { createdBy: userId }, { projectIndividualCode: { in: allowedProjects.map((pi) => pi.code) } }],
-              ...(roleKey === 'business-partner' ? { isInternal: false } : {}),
+              ...(roleKey === BUSINESS_PARTNER_ROLE_KEY ? { isInternal: false } : {}),
             }
           : { userCode: -1 }
 
-    return db.workOrder.findMany({ include: COMMON_WORK_ORDER_INCLUDE, orderBy: COMMON_WORK_ORDER_ORDER_BY, where })
+    return db.workOrder.findMany({ include: COMMON_WORK_ORDER_INCLUDE, orderBy: COMMON_WORK_ORDER_ORDER_BY, where: { ...where, dbCode } })
   } catch (error) {
     console.error(error)
     return []
   }
 }
 
-export async function getWorkOrderByCode(code: number, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
+export async function getWorkOrderByCode(dbCode: string, code: number, userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>) {
   if (!code || !userInfo || !userInfo.userId || !userInfo.userCode) return null
 
   const { userId, userCode, roleKey, ability } = userInfo
@@ -112,6 +117,7 @@ export async function getWorkOrderByCode(code: number, userInfo: Awaited<ReturnT
     if (ability && !canViewAll && canViewOwned) {
       allowedProjects = await db.projectIndividual.findMany({
         where: {
+          dbCode,
           OR: [
             {
               projectGroup: {
@@ -143,23 +149,23 @@ export async function getWorkOrderByCode(code: number, userInfo: Awaited<ReturnT
           ? {
               code,
               OR: [{ userCode }, { createdBy: userId }, { projectIndividualCode: { in: allowedProjects.map((pi) => pi.code) } }],
-              ...(roleKey === 'business-partner' ? { isInternal: false } : {}),
+              ...(roleKey === BUSINESS_PARTNER_ROLE_KEY ? { isInternal: false } : {}),
             }
           : { code: -1 }
 
-    return db.workOrder.findUnique({ where, include: COMMON_WORK_ORDER_INCLUDE })
+    return db.workOrder.findFirst({ where: { ...where, dbCode }, include: COMMON_WORK_ORDER_INCLUDE })
   } catch (error) {
     console.error(error)
     return null
   }
 }
 
-export async function getDuplicatedFromWoByCode(workOrderCode?: number | null) {
+export async function getDuplicatedFromWoByCode(dbCode: string, workOrderCode?: number | null) {
   if (!workOrderCode) return null
 
   try {
-    return db.workOrder.findUnique({
-      where: { code: workOrderCode },
+    return db.workOrder.findFirst({
+      where: { code: workOrderCode, dbCode },
       include: { workOrderItems: { include: { projectItem: true } } },
     })
   } catch (error) {
@@ -170,13 +176,15 @@ export async function getDuplicatedFromWoByCode(workOrderCode?: number | null) {
 
 export const getDuplicatedFromWoByCodeClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(z.object({ workOrderCode: z.coerce.number().nullish() }))
-  .action(async ({ parsedInput }) => {
-    return getDuplicatedFromWoByCode(parsedInput.workOrderCode)
+  .action(async ({ ctx, parsedInput }) => {
+    return getDuplicatedFromWoByCode(ctx.dbCode, parsedInput.workOrderCode)
   })
 
 type CreditStockParams = {
   tx: Prisma.TransactionClient
+  dbCode: string
   workOrderCode: number
   prevStatus: string | null
   currStatus: string
@@ -185,7 +193,7 @@ type CreditStockParams = {
 
 export async function creditStock(params: CreditStockParams) {
   try {
-    const { tx, workOrderCode, prevStatus, currStatus, deliveredProjectItems } = params
+    const { tx, dbCode, workOrderCode, prevStatus, currStatus, deliveredProjectItems } = params
 
     const oldStatus = safeParseInt(prevStatus)
     const newStatus = safeParseInt(currStatus)
@@ -210,9 +218,9 @@ export async function creditStock(params: CreditStockParams) {
       }
     }
 
-    const existingWorkOrder = await tx.workOrder.findUnique({
-      where: { code: workOrderCode },
-      include: { workOrderItems: { include: { projectItem: true } } },
+    const existingWorkOrder = await tx.workOrder.findFirst({
+      where: { code: workOrderCode, dbCode },
+      include: { workOrderItems: { include: { projectItem: { include: { item: true } } } } },
     })
 
     // //* check work order exist
@@ -247,12 +255,9 @@ export async function creditStock(params: CreditStockParams) {
 
     const lineItems = existingWorkOrder.workOrderItems
 
-    //* only credit stocks-in only when new status is 'In Process' and old status is between 'Open' and 'Pending'
-    if (
-      oldStatus >= WORK_ORDER_STATUS_VALUE_MAP['Open'] &&
-      oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Pending'] &&
-      newStatus == WORK_ORDER_STATUS_VALUE_MAP['In Process']
-    ) {
+    //* only credit stocks-in only when new status is 'Open' or 'Pending' and old status === 0,
+    //*  means after work order is created by admin - default to 'Open' or by customer - default to 'Pending'
+    if (oldStatus === 0 && (newStatus == WORK_ORDER_STATUS_VALUE_MAP['Open'] || newStatus == WORK_ORDER_STATUS_VALUE_MAP['Pending'])) {
       const entries: CommonErrorEntry[] = []
 
       for (const li of lineItems) {
@@ -264,6 +269,7 @@ export async function creditStock(params: CreditStockParams) {
           UPDATE "ProjectItem"
           SET "stockIn" = "stockIn" + ${qty}
           WHERE "code" = ${pItem.code}
+          AND "dbCode" = ${dbCode}
           AND ("totalStock" - "stockIn") >= ${qty}`
 
         const affected = await tx.$executeRaw(query)
@@ -287,6 +293,44 @@ export async function creditStock(params: CreditStockParams) {
       }
     }
 
+    //* post the goods receipt po to sap once the work order is verified
+    //! must run before the 'do nothing' branch below, verified falls into that range
+    //? off for a database without the custom tfs process, and the branch then falls through to the stock branches
+    if (
+      newStatus === WORK_ORDER_STATUS_VALUE_MAP['Verified'] &&
+      oldStatus !== WORK_ORDER_STATUS_VALUE_MAP['Verified'] &&
+      (await isCustomTfsEnabled(dbCode))
+    ) {
+      //* already has a grpo, don't post a second one
+      if (!existingWorkOrder.grpoDocEntry) {
+        //* let the caller roll back the status update, a grpo needs a supplier
+        if (!existingWorkOrder.supplierCode) {
+          return {
+            error: true,
+            status: 400,
+            message: `Failed to verify work order ${existingWorkOrder.code} due to missing supplier!`,
+            action: 'CREDIT_STOCK',
+          }
+        }
+
+        const grpo = await createGrpo(dbCode, existingWorkOrder.code, existingWorkOrder.supplierCode, lineItems)
+
+        //* let the caller roll back the status update, sap already has the stock
+        if (grpo?.error) return grpo
+
+        const docEntry = safeParseInt(grpo?.DocEntry)
+        const docNum = safeParseInt(grpo?.DocNum)
+
+        await tx.workOrder.update({
+          where: { id: existingWorkOrder.id },
+          data: { grpoDocEntry: docEntry, grpoDocNum: docNum },
+        })
+
+        //* hand the doc entry back, a rollback wipes the column and the caller still needs to reverse this in sap
+        return { postedGrpo: { workOrderCode: existingWorkOrder.code, docEntry } }
+      }
+    }
+
     //* if has old status and new status is between or equal 'Open' and 'Verified', then do nothing
     if (
       oldStatus !== 0 &&
@@ -306,17 +350,17 @@ export async function creditStock(params: CreditStockParams) {
       newStatus === WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery']
     ) {
       //* process only the line items that has isDelivered = false and included in deliveredProjectItems
-      // // only line items that are stocked in will be credited / processed to stock-out (delivered)
-      const lineItemsToProcess = lineItems.filter((li) => !li.isDelivered && deliveredProjectItems.includes(li.projectItem.code))
-      // const lineItemsToProcess = lineItems.filter(
-      //   (li) => !li.isDelivered && deliveredProjectItems.includes(li.projectItem.code) && li.isStockedIn
-      // )
+      //? only line items that are stocked in will be credited / processed to stock-out (delivered)
+      const lineItemsToProcess = lineItems.filter(
+        (li) => !li.isDelivered && deliveredProjectItems.includes(li.projectItem.code) && li.isStockedIn
+      )
 
       //* update isDelivered to true of work order items
       await Promise.all(
         lineItemsToProcess.map((li) => {
           return tx.workOrderItem.update({
             where: {
+              dbCode,
               workOrderCode_projectItemCode: {
                 workOrderCode: li.workOrderCode,
                 projectItemCode: li.projectItemCode,
@@ -334,7 +378,7 @@ export async function creditStock(params: CreditStockParams) {
           const qty = safeParseInt(li.qty)
 
           return tx.projectItem.update({
-            where: { code: pItem.code },
+            where: { id: pItem.id },
             data: {
               stockIn: { decrement: qty },
               stockOut: { increment: qty },
@@ -356,15 +400,15 @@ export async function creditStock(params: CreditStockParams) {
     ) {
       //* process only the line items that has isDelivered = false
       //? deliveredProjectItems is not being used here
-      // // only line items that are stocked in will be credited / processed to stock-out (delivered)
-      const lineItemsToProcess = lineItems.filter((li) => !li.isDelivered)
-      // const lineItemsToProcess = lineItems.filter((li) => !li.isDelivered && li.isStockedIn)
+      //? only line items that are stocked in will be credited / processed to stock-out (delivered)
+      const lineItemsToProcess = lineItems.filter((li) => !li.isDelivered && li.isStockedIn)
 
       //* update isDelivered to true of work order items
       await Promise.all(
         lineItemsToProcess.map((li) => {
           return tx.workOrderItem.update({
             where: {
+              dbCode,
               workOrderCode_projectItemCode: {
                 workOrderCode: li.workOrderCode,
                 projectItemCode: li.projectItemCode,
@@ -382,7 +426,7 @@ export async function creditStock(params: CreditStockParams) {
           const qty = safeParseInt(li.qty)
 
           return tx.projectItem.update({
-            where: { code: pItem.code },
+            where: { id: pItem.id },
             data: {
               stockIn: { decrement: qty },
               stockOut: { increment: qty },
@@ -397,15 +441,37 @@ export async function creditStock(params: CreditStockParams) {
 
     //* rollback on Cancelled / Deleted
     if (newStatus === WORK_ORDER_STATUS_VALUE_MAP['Cancelled'] || newStatus === WORK_ORDER_STATUS_VALUE_MAP['Deleted']) {
-      //* if between or equal to 'In Process' and 'Verified' and then cancel or delete, then rollback stock
-      if (oldStatus >= WORK_ORDER_STATUS_VALUE_MAP['In Process'] && oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Verified']) {
+      //* reverse the grpo with a goods return, nothing to reverse when the work order was never verified
+      //! skip when already returned, cancelled then deleted would post a second goods return
+      //! also skipped when the custom tfs process is off, so a grpo posted before the flag went off stays in sap and is reversed by hand
+      if (existingWorkOrder.grpoDocEntry && !existingWorkOrder.goodsReturnDocEntry && (await isCustomTfsEnabled(dbCode))) {
+        const goodsReturn = await createGoodsReturn(dbCode, existingWorkOrder.code, existingWorkOrder.grpoDocEntry)
+
+        //* let the caller roll back, the stock is still received in sap
+        if (goodsReturn?.error) return goodsReturn
+
+        //* keep the grpo refs so the pair shows which grpo this return reversed
+        await tx.workOrder.update({
+          where: { id: existingWorkOrder.id },
+          data: {
+            goodsReturnDocEntry: safeParseInt(goodsReturn?.DocEntry),
+            goodsReturnDocNum: safeParseInt(goodsReturn?.DocNum),
+          },
+        })
+      }
+
+      //* if between or equal to 'Open' and 'Verified' and then cancel or delete, then rollback stock
+      //* only line items that are stocked in will be rollback
+      if (oldStatus >= WORK_ORDER_STATUS_VALUE_MAP['Open'] && oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Verified']) {
+        const inProcessLineItems = lineItems.filter((li) => li.isStockedIn)
+
         await Promise.all(
-          lineItems.map((li) => {
+          inProcessLineItems.map((li) => {
             const pItem = li.projectItem
             const qty = safeParseInt(li.qty)
 
             return tx.projectItem.update({
-              where: { code: pItem.code },
+              where: { id: pItem.id },
               data: { stockIn: { decrement: qty } },
             })
           })
@@ -418,7 +484,7 @@ export async function creditStock(params: CreditStockParams) {
       //* only process line items that has isDelivered = true
       if (oldStatus >= WORK_ORDER_STATUS_VALUE_MAP['Partial Delivery'] && oldStatus <= WORK_ORDER_STATUS_VALUE_MAP['Delivered']) {
         const deliveredLineItems = lineItems.filter((li) => li.isDelivered)
-        const inProcessLineItems = lineItems.filter((li) => !li.isDelivered)
+        const inProcessLineItems = lineItems.filter((li) => !li.isDelivered && li.isStockedIn)
 
         //* if old status is 'Partial Delivery', revert stock from stock-in (In-process)
         //* only inProcessLineItems that are stocked in will be rollback
@@ -429,7 +495,7 @@ export async function creditStock(params: CreditStockParams) {
               const qty = safeParseInt(li.qty)
 
               return tx.projectItem.update({
-                where: { code: pItem.code },
+                where: { id: pItem.id },
                 data: { stockIn: { decrement: qty } },
               })
             })
@@ -441,6 +507,7 @@ export async function creditStock(params: CreditStockParams) {
           deliveredLineItems.map((li) => {
             return tx.workOrderItem.update({
               where: {
+                dbCode,
                 workOrderCode_projectItemCode: {
                   workOrderCode: li.workOrderCode,
                   projectItemCode: li.projectItemCode,
@@ -458,7 +525,7 @@ export async function creditStock(params: CreditStockParams) {
             const qty = safeParseInt(li.qty)
 
             return tx.projectItem.update({
-              where: { code: pItem.code },
+              where: { id: pItem.id },
               data: {
                 stockOut: { decrement: qty },
                 totalStock: { increment: qty },
@@ -482,16 +549,16 @@ export async function creditStock(params: CreditStockParams) {
 
 export const upsertWorkOrder = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(workOrderFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, lineItems, duplicatedFromCode, ...data } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const isDuplicate = code === -1 && duplicatedFromCode
 
     //* by default set isStockedIn to true - because upon creation of work order, all line items will be credited to stock-in
-    const woItems = lineItems.map(({ maxQty, ...li }) => li)
-    // const woItems = lineItems.map(({ maxQty, ...li }) => ({ ...li, isStockedIn: true }))
+    const woItems = lineItems.map(({ maxQty, ...li }) => ({ ...li, dbCode, isStockedIn: true }))
 
     const include = {
       projectIndividual: {
@@ -513,7 +580,7 @@ export const upsertWorkOrder = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -525,9 +592,24 @@ export const upsertWorkOrder = action
     } satisfies Prisma.WorkOrderInclude
 
     try {
+      //* supplier is required for the custom tfs process, the grpo on verify is posted against it
+      if (await isCustomTfsEnabled(dbCode)) {
+        if (!data.supplierCode) {
+          return { error: true, status: 400, message: 'Supplier is required!', action: 'UPSERT_WORK_ORDER' }
+        }
+
+        const piSupplier = await db.projectIndividualSupplier.findFirst({
+          where: { dbCode, projectIndividualCode: data.projectIndividualCode, supplierCode: data.supplierCode },
+        })
+
+        if (!piSupplier) {
+          return { error: true, status: 400, message: 'Supplier is not assigned to the selected project!', action: 'UPSERT_WORK_ORDER' }
+        }
+      }
+
       if (code !== -1) {
-        const existingWorkOrder = await db.workOrder.findUnique({
-          where: { code },
+        const existingWorkOrder = await db.workOrder.findFirst({
+          where: { code, dbCode },
           include,
         })
 
@@ -535,20 +617,30 @@ export const upsertWorkOrder = action
           return { error: true, status: 404, message: 'Work order not found!', action: 'UPSERT_WORK_ORDER' }
         }
 
-        const [updatedWorkOrder] = await db.$transaction([
-          //* update work order
-          db.workOrder.update({
-            where: { code },
-            data: { ...data, updatedBy: userId },
-            include: { projectIndividual: { select: { name: true } } },
-          }),
+        //! status only changes through updateWorkeOrderStatus - a stale form would revert it and skip the stock movement
+        const { status, ...header } = data
 
-          //* delete the existing work order items
-          db.workOrderItem.deleteMany({ where: { workOrderCode: code } }),
+        //! line items are locked after creation, only update the header - recreating them resets isDelivered
+        const updatedWorkOrder = await db.workOrder.update({
+          where: { id: existingWorkOrder.id },
+          data: { ...header, updatedBy: userId },
+          include: { projectIndividual: { select: { name: true } } },
+        })
 
-          //* create new work order items
-          db.workOrderItem.createMany({ data: woItems.map((li) => ({ ...li, workOrderCode: code })) }),
-        ])
+        // const [updatedWorkOrder] = await db.$transaction([
+        //   //* update work order
+        //   db.workOrder.update({
+        //     where: { id: existingWorkOrder.id },
+        //     data: { ...data, updatedBy: userId },
+        //     include: { projectIndividual: { select: { name: true } } },
+        //   }),
+
+        //   //* delete the existing work order items
+        //   db.workOrderItem.deleteMany({ where: { dbCode, workOrderCode: code } }),
+
+        //   //* create new work order items
+        //   db.workOrderItem.createMany({ data: woItems.map((li) => ({ ...li, dbCode, workOrderCode: code })) }),
+        // ])
 
         // const assignedPics = existingWorkOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
         // const owner = existingWorkOrder.userCode
@@ -573,20 +665,77 @@ export const upsertWorkOrder = action
         }
       }
 
-      const duplicatedFromWorkOrder = duplicatedFromCode ? await db.workOrder.findUnique({ where: { code: duplicatedFromCode } }) : null
+      const duplicatedFromWorkOrder = duplicatedFromCode
+        ? await db.workOrder.findFirst({ where: { code: duplicatedFromCode, dbCode } })
+        : null
 
-      const newWorkOrder = await db.workOrder.create({
-        data: {
-          ...data,
-          duplicatedFromCode: duplicatedFromCode ?? null,
-          createdAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.createdAt : undefined,
-          createdBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.createdBy,
-          updatedAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.updatedAt : undefined,
-          updatedBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.updatedBy,
-          workOrderItems: { createMany: { data: woItems } },
+      // const newWorkOrder = await db.workOrder.create({
+      //   data: {
+      //     ...data,
+      //     dbCode,
+      //     duplicatedFromCode: duplicatedFromCode ?? null,
+      //     createdAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.createdAt : undefined,
+      //     createdBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.createdBy,
+      //     updatedAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.updatedAt : undefined,
+      //     updatedBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.updatedBy,
+      //     workOrderItems: { createMany: { data: woItems.map((li) => ({ ...li, dbCode })) } },
+      //   },
+      //   include,
+      // })
+
+      const newWorkOrder = await db.$transaction(
+        async (tx) => {
+          //* create new work order
+          const wo = await tx.workOrder.create({
+            data: {
+              ...data,
+              dbCode,
+              duplicatedFromCode: duplicatedFromCode ?? null,
+              createdAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.createdAt : undefined,
+              createdBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.createdBy,
+              updatedAt: isDuplicate && duplicatedFromWorkOrder ? duplicatedFromWorkOrder.updatedAt : undefined,
+              updatedBy: !isDuplicate ? userId : duplicatedFromWorkOrder?.updatedBy,
+              workOrderItems: { createMany: { data: woItems } },
+            },
+            include,
+          })
+
+          //* credit stock-in upon successful creation of work order
+          //* it should be status = 'Open' or 'Pending' for it to be credited
+          const creditStocks = await creditStock({
+            tx,
+            dbCode,
+            workOrderCode: wo.code,
+            prevStatus: null,
+            currStatus: wo.status,
+            deliveredProjectItems: [],
+          })
+
+          //* handle credit stock error
+          if (creditStocks) {
+            const isCreditStockError = creditStocks?.error
+            const errors = creditStocks?.errors
+            const entries = errors?.entries
+
+            if (isCreditStockError && errors && entries && entries.length > 0) {
+              const outOfStockItems = entries.map((e: any) => e.id).join(', ')
+
+              const error = {
+                error: true,
+                status: 400,
+                message: `Work order creation failed. Project item(s) #${outOfStockItems} does not have enough available to order.`,
+                action: 'CREDIT_STOCK',
+              }
+
+              throw error
+            }
+          }
+
+          return wo
         },
-        include,
-      })
+        //* one stock-in update per line, the 5s default is not enough for large work orders
+        { timeout: 120000, maxWait: 10000 }
+      )
 
       // const assignedPics = newWorkOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
       // const owner = newWorkOrder.userCode
@@ -623,8 +772,10 @@ export const upsertWorkOrder = action
 
 export const deleteWorkOrder = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(paramsSchema)
   .action(async ({ ctx, parsedInput: data }) => {
+    const { dbCode } = ctx
     const include = {
       projectIndividual: {
         include: {
@@ -645,7 +796,7 @@ export const deleteWorkOrder = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -657,28 +808,41 @@ export const deleteWorkOrder = action
     } satisfies Prisma.WorkOrderInclude
 
     try {
-      const existingWorkOrder = await db.workOrder.findUnique({ where: { code: data.code }, include })
+      const existingWorkOrder = await db.workOrder.findFirst({ where: { code: data.code, dbCode }, include })
 
       if (!existingWorkOrder) return { error: true, status: 404, message: 'Work order not found!', action: 'DELETE_WORK_ORDER' }
+
+      //* already deleted, e.g. double click or retry
+      if (existingWorkOrder.deletedAt) {
+        return { error: true, status: 400, message: 'Work order is already deleted!', action: 'DELETE_WORK_ORDER' }
+      }
 
       // const assignedPics = existingWorkOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
       // const owner = existingWorkOrder.userCode
 
-      await db.$transaction(async (tx) => {
-        const updatedWorkOrder = await db.workOrder.update({
-          where: { code: data.code },
-          data: { status: String(WORK_ORDER_STATUS_VALUE_MAP.Deleted), deletedAt: new Date(), deletedBy: ctx.userId },
-        })
+      await db.$transaction(
+        async (tx) => {
+          const updatedWorkOrder = await tx.workOrder.update({
+            where: { id: existingWorkOrder.id },
+            data: { status: String(WORK_ORDER_STATUS_VALUE_MAP.Deleted), deletedAt: new Date(), deletedBy: ctx.userId },
+          })
 
-        //* rollback - because work order status also updated to deleted
-        await creditStock({
-          tx,
-          workOrderCode: updatedWorkOrder.code,
-          prevStatus: existingWorkOrder.status,
-          currStatus: updatedWorkOrder.status,
-          deliveredProjectItems: [],
-        })
-      })
+          //* rollback - because work order status also updated to deleted
+          const creditedStock = await creditStock({
+            tx,
+            dbCode,
+            workOrderCode: updatedWorkOrder.code,
+            prevStatus: existingWorkOrder.status,
+            currStatus: updatedWorkOrder.status,
+            deliveredProjectItems: [],
+          })
+
+          //* throw so the delete rolls back, mainly when sap refused to cancel the goods receipt
+          if (creditedStock?.error) throw creditedStock
+        },
+        //* sap goods receipt cancel runs inside, the 5s default is not enough for the http round trip
+        { timeout: 120000, maxWait: 10000 }
+      )
 
       // //* create notifications
       // void createNotification(ctx, {
@@ -707,8 +871,11 @@ export const deleteWorkOrder = action
 
 export const restoreWorkOrder = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(paramsSchema)
-  .action(async ({ parsedInput: data }) => {
+  .action(async ({ ctx, parsedInput: data }) => {
+    const { dbCode } = ctx
+
     const include = {
       projectIndividual: {
         include: {
@@ -729,7 +896,7 @@ export const restoreWorkOrder = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -741,14 +908,14 @@ export const restoreWorkOrder = action
     } satisfies Prisma.WorkOrderInclude
 
     try {
-      const existingWorkOrder = await db.workOrder.findUnique({ where: { code: data.code }, include })
+      const existingWorkOrder = await db.workOrder.findFirst({ where: { code: data.code, dbCode }, include })
 
       if (!existingWorkOrder) return { error: true, status: 404, message: 'Work order not found!', action: 'RESTORE_WORK_ORDER' }
 
       // const assignedPics = existingWorkOrder.projectIndividual.projectIndividualPics.map((pip) => pip.userCode)
       // const owner = existingWorkOrder.userCode
 
-      await db.workOrder.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+      await db.workOrder.update({ where: { id: existingWorkOrder.id }, data: { deletedAt: null, deletedBy: null } })
 
       // //* create notifications
       // void createNotification(ctx, {
@@ -778,9 +945,11 @@ export const restoreWorkOrder = action
 // * upsert only one line item
 export const upsertWorkOrderLineItem = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(upsertWorkOrderLineItemFormSchema)
-  .action(async ({ parsedInput }) => {
+  .action(async ({ ctx, parsedInput }) => {
     const { workOrderCode, projectItemCode, operation, maxQty, ...data } = parsedInput
+    const { dbCode } = ctx
 
     const include = {
       projectIndividual: {
@@ -802,7 +971,7 @@ export const upsertWorkOrderLineItem = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -814,8 +983,8 @@ export const upsertWorkOrderLineItem = action
     } satisfies Prisma.WorkOrderInclude
 
     try {
-      const existingWorkOrder = await db.workOrder.findUnique({
-        where: { code: workOrderCode },
+      const existingWorkOrder = await db.workOrder.findFirst({
+        where: { code: workOrderCode, dbCode },
         include,
       })
 
@@ -829,7 +998,7 @@ export const upsertWorkOrderLineItem = action
       //* update work order line item
       if (operation === 'update') {
         const updatedWorkOrderItem = await db.workOrderItem.update({
-          where: { workOrderCode_projectItemCode: { workOrderCode, projectItemCode } },
+          where: { dbCode, workOrderCode_projectItemCode: { workOrderCode, projectItemCode } },
           data,
         })
 
@@ -855,7 +1024,7 @@ export const upsertWorkOrderLineItem = action
 
       //* create work order line item
       const newWorkOrderItem = await db.workOrderItem.create({
-        data: { ...data, workOrderCode, projectItemCode },
+        data: { ...data, dbCode, workOrderCode, projectItemCode },
       })
 
       // //* create notifications
@@ -891,8 +1060,10 @@ export const upsertWorkOrderLineItem = action
 // * upsert multiple line items
 export const upsertWorkOrderLineItems = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(upsertWorkOrderLineItemsFormSchema)
   .action(async ({ ctx, parsedInput }) => {
+    const { dbCode } = ctx
     const { lineItems, workOrderCode } = parsedInput
 
     const include = {
@@ -915,7 +1086,7 @@ export const upsertWorkOrderLineItems = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -927,8 +1098,8 @@ export const upsertWorkOrderLineItems = action
     } satisfies Prisma.WorkOrderInclude
 
     try {
-      const existingWorkOrder = await db.workOrder.findUnique({
-        where: { code: workOrderCode },
+      const existingWorkOrder = await db.workOrder.findFirst({
+        where: { code: workOrderCode, dbCode },
         include,
       })
 
@@ -937,7 +1108,7 @@ export const upsertWorkOrderLineItems = action
       }
 
       const currLineItems = await db.workOrderItem.findMany({
-        where: { workOrderCode },
+        where: { dbCode, workOrderCode },
       })
 
       const uniqueLineItemsPItemCodes = new Set(lineItems.map((li) => li.projectItemCode))
@@ -950,6 +1121,7 @@ export const upsertWorkOrderLineItems = action
         //* delete line items
         await tx.workOrderItem.deleteMany({
           where: {
+            dbCode,
             workOrderCode,
             projectItemCode: { in: toDeleteLineItemsPItemCodes },
           },
@@ -958,10 +1130,10 @@ export const upsertWorkOrderLineItems = action
         //* upsert line items
         return await Promise.all(
           lineItems.map(({ maxQty, ...li }) => {
-            const lineItem = { ...li, workOrderCode }
+            const lineItem = { ...li, dbCode, workOrderCode }
 
             return tx.workOrderItem.upsert({
-              where: { workOrderCode_projectItemCode: { workOrderCode, projectItemCode: li.projectItemCode } },
+              where: { dbCode, workOrderCode_projectItemCode: { workOrderCode, projectItemCode: li.projectItemCode } },
               create: lineItem,
               update: lineItem,
             })
@@ -1004,8 +1176,10 @@ export const upsertWorkOrderLineItems = action
 
 export const deleteWorkOrderLineItem = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(deleteWorkOrderLineItemFormSchema)
   .action(async ({ ctx, parsedInput: data }) => {
+    const { dbCode } = ctx
     const include = {
       projectIndividual: {
         include: {
@@ -1026,7 +1200,7 @@ export const deleteWorkOrderLineItem = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -1038,8 +1212,8 @@ export const deleteWorkOrderLineItem = action
     } satisfies Prisma.WorkOrderInclude
 
     try {
-      const existingWorkOrder = await db.workOrder.findUnique({
-        where: { code: data.workOrderCode },
+      const existingWorkOrder = await db.workOrder.findFirst({
+        where: { code: data.workOrderCode, dbCode },
         include,
       })
 
@@ -1051,7 +1225,7 @@ export const deleteWorkOrderLineItem = action
       // const owner = existingWorkOrder.userCode
 
       const workOrderLineItem = await db.workOrderItem.findUnique({
-        where: { workOrderCode_projectItemCode: { workOrderCode: data.workOrderCode, projectItemCode: data.projectItemCode } },
+        where: { dbCode, workOrderCode_projectItemCode: { workOrderCode: data.workOrderCode, projectItemCode: data.projectItemCode } },
       })
 
       if (!workOrderLineItem) {
@@ -1059,7 +1233,7 @@ export const deleteWorkOrderLineItem = action
       }
 
       await db.workOrderItem.delete({
-        where: { workOrderCode_projectItemCode: { workOrderCode: data.workOrderCode, projectItemCode: data.projectItemCode } },
+        where: { dbCode, workOrderCode_projectItemCode: { workOrderCode: data.workOrderCode, projectItemCode: data.projectItemCode } },
       })
 
       // //* create notifications
@@ -1089,8 +1263,10 @@ export const deleteWorkOrderLineItem = action
 
 export const deleteWorkOrderLineItems = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(deleteWorkOrderLineItemsFormSchema)
   .action(async ({ ctx, parsedInput: data }) => {
+    const { dbCode } = ctx
     const include = {
       projectIndividual: {
         include: {
@@ -1111,7 +1287,7 @@ export const deleteWorkOrderLineItems = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -1123,8 +1299,8 @@ export const deleteWorkOrderLineItems = action
     } satisfies Prisma.WorkOrderInclude
 
     try {
-      const existingWorkOrder = await db.workOrder.findUnique({
-        where: { code: data.workOrderCode },
+      const existingWorkOrder = await db.workOrder.findFirst({
+        where: { code: data.workOrderCode, dbCode },
         include,
       })
 
@@ -1137,6 +1313,7 @@ export const deleteWorkOrderLineItems = action
 
       const workOrderLineItems = await db.workOrderItem.findMany({
         where: {
+          dbCode,
           workOrderCode: data.workOrderCode,
           projectItemCode: { in: data.projectItemCodes },
         },
@@ -1148,6 +1325,7 @@ export const deleteWorkOrderLineItems = action
 
       await db.workOrderItem.deleteMany({
         where: {
+          dbCode,
           workOrderCode: data.workOrderCode,
           projectItemCode: { in: workOrderLineItems.map((li) => li.projectItemCode) },
         },
@@ -1180,10 +1358,11 @@ export const deleteWorkOrderLineItems = action
 
 export const updateWorkeOrderStatus = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(workOrderStatusUpdateFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { workOrders, currentStatus, comments, trackingNum } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const include = {
       projectIndividual: {
@@ -1205,7 +1384,7 @@ export const updateWorkeOrderStatus = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -1218,8 +1397,11 @@ export const updateWorkeOrderStatus = action
 
     const workOrderCodes = workOrders.map((wo) => wo.code)
 
+    //! declared outside the try so the catch can reverse them, a rollback clears the doc entry columns but not sap
+    const postedGrpos: { workOrderCode: number; docEntry: number }[] = []
+
     try {
-      const existingWorkOrders = await db.workOrder.findMany({ where: { code: { in: workOrderCodes } } })
+      const existingWorkOrders = await db.workOrder.findMany({ where: { dbCode, code: { in: workOrderCodes } } })
 
       //* make sure all work orders to update exist otherwise return error
       if (existingWorkOrders.length > 0 && workOrderCodes.length > 0 && existingWorkOrders.length !== workOrderCodes.length) {
@@ -1228,6 +1410,9 @@ export const updateWorkeOrderStatus = action
 
       //* get work orders that have changed status, and the next (current status) should be greater than the previous status, not allowed to go back to the previous status
       //* add if '5' still allow to update status to '5' - means partial delivery
+      //* ids of work orders already verified to be in this database
+      const inTenantIdByCode = new Map(existingWorkOrders.map((w) => [w.code, w.id]))
+
       const changedWorkOrders = workOrders
         .filter((wo) => currentStatus == '5' || wo.prevStatus !== currentStatus)
         .filter((wo) => currentStatus == '5' || currentStatus > wo.prevStatus)
@@ -1235,67 +1420,83 @@ export const updateWorkeOrderStatus = action
       //* not allow to proceed work orders with selected line item that does not have available or sufficient available to order for the requested qty
       const errors: CommonOperationError[] = []
 
-      const updatedWorkOrders = await db.$transaction(async (tx) => {
-        //* update work orders then create work order status updates
-        const result = await Promise.all(
-          changedWorkOrders
-            .map((wo) => {
-              return tx.workOrder.update({
-                where: { code: wo.code },
-                data: {
-                  status: currentStatus,
-                  updatedBy: userId,
-                  workOrderStatusUpdates: {
-                    create: {
-                      prevStatus: wo.prevStatus,
-                      currentStatus,
-                      comments,
-                      createdBy: userId,
-                      updatedBy: userId,
-                      trackingNum,
+      const updatedWorkOrders = await db.$transaction(
+        async (tx) => {
+          //* update work orders then create work order status updates
+          const result = await Promise.all(
+            changedWorkOrders
+              .map((wo) => {
+                return tx.workOrder.update({
+                  where: { id: inTenantIdByCode.get(wo.code)! },
+                  data: {
+                    status: currentStatus,
+                    updatedBy: userId,
+                    workOrderStatusUpdates: {
+                      create: {
+                        dbCode,
+                        prevStatus: wo.prevStatus,
+                        currentStatus,
+                        comments,
+                        createdBy: userId,
+                        updatedBy: userId,
+                        trackingNum,
+                      },
                     },
                   },
-                },
-                include,
+                  include,
+                })
               })
-            })
-            .filter((update) => update !== null)
-        )
-
-        //* credit stock`
-        const creditStocks = await Promise.all(
-          changedWorkOrders.map((wo) =>
-            creditStock({
-              tx,
-              workOrderCode: wo.code,
-              prevStatus: wo.prevStatus,
-              currStatus: currentStatus,
-              deliveredProjectItems: wo.deliveredProjectItems,
-            })
+              .filter((update) => update !== null)
           )
-        )
 
-        if (creditStocks && creditStocks.length > 0) {
-          const errors = creditStocks
-            .map((cs) => cs?.errors ?? null)
-            .filter((e) => e !== null)
-            .filter((e) => e.entries.length > 0)
+          //* credit stock`
+          const creditStocks = await Promise.all(
+            changedWorkOrders.map((wo) =>
+              creditStock({
+                tx,
+                dbCode,
+                workOrderCode: wo.code,
+                prevStatus: wo.prevStatus,
+                currStatus: currentStatus,
+                deliveredProjectItems: wo.deliveredProjectItems,
+              })
+            )
+          )
 
-          if (errors.length > 0) {
-            const error = {
-              error: true,
-              status: 400,
-              message: 'Failed to perform work order status update!',
-              action: 'CREDIT_STOCK',
-              errors,
+          //* remember what sap already accepted, the rollback below cannot undo it
+          creditStocks.forEach((cs) => {
+            if (cs?.postedGrpo) postedGrpos.push(cs.postedGrpo)
+          })
+
+          if (creditStocks && creditStocks.length > 0) {
+            //* throw so the whole update rolls back, a sap goods receipt must not outlive a failed status update
+            const failed = creditStocks.find((cs) => cs?.error && !cs?.errors)
+
+            if (failed) throw failed
+
+            const errors = creditStocks
+              .map((cs) => cs?.errors ?? null)
+              .filter((e) => e !== null)
+              .filter((e) => e.entries.length > 0)
+
+            if (errors.length > 0) {
+              const error = {
+                error: true,
+                status: 400,
+                message: 'Failed to perform work order status update!',
+                action: 'CREDIT_STOCK',
+                errors,
+              }
+
+              throw error
             }
-
-            throw error
           }
-        }
 
-        return result
-      })
+          return result
+        },
+        //* sap goods receipt runs inside, the 5s default is not enough for the http round trip per work order
+        { timeout: 120000, maxWait: 10000 }
+      )
 
       // //* create notifications
       // if (updatedWorkOrders.length > 0) {
@@ -1327,6 +1528,15 @@ export const updateWorkeOrderStatus = action
     } catch (error: any) {
       console.error(error)
 
+      //* the rollback cannot reach sap, so reverse every grpo this run already posted
+      //? this leaves a grpo & goods return in sap that net to zero, the cost of posting to sap inside the transaction, due to unexpected error
+      for (const { workOrderCode, docEntry } of postedGrpos) {
+        //! best effort, a failed reverse leaves stock received in sap that needs a goods return by hand
+        const goodsReturn = await createGoodsReturn(dbCode, workOrderCode, docEntry)
+
+        if (goodsReturn?.error) console.error(`Failed to reverse goods receipt PO of work order ${workOrderCode}: ${goodsReturn.message}`)
+      }
+
       const errors = error?.errors ?? []
 
       return {
@@ -1341,10 +1551,11 @@ export const updateWorkeOrderStatus = action
 
 export const updatePartialWorkOrderStatusUpdate = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(partialWorkOrderStatusUpdateFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, comments, trackingNum } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const workOrderInclude = {
       projectIndividual: {
@@ -1366,7 +1577,7 @@ export const updatePartialWorkOrderStatusUpdate = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -1378,8 +1589,8 @@ export const updatePartialWorkOrderStatusUpdate = action
     } satisfies Prisma.WorkOrderInclude
 
     try {
-      const workOrderStatusUpdate = await db.workOrderStatusUpdate.findUnique({
-        where: { code },
+      const workOrderStatusUpdate = await db.workOrderStatusUpdate.findFirst({
+        where: { code, dbCode },
         include: {
           workOrder: {
             include: workOrderInclude,
@@ -1399,7 +1610,7 @@ export const updatePartialWorkOrderStatusUpdate = action
       // const owner = workOrderStatusUpdate.workOrder.userCode
 
       await db.workOrderStatusUpdate.update({
-        where: { code },
+        where: { id: workOrderStatusUpdate.id },
         data: { comments, trackingNum, updatedBy: userId },
       })
 
@@ -1434,10 +1645,11 @@ export const updatePartialWorkOrderStatusUpdate = action
 
 export const toggleWorkOrderInternal = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(toggleWorkOrderInternalSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, isInternal } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const include = {
       projectIndividual: {
@@ -1459,7 +1671,7 @@ export const toggleWorkOrderInternal = action
                   },
                   {
                     role: {
-                      key: 'admin',
+                      key: SUPER_USER_ROLE_KEY,
                     },
                   },
                 ],
@@ -1471,7 +1683,7 @@ export const toggleWorkOrderInternal = action
     } satisfies Prisma.WorkOrderInclude
 
     try {
-      const workOrder = await db.workOrder.findUnique({ where: { code }, include })
+      const workOrder = await db.workOrder.findFirst({ where: { code, dbCode }, include })
 
       if (!workOrder) return { error: true, status: 404, message: 'Work order not found!', action: 'TOGGLE_WORK_ORDER_INTERNAL' }
 
@@ -1480,7 +1692,7 @@ export const toggleWorkOrderInternal = action
 
       //* update work order
       await db.workOrder.update({
-        where: { code },
+        where: { id: workOrder.id },
         data: { isInternal, updatedBy: userId },
       })
 

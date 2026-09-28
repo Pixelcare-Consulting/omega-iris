@@ -6,7 +6,7 @@ import { isValid, parse } from 'date-fns'
 import { subtract } from 'mathjs'
 
 import { db } from '@/utils/db'
-import { action, authenticationMiddleware } from '@/utils/safe-action'
+import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe-action'
 import { deleteProjectItemsFormSchema, projectItemFormSchema, restoreProjectItemsFormSchema } from '@/schema/project-item'
 import { paramsSchema } from '@/schema/common'
 import { safeParseFloat, safeParseInt } from '@/utils'
@@ -15,6 +15,11 @@ import { ImportSyncErrorEntry } from '@/types/common'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { createNotification } from './notification'
 import { getCurrentUserAbility } from './auth'
+import { ProjectItemSyncResult, syncProjectItemsFromSap } from '@/utils/jobs/project-item-sync'
+import { PROJECT_ITEM_SYNC_JOB_CODE } from '@/constants/sap'
+import { runJobExclusive } from '@/utils/jobs/scheduler'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
+import { isCustomTfsEnabled } from '@/utils/sap-database-access'
 
 const COMMON_PROJECT_ITEM_INCLUDE = {
   item: true,
@@ -25,12 +30,12 @@ const COMMON_PROJECT_ITEM_INCLUDE = {
 
 const COMMON_PROJECT_ITEM_ORDER_BY = { code: 'asc' } satisfies Prisma.ProjectItemOrderByWithRelationInput
 
-export async function getProjecItems(projectCode: number, isHideDeleted = true) {
+export async function getProjecItems(dbCode: string, projectCode: number, isHideDeleted = true) {
   if (!projectCode) return []
 
   try {
     const result = await db.projectItem.findMany({
-      where: { projectIndividualCode: projectCode, ...(isHideDeleted ? { deletedAt: null, deletedBy: null } : {}) },
+      where: { dbCode, projectIndividualCode: projectCode, ...(isHideDeleted ? { deletedAt: null, deletedBy: null } : {}) },
       include: COMMON_PROJECT_ITEM_INCLUDE,
       orderBy: COMMON_PROJECT_ITEM_ORDER_BY,
     })
@@ -53,6 +58,7 @@ export async function getProjecItems(projectCode: number, isHideDeleted = true) 
 
 //* project items that are placed in the given warehouse
 export async function getProjectItemsByWarehouseCode(
+  dbCode: string,
   warehouseCode: string | null | undefined,
   userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>,
   isHideDeleted = true
@@ -70,6 +76,7 @@ export async function getProjectItemsByWarehouseCode(
     //* project individual must be active
     const result = await db.projectItem.findMany({
       where: {
+        dbCode,
         warehouseCode,
         ...(isHideDeleted ? { deletedAt: null, deletedBy: null } : {}),
 
@@ -111,12 +118,17 @@ export async function getProjectItemsByWarehouseCode(
 
 export const getProjectItemsByWarehouseCodeClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(z.object({ warehouseCode: z.string().nullish(), isHideDeleted: z.boolean().optional() }))
   .action(async ({ ctx, parsedInput: data }) => {
-    return getProjectItemsByWarehouseCode(data.warehouseCode, ctx, data.isHideDeleted)
+    return getProjectItemsByWarehouseCode(ctx.dbCode, data.warehouseCode, ctx, data.isHideDeleted)
   })
 
-export async function getAllProjectItems(userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>, isHideDeleted = true) {
+export async function getAllProjectItems(
+  dbCode: string,
+  userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>,
+  isHideDeleted = true
+) {
   if (!userInfo || !userInfo.userId || !userInfo.userCode) return []
 
   const { userId, userCode, ability } = userInfo
@@ -130,6 +142,7 @@ export async function getAllProjectItems(userInfo: Awaited<ReturnType<typeof get
     //* project individual must be active
     const result = await db.projectItem.findMany({
       where: {
+        dbCode,
         ...(isHideDeleted ? { deletedAt: null, deletedBy: null } : {}),
 
         ...(!ability || canViewAll
@@ -169,6 +182,7 @@ export async function getAllProjectItems(userInfo: Awaited<ReturnType<typeof get
 }
 
 export async function getAllProjectItemByCode(
+  dbCode: string,
   code: number,
   userInfo: Awaited<ReturnType<typeof getCurrentUserAbility>>,
   isHideDeleted = true
@@ -184,9 +198,10 @@ export async function getAllProjectItemByCode(
     //* get project item if canViewAll is true
     //* get only project item that are related to the project individual that the user is assigned to which equavalent to canViewOwned is true
     //* project individual must be active
-    const result = await db.projectItem.findUnique({
+    const result = await db.projectItem.findFirst({
       where: {
         code,
+        dbCode,
         ...(isHideDeleted ? { deletedAt: null, deletedBy: null } : {}),
 
         ...(!ability || canViewAll
@@ -228,17 +243,18 @@ export async function getAllProjectItemByCode(
 
 export const getProjecItemsClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(z.object({ projectCode: z.number(), isHideDeleted: z.boolean().optional() }))
-  .action(async ({ parsedInput: data }) => {
-    return getProjecItems(data.projectCode, data.isHideDeleted)
+  .action(async ({ ctx, parsedInput: data }) => {
+    return getProjecItems(ctx.dbCode, data.projectCode, data.isHideDeleted)
   })
 
-export async function getProjectItemByCode(code: number) {
+export async function getProjectItemByCode(dbCode: string, code: number) {
   if (!code) return null
 
   try {
-    return db.projectItem.findUnique({
-      where: { code },
+    return db.projectItem.findFirst({
+      where: { code, dbCode },
       include: COMMON_PROJECT_ITEM_INCLUDE,
     })
   } catch (error) {
@@ -249,10 +265,11 @@ export async function getProjectItemByCode(code: number) {
 
 export const upsertProjectItem = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(projectItemFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, ...data } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const include: Prisma.ProjectIndividualInclude = {
       projectIndividualCustomers: {
@@ -272,7 +289,7 @@ export const upsertProjectItem = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -296,7 +313,7 @@ export const upsertProjectItem = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -306,7 +323,7 @@ export const upsertProjectItem = action
     }
 
     try {
-      const existingPi = await db.projectIndividual.findUnique({ where: { code: data.projectIndividualCode }, include })
+      const existingPi = await db.projectIndividual.findFirst({ where: { code: data.projectIndividualCode, dbCode }, include })
 
       if (!existingPi) {
         return { error: true, status: 404, message: 'Project individual not found!', action: 'UPSERT_PROJECT_ITEM' }
@@ -317,8 +334,12 @@ export const upsertProjectItem = action
 
       //* update item
       if (code !== -1) {
+        const existingItem = await db.projectItem.findFirst({ where: { code, dbCode } })
+
+        if (!existingItem) return { error: true, status: 404, message: 'Project item not found!', action: 'UPSERT_PROJECT_ITEM' }
+
         //* update project item
-        const updatedItem = await db.projectItem.update({ where: { code }, data: { ...data, updatedBy: userId } })
+        const updatedItem = await db.projectItem.update({ where: { id: existingItem.id }, data: { ...data, updatedBy: userId } })
 
         //* create notifications
         // void createNotification(ctx, {
@@ -344,6 +365,7 @@ export const upsertProjectItem = action
       const newItem = await db.projectItem.create({
         data: {
           ...data,
+          dbCode,
           createdBy: userId,
           updatedBy: userId,
         },
@@ -381,6 +403,7 @@ export const upsertProjectItem = action
 
 export const deleteProjectItem = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(paramsSchema.merge(z.object({ isPermanent: z.boolean().optional() })))
   .action(async ({ ctx, parsedInput: data }) => {
     const include: Prisma.ProjectIndividualInclude = {
@@ -401,7 +424,7 @@ export const deleteProjectItem = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -425,7 +448,7 @@ export const deleteProjectItem = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -435,11 +458,14 @@ export const deleteProjectItem = action
     }
 
     try {
-      const projectItem = await db.projectItem.findUnique({ where: { code: data.code } })
+      const projectItem = await db.projectItem.findFirst({ where: { code: data.code, dbCode: ctx.dbCode } })
 
       if (!projectItem) return { error: true, status: 404, message: 'Project item not found!', action: 'DELETE_PROJECT_ITEM' }
 
-      const existingPi = await db.projectIndividual.findUnique({ where: { code: projectItem.projectIndividualCode }, include })
+      const existingPi = await db.projectIndividual.findFirst({
+        where: { code: projectItem.projectIndividualCode, dbCode: ctx.dbCode },
+        include,
+      })
 
       if (!existingPi) {
         return { error: true, status: 404, message: 'Project individual not found!', action: 'DELETE_PROJECT_ITEM' }
@@ -447,8 +473,8 @@ export const deleteProjectItem = action
 
       //* soft delete or permanent delete
       if (data.isPermanent) {
-        await db.projectItem.delete({ where: { code: data.code } })
-      } else await db.projectItem.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
+        await db.projectItem.delete({ where: { id: projectItem.id } })
+      } else await db.projectItem.update({ where: { id: projectItem.id }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
 
       const assignedCustomers = existingPi.projectIndividualCustomers.map((pic) => pic.userCode)
       const assignedPics = existingPi.projectIndividualPics.map((pip) => pip.userCode)
@@ -480,6 +506,7 @@ export const deleteProjectItem = action
 
 export const deleteProjectItems = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(deleteProjectItemsFormSchema)
   .action(async ({ ctx, parsedInput: data }) => {
     const include: Prisma.ProjectIndividualInclude = {
@@ -500,7 +527,7 @@ export const deleteProjectItems = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -524,7 +551,7 @@ export const deleteProjectItems = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -538,7 +565,7 @@ export const deleteProjectItems = action
         return { error: true, status: 400, message: 'Please select at least one item to delete!', action: 'DELETE_PROJECT_ITEMS' }
       }
 
-      const existingPi = await db.projectIndividual.findUnique({ where: { code: data.projectCode }, include })
+      const existingPi = await db.projectIndividual.findFirst({ where: { code: data.projectCode, dbCode: ctx.dbCode }, include })
 
       if (!existingPi) {
         return { error: true, status: 404, message: 'Project individual not found!', action: 'DELETE_PROJECT_ITEMS' }
@@ -548,12 +575,12 @@ export const deleteProjectItems = action
 
       if (data.isPermanent) {
         const deletedItems = await db.projectItem.deleteMany({
-          where: { code: { in: data.codes }, deletedAt: { not: null }, deletedBy: { not: null } },
+          where: { dbCode: ctx.dbCode, code: { in: data.codes }, deletedAt: { not: null }, deletedBy: { not: null } },
         })
         completed = deletedItems.count
       } else {
         const updatedItems = await db.projectItem.updateMany({
-          where: { code: { in: data.codes }, deletedAt: null, deletedBy: null },
+          where: { dbCode: ctx.dbCode, code: { in: data.codes }, deletedAt: null, deletedBy: null },
           data: { deletedAt: new Date(), deletedBy: ctx.userId },
         })
         completed = updatedItems.count
@@ -587,6 +614,7 @@ export const deleteProjectItems = action
 
 export const restoreProjectItems = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(restoreProjectItemsFormSchema)
   .action(async ({ ctx, parsedInput: data }) => {
     const include: Prisma.ProjectIndividualInclude = {
@@ -607,7 +635,7 @@ export const restoreProjectItems = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -631,7 +659,7 @@ export const restoreProjectItems = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -645,7 +673,7 @@ export const restoreProjectItems = action
         return { error: true, status: 400, message: 'Please select at least one item to restore!', action: 'RESTORE_PROJECT_ITEMS' }
       }
 
-      const existingPi = await db.projectIndividual.findUnique({ where: { code: data.projectCode }, include })
+      const existingPi = await db.projectIndividual.findFirst({ where: { code: data.projectCode, dbCode: ctx.dbCode }, include })
 
       if (!existingPi) {
         return { error: true, status: 404, message: 'Project individual not found!', action: 'RESTORE_PROJECT_ITEMS' }
@@ -654,7 +682,7 @@ export const restoreProjectItems = action
       let completed = 0
 
       const updatedItems = await db.projectItem.updateMany({
-        where: { code: { in: data.codes }, deletedAt: { not: null }, deletedBy: { not: null } },
+        where: { dbCode: ctx.dbCode, code: { in: data.codes }, deletedAt: { not: null }, deletedBy: { not: null } },
         data: { deletedAt: null, deletedBy: null },
       })
 
@@ -688,6 +716,7 @@ export const restoreProjectItems = action
 
 export const restoreProjectItem = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(paramsSchema)
   .action(async ({ ctx, parsedInput: data }) => {
     const include: Prisma.ProjectIndividualInclude = {
@@ -708,7 +737,7 @@ export const restoreProjectItem = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -732,7 +761,7 @@ export const restoreProjectItem = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -742,17 +771,20 @@ export const restoreProjectItem = action
     }
 
     try {
-      const projectItem = await db.projectItem.findUnique({ where: { code: data.code } })
+      const projectItem = await db.projectItem.findFirst({ where: { code: data.code, dbCode: ctx.dbCode } })
 
       if (!projectItem) return { error: true, status: 404, message: 'Project item not found!', action: 'RESTORE_PROJECT_ITEM' }
 
-      const existingPi = await db.projectIndividual.findUnique({ where: { code: projectItem.projectIndividualCode }, include })
+      const existingPi = await db.projectIndividual.findFirst({
+        where: { code: projectItem.projectIndividualCode, dbCode: ctx.dbCode },
+        include,
+      })
 
       if (!existingPi) {
         return { error: true, status: 404, message: 'Project individual not found!', action: 'RESTORE_PROJECT_ITEM' }
       }
 
-      await db.projectItem.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } }) //* soft delete
+      await db.projectItem.update({ where: { id: projectItem.id }, data: { deletedAt: null, deletedBy: null } }) //* soft delete
 
       const assignedCustomers = existingPi.projectIndividualCustomers.map((pic) => pic.userCode)
       const assignedPics = existingPi.projectIndividualPics.map((pip) => pip.userCode)
@@ -782,12 +814,57 @@ export const restoreProjectItem = action
     }
   })
 
+//* same core the cron runs, so the button and the schedule can never drift apart
+export const syncProjectItemsFromSapClient = action
+  .use(authenticationMiddleware)
+  .use(tenantMiddleware)
+  .action(async ({ ctx }) => {
+    const { dbCode, userId } = ctx
+
+    let result: ProjectItemSyncResult | null = null
+
+    try {
+      const started = await runJobExclusive(PROJECT_ITEM_SYNC_JOB_CODE, async () => {
+        result = await syncProjectItemsFromSap(dbCode, { userId, trigger: 'manual' })
+      })
+
+      //* the cron or another user already has a run going
+      if (!started) {
+        return {
+          error: true,
+          status: 409,
+          message: 'A project item sync is already running, please try again in a moment.',
+          action: 'SYNC_PROJECT_ITEMS_FROM_SAP',
+        }
+      }
+    } catch (error) {
+      console.error('Project item sync error:', error)
+
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Project item sync error!',
+        action: 'SYNC_PROJECT_ITEMS_FROM_SAP',
+      }
+    }
+
+    const stats = result as ProjectItemSyncResult | null
+
+    return {
+      status: 200,
+      message: `${stats?.created || 0} created, ${stats?.updated || 0} updated, ${stats?.skipped || 0} skipped.`,
+      action: 'SYNC_PROJECT_ITEMS_FROM_SAP',
+      data: stats,
+    }
+  })
+
 export const importProjectItems = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(importFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { data, total, stats, isLastRow, metaData } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     const projectCode = metaData?.projectCode
 
@@ -812,7 +889,7 @@ export const importProjectItems = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -836,7 +913,7 @@ export const importProjectItems = action
               },
               {
                 role: {
-                  key: 'admin',
+                  key: SUPER_USER_ROLE_KEY,
                 },
               },
             ],
@@ -845,7 +922,7 @@ export const importProjectItems = action
       },
     }
 
-    const existingPi = await db.projectIndividual.findUnique({ where: { code: projectCode }, include })
+    const existingPi = await db.projectIndividual.findFirst({ where: { code: projectCode, dbCode }, include })
 
     if (!existingPi) {
       throw { error: true, status: 404, message: 'Project individual not found!', action: 'IMPORT_PROJECT_ITEMS' }
@@ -856,17 +933,20 @@ export const importProjectItems = action
 
       //* get existing items
       const existingItems = await db.item.findMany({
-        where: { ItemCode: { in: uniqueMpns } },
+        where: { dbCode, ItemCode: { in: uniqueMpns } },
         select: { code: true, ItemCode: true, syncStatus: true },
       })
 
       //* warehouses assigned to this project, an item can only be placed in one of them
       const projectWarehouses = await db.warehouse.findMany({
-        where: { projectWarehouses: { some: { projectIndividualCode: projectCode! } } },
+        where: { dbCode, projectWarehouses: { some: { projectIndividualCode: projectCode! } } },
         select: { WarehouseCode: true, binLocations: { select: { BinCode: true } } },
       })
 
       const projectWarehouseCodes = projectWarehouses.map((w) => w.WarehouseCode)
+
+      //* synced-only applies to isEnabledCustomTfsProcess true companies, others can still import pending items
+      const isSyncedStrict = process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' && (await isCustomTfsEnabled(dbCode))
 
       for (let i = 0; i < data.length; i++) {
         const errors: ImportSyncErrorEntry[] = []
@@ -884,8 +964,8 @@ export const importProjectItems = action
         //* check if MFG_P/N of an item exist in the db
         if (row?.['MFG_P/N'] && !baseItem) errors.push({ field: 'MFG P/N', message: 'MFG P/N does not exist' })
 
-        //* check if NEXT_PUBLIC_SYNCED_STRICT is true, cannot import item "pending" or unsync item when NEXT_PUBLIC_SYNCED_STRICT is true
-        if (process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' && baseItem?.syncStatus !== 'synced') {
+        //* in synced-only mode, pending or unsynced items cannot be imported
+        if (isSyncedStrict && baseItem?.syncStatus !== 'synced') {
           errors.push({ field: 'MFG P/N', message: 'Item is not synced' })
         }
 
@@ -925,6 +1005,7 @@ export const importProjectItems = action
 
         //* reshape data
         const toCreate: Prisma.ProjectItemCreateManyInput = {
+          dbCode,
           code: safeParseInt(row?.['ID']) || -1,
           owner: row?.['Owner'] || null,
           itemCode: baseItem?.code!,
@@ -954,7 +1035,7 @@ export const importProjectItems = action
           division: row?.['Division'] || null,
           site: row?.['Site'] || null,
           cmSite: row?.['CM_Site'] || null,
-          phase: safeParseInt(row?.['Phase']) || null,
+          phase: row?.['Phase'] ? String(row['Phase']) : null,
           tfsStdPrice: safeParseFloat(row?.['TFS_Standard_Price']),
           omegaPrice: safeParseFloat(row?.['Omega_Price']),
           createdBy: userId,
@@ -969,8 +1050,8 @@ export const importProjectItems = action
         batch.map((b) => {
           const { code, ...bData } = b
           return db.projectItem.upsert({
-            where: { code },
-            create: bData,
+            where: { code, dbCode },
+            create: { ...bData, dbCode },
             update: bData,
           })
         })

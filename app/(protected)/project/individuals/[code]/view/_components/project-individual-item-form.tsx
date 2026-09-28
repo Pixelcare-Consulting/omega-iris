@@ -28,10 +28,11 @@ import ReadOnlyField from '@/components/read-only-field'
 import ProjectIndividualItemSapInventory from './project-individual-item-sap-inventory'
 import { formatNumber } from 'devextreme/localization'
 import { DEFAULT_COLUMN_MIN_WIDTH, DEFAULT_CURRENCY_FORMAT, DEFAULT_NUMBER_FORMAT } from '@/constants/devextreme'
-import { safeParseFloat, safeParseInt } from '@/utils'
+import { safeParseFloat } from '@/utils'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
 import { useWarehouseBinLocations } from '@/hooks/safe-actions/warehouse-bin-location'
 import { useWarehousesByProjectCode } from '@/hooks/safe-actions/warehouse'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 import TextBoxField from '@/components/forms/text-box-field'
 import NumberBoxField from '@/components/forms/number-box-field'
 import DateBoxField from '@/components/forms/date-box-field'
@@ -64,6 +65,7 @@ export default function ProjectItemForm({
   users,
 }: ProjectItemFormProps) {
   const router = useRouter()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   const isCreate = !item
 
@@ -162,8 +164,9 @@ export default function ProjectItemForm({
   }, [])
 
   //* only the warehouses assigned to this project can be picked for its items
-  const projectWarehouses = useWarehousesByProjectCode(projectCode)
-  const binLocations = useWarehouseBinLocations(warehouseCode ?? '')
+  //* neither is fetched while the custom tfs process is off, the pickers are hidden then
+  const projectWarehouses = useWarehousesByProjectCode(projectCode, undefined, isCustomTfsEnabled)
+  const binLocations = useWarehouseBinLocations(warehouseCode ?? '', undefined, isCustomTfsEnabled)
 
   const warehouseOptions = useMemo(() => {
     if (projectWarehouses.isLoading || projectWarehouses.data.length < 1) return []
@@ -245,7 +248,7 @@ export default function ProjectItemForm({
           form.setValue('commodities', batch.U_Commodities ?? null)
           form.setValue('site', batch.U_Site ?? null)
           form.setValue('cmSite', batch.U_CMSite ?? null)
-          form.setValue('phase', safeParseInt(batch.U_Phase) || null)
+          form.setValue('phase', batch.U_Phase ? String(batch.U_Phase) : null)
           form.setValue('totalStock', safeParseFloat(batch.Quantity))
           form.setValue('dateReceived', parseSapCompactDate(batch.InDate) ?? null)
           form.setValue('notes', batch.Notes ?? null)
@@ -479,61 +482,65 @@ export default function ProjectItemForm({
               <Separator className='col-span-12' />
               <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Location' description='Item location details' />
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <SelectBoxField
-                  data={warehouseOptions}
-                  isLoading={projectWarehouses.isLoading}
-                  control={form.control}
-                  name='warehouseCode'
-                  label='Warehouse'
-                  valueExpr='value'
-                  displayExpr={(item) => (item ? `${item?.label} (${item?.value})` : '')}
-                  searchExpr={['label', 'value']}
-                  description='Only warehouses assigned to this project'
-                  callback={handleWarehouseChanged}
-                  extendedProps={{
-                    selectBoxOptions: {
-                      itemRender: (params) => {
-                        return commonItemRender({
-                          title: params?.label,
-                          value: params?.value,
-                        })
-                      },
-                    },
-                  }}
-                />
-              </div>
+              {isCustomTfsEnabled && (
+                <>
+                  <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                    <SelectBoxField
+                      data={warehouseOptions}
+                      isLoading={projectWarehouses.isLoading}
+                      control={form.control}
+                      name='warehouseCode'
+                      label='Warehouse'
+                      valueExpr='value'
+                      displayExpr={(item) => (item ? `${item?.label} (${item?.value})` : '')}
+                      searchExpr={['label', 'value']}
+                      description='Only warehouses assigned to this project'
+                      callback={handleWarehouseChanged}
+                      extendedProps={{
+                        selectBoxOptions: {
+                          itemRender: (params) => {
+                            return commonItemRender({
+                              title: params?.label,
+                              value: params?.value,
+                            })
+                          },
+                        },
+                      }}
+                    />
+                  </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <SelectBoxField
-                  data={binLocationOptions}
-                  isLoading={binLocations.isLoading}
-                  control={form.control}
-                  name='binCode'
-                  label='Bin Location'
-                  valueExpr='value'
-                  displayExpr='value'
-                  searchExpr={['label', 'value']}
-                  description={!warehouseCode ? 'Select a warehouse first' : undefined}
-                  extendedProps={{ selectBoxOptions: { disabled: !warehouseCode } }}
-                />
-              </div>
+                  <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                    <SelectBoxField
+                      data={binLocationOptions}
+                      isLoading={binLocations.isLoading}
+                      control={form.control}
+                      name='binCode'
+                      label='Bin Location'
+                      valueExpr='value'
+                      displayExpr='value'
+                      searchExpr={['label', 'value']}
+                      description={!warehouseCode ? 'Select a warehouse first' : undefined}
+                      extendedProps={{ selectBoxOptions: { disabled: !warehouseCode } }}
+                    />
+                  </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <TextBoxField
-                  control={form.control}
-                  name='DistNumber'
-                  label='Batch Number'
-                  callback={handleDistNumberChanged}
-                  callbackDebounce={1000}
-                  description={
-                    !itemCode || !warehouseCode || !binCode
-                      ? 'Select an item, warehouse, bin location first'
-                      : 'Fills the fields below from SAP'
-                  }
-                  extendedProps={{ textBoxOptions: { disabled: !itemCode || !warehouseCode || !binCode } }}
-                />
-              </div>
+                  <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                    <TextBoxField
+                      control={form.control}
+                      name='DistNumber'
+                      label='Batch Number'
+                      callback={handleDistNumberChanged}
+                      callbackDebounce={1000}
+                      description={
+                        !itemCode || !warehouseCode || !binCode
+                          ? 'Select an item, warehouse, bin location first'
+                          : 'Fills the fields below from SAP'
+                      }
+                      extendedProps={{ textBoxOptions: { disabled: !itemCode || !warehouseCode || !binCode } }}
+                    />
+                  </div>
+                </>
+              )}
 
               <div className='col-span-12 md:col-span-6 lg:col-span-4'>
                 <TextBoxField control={form.control} name='siteLocation' label='Site Location' isRequired />
@@ -549,7 +556,10 @@ export default function ProjectItemForm({
 
               <Separator className='col-span-12' />
 
-              <ProjectIndividualItemSapInventory warehouseCode={warehouseCode} itemCode={selectedBaseItem?.ItemCode} />
+              {/* //* nothing to show without a warehouse, so the panel goes with it */}
+              {isCustomTfsEnabled && (
+                <ProjectIndividualItemSapInventory warehouseCode={warehouseCode} itemCode={selectedBaseItem?.ItemCode} />
+              )}
 
               <Separator className='col-span-12' />
               <ReadOnlyFieldHeader className='col-span-12 mb-1' title='Project Item' description='Project item details' />
@@ -558,43 +568,47 @@ export default function ProjectItemForm({
                 <TextBoxField control={form.control} name='owner' label='Owner' />
               </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField control={form.control} name='group' label='Group' />
-              </div>
+              {isCustomTfsEnabled && (
+                <>
+                  <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                    <TextBoxField control={form.control} name='group' label='Group' />
+                  </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField control={form.control} name='division' label='Division' />
-              </div>
+                  <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                    <TextBoxField control={form.control} name='division' label='Division' />
+                  </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField control={form.control} name='site' label='Site' />
-              </div>
+                  <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                    <TextBoxField control={form.control} name='site' label='Site' />
+                  </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField control={form.control} name='cmSite' label='CM Site' />
-              </div>
+                  <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                    <TextBoxField control={form.control} name='cmSite' label='CM Site' />
+                  </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <NumberBoxField control={form.control} name='phase' label='Phase' />
-              </div>
+                  <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                    <TextBoxField control={form.control} name='phase' label='Phase' />
+                  </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <NumberBoxField
-                  control={form.control}
-                  name='tfsStdPrice'
-                  label='TFS Standard Price'
-                  extendedProps={{ numberBoxOptions: { format: DEFAULT_CURRENCY_FORMAT } }}
-                />
-              </div>
+                  <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                    <NumberBoxField
+                      control={form.control}
+                      name='tfsStdPrice'
+                      label='TFS Standard Price'
+                      extendedProps={{ numberBoxOptions: { format: DEFAULT_CURRENCY_FORMAT } }}
+                    />
+                  </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <NumberBoxField
-                  control={form.control}
-                  name='omegaPrice'
-                  label='Omega Price'
-                  extendedProps={{ numberBoxOptions: { format: DEFAULT_CURRENCY_FORMAT } }}
-                />
-              </div>
+                  <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                    <NumberBoxField
+                      control={form.control}
+                      name='omegaPrice'
+                      label='Omega Price'
+                      extendedProps={{ numberBoxOptions: { format: DEFAULT_CURRENCY_FORMAT } }}
+                    />
+                  </div>
+                </>
+              )}
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                 <TextBoxField control={form.control} name='partNumber' label='Part Number' />

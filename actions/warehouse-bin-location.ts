@@ -2,7 +2,7 @@
 
 import z from 'zod'
 
-import { action, authenticationMiddleware } from '@/utils/safe-action'
+import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe-action'
 import { db } from '@/utils/db'
 import { whBinLocationFormSchema } from '@/schema/warehouse'
 import { paramsSchema } from '@/schema/common'
@@ -14,11 +14,11 @@ import { SAP_BASE_URL, WAREHOUSE_BIN_LOCATION_MAX_PAGE_SIZE } from '@/constants/
 import { isSapError, safeParseInt } from '@/utils'
 import logger from '@/utils/logger'
 
-export async function getWarehouseBinLocations(warehouseCode: string) {
+export async function getWarehouseBinLocations(dbCode: string, warehouseCode: string) {
   if (!warehouseCode) return []
 
   try {
-    return db.warehouseBinLocation.findMany({ where: { WarehouseCode: warehouseCode }, orderBy: { updatedAt: 'asc' } })
+    return db.warehouseBinLocation.findMany({ where: { dbCode, WarehouseCode: warehouseCode }, orderBy: { updatedAt: 'asc' } })
   } catch (error) {
     console.error(error)
     return []
@@ -61,21 +61,23 @@ export async function getMasterBinLocations(warehouseCode: string) {
 
 export const getWarehouseBinLocationsClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(z.object({ warehouseCode: z.string() }))
-  .action(async ({ parsedInput }) => {
-    return getWarehouseBinLocations(parsedInput.warehouseCode)
+  .action(async ({ ctx, parsedInput }) => {
+    return getWarehouseBinLocations(ctx.dbCode, parsedInput.warehouseCode)
   })
 
 export const upsertWarehouseBinLocation = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(whBinLocationFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, ...data } = parsedInput
-    const { userId } = ctx
+    const { userId, dbCode } = ctx
 
     try {
       const existingBinLocation = await db.warehouseBinLocation.findFirst({
-        where: { BinCode: data.BinCode, ...(code && code !== -1 && { code: { not: code } }) },
+        where: { dbCode, BinCode: data.BinCode, ...(code && code !== -1 && { code: { not: code } }) },
       })
 
       //* check if existing
@@ -83,7 +85,11 @@ export const upsertWarehouseBinLocation = action
 
       //* update bin location
       if (code !== -1) {
-        const updatedBinLocation = await db.warehouseBinLocation.update({ where: { code }, data: { ...data, updatedBy: userId } })
+        const targetBin = await db.warehouseBinLocation.findFirst({ where: { code, dbCode } })
+
+        if (!targetBin) return { error: true, status: 404, message: 'Bin location not found!', action: 'UPSERT_WAREHOUSE_BIN_LOCATION' }
+
+        const updatedBinLocation = await db.warehouseBinLocation.update({ where: { id: targetBin.id }, data: { ...data, updatedBy: userId } }) //prettier-ignore
 
         //* create notification
         void createNotification(ctx, {
@@ -106,7 +112,7 @@ export const upsertWarehouseBinLocation = action
       }
 
       //* create bin location
-      const newBinLocation = await db.warehouseBinLocation.create({ data: { ...data, createdBy: userId, updatedBy: userId } })
+      const newBinLocation = await db.warehouseBinLocation.create({ data: { ...data, dbCode, createdBy: userId, updatedBy: userId } })
 
       //* create notification
       // void createNotification(ctx, {
@@ -140,15 +146,19 @@ export const upsertWarehouseBinLocation = action
 
 export const deleleteWarehouseBinLocation = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(paramsSchema)
   .action(async ({ ctx, parsedInput: data }) => {
     try {
-      const warehouseBinLocation = await db.warehouseBinLocation.findUnique({ where: { code: data.code } })
+      const warehouseBinLocation = await db.warehouseBinLocation.findFirst({ where: { code: data.code, dbCode: ctx.dbCode } })
 
       if (!warehouseBinLocation)
         return { error: true, status: 404, message: 'Bin Location not found!', action: 'DELETE_WAREHOUSE_BIN_LOCATION' }
 
-      await db.warehouseBinLocation.update({ where: { code: data.code }, data: { deletedAt: new Date(), deletedBy: ctx.userId } })
+      await db.warehouseBinLocation.update({
+        where: { id: warehouseBinLocation.id },
+        data: { deletedAt: new Date(), deletedBy: ctx.userId },
+      })
 
       //* create notification
       // void createNotification(ctx, {
@@ -177,14 +187,15 @@ export const deleleteWarehouseBinLocation = action
 
 export const restoreWarehouseBinLocation = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(paramsSchema)
   .action(async ({ ctx, parsedInput: data }) => {
     try {
-      const warehouseBinLocation = await db.warehouseBinLocation.findUnique({ where: { code: data.code } })
+      const warehouseBinLocation = await db.warehouseBinLocation.findFirst({ where: { code: data.code, dbCode: ctx.dbCode } })
 
       if (!warehouseBinLocation) return { error: true, status: 404, message: 'Bin not found!', action: 'RESTORE_ROLE' }
 
-      await db.warehouseBinLocation.update({ where: { code: data.code }, data: { deletedAt: null, deletedBy: null } })
+      await db.warehouseBinLocation.update({ where: { id: warehouseBinLocation.id }, data: { deletedAt: null, deletedBy: null } })
 
       //* create notification
       // void createNotification(ctx, {

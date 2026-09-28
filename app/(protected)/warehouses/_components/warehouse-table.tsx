@@ -12,8 +12,17 @@ import { Item } from 'devextreme-react/toolbar'
 import Tooltip from 'devextreme-react/tooltip'
 import ProgressBar from 'devextreme-react/progress-bar'
 
-import { deleleteWarehouse, getWarehouseMaster, getWarehouses, restoreWarehouse, syncFromSap, syncToSap } from '@/actions/warehouse'
+import {
+  deleleteWarehouse,
+  getWarehouseMasterByPage,
+  getWarehouseMasterCount,
+  getWarehouses,
+  restoreWarehouse,
+  syncFromSap,
+  syncToSap,
+} from '@/actions/warehouse'
 import PageHeader from '@/app/(protected)/_components/page-header'
+import { Badge } from '@/components/badge'
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
 import CommonPageHeaderToolbarItems from '@/app/(protected)/_components/common-page-header-toolbar-item'
@@ -22,7 +31,7 @@ import CommonDataGrid from '@/components/common-datagrid'
 import ImportSyncErrorDataGrid from '@/components/import-error-datagrid'
 import LoadingButton from '@/components/loading-button'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
-import { SYNC_TO_SAP_CHUNK_SIZE } from '@/constants/sap'
+import { SYNC_TO_SAP_CHUNK_SIZE, WAREHOUSE_MASTER_MAX_PAGE_SIZE } from '@/constants/sap'
 import { NotificationContext } from '@/context/notification'
 import { useSyncMeta } from '@/hooks/safe-actions/sync-meta'
 import { SyncToSapForm, syncToSapFormSchema } from '@/schema/warehouse'
@@ -30,6 +39,7 @@ import { Stats, SyncSectionState } from '@/types/common'
 import { chunkArray } from '@/utils'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import CanView from '@/components/acl/can-view'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 
 type WarehousesTableProps = { warehouses: Awaited<ReturnType<typeof getWarehouses>> }
 type DataSource = Awaited<ReturnType<typeof getWarehouses>>
@@ -76,6 +86,11 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
   const syncToSapData = useAction(syncToSap)
   const syncFromSapData = useAction(syncFromSap)
   const syncMeta = useSyncMeta('warehouse')
+
+  const lastSyncedLabel = useMemo(() => {
+    if (!syncMeta.data?.lastSyncAt) return 'Never synced'
+    return `Last synced: ${format(syncMeta.data.lastSyncAt, 'PP, hh:mm a')}`
+  }, [syncMeta.data?.lastSyncAt])
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
@@ -285,9 +300,8 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
     setSyncFromSapState((prev) => ({ ...prev, showConfirmation: false, stats: { ...INITIAL_STATS, status: 'processing' } }))
 
     try {
-      //* fetch the whole warehouse master from sap, it is small enough to be fetched in a single call
-      const warehouseMaster = await getWarehouseMaster()
-      const totalCount = warehouseMaster.length
+      //* get total count of warehouse master from sap
+      const totalCount = await getWarehouseMasterCount()
 
       if (totalCount < 1) {
         toast.error('Failed to fetch warehouse master from SAP!')
@@ -296,28 +310,43 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
         return
       }
 
-      const chunks = chunkArray(warehouseMaster, SYNC_TO_SAP_CHUNK_SIZE)
+      const totalPage = Math.ceil(totalCount / WAREHOUSE_MASTER_MAX_PAGE_SIZE)
 
-      //* trigger sync by chunk
+      //* trigger sync by page
       let stats: Stats = { total: totalCount, completed: 0, synced: 0, progress: 0, errors: [], status: 'processing' }
 
-      for (let i = 0; i < chunks.length; i++) {
-        const isLastChunk = i === chunks.length - 1
+      for (let page = 0; page <= totalPage; page++) {
+        const isLastPage = page === totalPage
 
-        const response = await syncFromSapData.executeAsync({
-          data: chunks[i],
-          total: totalCount,
-          stats,
-          isLastRow: isLastChunk,
-        })
-        const result = response?.data
+        //* fetch warehouse master from sap per page
+        const pageData = await getWarehouseMasterByPage(page)
 
-        if (result?.error) {
-          setSyncFromSapState((prev) => ({ ...prev, stats: { ...prev.stats, errors: [...prev.stats.errors, ...result.stats.errors] } }))
-          stats.errors = [...stats.errors, ...result.stats.errors]
-        } else if (result?.stats) {
-          setSyncFromSapState((prev) => ({ ...prev, stats: result.stats }))
-          stats = result.stats
+        if (pageData.length < 1) {
+          if (isLastPage) stats.status = 'completed'
+          continue
+        }
+
+        //* send the page in small chunks, the sync fetches bin locations per warehouse
+        const chunks = chunkArray(pageData, SYNC_TO_SAP_CHUNK_SIZE)
+
+        for (let i = 0; i < chunks.length; i++) {
+          const isLastChunk = i === chunks.length - 1
+
+          const response = await syncFromSapData.executeAsync({
+            data: chunks[i],
+            total: totalCount,
+            stats,
+            isLastRow: isLastPage && isLastChunk,
+          })
+          const result = response?.data
+
+          if (result?.error) {
+            setSyncFromSapState((prev) => ({ ...prev, stats: { ...prev.stats, errors: [...prev.stats.errors, ...result.stats.errors] } }))
+            stats.errors = [...stats.errors, ...result.stats.errors]
+          } else if (result?.stats) {
+            setSyncFromSapState((prev) => ({ ...prev, stats: result.stats }))
+            stats = result.stats
+          }
         }
       }
 
@@ -344,8 +373,16 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
 
   return (
     <div className='h-full w-full space-y-5'>
-      <PageHeader title='Warehouses' description='Manage and track your warehouses effectively'>
-        {selectedRowKeys.length > 0 && (
+      <PageHeader
+        title={
+          <>
+            <span className='pr-1.5'>Warehouses</span>
+            <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>
+          </>
+        }
+        description='Manage and track your warehouses effectively'
+      >
+        {/* {selectedRowKeys.length > 0 && (
           <CanView subject='p-warehouses' action='sync to sap'>
             <Item location='after' locateInMenu='auto' widget='dxButton'>
               <Tooltip
@@ -367,7 +404,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
               />
             </Item>
           </CanView>
-        )}
+        )} */}
 
         {selectedRowKeys.length < 1 && (
           <CanView subject='p-warehouses' action='sync from sap'>
@@ -375,7 +412,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
               {!syncMeta.isLoading && (
                 <Tooltip
                   target='#sync-warehouses-from-sap'
-                  contentRender={() => `Last Sync: ${format(syncMeta.data?.lastSyncAt || new Date('01/01/2020'), 'PP, hh:mm a')}`}
+                  contentRender={() => lastSyncedLabel}
                   showEvent='mouseenter'
                   hideEvent='mouseleave'
                   position='top'
@@ -399,7 +436,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
           dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
           dataGridRef={dataGridRef}
           isLoading={isLoading || syncToSapData.isExecuting || syncFromSapData.isExecuting}
-          addButton={{ text: 'Add Warehouse', onClick: () => router.push('/warehouses/add'), subjects: 'p-warehouses', actions: 'create' }}
+          // addButton={{ text: 'Add Warehouse', onClick: () => router.push('/warehouses/add'), subjects: 'p-warehouses', actions: 'create' }}
           exportOptions={{ subjects: 'p-warehouses', actions: 'export' }}
         />
 
@@ -419,7 +456,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
           storageKey={DATAGRID_STORAGE_KEY}
           keyExpr='code'
           dataGridStore={dataGridStore}
-          isSelectionEnable
+          // isSelectionEnable
           selectedRowKeys={selectedRowKeys}
           callbacks={{ onCellPrepared: handleOnCellPrepared, onSelectionChanged: handleOnSelectionChanged }}
         >
@@ -454,7 +491,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
               <DataGridButton icon='eyeopen' onClick={handleView} cssClass='!text-lg' hint='View' />
             </CanView>
 
-            <CanView subject='p-warehouses' action='edit'>
+            {/* <CanView subject='p-warehouses' action='edit'>
               <DataGridButton
                 icon='edit'
                 onClick={handleEdit}
@@ -475,7 +512,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
                 hint='Delete'
                 visible={(opt) => {
                   const data = opt?.row?.data
-                  return hideActionButton(data?.deletedAt || data?.deletedBy || data?.syncStatus === 'synced' || data.key === 'admin')
+                  return hideActionButton(data?.deletedAt || data?.deletedBy || data?.syncStatus === 'synced' || data.key === SUPER_USER_ROLE_KEY)
                 }}
               />
             </CanView>
@@ -491,7 +528,7 @@ export default function WarehouseTable({ warehouses }: WarehousesTableProps) {
                   return showActionButton(data?.deletedAt || data?.deletedBy)
                 }}
               />
-            </CanView>
+            </CanView> */}
           </Column>
         </CommonDataGrid>
       </PageContentWrapper>

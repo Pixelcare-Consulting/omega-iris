@@ -26,6 +26,7 @@ import {
   importProjectItems,
   restoreProjectItem,
   restoreProjectItems,
+  syncProjectItemsFromSapClient,
 } from '@/actions/project-item'
 import ProjectItemForm from '../project-individual-item-form'
 import { useProjecItems } from '@/hooks/safe-actions/project-item'
@@ -46,11 +47,18 @@ import LoadingButton from '@/components/loading-button'
 import CanView from '@/components/acl/can-view'
 import Column from '@/components/column'
 import { HiddenFieldsContext } from '@/context/hidden-fields-context'
+import { Badge } from '@/components/badge'
+import { useJobSchedule, useSyncMeta } from '@/hooks/safe-actions/sync-meta'
+import { PROJECT_ITEM_SYNC_JOB_CODE, PROJECT_ITEM_SYNC_META_CODE } from '@/constants/sap'
+import { TFS_ONLY_FIELDS } from '@/constants/project-item'
+import { MODULE_NAME } from '@/constants/module'
+import { useCurrentUserHiddenFields } from '@/hooks/safe-actions/user-hidden-field'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
+import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 
 type ProjectIndividualItemTabProps = {
   projectCode: number
   projectName: string
-  projectItemHiddenFields?: string[]
   items: ReturnType<typeof useProjecItems>
 }
 type DataSource = Awaited<ReturnType<typeof getProjecItems>>
@@ -67,11 +75,11 @@ const INITIAL_SYNC_SECTION_STATE: SyncSectionState = {
 export default function ProjectIndividualItemTab({
   projectCode,
   projectName,
-  projectItemHiddenFields = [],
   items,
 }: ProjectIndividualItemTabProps) {
   const { data: session } = useSession()
   const router = useRouter()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual-item'
   const DATAGRID_UNIQUE_KEY = 'project-individual-items'
@@ -84,6 +92,7 @@ export default function ProjectIndividualItemTab({
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [showDeleleteSelectedConfirmation, setShowDeleleteSelectedConfirmation] = useState(false)
   const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false)
+  const [showSyncFromSapConfirmation, setShowSyncFromSapConfirmation] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [rowData, setRowData] = useState<DataSource[number] | null>(null)
   const [isViewMode, setIsViewMode] = useState(false)
@@ -91,7 +100,8 @@ export default function ProjectIndividualItemTab({
   const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([])
 
   const users = useUsers()
-  const itemMasters = useItems(process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' ? true : false)
+  //* synced-only applies to isEnabledCustomTfsProcess true companies, others can still pick pending items 
+  const itemMasters = useItems(process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' && isCustomTfsEnabled)
 
   const dataGridRef = useRef<DataGridRef | null>(null)
   const importErrorDataGridRef = useRef<DataGridRef | null>(null)
@@ -100,18 +110,45 @@ export default function ProjectIndividualItemTab({
   const deleteProjectItemsData = useAction(deleteProjectItems)
   const restoreProjectItemData = useAction(restoreProjectItem)
   const importData = useAction(importProjectItems)
+  const syncFromSapData = useAction(syncProjectItemsFromSapClient)
 
   const dataGridStore = useDataGridStore(COMMON_DATAGRID_STORE_KEYS)
 
+  const syncMeta = useSyncMeta(PROJECT_ITEM_SYNC_META_CODE)
+  const jobSchedule = useJobSchedule(PROJECT_ITEM_SYNC_JOB_CODE)
+
+  const lastSyncedLabel = useMemo(() => {
+    if (!syncMeta.data?.lastSyncAt) return 'Never synced'
+    return `Last synced: ${format(syncMeta.data.lastSyncAt, 'PP, hh:mm a')}`
+  }, [syncMeta.data?.lastSyncAt])
+
+  //* tells the user the sync also runs on its own, so they know a manual run is optional
+  const autoSyncLabel = useMemo(() => {
+    if (!jobSchedule.isEnabled) return 'Auto sync: off'
+    return `Auto sync: ${jobSchedule.label}`
+  }, [jobSchedule.isEnabled, jobSchedule.label])
+
+  const syncFromSapDescription = useMemo(() => {
+    const base =
+      'This syncs delivery batches from SAP for every project in the system, not only this one. Existing batches are updated and new ones are added.'
+
+    if (!jobSchedule.isEnabled) return `${base} Automatic syncing is off, so batches only come in when someone syncs by hand.`
+
+    return `${base} This also runs on its own ${jobSchedule.label}, so a manual sync is only needed when you cannot wait for the next run.`
+  }, [jobSchedule.isEnabled, jobSchedule.label])
+
   const isBusinessPartner = useMemo(() => {
     if (!session) return false
-    return session.user.roleKey === 'business-partner'
+    return session.user.roleKey === BUSINESS_PARTNER_ROLE_KEY
   }, [JSON.stringify(session)])
 
+  const userHiddenFields = useCurrentUserHiddenFields(MODULE_NAME.PROJECT_ITEMS)
+
   const hiddenFields = useMemo(() => {
-    if (isBusinessPartner) return projectItemHiddenFields
-    return []
-  }, [isBusinessPartner, JSON.stringify(projectItemHiddenFields)])
+    //* warehouse, bin and batch have no meaning outside the custom tfs process
+    const tfsFields = isCustomTfsEnabled ? [] : TFS_ONLY_FIELDS
+    return [...userHiddenFields.data, ...tfsFields]
+  }, [isCustomTfsEnabled, JSON.stringify(userHiddenFields.data)])
 
   const thumbnailCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
     const data = e.data as DataSource[number]
@@ -426,6 +463,29 @@ export default function ProjectIndividualItemTab({
     }
   }
 
+  //* pulls batches of every synced warehouse, not just this project — the same run the 30 minute cron does
+  const handleConfirmSyncFromSap = async () => {
+    setShowSyncFromSapConfirmation(false)
+
+    try {
+      const response = await syncFromSapData.executeAsync()
+      const result = response?.data
+
+      if (!result || result.error) {
+        toast.error(result?.message || 'Failed to sync from SAP')
+        return
+      }
+
+      toast.success(`Project items synced from SAP! ${result.message}`)
+      router.refresh()
+      items.execute({ projectCode })
+      syncMeta.execute({ code: PROJECT_ITEM_SYNC_META_CODE })
+    } catch (error: any) {
+      console.error(error)
+      toast.error(error?.message || 'Failed to sync from SAP')
+    }
+  }
+
   const renderCommonSummaryIItems = () => {
     return (
       <>
@@ -483,6 +543,18 @@ export default function ProjectIndividualItemTab({
       {!isViewMode ? (
         <div className='flex h-full w-full flex-col'>
           <Toolbar className='mt-5 px-4'>
+            {isCustomTfsEnabled && !syncMeta.isLoading && (
+              <Item location='before' locateInMenu='auto'>
+                <Badge variant={syncMeta.data?.lastSyncAt ? 'soft-green' : 'soft-slate'}>{lastSyncedLabel}</Badge>
+              </Item>
+            )}
+
+            {isCustomTfsEnabled && !jobSchedule.isLoading && (
+              <Item location='before' locateInMenu='auto'>
+                <Badge variant={jobSchedule.isEnabled ? 'soft-slate' : 'soft-amber'}>{autoSyncLabel}</Badge>
+              </Item>
+            )}
+
             {selectedRowKeys.length > 0 && (
               <CanView subject='p-projects-individual-inventory' action='delete'>
                 <Item location='after' locateInMenu='auto' widget='dxMenu'>
@@ -500,6 +572,29 @@ export default function ProjectIndividualItemTab({
               </CanView>
             )}
 
+            {isCustomTfsEnabled && (
+              <CanView subject='p-projects-individual-inventory' action='sync from sap'>
+                <Item location='after' locateInMenu='auto' widget='dxMenu'>
+                  <Tooltip
+                    target='#sync-from-sap'
+                    contentRender={() => 'Sync batches from SAP'}
+                    showEvent='mouseenter'
+                    hideEvent='mouseleave'
+                    position='top'
+                  />
+                  <LoadingButton
+                    id='sync-from-sap'
+                    icon='refresh'
+                    isLoading={isLoading || importData.isExecuting || syncFromSapData.isExecuting}
+                    text='Sync from SAP'
+                    type='default'
+                    stylingMode='outlined'
+                    onClick={() => setShowSyncFromSapConfirmation(true)}
+                  />
+                </Item>
+              </CanView>
+            )}
+
             <CommonPageHeaderToolbarItems
               dataGridUniqueKey={DATAGRID_UNIQUE_KEY}
               dataGridRef={dataGridRef}
@@ -509,12 +604,16 @@ export default function ProjectIndividualItemTab({
               addButton={{
                 text: 'Add Item',
                 onClick: handleAdd,
-                isHide: isBusinessPartner,
+                isHide: isBusinessPartner || isCustomTfsEnabled,
                 subjects: 'p-projects-individual-inventory',
                 actions: 'create',
               }}
               customs={{ exportToExcel }}
-              importOptions={{ isHide: isBusinessPartner, subjects: 'p-projects-individual-inventory', actions: 'import' }}
+              importOptions={{
+                isHide: isBusinessPartner || isCustomTfsEnabled,
+                subjects: 'p-projects-individual-inventory',
+                actions: 'import',
+              }}
               exportOptions={{ subjects: 'p-projects-individual-inventory', actions: 'export' }}
             />
 
@@ -531,8 +630,11 @@ export default function ProjectIndividualItemTab({
               storageKey={DATAGRID_STORAGE_KEY}
               keyExpr='code'
               isSelectionEnable={
-                CanView({ isReturnBoolean: true, subject: 'p-projects-individual-inventory', action: ['delete'] }) ? true : false
+                !isCustomTfsEnabled && CanView({ isReturnBoolean: true, subject: 'p-projects-individual-inventory', action: ['delete'] })
+                  ? true
+                  : false
               }
+              selectedRowKeys={selectedRowKeys}
               dataGridStore={dataGridStore}
               callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChanged, onContentReady: handleOnContentReady }}
             >
@@ -671,7 +773,7 @@ export default function ProjectIndividualItemTab({
                       hint='Edit'
                       visible={(opt) => {
                         const data = opt?.row?.data
-                        return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner)
+                        return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner || isCustomTfsEnabled)
                       }}
                     />
                   </CanView>
@@ -684,7 +786,7 @@ export default function ProjectIndividualItemTab({
                       hint='Delete'
                       visible={(opt) => {
                         const data = opt?.row?.data
-                        return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner)
+                        return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner || isCustomTfsEnabled)
                       }}
                     />
                   </CanView>
@@ -749,6 +851,16 @@ export default function ProjectIndividualItemTab({
               description={`Are you sure you want to restore this inventory item named "${rowData?.item.ItemName}"?`}
               onConfirm={() => handleConfirmRestore(rowData?.code)}
               onCancel={() => setShowRestoreConfirmation(false)}
+            />
+
+            <AlertDialog
+              isOpen={showSyncFromSapConfirmation}
+              title='Are you sure?'
+              height={230}
+              maxWidth={620}
+              description={syncFromSapDescription}
+              onConfirm={handleConfirmSyncFromSap}
+              onCancel={() => setShowSyncFromSapConfirmation(false)}
             />
 
             <ImportSyncErrorDataGrid

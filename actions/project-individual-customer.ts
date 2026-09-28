@@ -3,7 +3,7 @@
 import { Prisma } from '@prisma/client'
 import z from 'zod'
 
-import { action, authenticationMiddleware } from '@/utils/safe-action'
+import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe-action'
 import { db } from '@/utils/db'
 
 const COMMON_PI_CUSTOMER_INCLUDE = {
@@ -11,12 +11,12 @@ const COMMON_PI_CUSTOMER_INCLUDE = {
 } satisfies Prisma.ProjectIndividualCustomerInclude
 const COMMON_PI_CUSTOMER_ORDER_BY = { user: { code: 'asc' } } satisfies Prisma.ProjectIndividualCustomerOrderByWithRelationInput
 
-export async function getPiCustomersByProjectCode(projectCode?: number | null) {
+export async function getPiCustomersByProjectCode(dbCode: string, projectCode?: number | null) {
   if (!projectCode) return []
 
   try {
     return db.projectIndividualCustomer.findMany({
-      where: { projectIndividualCode: projectCode },
+      where: { dbCode, projectIndividualCode: projectCode },
       include: COMMON_PI_CUSTOMER_INCLUDE,
       orderBy: COMMON_PI_CUSTOMER_ORDER_BY,
     })
@@ -28,16 +28,17 @@ export async function getPiCustomersByProjectCode(projectCode?: number | null) {
 
 export const getPiCustomersByProjectCodeClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(z.object({ projectCode: z.number().nullish() }))
-  .action(async ({ parsedInput: data }) => {
-    return getPiCustomersByProjectCode(data.projectCode)
+  .action(async ({ ctx, parsedInput: data }) => {
+    return getPiCustomersByProjectCode(ctx.dbCode, data.projectCode)
   })
 
-export async function getPiCustomersByUserCode(userCode?: number | null) {
+export async function getPiCustomersByUserCode(dbCode: string, userCode?: number | null) {
   if (!userCode) return []
 
   try {
-    return db.projectIndividualCustomer.findMany({ where: { userCode } })
+    return db.projectIndividualCustomer.findMany({ where: { dbCode, userCode } })
   } catch (error) {
     console.error(error)
     return []
@@ -46,7 +47,8 @@ export async function getPiCustomersByUserCode(userCode?: number | null) {
 
 export const getPiCustomerByUserCodeClient = action
   .use(authenticationMiddleware)
+  .use(tenantMiddleware)
   .schema(z.object({ userCode: z.number().nullish() }))
-  .action(async ({ parsedInput: data }) => {
-    return getPiCustomersByUserCode(data.userCode)
+  .action(async ({ ctx, parsedInput: data }) => {
+    return getPiCustomersByUserCode(ctx.dbCode, data.userCode)
   })

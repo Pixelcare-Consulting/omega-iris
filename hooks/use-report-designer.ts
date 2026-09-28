@@ -2,7 +2,9 @@
 
 import { getStimulsoftLicenseKeyClient } from '@/actions/stimulsoft'
 import { DashboardRptDesignerProps, PaginatedRptDesignerProps } from '@/components/report-designer'
+import { useSapDatabase } from '@/hooks/use-sap-database'
 import { REPORT_BLANK_SRC, ReportType } from '@/schema/report'
+import { applyReportParams, REPORT_DB_CODE_PARAM } from '@/utils/stimulsoft'
 import { useAction } from 'next-safe-action/hooks'
 import { useEffect, useRef, useState } from 'react'
 
@@ -36,6 +38,10 @@ export function useReportDesigner<T extends keyof ReportDesignerTypeMap>(
   const [isReady, setIsReady] = useState(false)
 
   const stimulsoftlicenseKeyData = useAction(getStimulsoftLicenseKeyClient)
+  const { sapDbCode } = useSapDatabase()
+
+  //* company scope goes last so a caller cannot override it
+  const reportParams = { ...params, [REPORT_DB_CODE_PARAM]: sapDbCode ?? '' }
 
   const load = async (type: ReportType) => {
     switch (type) {
@@ -57,13 +63,7 @@ export function useReportDesigner<T extends keyof ReportDesignerTypeMap>(
           else report.loadFile(REPORT_BLANK_SRC['1'])
 
           //* inject parameters
-          if (params) {
-            Object.entries(params).forEach(([key, value]) => {
-              const variables = report.dictionary.variables
-              const variable = variables.getByName(key)
-              if (variable) variable.value = value
-            })
-          }
+          applyReportParams(report, reportParams)
 
           //* set web server url
           stiDashboardRptDesigner.StiOptions.WebServer.url = process.env.NEXT_PUBLIC_REPORT_SERVER_URL!
@@ -107,13 +107,7 @@ export function useReportDesigner<T extends keyof ReportDesignerTypeMap>(
           else report.loadFile(REPORT_BLANK_SRC['2'])
 
           //* inject parameters
-          if (params) {
-            Object.entries(params).forEach(([key, value]) => {
-              const variables = report.dictionary.variables
-              const variable = variables.getByName(key)
-              if (variable) variable.value = value
-            })
-          }
+          applyReportParams(report, reportParams)
 
           //* set web server url!
           stiPaginatedRptDesigner.StiOptions.WebServer.url = process.env.NEXT_PUBLIC_REPORT_SERVER_URL!
@@ -177,7 +171,7 @@ export function useReportDesigner<T extends keyof ReportDesignerTypeMap>(
       setReport(undefined)
       setOptions(undefined)
     }
-  }, [type, data, isReady])
+  }, [type, data, isReady, sapDbCode])
 
   return { report, options, load, isMounted, isReady }
 }
