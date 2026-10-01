@@ -25,11 +25,11 @@ import TextBoxField from '@/components/forms/text-box-field'
 import SwitchField from '@/components/forms/switch-field'
 import { DashboardDesignerModule, PaginatedDesignerModule } from '@/utils/stimulsoft'
 
-type ReportFormProps = { pageMetaData: PageMetadata; report: Awaited<ReturnType<typeof getReportByCode>> }
+type ReportFormProps = { pageMetaData: PageMetadata; report: Awaited<ReturnType<typeof getReportByCode>>; blankData?: string | null }
 
 const ReportDesigner = dynamic(() => import('@/components/report-designer'), { ssr: false })
 
-export default function ReportForm({ pageMetaData, report }: ReportFormProps) {
+export default function ReportForm({ pageMetaData, report, blankData }: ReportFormProps) {
   const router = useRouter()
   const { code } = useParams() as { code: string }
   const searchParams = useSearchParams()
@@ -196,7 +196,8 @@ export default function ReportForm({ pageMetaData, report }: ReportFormProps) {
             <ReportDesigner
               key={report?.code}
               type={type}
-              data={report?.data}
+              //* a new report starts from the saved blank, or an empty report when there is none
+              data={report?.data || blankData || undefined}
               designerProps={{
                 onSaveAsReport: handleOnSaveAsReport,
                 onSaveReport: handleOnSaveReport,

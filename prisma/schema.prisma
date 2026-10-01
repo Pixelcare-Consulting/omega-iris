@@ -825,6 +825,7 @@ model Report {
     isFeatured  Boolean @default(true)
     isDefault   Boolean @default(false)
     isInternal  Boolean @default(false)
+    isBlank     Boolean @default(false) //* the template new reports start from, one per type, hidden from every list
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
