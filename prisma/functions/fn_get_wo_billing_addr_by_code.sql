@@ -65,9 +65,13 @@ BEGIN
     INNER JOIN "User" T1
         ON T1."code" = T0."userCode"
         AND T1."deletedAt" IS NULL
+    INNER JOIN "UserBpProfile" T3
+        ON T3."userCode" = T1."code"
+        AND T3."dbCode" = T0."dbCode"          --* the owner's customer card in this work order's company
+        AND T3."cardType" = 'C'
     INNER JOIN "Address" T2
-        ON T2."dbCode" = T1."customerDbCode"   --* card code repeats across databases, note: it will change if (T1.customerCode, T1.customerDbCode) of users will be move to their own separate table
-        AND T2."CardCode" = T1."customerCode"  --* match via user customerCode, note: it will change if (T3.customerCode, T3.customerDbCode) of users will be move to their own separate table
+        ON T2."dbCode" = T3."dbCode"
+        AND T2."CardCode" = T3."cardCode"
         AND T2."id" = T0."billingAddrCode"
         AND T2."AddrType" = 'B'                --* billing address only
         AND T2."deletedAt" IS NULL

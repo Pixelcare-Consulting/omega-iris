@@ -18,8 +18,10 @@ export const userFormSchema = z
     // oldPassword: z.string().nullish(),
     newPassword: z.string().nullish(),
     newConfirmPassword: z.string().nullish(),
-    customerCode: z.string().nullish(),
-    supplierCode: z.string().nullish(),
+    //* one row per active company and slot, see buildBpProfileRows
+    bpProfiles: z
+      .array(z.object({ dbCode: z.string(), profileType: z.enum(['C', 'S']), cardCode: z.string().nullish() }))
+      .default([]),
     isForceToChangePassword: z.boolean().nullish(),
     isLocked: z.boolean().nullish(),
     //* module name -> hidden field keys, see HIDDEN_FIELD_MODULES

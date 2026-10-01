@@ -23,6 +23,8 @@ import { usePgs } from '@/hooks/safe-actions/project-group'
 import { usePgPicsByUserCode } from '@/hooks/safe-actions/project-group-pic'
 import UserProjectsClosedTab from './_tabs/user-projects-closed-tab'
 import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
+import { useSapDatabase } from '@/hooks/use-sap-database'
+import { BP_PROFILE_TYPE, pickBpProfile } from '@/utils/user-bp-profile'
 
 type ViewUserProps = {
   user: NonNullable<Awaited<ReturnType<typeof getUserByCode>>>
@@ -38,6 +40,9 @@ export default function ViewUser({ user }: ViewUserProps) {
   const piPics = usePiPicsByUserCode(user.role.key !== BUSINESS_PARTNER_ROLE_KEY ? user.code : undefined)
   const pgPics = usePgPicsByUserCode(user.role.key !== BUSINESS_PARTNER_ROLE_KEY ? user.code : undefined)
   const pisClosed = usePisBySalesCloser(user.code)
+
+  const { sapDbCode } = useSapDatabase()
+  const hasCustomerProfile = !!pickBpProfile(user.bpProfiles, sapDbCode, BP_PROFILE_TYPE.CUSTOMER)
 
   return (
     <div className='flex h-full w-full flex-col gap-5'>
@@ -83,7 +88,7 @@ export default function ViewUser({ user }: ViewUserProps) {
             <UserPicProjectGroupTab userCode={user.code} groups={groups} pgPics={pgPics} />
           </TabPanelITem>
 
-          <TabPanelITem title='Projects' visible={user.role.key === BUSINESS_PARTNER_ROLE_KEY && user?.customerCode ? true : false}>
+          <TabPanelITem title='Projects' visible={user.role.key === BUSINESS_PARTNER_ROLE_KEY && hasCustomerProfile}>
             <UserCustomerProjectIndividualTab userCode={user.code} projects={projects} piCustomers={piCustomers} />
           </TabPanelITem>
 

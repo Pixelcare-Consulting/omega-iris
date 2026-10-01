@@ -77,7 +77,7 @@ BEGIN
         T3."fname"                         AS "userFname",
         T3."lname"                         AS "userLname",
         T3."email"                         AS "userEmail",
-        T3."customerCode"                  AS "userCustomerCode",
+        T9."cardCode"                      AS "userCustomerCode",
          --* business partner
         T5."Phone1"                        AS "bpPhone1"
     FROM "WorkOrder" T0
@@ -92,9 +92,13 @@ BEGIN
         AND T3."deletedAt" IS NULL
     LEFT JOIN "vw_wo_status" T4          
         ON T4."value" = T0."status"
+    LEFT JOIN "UserBpProfile" T9           --* the owner's customer card in this work order's company
+        ON T9."userCode" = T3."code"
+        AND T9."dbCode" = T0."dbCode"
+        AND T9."cardType" = 'C'
     LEFT JOIN "BusinessPartner" T5
-        ON T5."dbCode" = T3."customerDbCode"   --* card code repeats across databases, note: it will change if (T3.customerCode, T3.customerDbCode) of users will be move to their own separate table 
-        AND T5."CardCode" = T3."customerCode" --* note: it will change if (T3.customerCode, T3.customerDbCode) of users will be move to their own separate table  
+        ON T5."dbCode" = T9."dbCode"
+        AND T5."CardCode" = T9."cardCode"
         AND T5."deletedAt" IS NULL
     LEFT JOIN "User" T6
         ON T6."id" = T0."createdBy"   --* match via id

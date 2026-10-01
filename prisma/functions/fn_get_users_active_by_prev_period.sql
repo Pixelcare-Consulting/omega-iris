@@ -1,4 +1,7 @@
 --* Get active users (isActive = true) by previous period
+--* dropped first: the return columns changed, a replace cannot remove them
+DROP FUNCTION IF EXISTS fn_get_users_active_by_prev_period(TEXT);
+
 CREATE OR REPLACE FUNCTION fn_get_users_active_by_prev_period(
     p_period TEXT DEFAULT 'all-time'
 )
@@ -16,8 +19,6 @@ RETURNS TABLE (
     "location"      TEXT,
     "lastIpAddress" TEXT,
     "lastSignin"    TIMESTAMP,
-    "customerCode"  TEXT,
-    "supplierCode"  TEXT,
     "createdAt"     TIMESTAMP,
     "updatedAt"     TIMESTAMP,
     "deletedAt"     TIMESTAMP,
@@ -78,8 +79,6 @@ BEGIN
         T0."location",
         T0."lastIpAddress",
         T0."lastSignin",
-        T0."customerCode",
-        T0."supplierCode",
         T0."createdAt",
         T0."updatedAt",
         T0."deletedAt",

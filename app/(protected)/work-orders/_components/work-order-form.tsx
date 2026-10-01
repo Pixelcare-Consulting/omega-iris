@@ -57,6 +57,8 @@ import { Badge } from '@/components/badge'
 import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
 import { MODULE_NAME } from '@/constants/module'
 import { useCurrentUserHiddenFields } from '@/hooks/safe-actions/user-hidden-field'
+import { useSapDatabase } from '@/hooks/use-sap-database'
+import { BP_PROFILE_TYPE, pickBpProfile } from '@/utils/user-bp-profile'
 
 type WorkOrderFormProps = {
   pageMetaData: PageMetadata
@@ -191,7 +193,10 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
   //* the line item table adds the tfs only fields itself
   const hiddenFields = useCurrentUserHiddenFields(MODULE_NAME.PROJECT_ITEMS).data
 
-  const addresses = useAddresses(customer?.data?.customerCode ?? '')
+  const { sapDbCode } = useSapDatabase()
+  const ownerCustomerCode = pickBpProfile(customer?.data?.bpProfiles, sapDbCode, BP_PROFILE_TYPE.CUSTOMER)?.cardCode ?? ''
+
+  const addresses = useAddresses(ownerCustomerCode)
 
   const getAddrOptions = (addresses: ReturnType<typeof useAddresses>['data']) => {
     if (!addresses || addresses.length < 1) return []
@@ -242,7 +247,8 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
         ...pi,
         fullName: `${[user?.fname, user?.lname].filter(Boolean).join(' ')}`,
         email: user.email,
-        customerCode: user?.customerCode,
+        //* the pi customer include filters to this company, so [0] is the only card
+        customerCode: user?.bpProfiles?.[0]?.cardCode,
       }
     })
   }, [JSON.stringify(piCustomers)])

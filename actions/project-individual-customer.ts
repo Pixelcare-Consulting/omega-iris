@@ -5,10 +5,22 @@ import z from 'zod'
 
 import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe-action'
 import { db } from '@/utils/db'
+import { BP_PROFILE_TYPE } from '@/utils/user-bp-profile'
 
-const COMMON_PI_CUSTOMER_INCLUDE = {
-  user: { select: { code: true, fname: true, lname: true, email: true, customerCode: true } },
-} satisfies Prisma.ProjectIndividualCustomerInclude
+//* the customer's card for this company only
+function piCustomerInclude(dbCode: string) {
+  return {
+    user: {
+      select: {
+        code: true,
+        fname: true,
+        lname: true,
+        email: true,
+        bpProfiles: { where: { dbCode, cardType: BP_PROFILE_TYPE.CUSTOMER }, select: { cardCode: true } },
+      },
+    },
+  } satisfies Prisma.ProjectIndividualCustomerInclude
+}
 const COMMON_PI_CUSTOMER_ORDER_BY = { user: { code: 'asc' } } satisfies Prisma.ProjectIndividualCustomerOrderByWithRelationInput
 
 export async function getPiCustomersByProjectCode(dbCode: string, projectCode?: number | null) {
@@ -17,7 +29,7 @@ export async function getPiCustomersByProjectCode(dbCode: string, projectCode?: 
   try {
     return db.projectIndividualCustomer.findMany({
       where: { dbCode, projectIndividualCode: projectCode },
-      include: COMMON_PI_CUSTOMER_INCLUDE,
+      include: piCustomerInclude(dbCode),
       orderBy: COMMON_PI_CUSTOMER_ORDER_BY,
     })
   } catch (error) {

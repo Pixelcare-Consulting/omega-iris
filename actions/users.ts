@@ -14,17 +14,31 @@ import { createNotification } from './notification'
 import { PERMISSIONS_CODES } from '@/constants/permission'
 import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
 import { HIDDEN_FIELD_MODULES } from '@/constants/hidden-field'
+import { BP_PROFILE_TYPE, BP_PROFILE_SELECT, pickBpProfile } from '@/utils/user-bp-profile'
+import { findBpProfileRowError, saveBpProfileRows } from '@/utils/user-bp-profile-db'
 
+//* every company's cards, for the admin user pages
 const COMMON_USER_INCLUDE = {
   role: true,
   profile: true,
-  //* carries the sap database a business partner user belongs to, the users list badges its name
-  customer: {
-    select: { CardCode: true, CardName: true, GroupName: true, sapDatabase: { select: { dbCode: true, name: true } } },
-  },
+  bpProfiles: { select: BP_PROFILE_SELECT, orderBy: { dbCode: 'asc' } },
 } satisfies Prisma.UserInclude
 
-const COMMON_USER_ORDER_BY = { code: 'asc' } satisfies Prisma.UserOrderByWithRelationInput
+//* only this company's cards, for anything the browser calls — no company selected returns none
+function companyUserInclude(dbCode: string | null) {
+  return {
+    ...COMMON_USER_INCLUDE,
+    bpProfiles: { ...COMMON_USER_INCLUDE.bpProfiles, where: { dbCode: dbCode ?? '' } },
+  } satisfies Prisma.UserInclude
+}
+
+const NON_CUSTOMER_USER_WHERE = {
+  role: { key: { not: BUSINESS_PARTNER_ROLE_KEY } },
+  deletedAt: null,
+  deletedBy: null,
+} satisfies Prisma.UserWhereInput
+
+const COMMON_USER_ORDER_BY ={ code: 'asc' } satisfies Prisma.UserOrderByWithRelationInput
 
 //* one row per user and module, upsert so saving twice never duplicates it
 //* admins see every field, so every module is saved empty for them
@@ -63,14 +77,14 @@ export async function getUsers() {
   }
 }
 
-export const getUsersClient = action.use(authenticationMiddleware).action(async () => {
-  return getUsers()
+export const getUsersClient = action.use(authenticationMiddleware).action(async ({ ctx }) => {
+  return db.user.findMany({ include: companyUserInclude(ctx.dbCode), orderBy: COMMON_USER_ORDER_BY })
 })
 
 export async function getNonCustomerUsers() {
   try {
     return db.user.findMany({
-      where: { role: { key: { not: BUSINESS_PARTNER_ROLE_KEY } }, deletedAt: null, deletedBy: null },
+      where: NON_CUSTOMER_USER_WHERE,
       include: COMMON_USER_INCLUDE,
       orderBy: COMMON_USER_ORDER_BY,
     })
@@ -80,8 +94,8 @@ export async function getNonCustomerUsers() {
   }
 }
 
-export const getNonCustomerUsersClient = action.use(authenticationMiddleware).action(async () => {
-  return getNonCustomerUsers()
+export const getNonCustomerUsersClient = action.use(authenticationMiddleware).action(async ({ ctx }) => {
+  return db.user.findMany({ where: NON_CUSTOMER_USER_WHERE, include: companyUserInclude(ctx.dbCode), orderBy: COMMON_USER_ORDER_BY })
 })
 
 export async function getUserByEmail(email: string) {
@@ -117,9 +131,9 @@ export async function getUserById(id: string) {
 export const getUserByIdClient = action
   .schema(z.object({ id: z.string().nullish() }))
   .use(authenticationMiddleware)
-  .action(async ({ parsedInput: data }) => {
+  .action(async ({ ctx, parsedInput: data }) => {
     if (!data.id) return null
-    return getUserById(data.id)
+    return db.user.findUnique({ where: { id: data.id }, include: companyUserInclude(ctx.dbCode) })
   })
 
 export async function getUserByCode(code: number) {
@@ -138,24 +152,30 @@ export async function getUserByCode(code: number) {
 export const getUserByCodeClient = action
   .schema(z.object({ code: z.coerce.number().nullish() }))
   .use(authenticationMiddleware)
-  .action(async ({ parsedInput: data }) => {
+  .action(async ({ ctx, parsedInput: data }) => {
     if (!data.code) return null
-    return getUserByCode(data.code)
+    return db.user.findUnique({
+      where: { code: data.code },
+      include: { ...companyUserInclude(ctx.dbCode), hiddenFields: { select: { moduleName: true, fields: true } } },
+    })
   })
 
 export async function getUsersByRoleKey(dbCode: string, key: string) {
   if (!key) return []
 
   try {
-    return db.user.findMany({
+    const users = await db.user.findMany({
       where: {
         role: { key },
-        //! a bp user belongs to one company, offering one from another database links a project across tenants
-        ...(key === BUSINESS_PARTNER_ROLE_KEY ? { customerDbCode: dbCode, NOT: [{ customerCode: null }, { customerCode: '' }] } : {}),
+        //! only bp users with a customer card here, offering one from another company links a project across tenants
+        ...(key === BUSINESS_PARTNER_ROLE_KEY ? { bpProfiles: { some: { dbCode, cardType: BP_PROFILE_TYPE.CUSTOMER } } } : {}),
       },
       include: COMMON_USER_INCLUDE,
       orderBy: COMMON_USER_ORDER_BY,
     })
+
+    //* this company's customer code, the pickers and grids read it by name
+    return users.map((user) => ({ ...user, customerCode: pickBpProfile(user.bpProfiles, dbCode, BP_PROFILE_TYPE.CUSTOMER)?.cardCode ?? null }))
   } catch (err) {
     return []
   }
@@ -194,16 +214,14 @@ export const upsertUser = action
       isForceToChangePassword,
       isLocked,
       hiddenFields,
-      ...rest
+      bpProfiles,
+      ...data
     } = parsedInput
-    const { userId, dbCode } = ctx
+    const { userId } = ctx
 
-    //* a card code only means something next to its database, so stamp the active one and clear it together with the code
-    const data = {
-      ...rest,
-      customerDbCode: rest.customerCode ? dbCode : null,
-      supplierDbCode: rest.supplierCode ? dbCode : null,
-    }
+    //! the form can set cards in every company, so only user admins may save it
+    const canSave = ctx.ability?.can(code === -1 ? 'create' : 'edit', 'p-users')
+    if (!canSave) return { error: true, status: 403, message: 'No access to save users!', action: 'UPSERT_USER' }
 
     try {
       const [existingUsername, existingEmail] = await Promise.all([
@@ -232,6 +250,10 @@ export const upsertUser = action
         return { error: true, status: 401, message: `${capitalize(message)} already exists!`, action: 'UPSERT_USER', paths }
       }
 
+      //! checked before any write, one bad row rejects the whole save
+      const bpProfileError = await findBpProfileRowError(bpProfiles)
+      if (bpProfileError) return { error: true, status: 400, message: bpProfileError, action: 'UPSERT_USER' }
+
       //* update user
       if (code !== -1) {
         const user = await db.user.findUnique({ where: { code } })
@@ -258,6 +280,7 @@ export const upsertUser = action
           })
 
           await upsertUserHiddenFields(tx, updated.code, roleKey, hiddenFields, userId)
+          await saveBpProfileRows(tx, updated.code, bpProfiles, userId)
 
           return updated
         })
@@ -295,6 +318,7 @@ export const upsertUser = action
         })
 
         await upsertUserHiddenFields(tx, created.code, roleKey, hiddenFields, userId)
+        await saveBpProfileRows(tx, created.code, bpProfiles, userId)
 
         return created
       })

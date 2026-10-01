@@ -26,19 +26,31 @@ import { CommonErrorEntry, CommonOperationError } from '@/types/common'
 import { createGoodsReturn, createGrpo } from './goods-movement'
 import { isCustomTfsEnabled } from '@/utils/sap-database-access'
 import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
+import { BP_PROFILE_TYPE } from '@/utils/user-bp-profile'
 
-const COMMON_WORK_ORDER_INCLUDE = {
-  projectIndividual: {
-    select: {
-      code: true,
-      name: true,
-      projectItemHiddenFields: true,
-      projectGroup: { select: { code: true, name: true } },
+//* the owner's customer card for this company only
+function workOrderInclude(dbCode: string) {
+  return {
+    projectIndividual: {
+      select: {
+        code: true,
+        name: true,
+        projectItemHiddenFields: true,
+        projectGroup: { select: { code: true, name: true } },
+      },
     },
-  },
-  user: { select: { code: true, fname: true, lname: true, email: true, customerCode: true } },
-  supplier: { select: { CardCode: true, CardName: true } },
-} satisfies Prisma.WorkOrderInclude
+    user: {
+      select: {
+        code: true,
+        fname: true,
+        lname: true,
+        email: true,
+        bpProfiles: { where: { dbCode, cardType: BP_PROFILE_TYPE.CUSTOMER }, select: { cardCode: true } },
+      },
+    },
+    supplier: { select: { CardCode: true, CardName: true } },
+  } satisfies Prisma.WorkOrderInclude
+}
 
 const COMMON_WORK_ORDER_ORDER_BY = { createdAt: 'desc' } satisfies Prisma.WorkOrderOrderByWithRelationInput
 
@@ -94,7 +106,7 @@ export async function getWorkOrders(dbCode: string, userInfo: Awaited<ReturnType
             }
           : { userCode: -1 }
 
-    return db.workOrder.findMany({ include: COMMON_WORK_ORDER_INCLUDE, orderBy: COMMON_WORK_ORDER_ORDER_BY, where: { ...where, dbCode } })
+    return db.workOrder.findMany({ include: workOrderInclude(dbCode), orderBy: COMMON_WORK_ORDER_ORDER_BY, where: { ...where, dbCode } })
   } catch (error) {
     console.error(error)
     return []
@@ -153,7 +165,7 @@ export async function getWorkOrderByCode(dbCode: string, code: number, userInfo:
             }
           : { code: -1 }
 
-    return db.workOrder.findFirst({ where: { ...where, dbCode }, include: COMMON_WORK_ORDER_INCLUDE })
+    return db.workOrder.findFirst({ where: { ...where, dbCode }, include: workOrderInclude(dbCode) })
   } catch (error) {
     console.error(error)
     return null

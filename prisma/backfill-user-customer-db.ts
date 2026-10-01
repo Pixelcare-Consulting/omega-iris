@@ -71,8 +71,13 @@ async function main() {
     dbCodesByCardCode.set(partner.CardCode, existing)
   }
 
+  //* card code in exactly 1 company, the only ones written on --apply
   const resolved: Resolution[] = []
+
+  //* card code in 2+ companies, stays null
   const ambiguous: Resolution[] = []
+
+  //* card code in no company, stays null
   const notFound: Resolution[] = []
 
   for (const user of users) {

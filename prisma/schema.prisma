@@ -25,11 +25,12 @@ model User {
     isDefaultPasswordChanged Boolean   @default(false)
     isLocked                 Boolean   @default(false)
     failedLoginAttempts      Int       @default(0) //* failed login attempts will be reset to 0 when user is unlocked and succesfully signin
-    customerCode             String?
-    supplierCode             String?
-    //* which sap database the card code above belongs to, a card code repeats across databases
-    customerDbCode           String?
-    supplierDbCode           String?
+
+    //! deprecated, read cards from UserBpProfile — still written on save as a rollback net
+    customerCode   String?
+    supplierCode   String?
+    customerDbCode String?
+    supplierDbCode String?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -42,6 +43,7 @@ model User {
     profile  Profile?
     role     Role      @relation(fields: [roleCode], references: [code])
 
+    //! deprecated with the card columns above, use bpProfiles
     //! SetNull not Cascade — removing a business partner must never delete the user account
     customer BusinessPartner? @relation(name: "User-Customer", fields: [customerDbCode, customerCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: SetNull)
     supplier BusinessPartner? @relation(name: "User-Supplier", fields: [supplierDbCode, supplierCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: SetNull)
@@ -53,6 +55,7 @@ model User {
     workOrders                    WorkOrder[]
     projectItemDateReceivedBy     ProjectItem[]               @relation()
     hiddenFields                  UserHiddenField[]
+    bpProfiles                    UserBpProfile[]
 }
 
 //* fields a user cannot see, one row per module, applies across every company
@@ -71,6 +74,27 @@ model UserHiddenField {
 
     @@unique([userCode, moduleName])
     @@index([userCode])
+}
+
+//* a user's customer or supplier card per company, a card code repeats across databases
+model UserBpProfile {
+    id       String @id @default(cuid())
+    userCode Int
+    dbCode   String
+    cardType String //* C customer, S supplier
+    cardCode String
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now()) @updatedAt
+    createdBy String?
+    updatedBy String?
+
+    user            User            @relation(fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    //! Cascade drops the profile row only, the user account stays
+    businessPartner BusinessPartner @relation(name: "BusinessPartner-UserBpProfile", fields: [dbCode, cardCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([userCode, dbCode, cardType])
+    @@index([dbCode, cardCode])
 }
 
 model Role {
@@ -255,6 +279,7 @@ model BusinessPartner {
     sapDatabase                SapDatabase                 @relation(fields: [dbCode], references: [dbCode], onUpdate: Cascade, onDelete: Restrict)
     customerUsers              User[]                      @relation(name: "User-Customer")
     supplierUsers              User[]                      @relation(name: "User-Supplier")
+    userBpProfiles             UserBpProfile[]             @relation(name: "BusinessPartner-UserBpProfile")
     supplierWorkOrders         WorkOrder[]                 @relation(name: "BusinessPartner-WorkOrderSupplier")
 
     @@unique([dbCode, CardCode])
@@ -368,8 +393,8 @@ model Warehouse {
     //* SAP fields
     WarehouseCode        String
     WarehouseName        String
-    Nettable             Boolean
-    EnableBinLocations   Boolean
+    Nettable             Boolean @default(false)
+    EnableBinLocations   Boolean @default(false)
     DefaultBin           Int?
     Street               String?
     Address2             String?

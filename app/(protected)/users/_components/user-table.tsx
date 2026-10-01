@@ -23,6 +23,7 @@ import { NotificationContext } from '@/context/notification'
 import { useSession } from 'next-auth/react'
 import { sendEmail } from '@/actions/email'
 import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
+import { getCustomerCards } from '@/utils/user-bp-profile'
 
 type UserTableProps = { users: Awaited<ReturnType<typeof getUsers>> }
 type DataSource = Awaited<ReturnType<typeof getUsers>>
@@ -61,27 +62,47 @@ export default function UserTable({ users }: UserTableProps) {
     return format(lastSignin, 'MM-dd-yyyy hh:mm a')
   }, [])
 
-  //* the badge is rendered, not stored, so search and filter only see it through the calculated value
+  //* the cards are rendered, not stored, so search and filter only see them through the calculated value
   const roleCalculateCellValue = useCallback((rowData: DataSource[number]) => {
     const roleName = rowData?.role?.name || ''
-    const dbName = rowData?.customer?.sapDatabase?.name
+    if (rowData?.role?.key !== BUSINESS_PARTNER_ROLE_KEY) return roleName
 
-    if (rowData?.role?.key !== BUSINESS_PARTNER_ROLE_KEY || !dbName) return roleName
-
-    return `${roleName} ${dbName}`
+    const cards = getCustomerCards(rowData?.bpProfiles).map((card) => `${card.dbName} - ${card.cardName} (${card.cardCode})`)
+    return [roleName, ...cards].join(' ')
   }, [])
 
-  //* a business partner points at one sap database, show which one under the role
+  //! header filter lists role names only, the calculated value would make every bp user with cards its own entry
+  const roleHeaderFilter = useMemo(() => {
+    const roleNames = [...new Set(users.map((user) => user.role?.name).filter(Boolean))].sort()
+    return { dataSource: roleNames.map((name) => ({ text: name, value: name })) }
+  }, [JSON.stringify(users.map((user) => user.role?.name))])
+
+  //! a 'role.name' field filter is mapped back to the calculated value, so match the header filter through a getter
+  const roleCalculateFilterExpression = useCallback(function (
+    this: DataGridTypes.Column,
+    filterValue: any,
+    selectedFilterOperation: string | null,
+    target: string
+  ) {
+    if (target === 'headerFilter') return [(rowData: DataSource[number]) => rowData?.role?.name, '=', filterValue]
+    return this.defaultCalculateFilterExpression!(filterValue, selectedFilterOperation as any, target as any) as string | any[]
+  }, [])
+
+  //* a business partner can have a customer card per company, show each company with its card under the role
   const roleCellRender = useCallback((e: DataGridTypes.ColumnCellTemplateData) => {
     const data = e.data as DataSource[number]
-    const dbName = data?.customer?.sapDatabase?.name
+    const cards = data?.role?.key === BUSINESS_PARTNER_ROLE_KEY ? getCustomerCards(data?.bpProfiles) : []
 
-    if (data?.role?.key !== BUSINESS_PARTNER_ROLE_KEY || !dbName) return data?.role?.name || ''
+    if (cards.length < 1) return data?.role?.name || ''
 
     return (
       <div className='flex flex-col items-start gap-1'>
         <span>{data.role.name}</span>
-        <Badge variant='soft-blue'>{dbName}</Badge>
+        {cards.map((card) => (
+          <Badge key={card.dbCode} variant='soft-blue'>
+            {card.dbName} - {card.cardName} ({card.cardCode})
+          </Badge>
+        ))}
       </div>
     )
   }, [])
@@ -223,7 +244,10 @@ export default function UserTable({ users }: UserTableProps) {
             dataField='role.name'
             dataType='string'
             caption='Role'
+            minWidth={320}
             calculateCellValue={roleCalculateCellValue}
+            headerFilter={roleHeaderFilter}
+            calculateFilterExpression={roleCalculateFilterExpression}
             cellRender={roleCellRender}
           />
           <Column
