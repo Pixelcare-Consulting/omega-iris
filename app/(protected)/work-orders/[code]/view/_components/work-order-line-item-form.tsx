@@ -81,6 +81,7 @@ export default function WorkOrderLineItemForm({
       const qty = safeParseFloat(woItem.qty)
 
       return {
+        workOrderCode,
         projectItemCode: woItem.projectItemCode,
         qty,
         maxQty: availableToOrder,
@@ -138,6 +139,7 @@ export default function WorkOrderLineItemForm({
     const allowData = e.selectedRowsData.filter((row) => row.availableToOrder > 0)
 
     const values = allowData.map((row) => ({
+      workOrderCode,
       projectItemCode: row.projectItemCode,
       qty: row.qty,
       maxQty: row.availableToOrder,
@@ -216,6 +218,7 @@ export default function WorkOrderLineItemForm({
         updatedRows[rowIndex] = e.data //* update rows
 
         updatedLineItems[lineItemIndex] = {
+          workOrderCode,
           projectItemCode: e.data?.projectItemCode,
           qty: e.data?.qty,
           maxQty: e.data?.availableToOrder,

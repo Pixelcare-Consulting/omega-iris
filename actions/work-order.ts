@@ -570,7 +570,7 @@ export const upsertWorkOrder = action
     const isDuplicate = code === -1 && duplicatedFromCode
 
     //* by default set isStockedIn to true - because upon creation of work order, all line items will be credited to stock-in
-    const woItems = lineItems.map(({ maxQty, ...li }) => ({ ...li, dbCode, isStockedIn: true }))
+    const woItems = lineItems.map(({ workOrderCode, maxQty, ...li }) => ({ ...li, dbCode, isStockedIn: true }))
 
     const include = {
       projectIndividual: {

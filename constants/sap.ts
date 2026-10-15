@@ -47,5 +47,17 @@ export const WO_DELIVERY_SYNC_QUERY_CODE = 'delivery-delivered-batch-details-syn
 export const WO_DELIVERY_SYNC_COUNT_QUERY_CODE = 'delivery-delivered-batch-details-sync-warehouses-count'
 export const WO_DELIVERY_SYNC_MAX_PAGE_SIZE = 1000
 
+//* Open PO Line Sync (open purchase order lines of every project, feeds the project "Open POs" tab)
+export const OPEN_PO_LINE_SYNC_META_CODE = 'open-po-line'
+export const OPEN_PO_LINE_SYNC_JOB_CODE = 'open-po-line-sync'
+
+export const OPEN_PO_LINE_SYNC_QUERY_CODE = 'open-po-lines-by-sync-warehouses'
+export const OPEN_PO_LINE_SYNC_COUNT_QUERY_CODE = 'open-po-lines-by-sync-warehouses-count'
+export const OPEN_PO_LINE_SYNC_MAX_PAGE_SIZE = 1000
+
+//* current OITW stock of every item/whs pair on an open po line, no params, read in full each run
+export const OPEN_PO_LINE_STOCK_QUERY_CODE = 'open-po-line-stocks'
+export const OPEN_PO_LINE_STOCK_COUNT_QUERY_CODE = 'open-po-line-stocks-count'
+
 //* Item Stock By Warehouse
 export const ITEM_STOCK_BY_WAREHOUSE_MAX_PAGE_SIZE = 1000

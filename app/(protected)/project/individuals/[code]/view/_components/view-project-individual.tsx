@@ -22,6 +22,7 @@ import ProjectIndividualSupplierTab from './_tabs/project-individual-supplier-ta
 import { useBatchesMasterByWarehouseProjectCode } from '@/hooks/safe-actions/batches'
 import ProjectIndividualBatchTab from './_tabs/project-individual-batch-tab'
 import ProjectIndividualWarehouseTab from './_tabs/project-individual-warehouse-tab'
+import ProjectIndividualOpenPoTab from './_tabs/project-individual-open-po-tab'
 import { useWarehouses } from '@/hooks/safe-actions/warehouse'
 import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
@@ -124,8 +125,19 @@ export default function ViewProjectIndividual({ projectIndividual }: ViewProject
 
           <CanView subject='p-projects-individual-inventory' action={['view', 'view (owner)']}>
             <TabPanelITem title='Inventory'>
-              <ProjectIndividualItemTab projectCode={projectIndividual.code} projectName={projectIndividual.name} items={items} />
+              <ProjectIndividualItemTab
+                projectCode={projectIndividual.code}
+                projectName={projectIndividual.name}
+                items={items}
+                warehouses={projectIndividual.warehouses}
+              />
             </TabPanelITem>
+
+            {isCustomTfsEnabled && (
+              <TabPanelITem title='Open POs'>
+                <ProjectIndividualOpenPoTab projectCode={projectIndividual.code} warehouses={projectIndividual.warehouses} />
+              </TabPanelITem>
+            )}
 
             {/* {session?.user.roleKey === SUPER_USER_ROLE_KEY && (
               <TabPanelITem title='Batches'>

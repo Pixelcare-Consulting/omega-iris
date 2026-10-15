@@ -210,6 +210,7 @@ export default function WorkOrderLineItemTable({
       if (rowIndex !== -1) {
         updatedRows[rowIndex] = e.data //* update rows
         const updatedLineItems = updatedRows.map(({ projectItemCode, qty, availableToOrder, isDelivered }) => ({
+          workOrderCode: workOrder?.code,
           projectItemCode,
           qty,
           maxQty: availableToOrder,
@@ -220,7 +221,7 @@ export default function WorkOrderLineItemTable({
         setWorkOrderItemsDataSource(updatedRows) //* update local datasource state
       }
     },
-    [JSON.stringify(workOrderItemsDataSource)]
+    [JSON.stringify(workOrderItemsDataSource), JSON.stringify(workOrder)]
   )
 
   const handleOnSelectionChanged = (e: DataGridTypes.SelectionChangedEvent) => {
@@ -287,6 +288,7 @@ export default function WorkOrderLineItemTable({
 
         //* reshape data
         const toCreate: WorkOrderItemForm = {
+          workOrderCode: workOrder?.code,
           projectItemCode: safeParseInt(row?.['ID']),
           qty: safeParseInt(row?.['Quantity']),
           maxQty: safeParseInt(pItem?.availableToOrder),
@@ -354,7 +356,13 @@ export default function WorkOrderLineItemTable({
           const qty = safeParseFloat(woItem.qty)
           const availableToOrder = subtract(safeParseFloat(pItem?.totalStock), safeParseFloat(pItem?.stockIn))
 
-          return { projectItemCode: pItem?.code, qty, maxQty: availableToOrder, isDelivered: woItem.isDelivered }
+          return {
+            workOrderCode: workOrder?.code,
+            projectItemCode: pItem?.code,
+            qty,
+            maxQty: availableToOrder,
+            isDelivered: woItem.isDelivered,
+          }
         })
         .filter((item) => item !== null)
 
@@ -377,7 +385,13 @@ export default function WorkOrderLineItemTable({
           const totalStock = safeParseFloat(pItem?.totalStock)
           const stockIn = safeParseFloat(pItem?.stockIn)
           const availableToOrder = subtract(totalStock, stockIn)
-          return { projectItemCode: pItem?.code, qty: safeParseInt(woItem.qty), maxQty: availableToOrder, isDelivered: false }
+          return {
+            workOrderCode: workOrder?.code,
+            projectItemCode: pItem?.code,
+            qty: safeParseInt(woItem.qty),
+            maxQty: availableToOrder,
+            isDelivered: false,
+          }
         })
         .filter((woItem) => woItem.maxQty > 0)
         .filter((woItem) => woItem.qty <= woItem.maxQty)
@@ -386,7 +400,7 @@ export default function WorkOrderLineItemTable({
         form.setValue('lineItems', lineItemValue)
       }, 500)
     }
-  }, [JSON.stringify(duplicatedFromWorkOrder)])
+  }, [JSON.stringify(duplicatedFromWorkOrder), JSON.stringify(workOrder)])
 
   //* set local state work order items data source when line items has been updated
   useEffect(() => {

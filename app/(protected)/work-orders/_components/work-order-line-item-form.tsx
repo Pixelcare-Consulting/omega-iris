@@ -48,7 +48,10 @@ export default function WorkOrderLineItemForm({
 }: WorkOrderLineItemFormProps) {
   const { data: session } = useSession()
   const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
+
   const mainForm = useFormContext<WorkOrderForm>()
+
+  const workOrderCode = useWatch({ control: mainForm.control, name: 'code' })
 
   const dataGridRef = useRef<DataGridRef | null>(null)
 
@@ -109,6 +112,7 @@ export default function WorkOrderLineItemForm({
     const allowData = e.selectedRowsData.filter((row) => row.availableToOrder > 0)
 
     const values = allowData.map((row) => ({
+      workOrderCode,
       projectItemCode: row.projectItemCode,
       qty: row.qty > 0 ? row.qty : row.availableToOrder,
       maxQty: row.availableToOrder,
@@ -197,6 +201,7 @@ export default function WorkOrderLineItemForm({
         updatedRows[rowIndex] = e.data //* update rows
 
         updatedLineItems[lineItemIndex] = {
+          workOrderCode,
           projectItemCode: e.data?.projectItemCode,
           qty: e.data?.qty,
           maxQty: e.data?.availableToOrder,

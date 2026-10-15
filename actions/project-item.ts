@@ -4,6 +4,7 @@ import z from 'zod'
 import { Prisma } from '@prisma/client'
 import { isValid, parse } from 'date-fns'
 import { subtract } from 'mathjs'
+import { unique } from 'radash'
 
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware, tenantMiddleware } from '@/utils/safe-action'
@@ -945,6 +946,14 @@ export const importProjectItems = action
 
       const projectWarehouseCodes = projectWarehouses.map((w) => w.WarehouseCode)
 
+      //* project items the rows point at by ID, a row with an ID updates that item instead of creating one
+      const rowIds = unique(data.map((row) => safeParseInt(row?.['ID'])).filter((id) => id > 0))
+
+      const existingProjectItems = await db.projectItem.findMany({
+        where: { dbCode, code: { in: rowIds } },
+        select: { code: true, projectIndividualCode: true, deletedAt: true },
+      })
+
       //* synced-only applies to isEnabledCustomTfsProcess true companies, others can still import pending items
       const isSyncedStrict = process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' && (await isCustomTfsEnabled(dbCode))
 
@@ -997,6 +1006,17 @@ export const importProjectItems = action
           }
         }
 
+        //* show error if ID belongs to another project or is deleted
+        const existingProjectItem = existingProjectItems.find((pi) => pi.code === safeParseInt(row?.['ID']))
+
+        if (existingProjectItem && existingProjectItem?.projectIndividualCode !== projectCode) {
+          errors.push({ field: 'ID', message: 'ID belongs to another project' })
+        }
+
+        if (existingProjectItem?.deletedAt) {
+          errors.push({ field: 'ID', message: 'Item is deleted, restore it first' })
+        }
+
         //* if errors array is not empty, then update/push to stats.error
         if (errors.length > 0) {
           stats.errors.push({ rowNumber: row.rowNumber, entries: errors, row })
@@ -1038,8 +1058,6 @@ export const importProjectItems = action
           phase: row?.['Phase'] ? String(row['Phase']) : null,
           tfsStdPrice: safeParseFloat(row?.['TFS_Standard_Price']),
           omegaPrice: safeParseFloat(row?.['Omega_Price']),
-          createdBy: userId,
-          updatedBy: userId,
         }
 
         batch.push(toCreate)
@@ -1049,10 +1067,11 @@ export const importProjectItems = action
       await db.$transaction(
         batch.map((b) => {
           const { code, ...bData } = b
+
           return db.projectItem.upsert({
             where: { code, dbCode },
-            create: { ...bData, dbCode },
-            update: bData,
+            create: { ...bData, createdBy: userId, updatedBy: userId, dbCode },
+            update: { ...bData, updatedBy: userId },
           })
         })
       )

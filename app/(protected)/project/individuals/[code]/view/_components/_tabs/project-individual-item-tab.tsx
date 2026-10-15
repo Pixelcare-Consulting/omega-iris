@@ -60,6 +60,7 @@ type ProjectIndividualItemTabProps = {
   projectCode: number
   projectName: string
   items: ReturnType<typeof useProjecItems>
+  warehouses: string[]
 }
 type DataSource = Awaited<ReturnType<typeof getProjecItems>>
 
@@ -76,6 +77,7 @@ export default function ProjectIndividualItemTab({
   projectCode,
   projectName,
   items,
+  warehouses,
 }: ProjectIndividualItemTabProps) {
   const { data: session } = useSession()
   const router = useRouter()
@@ -127,6 +129,11 @@ export default function ProjectIndividualItemTab({
     if (!jobSchedule.isEnabled) return 'Auto sync: off'
     return `Auto sync: ${jobSchedule.label}`
   }, [jobSchedule.isEnabled, jobSchedule.label])
+
+  const warehouseLabel = useMemo(() => {
+    if (warehouses.length < 1) return 'Warehouse: none selected'
+    return `Warehouse: ${warehouses.join(', ')}`
+  }, [JSON.stringify(warehouses)])
 
   const syncFromSapDescription = useMemo(() => {
     const base =
@@ -552,6 +559,12 @@ export default function ProjectIndividualItemTab({
             {isCustomTfsEnabled && !jobSchedule.isLoading && (
               <Item location='before' locateInMenu='auto'>
                 <Badge variant={jobSchedule.isEnabled ? 'soft-slate' : 'soft-amber'}>{autoSyncLabel}</Badge>
+              </Item>
+            )}
+
+            {isCustomTfsEnabled && (
+              <Item location='before' locateInMenu='auto'>
+                <Badge variant='soft-red'>{warehouseLabel}</Badge>
               </Item>
             )}
 
