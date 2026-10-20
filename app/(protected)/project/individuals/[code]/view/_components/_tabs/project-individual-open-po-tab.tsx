@@ -43,20 +43,20 @@ function daysUntilDelivery(rowData: DataSource[number]) {
 
 //* stock is per item/whs, so each pair counts once however many po lines it is on
 //? no column on the total item, so options.value is the whole row
-function calculateAvailableToOrderTotal(options: DataGridTypes.CustomSummaryInfo) {
-  if (options.name !== 'availableToOrderTotal') return
+// function calculateAvailableToOrderTotal(options: DataGridTypes.CustomSummaryInfo) {
+//   if (options.name !== 'availableToOrderTotal') return
 
-  if (options.summaryProcess === 'start') options.totalValue = new Map<string, number>()
+//   if (options.summaryProcess === 'start') options.totalValue = new Map<string, number>()
 
-  if (options.summaryProcess === 'calculate') {
-    const row = options.value as DataSource[number]
-    options.totalValue.set(`${row.ItemCode}|${row.WhsCode}`, row.availableToOrder)
-  }
+//   if (options.summaryProcess === 'calculate') {
+//     const row = options.value as DataSource[number]
+//     options.totalValue.set(`${row.ItemCode}|${row.WhsCode}`, row.availableToOrder)
+//   }
 
-  if (options.summaryProcess === 'finalize') {
-    options.totalValue = [...(options.totalValue as Map<string, number>).values()].reduce((total, value) => total + value, 0)
-  }
-}
+//   if (options.summaryProcess === 'finalize') {
+//     options.totalValue = [...(options.totalValue as Map<string, number>).values()].reduce((total, value) => total + value, 0)
+//   }
+// }
 
 export default function ProjectIndividualOpenPoTab({ projectCode, warehouses }: ProjectIndividualOpenPoTabProps) {
   const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
@@ -240,7 +240,7 @@ export default function ProjectIndividualOpenPoTab({ projectCode, warehouses }: 
             cellRender={daysUntilDeliveryCellRender}
           />
 
-          <Column
+          {/* <Column
             dataField='availableToOrder'
             dataType='number'
             caption='Available To Order'
@@ -248,7 +248,7 @@ export default function ProjectIndividualOpenPoTab({ projectCode, warehouses }: 
             format={DEFAULT_NUMBER_FORMAT}
             fixed
             fixedPosition='right'
-          />
+          /> */}
           <Column
             dataField='onOrder'
             dataType='number'
@@ -259,15 +259,15 @@ export default function ProjectIndividualOpenPoTab({ projectCode, warehouses }: 
             fixedPosition='right'
           />
 
-          <Summary calculateCustomSummary={calculateAvailableToOrderTotal}>
+          <Summary>
             <TotalItem column='ItemCode' summaryType='count' displayFormat='{0} open PO lines' />
-            <TotalItem
+            {/* <TotalItem
               name='availableToOrderTotal'
               summaryType='custom'
               showInColumn='availableToOrder'
               displayFormat='{0}'
               valueFormat={DEFAULT_NUMBER_FORMAT}
-            />
+            /> */}
             <TotalItem column='onOrder' summaryType='sum' displayFormat='{0}' valueFormat={DEFAULT_NUMBER_FORMAT} />
           </Summary>
         </CommonDataGrid>

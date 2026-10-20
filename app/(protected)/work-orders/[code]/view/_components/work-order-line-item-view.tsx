@@ -15,6 +15,7 @@ import { differenceInDays, format, isValid } from 'date-fns'
 import Separator from '@/components/separator'
 import { useSession } from 'next-auth/react'
 import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
+import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
 
 type WorkOrderLineItemViewProps = {
   data: Record<string, any> & WorkOrderItemForm
@@ -24,6 +25,7 @@ type WorkOrderLineItemViewProps = {
 
 export default function WorkOrderLineItemView({ data, onClose, hiddenFields = [] }: WorkOrderLineItemViewProps) {
   const { data: session } = useSession()
+  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
 
   // const containerRef = useRef<HTMLDivElement>(null)
 
@@ -129,7 +131,9 @@ export default function WorkOrderLineItemView({ data, onClose, hiddenFields = []
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Lot Code' value={data?.lotCode || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Pallet No' value={data?.palletNo || ''} />
+        {!isCustomTfsEnabled && (
+          <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Pallet No' value={data?.palletNo || ''} />
+        )}
 
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'
@@ -149,11 +153,13 @@ export default function WorkOrderLineItemView({ data, onClose, hiddenFields = []
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='SPQ' value={data?.spq || ''} />
 
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Cost'
-          value={formatNumber(safeParseFloat(data?.cost), DEFAULT_CURRENCY_FORMAT)}
-        />
+        {!isCustomTfsEnabled && (
+          <ReadOnlyField
+            className='col-span-12 md:col-span-6 lg:col-span-3'
+            title='Cost'
+            value={formatNumber(safeParseFloat(data?.cost), DEFAULT_CURRENCY_FORMAT)}
+          />
+        )}
 
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'
@@ -215,9 +221,13 @@ export default function WorkOrderLineItemView({ data, onClose, hiddenFields = []
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Site Location' value={data?.siteLocation || ''} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 2' value={data?.subLocation2 || ''} />
+        {!isCustomTfsEnabled && (
+          <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 2' value={data?.subLocation2 || ''} />
+        )}
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 3' value={data?.subLocation3 || ''} />
+        {!isCustomTfsEnabled && (
+          <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-4' title='Sub Location 3' value={data?.subLocation3 || ''} />
+        )}
 
         {!isBusinessPartner && (
           <>

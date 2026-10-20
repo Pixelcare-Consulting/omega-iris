@@ -191,7 +191,7 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
   const selectedProject = useMemo(() => projects.data.find((p) => p.code === projectCode), [JSON.stringify(projects), projectCode])
 
   //* the line item table adds the tfs only fields itself
-  const hiddenFields = useCurrentUserHiddenFields(MODULE_NAME.PROJECT_ITEMS).data
+  const userHiddenFields = useCurrentUserHiddenFields(MODULE_NAME.PROJECT_ITEMS)
 
   const { sapDbCode } = useSapDatabase()
   const ownerCustomerCode = pickBpProfile(customer?.data?.bpProfiles, sapDbCode, BP_PROFILE_TYPE.CUSTOMER)?.cardCode ?? ''
@@ -688,7 +688,8 @@ export default function WorkOrderForm({ pageMetaData, workOrder }: WorkOrderForm
                 projectCode={selectedProject?.code}
                 projectName={selectedProject?.name}
                 projectGroupName={selectedProject?.projectGroup?.name}
-                hiddenFields={hiddenFields}
+                hiddenFields={userHiddenFields.data}
+                isHiddenFieldsReady={userHiddenFields.isReady}
                 isLoading={false}
               />
             </div>

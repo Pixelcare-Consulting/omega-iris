@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import ProgressBar from 'devextreme-react/progress-bar'
 import Tooltip from 'devextreme-react/tooltip'
+import LoadPanel from 'devextreme-react/load-panel'
 
 import PageContentWrapper from '@/app/(protected)/_components/page-content-wrapper'
 import { useDataGridStore } from '@/hooks/use-dx-datagrid'
@@ -73,15 +74,10 @@ const INITIAL_SYNC_SECTION_STATE: SyncSectionState = {
   showConfirmation: false,
 }
 
-export default function ProjectIndividualItemTab({
-  projectCode,
-  projectName,
-  items,
-  warehouses,
-}: ProjectIndividualItemTabProps) {
+export default function ProjectIndividualItemTab({ projectCode, projectName, items, warehouses }: ProjectIndividualItemTabProps) {
   const { data: session } = useSession()
   const router = useRouter()
-  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
+  const { isEnabled: isCustomTfsEnabled, isLoading: isCustomTfsLoading } = useCustomTfsProcess()
 
   const DATAGRID_STORAGE_KEY = 'dx-datagrid-project-individual-item'
   const DATAGRID_UNIQUE_KEY = 'project-individual-items'
@@ -102,7 +98,7 @@ export default function ProjectIndividualItemTab({
   const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([])
 
   const users = useUsers()
-  //* synced-only applies to isEnabledCustomTfsProcess true companies, others can still pick pending items 
+  //* synced-only applies to isEnabledCustomTfsProcess true companies, others can still pick pending items
   const itemMasters = useItems(process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' && isCustomTfsEnabled)
 
   const dataGridRef = useRef<DataGridRef | null>(null)
@@ -150,6 +146,9 @@ export default function ProjectIndividualItemTab({
   }, [JSON.stringify(session)])
 
   const userHiddenFields = useCurrentUserHiddenFields(MODULE_NAME.PROJECT_ITEMS)
+
+  //* mounting before these resolve renders every column first and then drops the hidden ones
+  const isColumnsReady = !isCustomTfsLoading && userHiddenFields.isReady
 
   const hiddenFields = useMemo(() => {
     //* warehouse, bin and batch have no meaning outside the custom tfs process
@@ -543,7 +542,7 @@ export default function ProjectIndividualItemTab({
       if (items.isLoading) dataGridRef.current.instance().beginCustomLoading('Loading data...')
       else dataGridRef.current.instance().endCustomLoading()
     }
-  }, [items.isLoading, dataGridRef.current])
+  }, [items.isLoading, isColumnsReady, dataGridRef.current])
 
   return (
     <div className='flex h-full w-full flex-col'>
@@ -636,175 +635,208 @@ export default function ProjectIndividualItemTab({
           </Toolbar>
 
           <div className='min-h-0 flex-1 p-4'>
-            <CommonDataGrid
-              dataGridRef={dataGridRef}
-              data={items.data}
-              isLoading={items.isLoading}
-              storageKey={DATAGRID_STORAGE_KEY}
-              keyExpr='code'
-              isSelectionEnable={
-                !isCustomTfsEnabled && CanView({ isReturnBoolean: true, subject: 'p-projects-individual-inventory', action: ['delete'] })
-                  ? true
-                  : false
-              }
-              selectedRowKeys={selectedRowKeys}
-              dataGridStore={dataGridStore}
-              callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChanged, onContentReady: handleOnContentReady }}
-            >
-              <HiddenFieldsContext.Provider value={{ hiddenFields }}>
-                <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
-                <Column dataField='DistNumber' dataType='string' minWidth={100} caption='Batch #' />
-                <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} visible={false} />
-                <Column dataField='owner' dataType='string' caption='Owner' />
-
-                <Column dataField='group' dataType='string' caption='Group' />
-                <Column dataField='division' dataType='string' caption='Division' />
-                <Column dataField='site' dataType='string' caption='Site' />
-                <Column dataField='cmSite' dataType='string' caption='CM Site' />
-                <Column dataField='phase' dataType='string' caption='Phase' />
-                <Column
-                  dataField='tfsStdPrice'
-                  dataType='number'
-                  caption='TFS Std Price'
-                  alignment='left'
-                  format={DEFAULT_CURRENCY_FORMAT}
+            {!isColumnsReady ? (
+              <div id='project-individual-items-placeholder' className='relative h-full w-full'>
+                <LoadPanel
+                  visible
+                  message='Loading data...'
+                  container='#project-individual-items-placeholder'
+                  position={{ of: '#project-individual-items-placeholder' }}
+                  shadingColor='rgb(241, 245, 249)'
+                  shading
+                  showIndicator
+                  showPane
                 />
-                <Column dataField='omegaPrice' dataType='number' caption='Omega Price' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
+              </div>
+            ) : (
+              <CommonDataGrid
+                dataGridRef={dataGridRef}
+                data={items.data}
+                isLoading={items.isLoading}
+                storageKey={DATAGRID_STORAGE_KEY}
+                keyExpr='code'
+                isSelectionEnable={
+                  !isCustomTfsEnabled && CanView({ isReturnBoolean: true, subject: 'p-projects-individual-inventory', action: ['delete'] })
+                    ? true
+                    : false
+                }
+                selectedRowKeys={selectedRowKeys}
+                dataGridStore={dataGridStore}
+                callbacks={{ onRowClick: handleView, onSelectionChanged: handleOnSelectionChanged, onContentReady: handleOnContentReady }}
+              >
+                <HiddenFieldsContext.Provider value={{ hiddenFields }}>
+                  <Column dataField='code' dataType='string' minWidth={100} caption='ID' sortOrder='asc' />
+                  <Column dataField='DistNumber' dataType='string' minWidth={100} caption='Batch #' />
+                  <Column dataField='item.thumbnail' minWidth={150} caption='Thumbnail' cellRender={thumbnailCellRender} visible={false} />
+                  <Column dataField='owner' dataType='string' caption='Owner' />
 
-                <Column dataField='item.ItemCode' dataType='string' caption='MFG P/N' />
-                <Column dataField='partNumber' dataType='string' caption='Part Number' />
-                <Column dataField='item.FirmName' dataType='string' caption='Manufacturer' visible={false} />
-                <Column dataField='mfr' dataType='string' caption='MFR' />
-                <Column dataField='item.ItemName' dataType='string' caption='Description' visible={false} />
-                <Column dataField='desc' dataType='string' caption='Desc' />
-                <Column dataField='commodities' dataType='string' caption='Commodities' />
+                  <Column dataField='group' dataType='string' caption='Group' />
+                  <Column dataField='division' dataType='string' caption='Division' />
+                  <Column dataField='site' dataType='string' caption='Site' />
+                  <Column dataField='cmSite' dataType='string' caption='CM Site' />
+                  <Column dataField='phase' dataType='string' caption='Phase' />
+                  <Column
+                    dataField='tfsStdPrice'
+                    dataType='number'
+                    caption='TFS Std Price'
+                    alignment='left'
+                    format={DEFAULT_CURRENCY_FORMAT}
+                  />
+                  <Column
+                    dataField='omegaPrice'
+                    dataType='number'
+                    caption='Omega Price'
+                    alignment='left'
+                    format={DEFAULT_CURRENCY_FORMAT}
+                  />
 
-                <Column dataField='dateCode' minWidth={75} dataType='string' caption='DC' />
-                <Column dataField='countryOfOrigin' minWidth={80} dataType='string' caption='COO' />
-                <Column dataField='lotCode' dataType='string' caption='Lot Code' />
-                <Column dataField='palletNo' dataType='string' caption='Pallet No' />
-                <Column dataField='warehouseCode' dataType='string' caption='Warehouse' />
-                <Column dataField='binCode' dataType='string' caption='Bin Location' />
-                <Column dataField='siteLocation' dataType='string' caption='Site Location' />
-                <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' />
-                <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' />
-                {/* <Column dataField='warehouse.name' dataType='string' caption='Warehouse' /> */}
+                  <Column dataField='item.ItemCode' dataType='string' caption='MFG P/N' />
+                  <Column dataField='partNumber' dataType='string' caption='Part Number' />
+                  <Column dataField='item.FirmName' dataType='string' caption='Manufacturer' visible={false} />
+                  <Column dataField='mfr' dataType='string' caption='MFR' />
+                  <Column dataField='item.ItemName' dataType='string' caption='Description' visible={false} />
+                  <Column dataField='desc' dataType='string' caption='Desc' />
+                  <Column dataField='commodities' dataType='string' caption='Commodities' />
 
-                {!isBusinessPartner && (
-                  <>
-                    <Column dataField='dateReceived' dataType='datetime' caption='Date Received' visible={false} />
+                  <Column dataField='dateCode' minWidth={75} dataType='string' caption='DC' />
+                  <Column dataField='countryOfOrigin' minWidth={80} dataType='string' caption='COO' />
+                  <Column dataField='lotCode' dataType='string' caption='Lot Code' />
+
+                  {!isCustomTfsEnabled && <Column dataField='palletNo' dataType='string' caption='Pallet No' />}
+
+                  <Column dataField='warehouseCode' dataType='string' caption='Warehouse' />
+                  <Column dataField='binCode' dataType='string' caption='Bin Location' />
+                  <Column dataField='siteLocation' dataType='string' caption='Site Location' />
+
+                  {!isCustomTfsEnabled && <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' />}
+                  {!isCustomTfsEnabled && <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' />}
+
+                  {/* <Column dataField='warehouse.name' dataType='string' caption='Warehouse' /> */}
+
+                  {!isBusinessPartner && (
+                    <>
+                      <Column dataField='dateReceived' dataType='datetime' caption='Date Received' visible={false} />
+                      <Column
+                        dataField='dateReceivedBy'
+                        dataType='string'
+                        caption='Date Received By'
+                        calculateCellValue={dateReceivedByCalculatedCellValue}
+                        visible={false}
+                      />
+                    </>
+                  )}
+
+                  <Column dataField='packagingType' dataType='string' caption='Packaging Type' />
+                  <Column dataField='spq' dataType='string' caption='SPQ' />
+
+                  {!isCustomTfsEnabled && (
+                    <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
+                  )}
+
+                  {!isBusinessPartner ? (
                     <Column
-                      dataField='dateReceivedBy'
-                      dataType='string'
-                      caption='Date Received By'
-                      calculateCellValue={dateReceivedByCalculatedCellValue}
-                      visible={false}
+                      dataField='totalStock'
+                      dataType='number'
+                      caption='Total Stock'
+                      alignment='left'
+                      format={DEFAULT_NUMBER_FORMAT}
                     />
-                  </>
-                )}
+                  ) : null}
 
-                <Column dataField='packagingType' dataType='string' caption='Packaging Type' />
-                <Column dataField='spq' dataType='string' caption='SPQ' />
-                <Column dataField='cost' dataType='number' caption='Cost' alignment='left' format={DEFAULT_CURRENCY_FORMAT} />
+                  <Column dataField='notes' dataType='string' caption='Notes' visible={false} />
 
-                {!isBusinessPartner ? (
-                  <Column dataField='totalStock' dataType='number' caption='Total Stock' alignment='left' format={DEFAULT_NUMBER_FORMAT} />
-                ) : null}
+                  <Column
+                    dataField='availableToOrder'
+                    dataType='number'
+                    caption='Available To Order'
+                    alignment='left'
+                    format={DEFAULT_NUMBER_FORMAT}
+                    fixed
+                    fixedPosition='right'
+                    filterType='exclude'
+                  />
+                  <Column
+                    dataField='stockIn'
+                    dataType='number'
+                    caption='Stock-In (In Process)'
+                    alignment='left'
+                    format={DEFAULT_NUMBER_FORMAT}
+                  />
+                  <Column
+                    dataField='stockOut'
+                    dataType='number'
+                    caption='Stock-Out (Delivered)'
+                    alignment='left'
+                    format={DEFAULT_NUMBER_FORMAT}
+                  />
 
-                <Column dataField='notes' dataType='string' caption='Notes' visible={false} />
+                  <Column
+                    dataField='agingDays'
+                    dataType='number'
+                    caption='Aging Days'
+                    alignment='left'
+                    calculateCellValue={(rowData) => (rowData?.createdAt ? differenceInDays(new Date(), rowData?.createdAt) : 0)}
+                    format={DEFAULT_NUMBER_FORMAT}
+                  />
+                  <Column dataField='createdAt' dataType='datetime' caption='Created At' visible={false} />
+                  <Column dataField='updatedAt' dataType='datetime' caption='Updated At' visible={false} />
 
-                <Column
-                  dataField='availableToOrder'
-                  dataType='number'
-                  caption='Available To Order'
-                  alignment='left'
-                  format={DEFAULT_NUMBER_FORMAT}
-                  fixed
-                  fixedPosition='right'
-                  filterType='exclude'
-                />
-                <Column
-                  dataField='stockIn'
-                  dataType='number'
-                  caption='Stock-In (In Process)'
-                  alignment='left'
-                  format={DEFAULT_NUMBER_FORMAT}
-                />
-                <Column
-                  dataField='stockOut'
-                  dataType='number'
-                  caption='Stock-Out (Delivered)'
-                  alignment='left'
-                  format={DEFAULT_NUMBER_FORMAT}
-                />
+                  <Summary>
+                    <GroupItem column='item.ItemCode' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+                    {renderCommonSummaryIItems()}
+                  </Summary>
 
-                <Column
-                  dataField='agingDays'
-                  dataType='number'
-                  caption='Aging Days'
-                  alignment='left'
-                  calculateCellValue={(rowData) => (rowData?.createdAt ? differenceInDays(new Date(), rowData?.createdAt) : 0)}
-                  format={DEFAULT_NUMBER_FORMAT}
-                />
-                <Column dataField='createdAt' dataType='datetime' caption='Created At' visible={false} />
-                <Column dataField='updatedAt' dataType='datetime' caption='Updated At' visible={false} />
+                  <Summary>
+                    <GroupItem column='item.FirmName' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+                    {renderCommonSummaryIItems()}
+                  </Summary>
 
-                <Summary>
-                  <GroupItem column='item.ItemCode' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
-                  {renderCommonSummaryIItems()}
-                </Summary>
+                  <Summary>
+                    <GroupItem column='partNumber' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
+                    {renderCommonSummaryIItems()}
+                  </Summary>
 
-                <Summary>
-                  <GroupItem column='item.FirmName' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
-                  {renderCommonSummaryIItems()}
-                </Summary>
+                  <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
+                    <CanView subject='p-projects-individual-inventory' action={['view', 'view (owner)']}>
+                      <DataGridButton
+                        icon='eyeopen'
+                        onClick={handleView}
+                        cssClass='!text-lg'
+                        hint='View'
+                        visible={(opt) => {
+                          const data = opt?.row?.data
+                          return hideActionButton(data?.deletedAt || data?.deletedBy)
+                        }}
+                      />
+                    </CanView>
 
-                <Summary>
-                  <GroupItem column='partNumber' summaryType='count' displayFormat='{0} item' valueFormat={DEFAULT_NUMBER_FORMAT} />
-                  {renderCommonSummaryIItems()}
-                </Summary>
+                    <CanView subject='p-projects-individual-inventory' action='edit'>
+                      <DataGridButton
+                        icon='edit'
+                        onClick={handleEdit}
+                        cssClass='!text-lg'
+                        hint='Edit'
+                        visible={(opt) => {
+                          const data = opt?.row?.data
+                          return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner || isCustomTfsEnabled)
+                        }}
+                      />
+                    </CanView>
 
-                <Column type='buttons' minWidth={140} fixed fixedPosition='right' caption='Actions'>
-                  <CanView subject='p-projects-individual-inventory' action={['view', 'view (owner)']}>
-                    <DataGridButton
-                      icon='eyeopen'
-                      onClick={handleView}
-                      cssClass='!text-lg'
-                      hint='View'
-                      visible={(opt) => {
-                        const data = opt?.row?.data
-                        return hideActionButton(data?.deletedAt || data?.deletedBy)
-                      }}
-                    />
-                  </CanView>
+                    <CanView subject='p-projects-individual-inventory' action='delete'>
+                      <DataGridButton
+                        icon='trash'
+                        onClick={handleDelete}
+                        cssClass='!text-lg !text-red-500'
+                        hint='Delete'
+                        visible={(opt) => {
+                          const data = opt?.row?.data
+                          return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner || isCustomTfsEnabled)
+                        }}
+                      />
+                    </CanView>
 
-                  <CanView subject='p-projects-individual-inventory' action='edit'>
-                    <DataGridButton
-                      icon='edit'
-                      onClick={handleEdit}
-                      cssClass='!text-lg'
-                      hint='Edit'
-                      visible={(opt) => {
-                        const data = opt?.row?.data
-                        return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner || isCustomTfsEnabled)
-                      }}
-                    />
-                  </CanView>
-
-                  <CanView subject='p-projects-individual-inventory' action='delete'>
-                    <DataGridButton
-                      icon='trash'
-                      onClick={handleDelete}
-                      cssClass='!text-lg !text-red-500'
-                      hint='Delete'
-                      visible={(opt) => {
-                        const data = opt?.row?.data
-                        return hideActionButton(data?.deletedAt || data?.deletedBy || isBusinessPartner || isCustomTfsEnabled)
-                      }}
-                    />
-                  </CanView>
-
-                  {/* <DataGridButton
+                    {/* <DataGridButton
                   icon='undo'
                   onClick={handleRestore}
                   cssClass='!text-lg !text-blue-500'
@@ -825,9 +857,10 @@ export default function ProjectIndividualItemTab({
                     return showActionButton((data?.deletedAt || data?.deletedBy) && !isBusinessPartner)
                   }}
                 /> */}
-                </Column>
-              </HiddenFieldsContext.Provider>
-            </CommonDataGrid>
+                  </Column>
+                </HiddenFieldsContext.Provider>
+              </CommonDataGrid>
+            )}
 
             <Popup visible={isOpen} dragEnabled={false} showTitle={false} onHiding={() => setIsOpen(false)}>
               <ProjectItemForm
