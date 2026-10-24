@@ -18,7 +18,7 @@ import CommonDataGrid from '@/components/common-datagrid'
 import CanView from '@/components/acl/can-view'
 import { hideActionButton, showActionButton } from '@/utils/devextreme'
 import { COMMON_DATAGRID_STORE_KEYS } from '@/constants/devextreme'
-import { REPORT_TYPE_LABEL, ReportType } from '@/schema/report'
+import { IS_BLANK_REPORT_EDITING_ALLOWED, REPORT_TYPE_LABEL, ReportType } from '@/schema/report'
 import { NotificationContext } from '@/context/notification'
 import Tooltip from 'devextreme-react/tooltip'
 import Menu from 'devextreme-react/menu'
@@ -198,6 +198,32 @@ export default function ReportTable({ reports }: ReportTableProps) {
             <DropDownButtonItem text='Add Paginated' icon='add' onClick={() => router.push('/reports/add?type=2')} />
           </DropDownButton>
         </Item>
+
+        {/* //* blank report editing is a dev tool, shown only when the env allows it */}
+        {IS_BLANK_REPORT_EDITING_ALLOWED && (
+          <CanView subject='p-reports' action='edit'>
+            <Item location='after' widget='dxDropDownButton'>
+              <DropDownButton
+                stylingMode='outlined'
+                type='default'
+                icon='edit'
+                id='blank-dropdown-button'
+                showArrowIcon={false}
+                dropDownOptions={{
+                  width: 210,
+                  position: {
+                    of: '#blank-dropdown-button',
+                    at: 'left bottom',
+                    offset: '100 42',
+                  },
+                }}
+              >
+                <DropDownButtonItem text='Edit Blank Dashboard' icon='edit' onClick={() => router.push('/reports/blank?type=1')} />
+                <DropDownButtonItem text='Edit Blank Paginated' icon='edit' onClick={() => router.push('/reports/blank?type=2')} />
+              </DropDownButton>
+            </Item>
+          </CanView>
+        )}
 
         {/* <Item location='after' widget='dxMenu'>
           <Tooltip target='#clear-menu' contentRender={() => 'Add Report'} showEvent='mouseenter' hideEvent='mouseleave' position='top' />

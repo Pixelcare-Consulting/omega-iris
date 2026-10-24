@@ -5,7 +5,15 @@ import { Prisma } from '@prisma/client'
 import { paramsSchema } from '@/schema/common'
 import { db } from '@/utils/db'
 import { action, authenticationMiddleware } from '@/utils/safe-action'
-import { markReportAsDefaultSchema, REPORT_TYPE_LABEL, reportFormSchema, ReportType } from '@/schema/report'
+import {
+  blankReportFormSchema,
+  IS_BLANK_REPORT_EDITING_ALLOWED,
+  markReportAsDefaultSchema,
+  REPORT_BLANK_META,
+  REPORT_TYPE_LABEL,
+  reportFormSchema,
+  ReportType,
+} from '@/schema/report'
 import { getCurrentUserAbility } from './auth'
 import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
 
@@ -17,10 +25,12 @@ export async function getReports(userInfo: Awaited<ReturnType<typeof getCurrentU
   const { roleCode, roleKey } = userInfo
 
   try {
-    const where: Prisma.ReportWhereInput | undefined =
+    //* blank reports are templates, never listed
+    const where: Prisma.ReportWhereInput =
       roleKey === SUPER_USER_ROLE_KEY
-        ? undefined
+        ? { isBlank: false }
         : {
+            isBlank: false,
             OR: [{ roleReports: { some: { roleCode } } }, { isDefault: true }],
           }
 
@@ -49,6 +59,7 @@ export async function getDashboardReports(userInfo: Awaited<ReturnType<typeof ge
     const where: Prisma.ReportWhereInput = {
       type: '1',
       isActive: true,
+      isBlank: false,
       ...(roleKey !== SUPER_USER_ROLE_KEY ? (roleKey !== BUSINESS_PARTNER_ROLE_KEY ? {} : { isInternal: false }) : {}),
       OR: [
         { isDefault: true },
@@ -82,6 +93,7 @@ export async function getPaginatedReports(userInfo: Awaited<ReturnType<typeof ge
     const where: Prisma.ReportWhereInput = {
       type: '2',
       isActive: true,
+      isBlank: false,
       ...(roleKey !== SUPER_USER_ROLE_KEY ? (roleKey !== BUSINESS_PARTNER_ROLE_KEY ? {} : { isInternal: false }) : {}),
       OR: [
         { isDefault: true },
@@ -122,6 +134,72 @@ export const getReportsByCodeClient = action
   .schema(paramsSchema)
   .action(async ({ parsedInput }) => {
     return getReportByCode(parsedInput.code)
+  })
+
+//* the blank report new reports of this type start from, null when none is saved yet
+export async function getBlankReport(type: ReportType) {
+  try {
+    return db.report.findFirst({ where: { isBlank: true, type, deletedAt: null }, orderBy: { code: 'asc' } })
+  } catch (error) {
+    console.error(error)
+    return null
+  }
+}
+
+//* one blank per type, created on first save and updated after
+export const saveBlankReport = action
+  .use(authenticationMiddleware)
+  .schema(blankReportFormSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { type, data } = parsedInput
+    const { userId } = ctx
+
+    if (!IS_BLANK_REPORT_EDITING_ALLOWED || !ctx.ability?.can('edit', 'p-reports')) {
+      return { error: true, status: 403, message: 'No access to edit blank reports!', action: 'SAVE_BLANK_REPORT' }
+    }
+
+    try {
+      const existing = await getBlankReport(type)
+
+      if (existing) {
+        const report = await db.report.update({ where: { code: existing.code }, data: { data, updatedBy: userId } })
+        return { status: 200, message: 'Blank report saved!', action: 'SAVE_BLANK_REPORT', data: { report } }
+      }
+
+      const { title, fileName } = REPORT_BLANK_META[type]
+
+      //! file names are unique, never take over a normal report's name
+      const nameTaken = await db.report.findFirst({ where: { fileName } })
+      if (nameTaken) {
+        return { error: true, status: 409, message: `File name "${fileName}" is already used by another report!`, action: 'SAVE_BLANK_REPORT' }
+      }
+
+      const report = await db.report.create({
+        data: {
+          title,
+          fileName,
+          type,
+          data,
+          isBlank: true,
+          isActive: true,
+          isFeatured: false,
+          isDefault: false,
+          isInternal: true,
+          createdBy: userId,
+          updatedBy: userId,
+        },
+      })
+
+      return { status: 200, message: 'Blank report saved!', action: 'SAVE_BLANK_REPORT', data: { report } }
+    } catch (error) {
+      console.error(error)
+      return {
+        error: true,
+        status: 500,
+        message: error instanceof Error ? error.message : 'Something went wrong!',
+        action: 'SAVE_BLANK_REPORT',
+      }
+    }
   })
 
 export const upsertReport = action

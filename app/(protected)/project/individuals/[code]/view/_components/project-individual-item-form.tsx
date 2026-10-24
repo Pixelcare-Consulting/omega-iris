@@ -546,13 +546,17 @@ export default function ProjectItemForm({
                 <TextBoxField control={form.control} name='siteLocation' label='Site Location' isRequired />
               </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <TextBoxField control={form.control} name='subLocation2' label='Sub Location 2' />
-              </div>
+              {!isCustomTfsEnabled && (
+                <>
+                  <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                    <TextBoxField control={form.control} name='subLocation2' label='Sub Location 2' />
+                  </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-4'>
-                <TextBoxField control={form.control} name='subLocation3' label='Sub Location 3' />
-              </div>
+                  <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+                    <TextBoxField control={form.control} name='subLocation3' label='Sub Location 3' />
+                  </div>
+                </>
+              )}
 
               <Separator className='col-span-12' />
 
@@ -626,9 +630,11 @@ export default function ProjectItemForm({
                 <TextBoxField control={form.control} name='lotCode' label='Lot Code' />
               </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <TextBoxField control={form.control} name='palletNo' label='Pallet No' />
-              </div>
+              {!isCustomTfsEnabled && (
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <TextBoxField control={form.control} name='palletNo' label='Pallet No' />
+                </div>
+              )}
 
               <div className='col-span-12 md:col-span-6 lg:col-span-3'>
                 <TextBoxField control={form.control} name='packagingType' label='Packaging Type' />
@@ -638,14 +644,16 @@ export default function ProjectItemForm({
                 <TextBoxField control={form.control} name='spq' label='SPQ' />
               </div>
 
-              <div className='col-span-12 md:col-span-6 lg:col-span-3'>
-                <NumberBoxField
-                  control={form.control}
-                  name='cost'
-                  label='Cost'
-                  extendedProps={{ numberBoxOptions: { format: DEFAULT_CURRENCY_FORMAT } }}
-                />
-              </div>
+              {!isCustomTfsEnabled && (
+                <div className='col-span-12 md:col-span-6 lg:col-span-3'>
+                  <NumberBoxField
+                    control={form.control}
+                    name='cost'
+                    label='Cost'
+                    extendedProps={{ numberBoxOptions: { format: DEFAULT_CURRENCY_FORMAT } }}
+                  />
+                </div>
+              )}
 
               <ReadOnlyField
                 className='col-span-12 md:col-span-6 lg:col-span-3'

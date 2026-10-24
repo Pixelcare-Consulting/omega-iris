@@ -167,12 +167,13 @@ export default function WorkOrderOverviewTab({ workOrder, salesOrder, billingAdd
           <Copy value={workOrder?.userCode || ''} />
         </ReadOnlyField>
 
+        {/* //* the work order include filters to this company, so [0] is the only card */}
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'
           title='Customer Code'
-          value={workOrder?.user?.customerCode || ''}
+          value={workOrder?.user?.bpProfiles?.[0]?.cardCode || ''}
         >
-          <Copy value={workOrder?.user?.customerCode || ''} />
+          <Copy value={workOrder?.user?.bpProfiles?.[0]?.cardCode || ''} />
         </ReadOnlyField>
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Owner Name' value={fullName} />

@@ -25,11 +25,12 @@ model User {
     isDefaultPasswordChanged Boolean   @default(false)
     isLocked                 Boolean   @default(false)
     failedLoginAttempts      Int       @default(0) //* failed login attempts will be reset to 0 when user is unlocked and succesfully signin
-    customerCode             String?
-    supplierCode             String?
-    //* which sap database the card code above belongs to, a card code repeats across databases
-    customerDbCode           String?
-    supplierDbCode           String?
+
+    //! deprecated, read cards from UserBpProfile — still written on save as a rollback net
+    customerCode   String?
+    supplierCode   String?
+    customerDbCode String?
+    supplierDbCode String?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -42,6 +43,7 @@ model User {
     profile  Profile?
     role     Role      @relation(fields: [roleCode], references: [code])
 
+    //! deprecated with the card columns above, use bpProfiles
     //! SetNull not Cascade — removing a business partner must never delete the user account
     customer BusinessPartner? @relation(name: "User-Customer", fields: [customerDbCode, customerCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: SetNull)
     supplier BusinessPartner? @relation(name: "User-Supplier", fields: [supplierDbCode, supplierCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: SetNull)
@@ -53,6 +55,7 @@ model User {
     workOrders                    WorkOrder[]
     projectItemDateReceivedBy     ProjectItem[]               @relation()
     hiddenFields                  UserHiddenField[]
+    bpProfiles                    UserBpProfile[]
 }
 
 //* fields a user cannot see, one row per module, applies across every company
@@ -71,6 +74,27 @@ model UserHiddenField {
 
     @@unique([userCode, moduleName])
     @@index([userCode])
+}
+
+//* a user's customer or supplier card per company, a card code repeats across databases
+model UserBpProfile {
+    id       String @id @default(cuid())
+    userCode Int
+    dbCode   String
+    cardType String //* C customer, S supplier
+    cardCode String
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now()) @updatedAt
+    createdBy String?
+    updatedBy String?
+
+    user            User            @relation(fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    //! Cascade drops the profile row only, the user account stays
+    businessPartner BusinessPartner @relation(name: "BusinessPartner-UserBpProfile", fields: [dbCode, cardCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([userCode, dbCode, cardType])
+    @@index([dbCode, cardCode])
 }
 
 model Role {
@@ -255,6 +279,7 @@ model BusinessPartner {
     sapDatabase                SapDatabase                 @relation(fields: [dbCode], references: [dbCode], onUpdate: Cascade, onDelete: Restrict)
     customerUsers              User[]                      @relation(name: "User-Customer")
     supplierUsers              User[]                      @relation(name: "User-Supplier")
+    userBpProfiles             UserBpProfile[]             @relation(name: "BusinessPartner-UserBpProfile")
     supplierWorkOrders         WorkOrder[]                 @relation(name: "BusinessPartner-WorkOrderSupplier")
 
     @@unique([dbCode, CardCode])
@@ -368,8 +393,8 @@ model Warehouse {
     //* SAP fields
     WarehouseCode        String
     WarehouseName        String
-    Nettable             Boolean
-    EnableBinLocations   Boolean
+    Nettable             Boolean @default(false)
+    EnableBinLocations   Boolean @default(false)
     DefaultBin           Int?
     Street               String?
     Address2             String?
@@ -501,6 +526,7 @@ model ProjectIndividual {
     workOrders                  WorkOrder[]
     userSalesCloser             User?                        @relation(name: "User-ProjectIndividual-SalesCloser", fields: [salesCloser], references: [code], onUpdate: Cascade, onDelete: Cascade)
     projectIndividualWarehouses ProjectIndividualWarehouse[] @relation(name: "ProjectIndividual-ProjectIndividualWarehouse")
+    poLineItems                 PoLineItem[]
 
     @@unique([dbCode, name])
     @@index([deletedAt])
@@ -575,6 +601,57 @@ model ProjectItem {
     @@index([desc(ops: raw("gin_trgm_ops"))], type: Gin)
     @@index([mfr(ops: raw("gin_trgm_ops"))], type: Gin)
     @@index([partNumber(ops: raw("gin_trgm_ops"))], type: Gin)
+}
+
+//* open purchase order lines of a project, fully owned by sap and refreshed by the open po line sync
+//! closed or cancelled lines are hard deleted on sync, so every row here is an open line
+model PoLineItem {
+    id                    String @id @default(cuid())
+    code                  Int    @unique @default(autoincrement())
+    dbCode                String
+    projectIndividualCode Int
+
+    //* sap fields - po line (POR1)
+    DocEntry   Int
+    LineNum    Int
+    ItemCode   String
+    Dscription String?
+    U_CPN      String?
+    WhsCode    String?
+    ShipDate   DateTime? //* per line delivery date
+    BaseQty    Decimal?  @default(0) @db.Decimal(18, 6)
+    BaseOpnQty Decimal?  @default(0) @db.Decimal(18, 6)
+    OpenQty    Decimal?  @default(0) @db.Decimal(18, 6)
+    OpenInvQty Decimal?  @default(0) @db.Decimal(18, 6)
+    OpenRtnQty Decimal?  @default(0) @db.Decimal(18, 6)
+    OpenCreQty Decimal?  @default(0) @db.Decimal(18, 6)
+    DelivrdQty Decimal?  @default(0) @db.Decimal(18, 6)
+    OrderedQty Decimal?  @default(0) @db.Decimal(18, 6)
+    QtyToShip  Decimal?  @default(0) @db.Decimal(18, 6)
+    PackQty    Decimal?  @default(0) @db.Decimal(18, 6)
+    LineStatus String?
+    //* sap fields - po header (OPOR)
+    DocNum     Int
+    CardCode   String?
+    DocDate    DateTime?
+    DocDueDate DateTime?
+    CANCELED   String?
+    CreateDate DateTime?
+    UpdateDate DateTime?
+    //* sap fields - item stock in the line warehouse (OITW)
+    OnHand     Decimal?  @default(0) @db.Decimal(18, 6)
+    IsCommited Decimal?  @default(0) @db.Decimal(18, 6)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now()) @updatedAt
+    createdBy String?
+    updatedBy String?
+
+    projectIndividual ProjectIndividual @relation(fields: [projectIndividualCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([dbCode, projectIndividualCode, ItemCode, DocNum, LineNum])
+    @@index([dbCode, projectIndividualCode])
+    @@index([WhsCode])
 }
 
 model ProjectIndividualCustomer {
@@ -800,6 +877,7 @@ model Report {
     isFeatured  Boolean @default(true)
     isDefault   Boolean @default(false)
     isInternal  Boolean @default(false)
+    isBlank     Boolean @default(false) //* the template new reports start from, one per type, hidden from every list
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt

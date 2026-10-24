@@ -629,8 +629,8 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
                         selectedRowKeys={selectedSapDatabaseRowKeys}
                         callbacks={{ onSelectionChanged: handleOnSapDatabaseSelectionChange }}
                       >
-                        <Column dataField='dbCode' minWidth={150} dataType='string' caption='Code' />
-                        <Column dataField='name' dataType='string' caption='Name' />
+                        <Column dataField='name' dataType='string' caption='Company' />
+                        <Column dataField='dbCode' minWidth={150} dataType='string' caption='Database' />
                         <Column dataField='order' dataType='number' caption='Order' visible={false} sortOrder='asc' />
                         <Column
                           dataField='isActive'
@@ -638,9 +638,6 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
                           caption='Status'
                           calculateCellValue={(rowData) => (rowData.isActive ? 'Active' : 'Inactive')}
                         />
-
-                        <Column dataField='createdAt' dataType='datetime' caption='Created At' />
-                        <Column dataField='updatedAt' dataType='datetime' caption='Updated At' />
                       </CommonDataGrid>
                     </PageContentWrapper>
                   </TabPanelItem>

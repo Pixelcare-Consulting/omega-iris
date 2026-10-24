@@ -24,15 +24,16 @@ import SelectBoxField from '@/components/forms/select-box-field'
 import { PageMetadata } from '@/types/common'
 import Separator from '@/components/separator'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
-import { useBps } from '@/hooks/safe-actions/business-partner'
-import { commonItemRender } from '@/utils/devextreme'
 import CanView from '@/components/acl/can-view'
 import { NotificationContext } from '@/context/notification'
 import { useSession } from 'next-auth/react'
 import { BUSINESS_PARTNER_ROLE_KEY, SUPER_USER_ROLE_KEY } from '@/constants/role'
 import TagBoxField from '@/components/forms/tag-box-field'
 import { HIDDEN_FIELD_MODULES } from '@/constants/hidden-field'
-import { useCustomTfsProcess } from '@/hooks/use-custom-tfs-process'
+import { useSapDatabase } from '@/hooks/use-sap-database'
+import BpProfileSection from './bp-profile-section'
+import { useBpProfileCompanyOptions } from '@/hooks/safe-actions/user-bp-profile'
+import { BP_PROFILE_TYPE, buildBpProfileRows } from '@/utils/user-bp-profile'
 
 type UserFormProps = { pageMetaData: PageMetadata; user: Awaited<ReturnType<typeof getUserByCode>> }
 
@@ -42,7 +43,8 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
   const { code } = useParams() as { code: string }
 
   const { data: session } = useSession()
-  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
+  const { sapDbCode } = useSapDatabase()
+  const bpProfileCompanyOptions = useBpProfileCompanyOptions(BP_PROFILE_TYPE.CUSTOMER)
   const notificationContext = useContext(NotificationContext)
 
   const isCreate = code === 'add' || !user
@@ -70,6 +72,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
         newPassword: '',
         newConfirmPassword: '',
         isForceToChangePassword: user.isDefaultPasswordChanged ? false : true,
+        bpProfiles: buildBpProfileRows(bpProfileCompanyOptions.data, user.bpProfiles, BP_PROFILE_TYPE.CUSTOMER),
       }
 
     if (isCreate) {
@@ -87,8 +90,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
         oldPassword: '',
         newPassword: '',
         newConfirmPassword: '',
-        customerCode: '',
-        supplierCode: '',
+        bpProfiles: buildBpProfileRows(bpProfileCompanyOptions.data, undefined, BP_PROFILE_TYPE.CUSTOMER),
         isForceToChangePassword: true,
         isLocked: false,
         hiddenFields: emptyHiddenFields,
@@ -96,11 +98,13 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
     }
 
     return undefined
-  }, [isCreate, JSON.stringify(user)])
+  }, [isCreate, JSON.stringify(user), sapDbCode, JSON.stringify(bpProfileCompanyOptions.data)])
 
   const form = useForm({
     mode: 'onChange',
     values,
+    //! options load after the page, keep what the admin already typed
+    resetOptions: { keepDirtyValues: true },
     resolver: zodResolver(userFormSchema),
   })
 
@@ -108,22 +112,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
 
   const { executeAsync, isExecuting } = useAction(upsertUser)
 
-  //* synced-only applies to isEnabledCustomTfsProcess true companies, others still get pending & lead customers
-  const isSyncedStrict = process.env.NEXT_PUBLIC_SYNCED_STRICT === 'true' && isCustomTfsEnabled
-
-  const customers = useBps(['C', ...(isSyncedStrict ? [] : ['L'])], isSyncedStrict)
   const roles = useRoles()
-
-  //! useBps only returns the active database, so a customer from another one is missing and the field renders blank
-  //* keep the saved customer in the list, otherwise editing an unrelated field would silently clear it
-  const customerOptions = useMemo(() => {
-    const options = customers.data || []
-    const saved = user?.customer
-
-    if (!saved || options.some((option) => option.CardCode === saved.CardCode)) return options
-
-    return [{ ...saved, GroupName: saved.GroupName || saved.sapDatabase?.name || null }, ...options]
-  }, [JSON.stringify(customers.data), JSON.stringify(user?.customer)])
 
   const isAdmin = useMemo(() => {
     if (!session) return false
@@ -137,6 +126,9 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
   }, [JSON.stringify(roles), isAdmin])
 
   const handleOnSubmit = async (formData: UserForm) => {
+    //! Enter still submits a form with a disabled button
+    if (!sapDbCode || bpProfileCompanyOptions.isLoading) return
+
     try {
       const response = await executeAsync(formData)
       const result = response?.data
@@ -186,7 +178,12 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
               useSubmitBehavior
               icon='save'
               isLoading={isExecuting}
-              disabled={CanView({ isReturnBoolean: true, subject: 'p-users', action: !user ? ['create'] : ['edit'] }) ? false : true}
+              //* wait for the company and its cards, saving before they load would drop the active company's card
+              disabled={
+                !sapDbCode ||
+                bpProfileCompanyOptions.isLoading ||
+                !CanView({ isReturnBoolean: true, subject: 'p-users', action: !user ? ['create'] : ['edit'] })
+              }
             />
           </Item>
 
@@ -245,7 +242,8 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                   displayExpr='name'
                   searchExpr={['name', 'description']}
                   isRequired
-                  callback={(args) => form.setValue('roleKey', args.item?.key)}
+                  //! mark it edited, otherwise the reset when options load puts the old role key back
+                  callback={(args) => form.setValue('roleKey', args.item?.key, { shouldDirty: true })}
                 />
               </div>
 
@@ -315,55 +313,22 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
               {roleKey && roleKey === BUSINESS_PARTNER_ROLE_KEY && (
                 <>
                   <Separator className='col-span-12' />
-                  <ReadOnlyFieldHeader className='col-span-12 mb-2' title='SAP Details' description='User SAP information' />
+                  <ReadOnlyFieldHeader
+                    className='col-span-12 mb-2'
+                    title='Business Partner Profile'
+                    description='One customer per company'
+                  />
 
-                  <div className='col-span-12 md:col-span-6'>
-                    <SelectBoxField
-                      data={customerOptions}
-                      isLoading={customers.isLoading}
-                      control={form.control}
-                      name='customerCode'
-                      label='Customer'
-                      valueExpr='CardCode'
-                      displayExpr='CardName'
-                      searchExpr={['CardName', 'CardCode', 'GroupName']}
-                      extendedProps={{
-                        selectBoxOptions: {
-                          itemRender: (params) => {
-                            return commonItemRender({
-                              title: params?.CardName,
-                              description: params?.GroupName,
-                              value: params?.CardCode,
-                            })
-                          },
-                        },
-                      }}
-                    />
-                  </div>
+                  <BpProfileSection
+                    className='col-span-12'
+                    profileType={BP_PROFILE_TYPE.CUSTOMER}
+                    title='Customer'
+                    companies={bpProfileCompanyOptions.data}
+                    savedProfiles={user?.bpProfiles}
+                    isLoading={bpProfileCompanyOptions.isLoading}
+                  />
 
-                  {/* <div className='col-span-12 md:col-span-6'>
-                    <SelectBoxField
-                      data={suppliers.data}
-                      isLoading={suppliers.isLoading}
-                      control={form.control}
-                      name='supplierCode'
-                      label='Supplier'
-                      valueExpr='CardCode'
-                      displayExpr='CardName'
-                      searchExpr={['CardName', 'CardCode', 'GroupName']}
-                      extendedProps={{
-                        selectBoxOptions: {
-                          itemRender: (params) => {
-                            return commonItemRender({
-                              title: params?.CardName,
-                              description: params?.GroupName,
-                              value: params?.CardCode,
-                            })
-                          },
-                        },
-                      }}
-                    />
-                  </div> */}
+                  {/* //* supplier later: a second BpProfileSection with BP_PROFILE_TYPE.SUPPLIER and its own options */}
                 </>
               )}
 

@@ -32,7 +32,7 @@ SELECT
     --* user
     CONCAT_WS(' ', T3."fname", T3."lname")             AS "userFullName", --* user full name
     T3."email"                                         AS "userEmail",
-    T3."customerCode"                                  AS "userCustomerCode",
+    T9."cardCode"                                      AS "userCustomerCode",
     --* business partner
     T5."Phone1"                                        AS "bpPhone1"
 FROM "WorkOrder" T0
@@ -47,9 +47,13 @@ INNER JOIN "User" T3
     AND T3."deletedAt" IS NULL
 LEFT JOIN "vw_wo_status" T4
     ON T4."value" = T0."status"
+LEFT JOIN "UserBpProfile" T9                           --* the owner's customer card in this work order's company
+    ON T9."userCode" = T3."code"
+    AND T9."dbCode" = T0."dbCode"
+    AND T9."cardType" = 'C'
 LEFT JOIN "BusinessPartner" T5
-    ON T5."dbCode" = T3."customerDbCode"       --* card code repeats across databases
-    AND T5."CardCode" = T3."customerCode"
+    ON T5."dbCode" = T9."dbCode"
+    AND T5."CardCode" = T9."cardCode"
     AND T5."deletedAt" IS NULL
 LEFT JOIN "User" T6                                    --* createdBy user
     ON T6."id" = T0."createdBy"

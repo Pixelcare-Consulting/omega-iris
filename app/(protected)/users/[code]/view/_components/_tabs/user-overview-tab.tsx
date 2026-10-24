@@ -11,12 +11,16 @@ import Copy from '@/components/copy'
 import { Badge } from '@/components/badge'
 import RecordMetaData from '@/app/(protected)/_components/record-meta-data'
 import { BUSINESS_PARTNER_ROLE_KEY } from '@/constants/role'
+import { getCustomerCards } from '@/utils/user-bp-profile'
+import { cn } from '@/utils'
 
 type UserOverviewTabProps = {
   user: NonNullable<Awaited<ReturnType<typeof getUserByCode>>>
 }
 
 export default function UserOverviewTab({ user }: UserOverviewTabProps) {
+  const customerCards = user.role.key === BUSINESS_PARTNER_ROLE_KEY ? getCustomerCards(user.bpProfiles) : []
+
   return (
     <ScrollView useNative>
       <div className='grid grid-cols-12 gap-5 p-3 py-5'>
@@ -34,12 +38,21 @@ export default function UserOverviewTab({ user }: UserOverviewTabProps) {
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Email' value={user.username} />
 
-        <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Role' value={user.role.name}>
-          {/* //* a business partner belongs to one sap database, name it beside the role */}
-          {user.role.key === BUSINESS_PARTNER_ROLE_KEY && user.customer?.sapDatabase?.name && (
-            <Badge variant='soft-blue'>{user.customer.sapDatabase.name}</Badge>
-          )}
-        </ReadOnlyField>
+        <ReadOnlyField
+          className={cn('col-span-12 md:col-span-6', customerCards.length > 0 ? 'lg:col-span-6' : 'lg:col-span-3')}
+          title='Role'
+          value={
+            //* same as the users list role column, one badge per company card
+            <div className='flex flex-col items-start gap-1'>
+              <span>{user.role.name}</span>
+              {customerCards.map((card) => (
+                <Badge key={card.dbCode} variant='soft-blue'>
+                  {card.dbName} - {card.cardName} ({card.cardCode})
+                </Badge>
+              ))}
+            </div>
+          }
+        />
 
         <ReadOnlyField className='col-span-12 md:col-span-6 lg:col-span-3' title='Status' value={user.isActive ? 'Active' : 'Inactive'} />
 

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 
-import { getReportByCode } from '@/actions/report'
+import { getBlankReport, getReportByCode } from '@/actions/report'
 import ContentContainer from '@/app/(protected)/_components/content-container'
 import { REPORT_TYPE_LABEL } from '@/schema/report'
 import dynamic from 'next/dynamic'
@@ -13,6 +13,9 @@ export default async function ReportPage({ params, searchParams }: { params: { c
   const { type } = searchParams
 
   const report = await getReportByCode(parseInt(code))
+
+  //* a new report starts from this type's blank report
+  const blankReport = code === 'add' && (type === '1' || type === '2') ? await getBlankReport(type) : null
 
   const reportType = REPORT_TYPE_LABEL?.[type as '1' | '2'] || REPORT_TYPE_LABEL['1']
 
@@ -35,7 +38,7 @@ export default async function ReportPage({ params, searchParams }: { params: { c
 
   return (
     <ContentContainer>
-      <ReportForm pageMetaData={getPageMetadata()} report={report} />
+      <ReportForm pageMetaData={getPageMetadata()} report={report} blankData={blankReport?.data} />
     </ContentContainer>
   )
 }

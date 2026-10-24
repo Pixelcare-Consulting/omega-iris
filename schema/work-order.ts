@@ -35,6 +35,7 @@ export const WORK_ORDER_STATUS_OPTIONS: { label: (typeof WORK_ORDER_STATUS)[numb
 
 export const workOrderItemFormSchema = z
   .object({
+    workOrderCode: z.coerce.number().nullish(),
     projectItemCode: z.coerce.number().min(1, { message: 'Item is required' }),
     qty: z.coerce.number().refine((val) => val > 0, { message: 'Quantity is required' }),
     maxQty: z.coerce.number(),
@@ -42,6 +43,7 @@ export const workOrderItemFormSchema = z
   })
   .refine(
     (formData) => {
+      if ((formData?.workOrderCode ?? 0) > 0) return true
       if (formData.projectItemCode === 0) return true
       if (formData.maxQty === 0) return true
       return formData.qty <= formData.maxQty
@@ -60,6 +62,7 @@ export const upsertWorkOrderLineItemFormSchema = workOrderItemFormSchema._def.sc
   .merge(z.object({ operation: z.enum(['create', 'update']), workOrderCode: z.coerce.number() }))
   .refine(
     (formData) => {
+      if ((formData?.workOrderCode ?? 0) > 0) return true
       if (formData.projectItemCode === 0) return true
       if (formData.maxQty === 0) return true
       return formData.qty <= formData.maxQty

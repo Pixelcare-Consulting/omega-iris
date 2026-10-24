@@ -10,12 +10,19 @@ export const REPORT_TYPE_LABEL = {
   '2': 'Paginated',
 } as const
 
-export const REPORT_BLANK_SRC = {
-  // '1': '/misc/test-blank-dashboard.mrt',
-  // '2': '/misc/test-blank-paginated.mrt',
-  '1': '/misc/blank-dashboard.mrt',
-  '2': '/misc/blank-paginated.mrt',
-}
+//* fixed title and file name of each type's blank report
+export const REPORT_BLANK_META = {
+  '1': { title: 'Blank Dashboard', fileName: 'blank-dashboard' },
+  '2': { title: 'Blank Paginated', fileName: 'blank-paginated' },
+} as const
+
+//* blank report editing is a dev tool, off unless the env says so
+export const IS_BLANK_REPORT_EDITING_ALLOWED = process.env.NEXT_PUBLIC_ALLOW_EDITING_BLANK_REPORT === 'true'
+
+export const blankReportFormSchema = z.object({
+  type: z.enum(['1', '2']),
+  data: z.string().min(1, { message: 'Data is required' }),
+})
 
 export const reportFormSchema = z.object({
   code: z.coerce.number(),

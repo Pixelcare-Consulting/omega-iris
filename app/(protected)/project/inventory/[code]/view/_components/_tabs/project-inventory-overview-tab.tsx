@@ -1,6 +1,7 @@
 'use client'
 
 import ScrollView from 'devextreme-react/scroll-view'
+import LoadPanel from 'devextreme-react/load-panel'
 import { differenceInDays, format, isValid } from 'date-fns'
 import { useMemo } from 'react'
 import { useSession } from 'next-auth/react'
@@ -27,7 +28,7 @@ type ProjectInventoryOverviewTabProps = {
 
 export default function ProjectInventoryOverviewTab({ projectItem }: ProjectInventoryOverviewTabProps) {
   const { data: session } = useSession()
-  const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
+  const { isEnabled: isCustomTfsEnabled, isLoading: isCustomTfsLoading } = useCustomTfsProcess()
 
   const item = projectItem.item
 
@@ -46,6 +47,24 @@ export default function ProjectInventoryOverviewTab({ projectItem }: ProjectInve
     const tfsFields = isCustomTfsEnabled ? [] : TFS_ONLY_FIELDS
     return [...userHiddenFields.data, ...tfsFields]
   }, [isCustomTfsEnabled, JSON.stringify(userHiddenFields.data)])
+
+  //* rendering before these resolve shows every field first and then drops the hidden ones
+  if (isCustomTfsLoading || !userHiddenFields.isReady) {
+    return (
+      <div id='project-inventory-overview-placeholder' className='relative h-full min-h-[300px] w-full'>
+        <LoadPanel
+          visible
+          message='Loading data...'
+          container='#project-inventory-overview-placeholder'
+          position={{ of: '#project-inventory-overview-placeholder' }}
+          shadingColor='rgb(241, 245, 249)'
+          shading
+          showIndicator
+          showPane
+        />
+      </div>
+    )
+  }
 
   return (
     <ScrollView useNative>
@@ -152,12 +171,14 @@ export default function ProjectInventoryOverviewTab({ projectItem }: ProjectInve
           value={projectItem?.lotCode || ''}
         />
 
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Pallet No'
-          isHide={hiddenFields.includes('palletNo')}
-          value={projectItem?.palletNo || ''}
-        />
+        {!isCustomTfsEnabled && (
+          <ReadOnlyField
+            className='col-span-12 md:col-span-6 lg:col-span-3'
+            title='Pallet No'
+            isHide={hiddenFields.includes('palletNo')}
+            value={projectItem?.palletNo || ''}
+          />
+        )}
 
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'
@@ -173,12 +194,14 @@ export default function ProjectInventoryOverviewTab({ projectItem }: ProjectInve
           value={projectItem?.spq || ''}
         />
 
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-3'
-          title='Cost'
-          isHide={hiddenFields.includes('cost')}
-          value={formatNumber(safeParseFloat(projectItem?.cost), DEFAULT_CURRENCY_FORMAT)}
-        />
+        {!isCustomTfsEnabled && (
+          <ReadOnlyField
+            className='col-span-12 md:col-span-6 lg:col-span-3'
+            title='Cost'
+            isHide={hiddenFields.includes('cost')}
+            value={formatNumber(safeParseFloat(projectItem?.cost), DEFAULT_CURRENCY_FORMAT)}
+          />
+        )}
 
         <ReadOnlyField
           className='col-span-12 md:col-span-6 lg:col-span-3'
@@ -275,19 +298,23 @@ export default function ProjectInventoryOverviewTab({ projectItem }: ProjectInve
           value={projectItem?.siteLocation || ''}
         />
 
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-4'
-          title='Sub Location 2'
-          isHide={hiddenFields.includes('subLocation2')}
-          value={projectItem?.subLocation2 || ''}
-        />
+        {!isCustomTfsEnabled && (
+          <ReadOnlyField
+            className='col-span-12 md:col-span-6 lg:col-span-4'
+            title='Sub Location 2'
+            isHide={hiddenFields.includes('subLocation2')}
+            value={projectItem?.subLocation2 || ''}
+          />
+        )}
 
-        <ReadOnlyField
-          className='col-span-12 md:col-span-6 lg:col-span-4'
-          title='Sub Location 3'
-          isHide={hiddenFields.includes('subLocation3')}
-          value={projectItem?.subLocation3 || ''}
-        />
+        {!isCustomTfsEnabled && (
+          <ReadOnlyField
+            className='col-span-12 md:col-span-6 lg:col-span-4'
+            title='Sub Location 3'
+            isHide={hiddenFields.includes('subLocation3')}
+            value={projectItem?.subLocation3 || ''}
+          />
+        )}
 
         <Separator className='col-span-12' />
 

@@ -181,6 +181,22 @@ async function fetchBatchRows(dbCode: string, lastSyncDate: Date): Promise<SapBa
   return responses.flatMap((response) => response?.value || []).filter(Boolean)
 }
 
+async function upsertSyncMeta(dbCode: string, lastSyncAt: Date, userId: string | null) {
+  await db.syncMeta.upsert({
+    where: { dbCode_code: { dbCode, code: PROJECT_ITEM_SYNC_META_CODE } },
+    create: {
+      dbCode,
+      code: PROJECT_ITEM_SYNC_META_CODE,
+      description: 'Last project item batch synced date',
+      lastSyncAt,
+      createdBy: userId,
+      updatedBy: userId,
+    },
+    //* the cron has no user, keep the last editor instead of nulling it
+    update: { lastSyncAt, ...(userId && { updatedBy: userId }) },
+  })
+}
+
 export async function syncProjectItemsFromSap(
   dbCode: string,
   options?: { userId?: string | null; trigger?: 'cron' | 'manual' }
@@ -206,17 +222,7 @@ export async function syncProjectItemsFromSap(
   const rows = await fetchBatchRows(dbCode, lastSyncDate)
 
   if (rows.length < 1) {
-    await db.syncMeta.upsert({
-      where: { dbCode_code: { dbCode, code: PROJECT_ITEM_SYNC_META_CODE } },
-      create: {
-        dbCode,
-        code: PROJECT_ITEM_SYNC_META_CODE,
-        description: 'Last project item batch synced date',
-        lastSyncAt: runStartedAt,
-      },
-      update: { lastSyncAt: runStartedAt },
-    })
-
+    await upsertSyncMeta(dbCode, runStartedAt, userId)
     return { dbCode, fetched: 0, created: 0, updated: 0, skipped: 0, skippedReasons, durationMs: Date.now() - startedAt }
   }
 
@@ -354,7 +360,10 @@ export async function syncProjectItemsFromSap(
       //! only the sap owned fields — cost, prices, site location and stock in/out are edited in the portal and must survive a sync
       //! totalStock too, work orders credit and debit it in the portal, sap would overwrite those movements
       const { dbCode: _dbCode, DistNumber, itemCode, warehouseCode, binCode, projectIndividualCode, totalStock, ...sapOwned } = data
-      toUpdate.push({ id: existingId, data: { ...sapOwned, updatedBy: userId } })
+
+      //* the cron has no user, keep the last editor instead of nulling it
+      toUpdate.push({ id: existingId, data: { ...sapOwned, ...(userId && { updatedBy: userId }) } })
+
       continue
     }
 
@@ -371,18 +380,7 @@ export async function syncProjectItemsFromSap(
     await db.$transaction(chunk.map((entry) => db.projectItem.update({ where: { id: entry.id }, data: entry.data })))
   }
 
-  await db.syncMeta.upsert({
-    where: { dbCode_code: { dbCode, code: PROJECT_ITEM_SYNC_META_CODE } },
-    create: {
-      dbCode,
-      code: PROJECT_ITEM_SYNC_META_CODE,
-      description: 'Last project item batch synced date',
-      lastSyncAt: runStartedAt,
-      createdBy: userId,
-      updatedBy: userId,
-    },
-    update: { lastSyncAt: runStartedAt, updatedBy: userId },
-  })
+  await upsertSyncMeta(dbCode, runStartedAt, userId)
 
   const skipped = Object.values(skippedReasons).reduce((total, count) => total + count, 0)
 

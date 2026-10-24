@@ -3,7 +3,7 @@
 import { getStimulsoftLicenseKeyClient } from '@/actions/stimulsoft'
 import { DashboardRptDesignerProps, PaginatedRptDesignerProps } from '@/components/report-designer'
 import { useSapDatabase } from '@/hooks/use-sap-database'
-import { REPORT_BLANK_SRC, ReportType } from '@/schema/report'
+import { ReportType } from '@/schema/report'
 import { applyReportParams, REPORT_DB_CODE_PARAM } from '@/utils/stimulsoft'
 import { useAction } from 'next-safe-action/hooks'
 import { useEffect, useRef, useState } from 'react'
@@ -51,7 +51,10 @@ export function useReportDesigner<T extends keyof ReportDesignerTypeMap>(
           const stimulsoftlicenseKeyDataResponse = await stimulsoftlicenseKeyData.executeAsync()
           const stiDashboardRptDesigner = dashboardModule.Stimulsoft
 
-          const report = new stiDashboardRptDesigner.Report.StiReport()
+          //* no data starts a dashboard, a plain StiReport opens with a paginated page
+          const report = data
+            ? new stiDashboardRptDesigner.Report.StiReport()
+            : stiDashboardRptDesigner.Report.StiReport.createNewDashboard()
           const options = new stiDashboardRptDesigner.Designer.StiDesignerOptions()
           const licenseKey = stimulsoftlicenseKeyDataResponse?.data
 
@@ -60,7 +63,6 @@ export function useReportDesigner<T extends keyof ReportDesignerTypeMap>(
 
           //* load report
           if (data) report.load(data)
-          else report.loadFile(REPORT_BLANK_SRC['1'])
 
           //* inject parameters
           applyReportParams(report, reportParams)
@@ -104,7 +106,6 @@ export function useReportDesigner<T extends keyof ReportDesignerTypeMap>(
 
           //* load report
           if (data) report.load(data)
-          else report.loadFile(REPORT_BLANK_SRC['2'])
 
           //* inject parameters
           applyReportParams(report, reportParams)

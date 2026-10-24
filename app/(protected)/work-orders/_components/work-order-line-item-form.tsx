@@ -48,7 +48,10 @@ export default function WorkOrderLineItemForm({
 }: WorkOrderLineItemFormProps) {
   const { data: session } = useSession()
   const { isEnabled: isCustomTfsEnabled } = useCustomTfsProcess()
+
   const mainForm = useFormContext<WorkOrderForm>()
+
+  const workOrderCode = useWatch({ control: mainForm.control, name: 'code' })
 
   const dataGridRef = useRef<DataGridRef | null>(null)
 
@@ -109,6 +112,7 @@ export default function WorkOrderLineItemForm({
     const allowData = e.selectedRowsData.filter((row) => row.availableToOrder > 0)
 
     const values = allowData.map((row) => ({
+      workOrderCode,
       projectItemCode: row.projectItemCode,
       qty: row.qty > 0 ? row.qty : row.availableToOrder,
       maxQty: row.availableToOrder,
@@ -197,6 +201,7 @@ export default function WorkOrderLineItemForm({
         updatedRows[rowIndex] = e.data //* update rows
 
         updatedLineItems[lineItemIndex] = {
+          workOrderCode,
           projectItemCode: e.data?.projectItemCode,
           qty: e.data?.qty,
           maxQty: e.data?.availableToOrder,
@@ -488,12 +493,12 @@ export default function WorkOrderLineItemForm({
             <Column dataField='dateCode' dataType='string' caption='DC' allowEditing={false} />
             <Column dataField='countryOfOrigin' dataType='string' caption='COO' allowEditing={false} />
             <Column dataField='lotCode' dataType='string' caption='Lot Code' allowEditing={false} />
-            <Column dataField='palletNo' dataType='string' caption='Pallet No' allowEditing={false} />
+            {!isCustomTfsEnabled && <Column dataField='palletNo' dataType='string' caption='Pallet No' allowEditing={false} />}
             <Column dataField='warehouseCode' dataType='string' caption='Warehouse' allowEditing={false} />
             <Column dataField='binCode' dataType='string' caption='Bin Location' allowEditing={false} />
             <Column dataField='siteLocation' dataType='string' caption='Site Location' allowEditing={false} />
-            <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' allowEditing={false} />
-            <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' allowEditing={false} />
+            {!isCustomTfsEnabled && <Column dataField='subLocation2' dataType='string' caption='Sub Location 2' allowEditing={false} />}
+            {!isCustomTfsEnabled && <Column dataField='subLocation3' dataType='string' caption='Sub Location 3' allowEditing={false} />}
 
             {!isBusinessPartner ? (
               <>
@@ -504,14 +509,16 @@ export default function WorkOrderLineItemForm({
 
             <Column dataField='packagingType' dataType='string' caption='Packaging Type' allowEditing={false} />
             <Column dataField='spq' dataType='string' caption='SPQ' allowEditing={false} />
-            <Column
-              dataField='cost'
-              dataType='number'
-              caption='Cost'
-              alignment='left'
-              format={DEFAULT_CURRENCY_FORMAT}
-              allowEditing={false}
-            />
+            {!isCustomTfsEnabled && (
+              <Column
+                dataField='cost'
+                dataType='number'
+                caption='Cost'
+                alignment='left'
+                format={DEFAULT_CURRENCY_FORMAT}
+                allowEditing={false}
+              />
+            )}
 
             {!isBusinessPartner ? (
               <Column

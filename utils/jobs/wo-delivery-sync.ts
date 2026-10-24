@@ -159,6 +159,22 @@ async function fetchDeliveredBatchRows(dbCode: string, lastSyncDate: Date): Prom
   return responses.flatMap((response) => response?.value || []).filter(Boolean)
 }
 
+async function upsertSyncMeta(dbCode: string, lastSyncAt: Date, userId: string | null) {
+  await db.syncMeta.upsert({
+    where: { dbCode_code: { dbCode, code: WO_DELIVERY_SYNC_META_CODE } },
+    create: {
+      dbCode,
+      code: WO_DELIVERY_SYNC_META_CODE,
+      description: 'Last work order delivery synced date',
+      lastSyncAt,
+      createdBy: userId,
+      updatedBy: userId,
+    },
+    //* the cron has no user, keep the last editor instead of nulling it
+    update: { lastSyncAt, ...(userId && { updatedBy: userId }) },
+  })
+}
+
 export async function syncWorkOrderDeliveriesFromSap(
   dbCode: string,
   options?: { userId?: string | null; trigger?: 'cron' | 'manual' }
@@ -181,24 +197,10 @@ export async function syncWorkOrderDeliveriesFromSap(
   //* the sync date only moves after the whole run lands, so a failed run replays instead of losing rows
   const runStartedAt = new Date()
 
-  const saveSyncMeta = () =>
-    db.syncMeta.upsert({
-      where: { dbCode_code: { dbCode, code: WO_DELIVERY_SYNC_META_CODE } },
-      create: {
-        dbCode,
-        code: WO_DELIVERY_SYNC_META_CODE,
-        description: 'Last work order delivery synced date',
-        lastSyncAt: runStartedAt,
-        createdBy: userId,
-        updatedBy: userId,
-      },
-      update: { lastSyncAt: runStartedAt, updatedBy: userId },
-    })
-
   const rows = await fetchDeliveredBatchRows(dbCode, lastSyncDate)
 
   if (rows.length < 1) {
-    await saveSyncMeta()
+    await upsertSyncMeta(dbCode, runStartedAt, userId)
 
     return {
       dbCode,
@@ -318,7 +320,8 @@ export async function syncWorkOrderDeliveriesFromSap(
           //* someone may have cancelled, deleted or delivered it since, and that change must win over this run
           const moved = await tx.workOrder.updateMany({
             where: { id: workOrder.id, status: { in: SYNCABLE_STATUSES } },
-            data: { status: currentStatus, updatedBy: userId },
+            //* the cron has no user, keep the last editor instead of nulling it
+            data: { status: currentStatus, ...(userId && { updatedBy: userId }) },
           })
 
           if (moved.count < 1) throw new Error('the status changed before this sync could apply')
@@ -360,7 +363,7 @@ export async function syncWorkOrderDeliveriesFromSap(
     }
   }
 
-  await saveSyncMeta()
+  await upsertSyncMeta(dbCode, runStartedAt, userId)
 
   const skipped = Object.values(skippedReasons).reduce((total, count) => total + count, 0)
 
